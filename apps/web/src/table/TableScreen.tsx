@@ -97,7 +97,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       <div className="tk-room" {...myLook}>
         <div className="tk-table relative mx-auto w-full max-w-4xl">
           {/* střed: board, pot, hlášky */}
-          <div className="absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
+          <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
             {view.runs && view.runs.length > 1 ? (
               <div className="flex flex-col gap-1">
