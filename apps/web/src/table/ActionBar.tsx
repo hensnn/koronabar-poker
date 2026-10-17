@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { LegalActions, PlayerAction, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { formatAmount, parseList, quickBetDefaults } from './format';
+import { useSettings } from '../settings';
 import { PlanBar } from './TablePanel';
 
 interface Props {
@@ -38,6 +39,39 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct }: Pro
     ? parseList(quickPre, quickBetDefaults.preflop).map((m) => ({ label: `${m}×`, value: clamp(m * info.bigBlind) }))
     : parseList(quickPost, quickBetDefaults.postflop).map((p) => ({ label: `${p} %`, value: clamp(myBet + (view.totalPot * p) / 100) }));
   const sliderOn = aggress && !fixed;
+  // Klávesové zkratky (osobní nastavení): nereagují při psaní do polí a bez modifikátorů; šipky mění výšku sázky.
+  const uiSettings = useSettings().values;
+  const hotkeys = uiSettings['ui.hotkeysEnabled'] !== false;
+  const keyOf = (k: string) => String(uiSettings[k] ?? '').trim().toLowerCase().slice(0, 1);
+  const keys = { fold: keyOf('ui.hotkeyFold'), call: keyOf('ui.hotkeyCall'), bet: keyOf('ui.hotkeyBet'), raise: keyOf('ui.hotkeyRaise'), allIn: keyOf('ui.hotkeyAllIn') };
+  const live = useRef({ legal, amount, clamp, aggress, fixed, sliderOn, keys, onAct, step: info.bigBlind || 1 });
+  live.current = { legal, amount, clamp, aggress, fixed, sliderOn, keys, onAct, step: info.bigBlind || 1 };
+  useEffect(() => {
+    if (!hotkeys) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      const s = live.current;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        if (!s.sliderOn) return;
+        e.preventDefault();
+        setAmount((a) => s.clamp(a + (e.key === 'ArrowUp' ? s.step : -s.step)));
+        return;
+      }
+      if (!s.legal) return;
+      const k = e.key.toLowerCase();
+      if (k === s.keys.fold && s.legal.canFold) s.onAct({ type: 'fold' });
+      else if (k === s.keys.call) s.onAct(s.legal.canCheck ? { type: 'check' } : s.legal.callAmount > 0 ? { type: 'call' } : { type: 'check' });
+      else if (k === s.keys.bet && s.legal.canBet) s.onAct({ type: 'bet', amount: s.clamp(s.amount) });
+      else if (k === s.keys.raise && s.legal.canRaise) s.onAct({ type: 'raise', amount: s.clamp(s.amount) });
+      else if (k === s.keys.allIn && s.aggress && !s.fixed) s.onAct({ type: 'allIn' });
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [hotkeys]);
   // Kolečko myši nad řádkem s posuvníkem mění výšku sázky po big blindech (posluchač bez passive, aby se stránka neposouvala).
   const sliderRow = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -53,7 +87,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct }: Pro
   }, [sliderOn, info.bigBlind, min, max]);
 
   return (
-    <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" role="group" aria-label={t('table.actions')}>
+    <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" role="group" aria-label={t('table.actions')} title={hotkeys ? t('table.hotkeysHint', { fold: keys.fold.toUpperCase(), call: keys.call.toUpperCase(), bet: keys.bet.toUpperCase(), raise: keys.raise.toUpperCase(), allIn: keys.allIn.toUpperCase() }) : undefined}>
       <div ref={sliderRow} className={`flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`} title={sliderOn ? t('table.wheelHint') : undefined}>
         {quick.map((q) => (
           <button key={q.label} className="rounded-md border border-line bg-raised px-2 py-1 text-sm" disabled={!sliderOn} onClick={() => setAmount(q.value)}>

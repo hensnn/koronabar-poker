@@ -1,10 +1,8 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useSettings } from '../settings';
 
-const QUERY = '(max-width: 40rem)';
-const mq = typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(QUERY) : null;
-
-function useNarrow(): boolean {
+function useMedia(query: string): boolean {
+  const mq = typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(query) : null;
   return useSyncExternalStore(
     (l) => {
       mq?.addEventListener('change', l);
@@ -14,19 +12,36 @@ function useNarrow(): boolean {
   );
 }
 
-/** Mobilní rozložení stolu: podle volby `ui.mobileLayout` (auto = úzký displej, on/off = vynuceno). */
-export function useMobileLayout(): boolean {
-  const narrow = useNarrow();
-  const mode = String(useSettings().values['ui.mobileLayout'] ?? 'auto');
-  return mode === 'on' || (mode === 'auto' && narrow);
+/** Telefon na šířku: široký, ale nízký displej. Stůl se pak skládá vedle akční lišty. */
+export function useLandscapePhone(): boolean {
+  return useMedia('(max-height: 30rem) and (orientation: landscape)');
 }
 
-/** Zapne `data-mobile` na <html>, dokud je stránka stolu v mobilním rozložení (CSS schová nabídku a vše napasuje do okna). */
+/** Mobilní rozložení stolu: podle volby `ui.mobileLayout` (auto = úzký displej nebo telefon na šířku, on/off = vynuceno). */
+export function useMobileLayout(): boolean {
+  const narrow = useMedia('(max-width: 40rem)');
+  const landscape = useLandscapePhone();
+  const mode = String(useSettings().values['ui.mobileLayout'] ?? 'auto');
+  return mode === 'on' || (mode === 'auto' && (narrow || landscape));
+}
+
+/**
+ * Zapne `data-mobile` (a na šířku `data-landscape`) na <html>, dokud je stránka stolu v mobilním rozložení;
+ * CSS schová nabídku a vše napasuje do okna. Tvar oválu na výšku řídí osobní volba `ui.mobileTableAspect` (v %).
+ */
 export function useMobileAttribute(active: boolean): void {
+  const landscape = useLandscapePhone();
+  const aspect = Number(useSettings().values['ui.mobileTableAspect'] ?? 115);
   useEffect(() => {
     const root = document.documentElement;
     if (active) root.setAttribute('data-mobile', '1');
     else root.removeAttribute('data-mobile');
-    return () => root.removeAttribute('data-mobile');
-  }, [active]);
+    if (active && landscape) root.setAttribute('data-landscape', '1');
+    else root.removeAttribute('data-landscape');
+    root.style.setProperty('--tk-mobile-aspect', String(Math.max(1, aspect) / 100));
+    return () => {
+      root.removeAttribute('data-mobile');
+      root.removeAttribute('data-landscape');
+    };
+  }, [active, landscape, aspect]);
 }

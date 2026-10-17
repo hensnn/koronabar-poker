@@ -5,6 +5,7 @@ import { get } from '../api';
 import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
+import { table as tableApi } from '../net';
 import { SoundPalette } from '../pages/sounds';
 import { Button } from '../ui';
 import { CardView } from './CardView';
@@ -286,6 +287,18 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
           ⚙
         </button>
       </div>
+      {mine && !open && (
+        <label className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1" title={t('table.sitOutHelp')}>
+          <span className="text-sm font-medium">{(mine.sitOut ?? mine.status === 'sittingOut') ? t('table.sittingOut') : t('table.sitOutToggle')}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label={t('table.sitOutToggle')}
+            checked={mine.sitOut ?? mine.status === 'sittingOut'}
+            onChange={(e) => void (e.target.checked ? tableApi.sitOut(tableId) : tableApi.sitIn(tableId))}
+          />
+        </label>
+      )}
       {open ? (
         <PanelSettings state={state} setState={setState} titles={titles} onClose={() => setOpen(false)} />
       ) : (

@@ -93,7 +93,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const acting = view.actingSeat !== null ? view.seats.find((s) => s.seat === view.actingSeat) : undefined;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="tk-screen flex flex-col gap-2">
       <div className="tk-room" {...myLook}>
         <div className="tk-table relative mx-auto w-full max-w-4xl">
           {/* střed: board, pot, hlášky */}
@@ -225,7 +225,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       {mine && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
       {mine && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="tk-extra flex flex-wrap items-center gap-2">
           {extra}
           {view.winners && mine.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards) && (
             <>
@@ -276,7 +276,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           )}
         </div>
       )}
-      {!mine && extra && <div className="flex flex-wrap items-center gap-2">{extra}</div>}
+      {!mine && extra && <div className="tk-extra flex flex-wrap items-center gap-2">{extra}</div>}
 
       {error && (
         <p role="alert" className="text-danger">

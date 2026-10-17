@@ -201,6 +201,36 @@ describe('TableActor: průběh handy', () => {
     expect(v.seats.find((s) => s.playerId === 'c')!.hasCards).toBe(false);
   });
 
+  it('návrat ze sit outu: hned od další handy (sitOut příznak v pohledu), s volbou čeká na big blind', () => {
+    const m = make();
+    m.fund('c');
+    seatTwo(m);
+    m.actor.join('c', 'C', 2, 1000);
+    startHand(m);
+    m.actor.act(acting(m)!, { type: 'fold' });
+    startHand(m);
+    m.actor.sitOut('c');
+    expect(m.actor.viewFor(null).seats.find((s) => s.playerId === 'c')!.sitOut).toBe(true);
+    m.actor.sitIn('c');
+    expect(m.actor.viewFor(null).seats.find((s) => s.playerId === 'c')!.sitOut).toBeFalsy();
+    m.actor.act(acting(m)!, { type: 'fold' });
+    startHand(m);
+    expect(m.actor.viewFor('c').seats.find((s) => s.playerId === 'c')!.cards).toHaveLength(2);
+    // s volbou čekání na big blind se po návratu čeká
+    const w = make({ 'cash.sitInWaitsForBb': true });
+    w.fund('c');
+    seatTwo(w);
+    w.actor.join('c', 'C', 2, 1000);
+    startHand(w);
+    w.actor.act(acting(w)!, { type: 'fold' });
+    startHand(w);
+    w.actor.sitOut('c');
+    w.actor.sitIn('c');
+    w.actor.act(acting(w)!, { type: 'fold' });
+    startHand(w);
+    expect(w.actor.viewFor('c').seats.find((s) => s.playerId === 'c')!.status).toBe('waiting');
+  });
+
   it('nový hráč usedne uprostřed handy a při dead blindu hraje od další', () => {
     const m = make({ 'table.newPlayerRule': 'postDeadBlind', 'table.deadBlindBb': 1 });
     seatTwo(m);

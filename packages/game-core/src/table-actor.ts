@@ -356,7 +356,8 @@ export class TableActor {
       e.mode = 'in';
       e.outSince = null;
       e.timeouts = 0;
-      e.fresh = this.isEstablished(userId);
+      // Návrat ze sit outu: hned od další handy; čekání na big blind (proti obcházení blindů) jen když to stůl vyžaduje.
+      e.fresh = this.opt.settings()['cash.sitInWaitsForBb'] ? this.isEstablished(userId) : false;
       this.opt.onEvent?.({ type: 'seat', userId, seat: e.seat, change: 'sitIn', chips: e.chips });
       if (this.phase === 'idle') this.scheduleNextHand();
       this.changed();
