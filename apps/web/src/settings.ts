@@ -50,10 +50,27 @@ const set = (patch: Partial<State>) => {
   listeners.forEach((l) => l());
 };
 
+// Klíče změněné od začátku posledního načtení: pomalá odpověď serveru nesmí přepsat čerstvou místní změnu
+// (na telefonu přepínač „probliknul“ zpět, než doběhl GET rozběhnutý před uložením).
+let loadToken = 0;
+const written: Record<'user' | 'device', Set<string>> = { user: new Set(), device: new Set() };
+
 /** Server je zdroj pravdy; localStorage je jen mezipaměť pro rychlé načtení. */
 export async function loadSettings(): Promise<void> {
+  const token = ++loadToken;
+  written.user.clear();
+  written.device.clear();
   const [mine, glob] = await Promise.all([get<{ user: Partial<SettingValues>; device: Partial<SettingValues> }>(`/api/me/settings?device=${deviceId()}`), get<{ values: Partial<SettingValues> }>('/api/settings/global')]);
-  set({ user: mine.user, device: mine.device, global: glob.values, loaded: true });
+  if (token !== loadToken) return; // mezitím začalo novější načtení
+  const overlay = (layer: 'user' | 'device', fresh: Partial<SettingValues>) => {
+    const out: Partial<SettingValues> = { ...fresh };
+    for (const k of written[layer]) {
+      if (k in state[layer]) out[k] = state[layer][k];
+      else delete out[k];
+    }
+    return out;
+  };
+  set({ user: overlay('user', mine.user), device: overlay('device', mine.device), global: glob.values, loaded: true });
 }
 
 export function clearSettings() {
@@ -66,14 +83,8 @@ export function clearSettings() {
   listeners.forEach((l) => l());
 }
 
-export function useSettings() {
-  const s = useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => state,
-  );
+/** Efektivní hodnoty a jejich původ z aktuálního stavu (mimo React, např. v testech). */
+export function resolveFor(s: State = state) {
   const resolved = resolveSettings(registry, [
     { scope: 'global', values: s.global },
     { scope: 'user', values: s.user },
@@ -82,10 +93,22 @@ export function useSettings() {
   return { ...s, values: resolved.values, origins: resolved.origins };
 }
 
+export function useSettings() {
+  const s = useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => state,
+  );
+  return resolveFor(s);
+}
+
 /** Uloží osobní hodnotu na server; `deviceOnly` = jen pro toto zařízení. */
 export async function saveUserSetting(key: string, value: SettingValue, deviceOnly = false): Promise<void> {
   const layer = deviceOnly ? 'device' : 'user';
   const before = state[layer];
+  written[layer].add(key);
   set({ [layer]: { ...before, [key]: value } } as Partial<State>);
   try {
     await put('/api/me/settings', { key, value, device: deviceOnly ? deviceId() : undefined });
@@ -99,6 +122,7 @@ export async function resetUserSetting(key: string, deviceOnly = false): Promise
   const layer = deviceOnly ? 'device' : 'user';
   const { [key]: _drop, ...rest } = state[layer];
   const before = state[layer];
+  written[layer].add(key);
   set({ [layer]: rest } as Partial<State>);
   try {
     await del(`/api/me/settings/${encodeURIComponent(key)}${deviceOnly ? `?device=${deviceId()}` : ''}`);

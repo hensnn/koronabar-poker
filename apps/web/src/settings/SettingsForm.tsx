@@ -35,6 +35,14 @@ interface Props {
 const field =
   'rounded-sm border border-line bg-surface px-2 py-1 text-text';
 
+/** Malá písmena bez diakritiky, aby „sazka“ našlo i „sázka“. */
+const fold = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim();
+
 /** Formulář vygenerovaný z registru nastavení: žádný parametr se nepíše ručně. */
 export function SettingsForm(p: Props) {
   const [query, setQuery] = useState('');
@@ -44,12 +52,18 @@ export function SettingsForm(p: Props) {
   );
   const [active, setActive] = useState(cats[0] ?? '');
   const current = cats.includes(active) ? active : cats[0];
-  const q = query.trim().toLowerCase();
+  const q = fold(query);
 
+  // Fulltext: všechna slova dotazu se musí najít v názvu, nápovědě, klíči, kategorii nebo názvech možností.
+  const words = q.split(/\s+/).filter(Boolean);
+  const matches = (d: SettingDef) => {
+    const hay = fold([t(labelKey(d.key)), t(helpKey(d.key)), d.key, t(categoryKey(d.category)), ...(d.type === 'enum' ? d.options.map((o) => t(optionKey(d.key, o))) : [])].join(' '));
+    return words.every((w) => hay.includes(w));
+  };
   const defs = p.registry
     .all()
     .filter((d) => p.allowedKeys(d))
-    .filter((d) => (q ? t(labelKey(d.key)).toLowerCase().includes(q) : d.category === current))
+    .filter((d) => (q ? matches(d) : d.category === current))
     .filter((d) => isVisible(p.registry, d.key, p.values, p.gameKind));
 
   return (
@@ -57,8 +71,8 @@ export function SettingsForm(p: Props) {
       <input
         className={field}
         type="search"
-        placeholder="Hledat parametr…"
-        aria-label="Hledat parametr"
+        placeholder={t('settings.search')}
+        aria-label={t('settings.search')}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -80,10 +94,13 @@ export function SettingsForm(p: Props) {
         </div>
       )}
       <div className="flex flex-col gap-3">
-        {defs.map((d) => (
-          <Row key={d.key} def={d} {...p} />
+        {defs.map((d, i) => (
+          <div key={d.key} className="flex flex-col gap-1">
+            {q && (i === 0 || defs[i - 1]!.category !== d.category) && <h3 className="mt-2 text-sm font-bold text-muted">{t(categoryKey(d.category))}</h3>}
+            <Row def={d} {...p} />
+          </div>
         ))}
-        {defs.length === 0 && <p className="text-muted">Nic k zobrazení.</p>}
+        {defs.length === 0 && <p className="text-muted">{q ? t('settings.searchNone') : t('settings.nothing')}</p>}
       </div>
     </div>
   );

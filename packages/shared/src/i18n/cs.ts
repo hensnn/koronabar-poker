@@ -526,6 +526,9 @@ export const cs: Record<string, string> = {
 
   // Obecné
   'app.name': 'KoronaBar Poker',
+  'settings.search': 'Hledat v nastavení (název, nápověda, hodnoty)…',
+  'settings.searchNone': 'Nic neodpovídá hledanému výrazu.',
+  'settings.nothing': 'Nic k zobrazení.',
   'settings.unsaved': 'Neuloženo',
   'settings.unsavedCount': 'Neuložené změny: {n}',
   'settings.discard': 'Zahodit',

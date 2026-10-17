@@ -94,7 +94,10 @@ function Router() {
 
 function Shell({ me }: { me: Me }) {
   const { path } = useLocation();
+  const settings = useSettings();
   const blocked = me.user.status === 'blocked';
+  // Vypnutý obchod (cosmetics.enabled) zmizí i z nabídky.
+  const shopOn = settings.values['cosmetics.enabled'] !== false;
   const nav: { to: string; label: string; show: boolean }[] = [
     { to: '/', label: t('nav.lobby'), show: true },
     { to: '/turnaje', label: t('nav.tournaments'), show: true },
@@ -105,7 +108,7 @@ function Shell({ me }: { me: Me }) {
     { to: '/statistiky', label: t('nav.stats'), show: true },
     { to: '/ankety', label: t('nav.polls'), show: true },
     { to: '/postup', label: t('nav.progress'), show: true },
-    { to: '/obchod', label: t('nav.shop'), show: true },
+    { to: '/obchod', label: t('nav.shop'), show: shopOn },
     { to: '/admin', label: t('nav.admin'), show: isAdmin(me) },
     { to: '/nastaveni', label: t('nav.settings'), show: true },
     { to: '/profil', label: t('nav.profile'), show: true },
