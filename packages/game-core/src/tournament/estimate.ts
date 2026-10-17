@@ -1,94 +1,60 @@
-import { CashService, Ledger, TournamentMoney } from '@kb/ledger';
-import type { SettingValues } from '@kb/shared';
-import { randomLegalAction, seededRandom } from '../bot.js';
-import { FakeClock } from '../clock.js';
-import { TableActor } from '../table-actor.js';
-import { Tournament } from './tournament.js';
+import { generateStructure, parseStructure, type Level, type SettingValues } from '@kb/shared';
 
 export interface Estimate {
-  /** Medián délky v minutách (virtuální čas), null = turnaj se v limitu nedohrál. */
+  /** Odhad délky v minutách, null = struktura se nedá rozebrat. */
   minutes: number | null;
-  /** Nejkratší a nejdelší z běhů. */
+  /** Kratší a delší varianta (rychlejší / pomalejší průběh). */
   range: [number, number] | null;
-  /** Kolik levelů se v mediánu odehrálo. */
+  /** Kolem kterého levelu turnaj skončí. */
   levels: number | null;
-  runs: number;
-  finished: number;
 }
 
 export interface EstimateOptions {
   players: number;
-  runs?: number;
-  /** Kolik sekund trvá hráči jeden tah (lidé jsou pomalejší než boti). */
-  thinkSeconds?: number;
-  /** Strop virtuálního času jednoho běhu v hodinách. */
-  maxHours?: number;
-  seed?: number;
 }
 
+const num = (s: SettingValues, k: string) => Number(s[k] ?? 0);
+
 /**
- * Orientační odhad délky turnaje simulací s boty ve virtuálním čase. Boti hrají náhodně legální tahy
- * (agresivněji než většina domácích hráčů), takže skutečný turnaj obvykle trvá o něco déle.
- * Výplatní a poplatkové nastavení se zjednodušuje (rebuy, add-on ani re-entry se nesimulují).
+ * Orientační odhad délky turnaje podle struktury blindů a počtu žetonů ve hře (jako v klubových kalkulačkách):
+ * turnaj typicky končí na levelu, kde velký blind dosáhne zhruba 1/20 všech žetonů (heads-up má každý ~10 BB).
+ * Rychlejší varianta počítá s 1/30, pomalejší s 1/12. Rebuy a add-on žetony přidávají (odhad: polovina hráčů jednou).
+ * Levely po handách se počítají jako jedna handa ≈ 1 minuta.
  */
 export function estimateTournament(settings: SettingValues, opt: EstimateOptions): Estimate {
-  const runs = opt.runs ?? 3;
-  const think = (opt.thinkSeconds ?? 6) * 1000;
-  const maxMs = (opt.maxHours ?? 12) * 3600_000;
-  const results: { minutes: number; levels: number }[] = [];
-  const base: SettingValues = {
-    ...settings,
-    'time.betweenHandsMs': 1500,
-    'time.showdownMs': 2000,
-    'time.potToWinnerMs': 1000,
-    'odds.enabled': false,
-    'tournament.rebuyEnabled': false,
-    'tournament.addonEnabled': false,
-    'tournament.reentryEnabled': false,
-    'tournament.guarantee': 0,
-    'tournament.houseCutPercent': 0,
-    'tournament.fundPercent': 0,
-    'tournament.fee': 0,
-    'tournament.buyIn': 0,
-    'tournament.autoStartWhenFull': false,
-  };
-  for (let r = 0; r < runs; r++) {
-    const clock = new FakeClock();
-    const ledger = new Ledger();
-    const cash = new CashService(ledger);
-    const money = new TournamentMoney(ledger);
-    const rnd = seededRandom((opt.seed ?? 7) + r * 101);
-    const tour = new Tournament({ id: 'est', settings: () => ({ ...base, 'tournament.minPlayers': Math.min(opt.players, Number(base['tournament.minPlayers'])) }), clock, money });
-    const table = new TableActor({
-      tableId: 'est',
-      tournament: true,
-      settings: () => tour.tableSettings(),
-      clock,
-      cash,
-      randomProvider: seededRandom((opt.seed ?? 7) + r * 977 + 1),
-      onEvent: (e) => tour.onTableEvent(e),
-    });
-    tour.attachTable(table);
-    for (let i = 0; i < opt.players; i++) tour.register(`p${i}`, `P${i}`);
-    const t0 = clock.now();
-    tour.start();
-    let steps = 0;
-    while (tour.state().status === 'running' && clock.now() - t0 < maxMs && steps++ < 400_000) {
-      const v = table.viewFor(null);
-      if (table.currentPhase() === 'hand' && v.actingSeat !== null) {
-        const p = v.seats.find((x) => x.seat === v.actingSeat);
-        const legal = p ? table.viewFor(p.playerId).legal : null;
-        if (p && legal) table.act(p.playerId, randomLegalAction(legal, rnd));
-        clock.advance(think);
-      } else {
-        clock.advance(500);
-      }
-    }
-    if (tour.state().status === 'finished') results.push({ minutes: (clock.now() - t0) / 60_000, levels: tour.levelNumber() });
-    tour.stop();
+  const players = Math.max(2, opt.players);
+  const stack = num(settings, 'tournament.startingStack');
+  const byHands = settings['tournament.levelMode'] === 'hands';
+  const levelMinutes = byHands ? Math.max(1, num(settings, 'tournament.levelHands')) : Math.max(1, num(settings, 'tournament.levelMinutes'));
+  let levels: Level[];
+  try {
+    const custom = String(settings['tournament.structure'] ?? '').trim();
+    levels = custom ? parseStructure(custom) : generateStructure({ startingStack: stack, targetMinutes: num(settings, 'tournament.targetMinutes'), levelMinutes, players });
+  } catch {
+    return { minutes: null, range: null, levels: null };
   }
-  if (results.length === 0) return { minutes: null, range: null, levels: null, runs, finished: 0 };
-  const sorted = [...results].sort((a, b) => a.minutes - b.minutes);
-  const mid = sorted[Math.floor(sorted.length / 2)]!;
-  return { minutes: Math.round(mid.minutes), range: [Math.round(sorted[0]!.minutes), Math.round(sorted[sorted.length - 1]!.minutes)], levels: mid.levels, runs, finished: results.length };
+  if (levels.length === 0 || stack <= 0) return { minutes: null, range: null, levels: null };
+
+  let chips = stack * players;
+  if (settings['tournament.rebuyEnabled']) chips += Math.ceil(players / 2) * num(settings, 'tournament.rebuyChips');
+  if (settings['tournament.addonEnabled']) chips += Math.ceil(players / 2) * num(settings, 'tournament.addonChips');
+
+  const breakEvery = num(settings, 'tournament.breakEveryLevels');
+  const breakMinutes = num(settings, 'tournament.breakMinutes');
+  // Po posledním zadaném levelu se blindy dál zdvojnásobují (turnaj nikdy nezůstane stát).
+  const bbAt = (i: number): number => (i < levels.length ? levels[i]!.bigBlind : levels[levels.length - 1]!.bigBlind * 2 ** (i - levels.length + 1));
+  const endAt = (targetBb: number): { minutes: number; level: number } => {
+    let i = 0;
+    while (bbAt(i) < targetBb && i < 500) i++;
+    // Zlomek levelu podle logaritmické interpolace mezi předchozím a tímto blindem.
+    let frac = i;
+    if (i > 0 && bbAt(i) > bbAt(i - 1)) frac = i - 1 + Math.log(targetBb / bbAt(i - 1)) / Math.log(bbAt(i) / bbAt(i - 1));
+    frac = Math.max(0.5, frac);
+    const breaks = breakEvery > 0 ? Math.floor(frac / breakEvery) * breakMinutes : 0;
+    return { minutes: frac * levelMinutes + breaks, level: Math.min(levels.length, Math.max(1, Math.ceil(frac))) };
+  };
+  const mid = endAt(chips / 20);
+  const fast = endAt(chips / 30);
+  const slow = endAt(chips / 12);
+  return { minutes: Math.round(mid.minutes), range: [Math.round(fast.minutes), Math.round(slow.minutes)], levels: mid.level };
 }

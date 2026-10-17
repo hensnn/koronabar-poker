@@ -354,17 +354,29 @@ describe('turnaj: matice nastavení (simulace s boty)', { timeout: 300_000 }, ()
 });
 
 describe('odhad délky turnaje', () => {
-  it('simulace vrátí rozumný odhad a respektuje délku levelu', async () => {
+  it('odhad podle struktury: domácí turnaj 9 × 1500 s 15min levely trvá zhruba 2 hodiny', async () => {
     const { estimateTournament } = await import('./estimate.js');
-    const base = harness({ 'tournament.levelMinutes': 3, 'tournament.targetMinutes': 24 }, 2).settings;
-    const fast = estimateTournament(base, { players: 4, runs: 2, thinkSeconds: 4 });
-    expect(fast.finished).toBe(2);
-    expect(fast.minutes).toBeGreaterThan(0);
-    expect(fast.minutes!).toBeLessThan(180);
-    expect(fast.range![0]).toBeLessThanOrEqual(fast.range![1]);
-    // nesmyslně krátký limit virtuálního času: turnaj se nedohraje
-    const slow = estimateTournament(base, { players: 6, runs: 1, maxHours: 0.005 });
-    expect(slow.minutes).toBeNull();
+    const base = harness({ 'tournament.levelMinutes': 15, 'tournament.structure': '25/50, 50/100, 75/150, 100/200, 150/300, 200/400, 300/600, 400/800, 500/1000, 600/1200' }, 2).settings;
+    const e = estimateTournament(base, { players: 9 });
+    // 13 500 žetonů → konec kolem BB 675 (level 7–8)
+    expect(e.minutes).toBeGreaterThan(95);
+    expect(e.minutes!).toBeLessThan(140);
+    expect(e.levels).toBe(7);
+    expect(e.range![0]).toBeLessThan(e.minutes!);
+    expect(e.range![1]).toBeGreaterThan(e.minutes!);
+    // delší levely = úměrně delší turnaj; víc hráčů = delší turnaj
+    const longer = estimateTournament({ ...base, 'tournament.levelMinutes': 30 }, { players: 9 });
+    expect(longer.minutes).toBe(e.minutes! * 2);
+    expect(estimateTournament(base, { players: 4 }).minutes!).toBeLessThan(e.minutes!);
+    // přestávky se připočítají
+    const withBreaks = estimateTournament({ ...base, 'tournament.breakEveryLevels': 3, 'tournament.breakMinutes': 10 }, { players: 9 });
+    expect(withBreaks.minutes).toBe(e.minutes! + 20);
+    // bez zadané struktury se použije vygenerovaná: cílová délka 120 min vyjde zhruba na cílovou délku
+    const gen = estimateTournament({ ...base, 'tournament.structure': '', 'tournament.targetMinutes': 120 }, { players: 9 });
+    expect(gen.minutes).toBeGreaterThan(70);
+    expect(gen.minutes!).toBeLessThan(130);
+    // rozbitá struktura → bez odhadu
+    expect(estimateTournament({ ...base, 'tournament.structure': 'xx' }, { players: 9 }).minutes).toBeNull();
   });
 });
 

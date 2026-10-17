@@ -26,6 +26,7 @@ import { parseCookies, SESSION_COOKIE } from './http/cookies.js';
 import { registerRoutes } from './http/routes.js';
 import { SettingsStore } from './settings-store.js';
 import { TableManager } from './tables.js';
+import { TemplateService } from './templates.js';
 import { TournamentManager, tournamentChatText, type TournamentNotice } from './tournaments.js';
 import { NotificationService } from './notifications.js';
 import { StatsService } from './stats.js';
@@ -223,7 +224,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   const schedulerRef: { current?: Scheduler } = {};
   const notificationsRef: { current?: NotificationService } = {};
   const seriesRef: { current?: SeriesService } = {};
-  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
+  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
 
   let broadcast: (tableId: string) => void = () => undefined;
   // Chat: hlavní kanál, kanály stolů a systémové zprávy u stolů.
@@ -339,11 +340,14 @@ export async function buildServer(opts: ServerOptions = {}) {
   };
   const rating = new RatingService({ db, perms, settings: () => settings.resolve(), now: () => clock.now(), notify: (userId, kind, params, link) => notificationsRef.current?.simple(userId, kind, params, link) ?? Promise.resolve(), onError: (e) => console.error('Výpočet ratingu selhal:', e instanceof Error ? e.message : e) });
   const stats = new StatsService({ db, perms, settings: () => settings.resolve(), now: () => clock.now(), onHand: (h) => progress.onHand(h), onError: (e) => console.error('Záznam handy selhal:', e instanceof Error ? e.message : e) });
+  const templates = new TemplateService({ db, registry, perms, audit, inUse: (id) => (tablesRef.current?.usesTemplate(id) ?? false) || (tournamentsRef.current?.usesTemplate(id) ?? false) });
+  await templates.load();
   const tables = new TableManager({
     db,
     journal,
     registry,
     settings,
+    templates,
     cash,
     clock,
     perms,
@@ -447,6 +451,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     journal,
     registry,
     settings,
+    templates,
     ledger,
     cash,
     clock,
@@ -856,6 +861,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     now: () => clock.now(),
     tables: () => tablesRef.current!,
     tournaments: () => tournamentsRef.current!,
+    templates: () => templates,
     polls: () => pollsRef,
     nickOf,
     fetcher: opts.assistantFetch,
@@ -934,6 +940,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     chat,
     tables,
     tournaments,
+    templates,
     scheduler,
     notifications,
     push,

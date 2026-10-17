@@ -12,11 +12,12 @@ import { SESSION_COOKIE } from './cookies.js';
 import { sendError } from './errors.js';
 import { schema, type Db } from '../db/index.js';
 import { eq } from 'drizzle-orm';
-import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, builtinTemplates } from '@kb/shared';
+import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, type SettingsTemplate } from '@kb/shared';
 import type { EmailService } from '../email/service.js';
 import type { ApprovalService } from '../auth/approvals.js';
 import type { WalletService } from '../wallet/service.js';
 import type { TableManager } from '../tables.js';
+import type { TemplateService } from '../templates.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -64,6 +65,7 @@ export interface Services {
   hooks: { pushWallet: (userId: string) => void };
   tables: () => TableManager;
   tournaments: () => TournamentManager;
+  templates: () => TemplateService;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
   push: () => PushService;
@@ -408,7 +410,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     if (!svc.perms.can(u.id, 'stul.zobrazit').allowed) throw new AccountError('FORBIDDEN');
     return reply.send({
       tables: await svc.tables().lobby(),
-      templates: builtinTemplates(svc.settings['registry']).filter((t) => t.kind === 'cash').map((t) => ({ id: t.id, name: t.name, description: t.description, tags: t.tags, values: t.values })),
+      templates: svc.templates().list('cash').map((t) => ({ id: t.id, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, values: t.values })),
     });
   }));
   app.post('/api/lobby/tables', guard(async (req, reply) => {
@@ -449,7 +451,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     viewer(req);
     return reply.send({
       tournaments: await svc.tournaments().lobby(),
-      templates: builtinTemplates(svc.settings['registry']).filter((t) => t.kind === 'tournament').map((t) => ({ id: t.id, name: t.name, description: t.description, tags: t.tags, values: t.values })),
+      templates: svc.templates().list('tournament').map((t) => ({ id: t.id, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, values: t.values })),
     });
   }));
   app.post('/api/tournaments', guard(async (req, reply) => {
@@ -457,13 +459,27 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     return reply.send(await svc.tournaments().create(need(req).id, b, meta(req)));
   }));
   // Orientační odhad délky turnaje simulací s boty (jen pro ty, kdo turnaje zakládají).
+  // ---------- šablony nastavení (vestavěné + vlastní) ----------
+  const templateBody = z.object({ name: z.string().max(100), description: z.string().max(300).optional(), kind: z.enum(['cash', 'tournament', 'live']), tags: z.array(z.string().max(30)).max(20).optional(), values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])) });
+  const templateDto = (t: SettingsTemplate) => ({ id: t.id, kind: t.kind, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, values: t.values });
+  app.get('/api/admin/templates', guard(async (req, reply) => {
+    if (!svc.perms.can(need(req).id, 'nastaveni.globalni').allowed) throw new AccountError('FORBIDDEN');
+    return reply.send({ templates: svc.templates().list().map(templateDto) });
+  }));
+  app.post('/api/admin/templates', guard(async (req, reply) => reply.send(templateDto(await svc.templates().create(need(req).id, templateBody.parse(req.body), meta(req))))));
+  app.put('/api/admin/templates/:id', guard(async (req, reply) => reply.send(templateDto(await svc.templates().update(need(req).id, (req.params as { id: string }).id, templateBody.parse(req.body), meta(req))))));
+  app.delete('/api/admin/templates/:id', guard(async (req, reply) => {
+    await svc.templates().remove(need(req).id, (req.params as { id: string }).id, meta(req));
+    return reply.send({ ok: true });
+  }));
+
   app.post('/api/tournaments/estimate', guard(async (req, reply) => {
     const u = need(req);
     if (!svc.perms.can(u.id, 'turnaj.vytvorit').allowed) throw new AccountError('FORBIDDEN');
     const b = z.object({ values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])), players: z.number().int().min(2).max(10) }).parse(req.body);
     const picked = Object.fromEntries(Object.entries(b.values).filter(([k]) => /^(tournament|table|time)\./.test(k)));
     const settings = svc.settings.resolve([{ scope: 'table', values: picked }]);
-    return reply.send(estimateTournament(settings, { players: Math.min(b.players, Number(settings['table.seats'])), runs: 3 }));
+    return reply.send(estimateTournament(settings, { players: Math.min(b.players, Number(settings['table.seats'])) }));
   }));
   // ---------- plánované turnaje ----------
 

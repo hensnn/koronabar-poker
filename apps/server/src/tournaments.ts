@@ -3,7 +3,6 @@ import { eq, inArray } from 'drizzle-orm';
 import { accounts, Ledger, TournamentMoney, type CashService } from '@kb/ledger';
 import { poolPart, LiveTable, Tournament, TournamentError, TournamentTableSet, TableActor, type TableSetEvent, type Clock, type PersistedTable, type TableEvent, type TournamentEvent, type TournamentState } from '@kb/game-core';
 import {
-  builtinTemplates,
   decideChange,
   scopeAllowed,
   validateValues,
@@ -18,6 +17,8 @@ import type { BetFacts } from './bets.js';
 import { schema, type Db } from './db/index.js';
 import { Journal, loadTableState, tableStateOp, tournamentStateOp } from './db/journal.js';
 import type { SettingsStore } from './settings-store.js';
+import type { TemplateService } from './templates.js';
+import type { SettingsTemplate } from '@kb/shared';
 
 /** Plánování turnaje: kdy začíná, kdy se otevírá registrace, kolikrát se odložil a co už bylo oznámeno. */
 export interface SchedMeta {
@@ -41,6 +42,8 @@ interface Row {
   name: string;
   ownerId: string | null;
   templateId: string | null;
+  /** Snímek hodnot vlastní šablony při založení (vestavěné se berou z kódu). */
+  templateValues?: Record<string, unknown> | null;
   settings: Record<string, unknown>;
   sched: SchedMeta | null;
 }
@@ -60,6 +63,7 @@ interface Deps {
   journal: Journal;
   registry: SettingsRegistry;
   settings: SettingsStore;
+  templates: TemplateService;
   ledger: Ledger;
   cash: CashService;
   clock: Clock;
@@ -155,9 +159,9 @@ export class TournamentManager {
   }
 
   private resolve(row: Row): SettingValues {
-    const template = builtinTemplates(this.deps.registry).find((t) => t.id === row.templateId);
+    const values = (row.templateValues as Record<string, SettingValue> | null | undefined) ?? this.deps.templates.get(row.templateId)?.values;
     return this.deps.settings.resolve([
-      ...(template ? [{ scope: 'template' as const, values: template.values }] : []),
+      ...(values ? [{ scope: 'template' as const, values }] : []),
       { scope: 'table', values: row.settings as Record<string, SettingValue> },
     ]);
   }
@@ -321,7 +325,7 @@ export class TournamentManager {
         const snap = (await loadTableState(this.deps.db, tableId)) as PersistedTable | undefined;
         if (snap) snaps.set(tableId, snap);
       }
-      this.spawn({ id: r.id, name: r.name, ownerId: r.ownerId, templateId: r.templateId, settings: r.settings ?? {}, sched: (r.sched ?? null) as SchedMeta | null }, state, snaps);
+      this.spawn({ id: r.id, name: r.name, ownerId: r.ownerId, templateId: r.templateId, templateValues: r.templateValues ?? null, settings: r.settings ?? {}, sched: (r.sched ?? null) as SchedMeta | null }, state, snaps);
     }
   }
 
@@ -370,6 +374,11 @@ export class TournamentManager {
     return row ? this.resolve(row) : undefined;
   }
 
+  /** Zda některý aktivní turnaj vznikl z dané šablony (šablona se pak nedá smazat). */
+  usesTemplate(templateId: string): boolean {
+    return this.list().some((r) => r.templateId === templateId && ACTIVE.includes(this.tours.get(r.id)?.state().status ?? ''));
+  }
+
   private can(userId: string, key: string, ctx = {}) {
     return this.deps.perms.can(userId, key, ctx);
   }
@@ -393,7 +402,7 @@ export class TournamentManager {
       if (!def || !scopeAllowed(def.scopes, 'table') || def.secret) throw new TournamentError('INVALID', { key: k });
       clean[k] = v as SettingValue;
     }
-    const template = builtinTemplates(this.deps.registry).find((t) => t.id === templateId);
+    const template = this.deps.templates.get(templateId);
     const issues = validateValues(this.deps.registry, { ...(template?.values ?? {}), ...clean });
     if (issues.length) throw new TournamentError('INVALID', { issues });
     return clean;
@@ -406,8 +415,8 @@ export class TournamentManager {
     if (!d.allowed) throw new TournamentError('FORBIDDEN');
     const name = input.name?.trim() ?? '';
     if (name.length < 2 || name.length > 60) throw new TournamentError('INVALID', { field: 'name' });
-    const template = builtinTemplates(this.deps.registry).find((t) => t.id === input.templateId && t.kind === 'tournament');
-    if (!template) throw new TournamentError('INVALID', { field: 'templateId' });
+    const template = this.deps.templates.get(input.templateId);
+    if (!template || template.kind !== 'tournament') throw new TournamentError('INVALID', { field: 'templateId' });
     const clean = this.checkSettings(template.id, input.settings ?? {});
     const merged = this.deps.settings.resolve([{ scope: 'template', values: template.values }, { scope: 'table', values: clean }]);
     const mine = this.list().filter((r) => r.ownerId === actorId && ACTIVE.includes(this.tours.get(r.id)!.state().status)).length;
@@ -415,21 +424,23 @@ export class TournamentManager {
     if (d.limits?.maxBuyIn !== undefined && Number(merged['tournament.buyIn']) > d.limits.maxBuyIn) throw new TournamentError('LIMIT_EXCEEDED', { limit: 'maxBuyIn', value: d.limits.maxBuyIn });
     if (Number(merged['tournament.minPlayers']) > Number(merged['table.seats'])) throw new TournamentError('INVALID', { field: 'tournament.minPlayers' });
 
-    return this.insert(actorId, name, template.id, clean, merged, null, meta);
+    return this.insert(actorId, name, template, clean, merged, null, meta);
   }
 
   /** Uloží nový turnaj (a případně jeho plán) a rozběhne ho. */
-  private async insert(ownerId: string | null, name: string, templateId: string, clean: Record<string, SettingValue>, merged: SettingValues, sched: SchedMeta | null, meta: Meta): Promise<{ id: string }> {
+  private async insert(ownerId: string | null, name: string, template: SettingsTemplate, clean: Record<string, SettingValue>, merged: SettingValues, sched: SchedMeta | null, meta: Meta): Promise<{ id: string }> {
+    const templateId = template.id;
+    const templateValues = template.builtin ? null : template.values;
     const id = `t-${name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'turnaj'}-${randomBytes(3).toString('hex')}`;
     if (merged['tournament.live']) {
       if (!this.deps.settings.resolve()['live.enabled']) throw new TournamentError('INVALID', { field: 'tournament.live' });
       if (ownerId && !this.can(ownerId, 'zivahra.rizeni').allowed) throw new TournamentError('FORBIDDEN');
     }
-    const row: Row = { id, name, ownerId, templateId, settings: clean, sched };
+    const row: Row = { id, name, ownerId, templateId, templateValues, settings: clean, sched };
     // Struktura blindů a výplatní procenta se ověří dřív, než se turnaj uloží.
     const probe = new Tournament({ id, settings: () => merged, clock: this.deps.clock, money: this.money });
     probe.validate();
-    await this.deps.db.insert(schema.tournaments).values({ id, name, ownerId, templateId, settings: clean, status: 'registering', sched });
+    await this.deps.db.insert(schema.tournaments).values({ id, name, ownerId, templateId, templateValues, settings: clean, status: 'registering', sched });
     this.spawn(row);
     await this.deps.audit?.log({ actorId: ownerId ?? undefined, action: sched ? 'turnaj.naplanovat' : 'turnaj.vytvorit', targetType: 'tournament', targetId: id, after: { name, templateId, settings: clean, sched }, ...meta });
     this.persistNow(id);
@@ -446,14 +457,14 @@ export class TournamentManager {
     const name = input.name?.trim() ?? '';
     if (name.length < 2 || name.length > 60) throw new TournamentError('INVALID', { field: 'name' });
     if (!Number.isFinite(input.startAt) || input.startAt < this.deps.clock.now() - 60_000) throw new TournamentError('INVALID', { field: 'startAt' });
-    const template = builtinTemplates(this.deps.registry).find((t) => t.id === input.templateId && t.kind === 'tournament');
-    if (!template) throw new TournamentError('INVALID', { field: 'templateId' });
+    const template = this.deps.templates.get(input.templateId);
+    if (!template || template.kind !== 'tournament') throw new TournamentError('INVALID', { field: 'templateId' });
     const clean = this.checkSettings(template.id, input.settings ?? {});
     const merged = this.deps.settings.resolve([{ scope: 'template', values: template.values }, { scope: 'table', values: clean }]);
     if (Number(merged['tournament.minPlayers']) > Number(merged['table.seats'])) throw new TournamentError('INVALID', { field: 'tournament.minPlayers' });
     const opensAt = input.startAt - Number(merged['tournament.registerOpensMinutes']) * 60_000;
     const sched: SchedMeta = { startAt: input.startAt, opensAt, occurrence: input.occurrence ?? input.startAt, scheduleId: input.scheduleId ?? null, seriesId: input.seriesId ?? null, postponed: 0, reminded: [], openedNotified: false, autoPaused: false, ...(input.invited ? { invited: input.invited } : {}) };
-    const created = await this.insert(actorId ?? input.ownerId ?? null, name, template.id, clean, merged, sched, meta);
+    const created = await this.insert(actorId ?? input.ownerId ?? null, name, template, clean, merged, sched, meta);
     this.deps.onScheduled?.(created.id, name, input.startAt);
     return created;
   }

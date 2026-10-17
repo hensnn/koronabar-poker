@@ -232,6 +232,13 @@
       "when": 1792189675844,
       "tag": "0032_asistent",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792248553938,
+      "tag": "0033_sablony",
+      "breakpoints": true
     }
   ]
 }

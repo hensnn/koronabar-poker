@@ -24,7 +24,9 @@ Každý parametr má výchozí hodnotu, kterou jde přepsat na třech místech. 
 2. **Šablona**: hotová sada hodnot (Klasika, Hluboké stacky, Freezeout, Rebuy, Turbo, Re-entry, Hyper, Deepstack, Winner takes all, Heads-up, Retro…).
 3. **Konkrétní stůl nebo turnaj**: při zakládání nebo později tlačítkem Upravit.
 
-Šablony jsou vestavěné a v GUI se neupravují; jejich hodnoty vidíš a můžeš je přepsat při zakládání stolu nebo turnaje (po výběru šablony se zobrazí formulář s jejími hodnotami) a později tlačítkem **Upravit** u konkrétní hry. Hodnota ze šablony má přednost před globálním nastavením.
+Šablony spravuješ ve **Správa → Šablony**: vestavěné jsou jen ke čtení (tlačítko *Kopírovat jako vlastní* z nich udělá upravitelnou kopii), vlastní šablony zakládáš, upravuješ a mažeš. Úprava šablony platí pro nově založené hry – běžící stoly a turnaje si nesou hodnoty z doby založení. Hodnoty šablony vidíš a můžeš je přepsat i při zakládání stolu nebo turnaje (po výběru šablony se zobrazí formulář) a později tlačítkem **Upravit** u konkrétní hry; tlačítko **Pravidla** u stolu či turnaje ukáže, co přesně platí. Hodnota ze šablony má přednost před globálním nastavením.
+
+**Odhad délky turnaje** (v náhledu poplatků při zakládání) počítá podle struktury blindů a počtu žetonů ve hře: turnaj obvykle končí na levelu, kde velký blind dosáhne zhruba 1/20 všech žetonů; rozmezí odpovídá rychlému (1/30) a pomalému (1/12) průběhu, připočítají se přestávky a odhad rebuy/add-on žetonů. Je to orientační číslo, ne simulace.
 
 U každého parametru je napsáno, **kdy jde měnit**: hned, od další handy, jen před startem, nebo jen administrátor. Změny během hry se hráčům oznámí v chatu a jsou v audit logu. Když si nevíš rady, zeptej se asistenta 🤖 („co dělá …“, „nastav …“); změnu jen navrhne a ty ji potvrdíš.
 

@@ -243,6 +243,8 @@ export const gameTables = pgTable('game_tables', {
   kind: text('kind').notNull().default('cash'),
   ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
   templateId: text('template_id'),
+  /** Snímek hodnot vlastní šablony při založení (vestavěné šablony se berou z kódu, pozdější úprava šablony hru nemění). */
+  templateValues: jsonb('template_values').$type<Record<string, unknown>>(),
   /** Přepsání nastavení pro tento stůl (vrstva „stůl“). */
   settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   status: text('status').notNull().default('open'),
@@ -419,6 +421,8 @@ export const tournaments = pgTable('tournaments', {
   name: text('name').notNull(),
   ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
   templateId: text('template_id'),
+  /** Snímek hodnot vlastní šablony při založení (viz game_tables). */
+  templateValues: jsonb('template_values').$type<Record<string, unknown>>(),
   settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   /** registering | running | finished | cancelled (zrcadlo stavu pro rychlé výpisy) */
   status: text('status').notNull().default('registering'),
@@ -1153,6 +1157,21 @@ export const apiTokens = pgTable(
   },
   (t) => [uniqueIndex('api_tokens_hash_idx').on(t.tokenHash), index('api_tokens_user_idx').on(t.userId)],
 );
+
+// ---------- vlastní šablony nastavení (cash i turnaje) ----------
+
+/** Vlastní šablona správce: kompletní sada hodnot pro vrstvu „šablona“. Vestavěné šablony jsou v kódu. */
+export const settingsTemplates = pgTable('settings_templates', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  tags: jsonb('tags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  values: jsonb('values').$type<Record<string, unknown>>().notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+});
 
 // ---------- AI asistent a MCP ----------
 

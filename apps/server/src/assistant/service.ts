@@ -5,7 +5,6 @@ import {
   PROMPT_KEYS,
   TOOL_NAMES,
   allowedVariables,
-  builtinTemplates,
   dayKey,
   isAssistantContext,
   isPromptKey,
@@ -37,6 +36,7 @@ import { schema, type Db } from '../db/index.js';
 import type { PollService } from '../polls.js';
 import type { SettingsStore } from '../settings-store.js';
 import type { TableManager } from '../tables.js';
+import type { TemplateService } from '../templates.js';
 import type { TournamentManager } from '../tournaments.js';
 import { createProvider, ProviderError, type AiProvider, type ChatMsg, type ToolCall, type ToolSpec } from './providers.js';
 
@@ -62,6 +62,7 @@ interface Deps {
   now: () => number;
   tables: () => TableManager;
   tournaments: () => TournamentManager;
+  templates: () => TemplateService;
   polls: () => PollService;
   nickOf: (userId: string) => Promise<string>;
   fetcher?: typeof fetch;
@@ -333,7 +334,7 @@ export class AssistantService {
     const table = targetId ? this.deps.tables().settingsOf(targetId) : undefined;
     const tour = targetId ? this.deps.tournaments().settingsOf(targetId) : undefined;
     const row = targetId ? (this.deps.tables().list().find((x) => x.id === targetId) ?? this.deps.tournaments().list().find((x) => x.id === targetId)) : undefined;
-    const templates = builtinTemplates(this.deps.registry).slice(0, 40).map((x) => `${x.id} (${x.name})`).join(', ');
+    const templates = this.deps.templates().list().slice(0, 40).map((x) => `${x.id} (${x.name})`).join(', ');
     return {
       prezdivka: await this.deps.nickOf(userId),
       role: await this.roleName(userId),
@@ -409,7 +410,7 @@ export class AssistantService {
         case 'list_games':
           return JSON.stringify(await this.listGames());
         case 'list_templates':
-          return JSON.stringify(builtinTemplates(this.deps.registry).filter((x) => !args.kind || x.kind === args.kind).map((x) => ({ id: x.id, kind: x.kind, name: x.name, description: x.description })));
+          return JSON.stringify(this.deps.templates().list().filter((x) => !args.kind || x.kind === args.kind).map((x) => ({ id: x.id, kind: x.kind, name: x.name, description: x.description })));
         case 'propose_settings_change':
           return JSON.stringify(await this.proposeSettings(env, args));
         case 'propose_create_tournament':
@@ -614,7 +615,8 @@ export class AssistantService {
   private async proposeTournament(env: ToolEnv, args: Record<string, unknown>) {
     const name = String(args.name ?? '').trim();
     const templateId = String(args.templateId ?? '');
-    const template = builtinTemplates(this.deps.registry).find((x) => x.id === templateId && x.kind === 'tournament');
+    const found = this.deps.templates().get(templateId);
+    const template = found && found.kind === 'tournament' ? found : undefined;
     if (!template) return { ok: false, denied: [t('assistant.denied.template')] };
     if (name.length < 2 || name.length > 60) return { ok: false, denied: [t('assistant.denied.invalid', { key: 'name', detail: '2 až 60' })] };
     const settings: Record<string, SettingValue> = {};

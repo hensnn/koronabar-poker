@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm';
 import { CashService } from '@kb/ledger';
 import { TableActor, type Clock, type PersistedTable, type TableEvent } from '@kb/game-core';
 import {
-  builtinTemplates,
   decideChange,
   scopeAllowed,
   validateValues,
@@ -18,6 +17,7 @@ import { PermissionError } from './auth/permissions.js';
 import { schema, type Db } from './db/index.js';
 import { Journal, loadTableState, tableStateOp } from './db/journal.js';
 import type { SettingsStore } from './settings-store.js';
+import type { TemplateService } from './templates.js';
 
 export interface TableRow {
   id: string;
@@ -25,6 +25,8 @@ export interface TableRow {
   kind: string;
   ownerId: string | null;
   templateId: string | null;
+  /** Snímek hodnot vlastní šablony při založení (vestavěné se berou z kódu). */
+  templateValues?: Record<string, unknown> | null;
   settings: Record<string, unknown>;
   status: string;
 }
@@ -44,6 +46,7 @@ interface Deps {
   journal: Journal;
   registry: SettingsRegistry;
   settings: SettingsStore;
+  templates: TemplateService;
   cash: CashService;
   clock: Clock;
   onChange: (tableId: string) => void;
@@ -71,11 +74,21 @@ export class TableManager {
   constructor(private deps: Deps) {}
 
   private resolve(row: TableRow): SettingValues {
-    const template = builtinTemplates(this.deps.registry).find((t) => t.id === row.templateId);
+    const values = this.templateValues(row);
     return this.deps.settings.resolve([
-      ...(template ? [{ scope: 'template' as const, values: template.values }] : []),
+      ...(values ? [{ scope: 'template' as const, values }] : []),
       { scope: 'table', values: row.settings as Record<string, SettingValue> },
     ]);
+  }
+
+  /** Vrstva „šablona“: snímek uložený u stolu, jinak aktuální šablona podle id. */
+  private templateValues(row: TableRow): Record<string, SettingValue> | undefined {
+    return (row.templateValues as Record<string, SettingValue> | null | undefined) ?? (this.deps.templates.get(row.templateId)?.values as Record<string, SettingValue> | undefined);
+  }
+
+  /** Zda některý otevřený stůl vznikl z dané šablony (šablona se pak nedá smazat). */
+  usesTemplate(templateId: string): boolean {
+    return this.list().some((r) => r.templateId === templateId);
   }
 
   settingsOf(id: string): SettingValues | undefined {
@@ -116,9 +129,10 @@ export class TableManager {
 
   /** Vytvoření stolu bez kontrol oprávnění (první start, import). */
   async create(input: { id: string; name: string; ownerId?: string | null; templateId?: string | null; settings?: Record<string, unknown> }): Promise<TableActor> {
+    const template = this.deps.templates.get(input.templateId);
     const [row] = await this.deps.db
       .insert(schema.gameTables)
-      .values({ id: input.id, name: input.name, ownerId: input.ownerId ?? null, templateId: input.templateId ?? null, settings: input.settings ?? {}, status: 'open' })
+      .values({ id: input.id, name: input.name, ownerId: input.ownerId ?? null, templateId: input.templateId ?? null, templateValues: template && !template.builtin ? template.values : null, settings: input.settings ?? {}, status: 'open' })
       .returning();
     return this.spawn({ ...row!, settings: row!.settings ?? {} });
   }
@@ -158,7 +172,7 @@ export class TableManager {
       clean[k] = v as SettingValue;
     }
     if (issues.length) return { clean, issues };
-    const template = builtinTemplates(this.deps.registry).find((t) => t.id === templateId);
+    const template = this.deps.templates.get(templateId);
     issues.push(...validateValues(this.deps.registry, { ...(template?.values ?? {}), ...clean }));
     return { clean, issues };
   }
@@ -168,7 +182,8 @@ export class TableManager {
     if (!d.allowed) throw new TableError('FORBIDDEN');
     const name = input.name?.trim() ?? '';
     if (name.length < 2 || name.length > 60) throw new TableError('INVALID', [{ keys: ['name'], messageKey: 'lobby.invalidName' }]);
-    const template = builtinTemplates(this.deps.registry).find((t) => t.id === input.templateId && t.kind === 'cash');
+    const template = this.deps.templates.get(input.templateId);
+    if (template && template.kind !== 'cash') throw new TableError('INVALID', [{ keys: ['templateId'], messageKey: 'lobby.unknownTemplate' }]);
     if (!template) throw new TableError('INVALID', [{ keys: ['templateId'], messageKey: 'lobby.unknownTemplate' }]);
     const { clean, issues } = this.checkSettings(template.id, input.settings ?? {});
     if (issues.length) throw new TableError('INVALID', issues);

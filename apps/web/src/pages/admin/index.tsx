@@ -7,6 +7,7 @@ import { ApprovalsPage, AuditPage, EmailPage, GlobalSettingsPage, SecretsPage } 
 import { InvitesPage, UsersPage } from './users';
 import { RolesPage } from './roles';
 import { TablesPage } from './tables';
+import { TemplatesPage } from './templates';
 import { FinancePage } from './finance';
 import { TvAdminPage } from './tv';
 import { AnnouncerAdminPage } from './announcer';
@@ -31,6 +32,7 @@ const SECTIONS: Section[] = [
   { path: '/admin/email', label: 'admin.email', show: (m) => can(m, 'email.spravovat_smtp') || can(m, 'email.sablony') || can(m, 'email.fronta'), render: () => <EmailPage /> },
   { path: '/admin/tajne-udaje', label: 'admin.secrets', show: (m) => can(m, 'email.spravovat_smtp') || can(m, 'system.tajne_udaje'), render: () => <SecretsPage /> },
   { path: '/admin/nastaveni', label: 'admin.settings', show: (m) => can(m, 'nastaveni.globalni'), render: () => <GlobalSettingsPage /> },
+  { path: '/admin/sablony', label: 'admin.templates', show: (m) => can(m, 'nastaveni.globalni'), render: () => <TemplatesPage /> },
   { path: '/admin/tv', label: 'admin.tv', show: (m) => can(m, 'tv.spravovat'), render: () => <TvAdminPage /> },
   { path: '/admin/hlasatel', label: 'admin.announcer', show: (m) => can(m, 'hlasatel.spravovat'), render: () => <AnnouncerAdminPage /> },
   { path: '/admin/napojeni', label: 'admin.integrations', show: (m) => can(m, 'integrace.spravovat'), render: () => <IntegrationsAdminPage /> },
