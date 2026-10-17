@@ -98,6 +98,8 @@ export interface SeatView {
   wanted?: number;
   /** Karty, které hráč dobrovolně ukázal po handě (nezobrazené jsou null). */
   exposed?: (Card | null)[];
+  /** Hráč je v sit outu podle registru stolu (platí i během rozehrané handy, kde `status` ještě ukazuje stav v handě). */
+  sitOut?: boolean;
 }
 
 /** Pohled na stůl pro konkrétního hráče nebo diváka. Sestavuje se výhradně whitelistem polí. */
@@ -158,6 +160,8 @@ export interface TableView {
   rabbit: Card[] | null;
   /** Právě se hraje bomb pot. */
   bombPot: boolean;
+  /** Stůl je pozastavený (pauza, přestávka): po dohrání handy se nerozdává. */
+  paused?: boolean;
   /** Běží hlasování (run it twice…), v němž může viewer hlasovat. */
   vote: VoteView | null;
   /** Run it twice/třikrát: boardy jednotlivých běhů a jejich výherci (jen odhalené běhy). */

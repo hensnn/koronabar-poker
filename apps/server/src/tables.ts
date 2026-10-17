@@ -293,6 +293,17 @@ export class TableManager {
     return { ...(this.pending.get(tableId) ?? {}) };
   }
 
+  /** Pauza / pokračování cash stolu: zakladatel (s právem úprav) nebo kdokoli s oprávněním „zasah.pauza“. Rozehraná handa se dohraje. */
+  async pause(actorId: string, tableId: string, resume: boolean, meta: Meta = {}): Promise<void> {
+    const row = this.rows.get(tableId);
+    const actor = this.actors.get(tableId);
+    if (!row || !actor) throw new TableError('NOT_FOUND');
+    if (!this.canEdit(actorId, row) && !this.can(actorId, 'zasah.pauza').allowed) throw new TableError('FORBIDDEN');
+    if (resume) actor.release();
+    else actor.hold();
+    await this.deps.audit?.log({ actorId, action: resume ? 'stul.pokracovat' : 'stul.pauza', targetType: 'table', targetId: tableId, ...meta });
+  }
+
   /** Zrušení stolu zakladatelem nebo správcem; hráčům se vrátí žetony. */
   async closeTable(actorId: string, tableId: string, meta: Meta = {}): Promise<void> {
     const row = this.rows.get(tableId);

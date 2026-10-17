@@ -5,7 +5,7 @@ import { navigate } from '../router';
 import { can, useSession } from '../session';
 import { ShareToChat } from './chat-extras';
 import { t } from '@kb/shared';
-import { errorText, get } from '../api';
+import { errorText, get, post } from '../api';
 import { loadChannels, useChatStore } from '../chat-store';
 import { onSocket, useNet } from '../net';
 import { Link } from '../router';
@@ -16,6 +16,7 @@ import { setTableFormat } from '../table/format';
 import { TablePanel } from '../table/TablePanel';
 import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
+import { SoundMenu } from '../sound-menu';
 import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
@@ -85,12 +86,29 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [pollOpen, setPollOpen] = useState(false);
   const inBb = Boolean(settings.values['ui.showInBb']);
   const seated = !!view?.seats.some((s) => s.playerId === me?.user.id);
+  const [toolError, setToolError] = useState('');
+  // Pauza: u turnaje přes turnaj (zakladatel/správce nebo „zasah.pauza“), u cash stolu přes stůl; server oprávnění ověří.
+  const canPause = can(me, 'zasah.pauza') || (isTournament ? can(me, 'turnaj.upravit_vlastni') || can(me, 'turnaj.upravit_vse') : can(me, 'cash.upravit_vlastni') || can(me, 'cash.upravit_vse'));
+  const togglePause = async () => {
+    try {
+      setToolError('');
+      if (isTournament) await post(`/api/tournaments/${tournamentId}/${view?.paused ? 'resume' : 'pause'}`);
+      else await post(`/api/lobby/tables/${tableId}/pause`, { resume: !!view?.paused });
+    } catch (e) {
+      setToolError(errorText(e));
+    }
+  };
   // Nástroje stolu: na širokém displeji v liště, na telefonu pod tlačítkem „⋯“.
   const tools = (
     <>
       {!isTournament && <ShareToChat kind="stul" id={tableId} />}
       {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
       {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+      {canPause && view && (
+        <Button onClick={() => void togglePause()} aria-pressed={!!view.paused}>
+          {view.paused ? `▶ ${t('table.resume')}` : `⏸ ${t('table.pause')}`}
+        </Button>
+      )}
       <Button onClick={() => setHistory(true)} title={t('table.history')}>
         📜 {t('table.history')}
       </Button>
@@ -115,6 +133,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               {t('table.chatOpen')}
               {channel && channel.unread > 0 && <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-on-act">{channel.unread}</span>}
             </Button>
+            <SoundMenu />
             <Button aria-haspopup="menu" aria-expanded={more} aria-label={t('table.more')} onClick={() => setMore((v) => !v)}>
               ⋯
             </Button>
@@ -125,8 +144,12 @@ export function TablePage({ tableId }: { tableId: string }) {
               </div>
             )}
           </span>
-          <span className="tk-tp-desktop flex flex-wrap items-center gap-2">{tools}</span>
+          <span className="tk-tp-desktop flex flex-wrap items-center gap-2">
+            {tools}
+            <SoundMenu />
+          </span>
         </div>
+        {toolError && <Notice kind="error">{toolError}</Notice>}
         <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />
         {pollOpen && (
           <PollEditor

@@ -199,7 +199,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </p>
         )
       )}
-      {!myTurn && !acting && <p className="text-center text-sm text-muted">{t('table.waitingPlayers')}</p>}
+      {!myTurn && !acting && <p className="text-center text-sm text-muted">{view.paused ? `⏸ ${t('table.paused')}` : t('table.waitingPlayers')}</p>}
       </div>
 
       {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && (
@@ -250,7 +250,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
               {t('table.callClock')}
             </button>
           )}
-          {mine.status === 'sittingOut' ? (
+          {(mine.sitOut ?? mine.status === 'sittingOut') ? (
             <button className={btn} onClick={() => void run(table.sitIn(tableId))}>
               {t('table.sitIn')}
             </button>
@@ -329,7 +329,11 @@ function Seat({
   sound?: { emoji: string; name: string };
   action?: Bubble;
 }) {
-  const showRank = useSettings().values['xp.showAtTable'] !== false;
+  const userSettings = useSettings().values;
+  const showRank = userSettings['xp.showAtTable'] !== false;
+  // Zakryté vlastní karty: ukážou se jen při přejetí myší (na dotykovém displeji klepnutím).
+  const hideMine = mine && userSettings['ui.hideMyCards'] === true;
+  const [peek, setPeek] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const look = useLook(seat.playerId);
   const frame = avatarClasses(look, '');
@@ -341,9 +345,15 @@ function Seat({
   return (
     <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''}`}>
       <div className="relative flex justify-center">
-        <div className={`tk-seat-cards flex gap-1 ${frame.cls}`}>
+        <div
+          className={`tk-seat-cards flex gap-1 ${frame.cls} ${hideMine ? 'cursor-pointer' : ''}`}
+          title={hideMine ? t('table.peek') : undefined}
+          onMouseEnter={hideMine ? () => setPeek(true) : undefined}
+          onMouseLeave={hideMine ? () => setPeek(false) : undefined}
+          onPointerDown={hideMine ? (e) => e.pointerType === 'touch' && setPeek((v) => !v) : undefined}
+        >
           {seat.hasCards
-            ? seat.cards
+            ? seat.cards && !(hideMine && !peek)
               ? seat.cards.map((c) => <CardView key={c} card={c} small={!mine} />)
               : [0, 1].map((i) => <CardView key={i} card={seat.exposed?.[i] ?? null} small={!mine} />)
             : status && <span className="tk-seat-status">{status}</span>}

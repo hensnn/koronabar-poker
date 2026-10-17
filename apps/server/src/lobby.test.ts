@@ -47,6 +47,21 @@ const err = async (p: Promise<unknown>) => {
   }
 };
 
+describe('lobby: pauza stolu', () => {
+  it('zakladatel nebo hráč s oprávněním zasah.pauza pozastaví a obnoví stůl; cizí hráč ne', async () => {
+    const s = await start();
+    const owner = await s.user();
+    const other = await s.user();
+    const { id } = await s.server.tables.createTable(owner, { name: 'Pauza', templateId: 'cash-klasika' });
+    expect(await err(s.server.tables.pause(other, id, false))).toBe('FORBIDDEN');
+    await s.server.tables.pause(owner, id, false);
+    expect(s.server.tables.get(id)!.isHeld()).toBe(true);
+    expect(s.server.tables.get(id)!.viewFor(null).paused).toBe(true);
+    await s.server.tables.pause(s.admin, id, true);
+    expect(s.server.tables.get(id)!.isHeld()).toBe(false);
+  });
+});
+
 describe('lobby: zakládání stolů', () => {
   it('hráč založí stůl ze šablony a vidí ho v přehledu; stůl je okamžitě hratelný', async () => {
     const s = await start();

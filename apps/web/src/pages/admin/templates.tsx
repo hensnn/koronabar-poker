@@ -18,6 +18,8 @@ interface Template {
   values: Record<string, SettingValue>;
 }
 
+const KIND_RANK: Record<Template['kind'], number> = { tournament: 0, cash: 1, live: 2 };
+
 const templateScoped = (d: { scopes?: readonly string[] }) => scopeAllowed(d.scopes as never, 'template');
 
 /** Správa šablon: vestavěné jen ke čtení (lze zkopírovat), vlastní se zakládají, upravují a mažou. */
@@ -27,7 +29,8 @@ export function TemplatesPage() {
   const [editor, setEditor] = useState<{ base: Template | null; kind: Template['kind']; copy?: boolean } | null>(null);
   const reload = useCallback(() => {
     get<{ templates: Template[] }>('/api/admin/templates')
-      .then((d) => setRows(d.templates))
+      // Ve správě jsou šablony seskupené podle druhu (turnaje, cash, živé); uvnitř druhu platí pořadí z nabídky.
+      .then((d) => setRows([...d.templates].sort((x, y) => KIND_RANK[x.kind] - KIND_RANK[y.kind])))
       .catch((e) => setError(errorText(e)));
   }, []);
   useEffect(reload, [reload]);

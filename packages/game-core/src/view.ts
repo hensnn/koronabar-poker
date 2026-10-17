@@ -47,6 +47,9 @@ export interface ViewContext {
   /** Nový hráč čekající na big blind se zobrazí jako „čeká“, ne jako sit out. */
   myStraddle?: boolean;
   statusOverride?: Map<string, SeatView['status']>;
+  /** Hráči v sit outu podle registru (příznak `sitOut` u sedadla). */
+  sitOuts?: Set<string>;
+  paused?: boolean;
 }
 
 /** Zda handa skončila showdownem (ne tím, že všichni ostatní složili). */
@@ -77,6 +80,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       rabbit: null,
       bombPot: false,
       runs: null,
+      paused: ctx.paused ?? false,
       seats: (ctx.extraSeats ?? []).map((x) => ({ ...x, cards: ctx.viewerId === x.playerId ? x.cards : null })),
       pots: [],
       totalPot: 0,
@@ -116,6 +120,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       ...(ctx.bounties?.get(p.playerId) != null ? { bounty: ctx.bounties.get(p.playerId)! } : {}),
       ...((ctx.wanted?.get(p.playerId) ?? 0) > 0 ? { wanted: ctx.wanted!.get(p.playerId)! } : {}),
       ...(h.finished && ctx.exposed?.has(p.seat) ? { exposed: ctx.exposed.get(p.seat)! } : {}),
+      ...(ctx.sitOuts?.has(p.playerId) ? { sitOut: true } : {}),
     };
   });
   for (const x of ctx.extraSeats ?? []) if (!seats.some((s) => s.seat === x.seat)) seats.push(x);
@@ -142,6 +147,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     vote: ctx.vote ?? null,
     rabbit: h.finished ? (ctx.rabbit ?? null) : null,
     bombPot: ctx.bombPot ?? false,
+    paused: ctx.paused ?? false,
     runs: ctx.runs && ctx.runs.length > 1 && (ctx.reveal.runs ?? 0) > 0 ? ctx.runs.slice(0, ctx.reveal.runs) : null,
     seats,
     pots,

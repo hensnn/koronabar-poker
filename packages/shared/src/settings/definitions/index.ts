@@ -651,6 +651,7 @@ const ui: SettingDef[] = [
   text('ui.tablePanel', { category: 'ui', mutability: A, scopes: USER }, '', 400),
   bool('ui.showSymbolAtTable', { category: 'ui', mutability: A, scopes: USER }, false),
   bool('ui.rotateToMe', { category: 'ui', mutability: A, scopes: USER }, true),
+  bool('ui.hideMyCards', { category: 'ui', mutability: A, scopes: USER }, false),
   choice('ui.mobileLayout', { category: 'ui', mutability: A, scopes: USER }, 'auto', ['auto', 'on', 'off']),
   bool('ui.autoJoinTournament', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('chat.showSystemAtTable', { category: 'ui', mutability: A, scopes: USER }, true),

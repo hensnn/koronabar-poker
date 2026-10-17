@@ -428,6 +428,22 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const b = z.object({ settings: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])) }).parse(req.body);
     return reply.send(await svc.tables().updateSettings(need(req).id, (req.params as { id: string }).id, b.settings, meta(req)));
   }));
+  app.post('/api/lobby/tables/:id/pause', guard(async (req, reply) => {
+    const b = z.object({ resume: z.boolean().optional() }).parse(req.body ?? {});
+    await svc.tables().pause(need(req).id, (req.params as { id: string }).id, !!b.resume, meta(req));
+    return reply.send({ ok: true });
+  }));
+  // ===== 6. kde sedím (tlačítko „Ke stolu“ v nabídce) =====
+  app.get('/api/me/seat', guard(async (req, reply) => {
+    const u = need(req);
+    for (const [tableId, actor] of svc.tables().actors) {
+      if (!actor.playersSeated().some((s) => s.userId === u.id)) continue;
+      const info = actor.viewFor(null).info;
+      const name = svc.tables().row(tableId)?.name ?? (info.tournamentId ? svc.tournaments().nameOf(info.tournamentId) : undefined) ?? tableId;
+      return reply.send({ seat: { tableId, name, tournamentId: info.tournamentId ?? null } });
+    }
+    return reply.send({ seat: null });
+  }));
   app.delete('/api/lobby/tables/:id', guard(async (req, reply) => {
     await svc.tables().closeTable(need(req).id, (req.params as { id: string }).id, meta(req));
     return reply.send({ ok: true });
