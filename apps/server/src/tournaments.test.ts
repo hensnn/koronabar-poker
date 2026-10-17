@@ -280,8 +280,9 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     const r = await s.server.tournaments.updateSettings(org, id, { 'tournament.buyIn': 200 });
     expect(r.applied).toEqual(['tournament.buyIn']);
     expect(s.server.tournaments.settingsOf(id)!['tournament.buyIn']).toBe(200);
+    const structureBefore = s.server.tournaments.settingsOf(id)!['tournament.structure'];
     expect(await code(s.server.tournaments.updateSettings(org, id, { 'tournament.structure': '10/20, 5/10' }))).toBe('BAD_STRUCTURE');
-    expect(s.server.tournaments.settingsOf(id)!['tournament.structure']).toBe('');
+    expect(s.server.tournaments.settingsOf(id)!['tournament.structure']).toBe(structureBefore);
     for (const p of [await s.user(), await s.user()]) await s.server.tournaments.register(p, id);
     await s.server.tournaments.start(org, id);
     expect(await code(s.server.tournaments.updateSettings(org, id, { 'tournament.buyIn': 300 }))).toBe('INVALID');

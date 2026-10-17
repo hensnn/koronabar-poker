@@ -51,14 +51,26 @@ export class TemplateService {
     return fillTemplate(this.deps.registry, { id: r.id, name: r.name, description: r.description, kind: r.kind as TemplateKind, tags: r.tags, builtin: false, values: r.values as Partial<SettingValues> });
   }
 
+  /** Vestavěné (přepsané správcem se nahradí jeho verzí) a za nimi vlastní. */
   list(kind?: TemplateKind): SettingsTemplate[] {
-    const all = [...builtinTemplates(this.deps.registry), ...this.custom.values()];
+    const builtin = builtinTemplates(this.deps.registry).map((t) => this.custom.get(t.id) ?? t);
+    const own = [...this.custom.values()].filter((t) => !this.isBuiltinId(t.id));
+    const all = [...builtin, ...own];
     return kind ? all.filter((t) => t.kind === kind) : all;
   }
 
   get(id: string | null | undefined): SettingsTemplate | undefined {
     if (!id) return undefined;
     return this.custom.get(id) ?? builtinTemplates(this.deps.registry).find((t) => t.id === id);
+  }
+
+  isBuiltinId(id: string): boolean {
+    return builtinTemplates(this.deps.registry).some((t) => t.id === id);
+  }
+
+  /** Vestavěná šablona přepsaná správcem (jde obnovit na původní). */
+  isOverridden(id: string): boolean {
+    return this.isBuiltinId(id) && this.custom.has(id);
   }
 
   private can(userId: string): void {
@@ -102,24 +114,28 @@ export class TemplateService {
     return tpl;
   }
 
+  /** Úprava vlastní šablony; u vestavěné vznikne její přepsání (uložené pod stejným id, jde obnovit). */
   async update(actorId: string, id: string, input: TemplateInput, meta: Meta = {}): Promise<SettingsTemplate> {
     this.can(actorId);
-    const cur = this.custom.get(id);
-    if (!cur) throw new TemplateError(this.get(id) ? 'BUILTIN' : 'NOT_FOUND');
+    const cur = this.get(id);
+    if (!cur) throw new TemplateError('NOT_FOUND');
     const head = this.checkInput({ ...input, kind: cur.kind });
     const values = this.clean(input.values);
-    const [row] = await this.deps.db.update(schema.settingsTemplates).set({ ...head, values, updatedBy: actorId, updatedAt: new Date() }).where(eq(schema.settingsTemplates.id, id)).returning();
+    const [row] = this.custom.has(id)
+      ? await this.deps.db.update(schema.settingsTemplates).set({ ...head, values, updatedBy: actorId, updatedAt: new Date() }).where(eq(schema.settingsTemplates.id, id)).returning()
+      : await this.deps.db.insert(schema.settingsTemplates).values({ id, kind: cur.kind, ...head, values, updatedBy: actorId }).returning();
     const tpl = this.fromRow(row!);
     this.custom.set(id, tpl);
     await this.deps.audit?.log({ actorId, action: 'sablona.upravit', targetType: 'template', targetId: id, before: { name: cur.name, values: cur.values }, after: { name: head.name, values }, ...meta });
     return tpl;
   }
 
+  /** Smazání vlastní šablony; u přepsané vestavěné se obnoví původní verze (hry si nesou snímek, nic se jim nemění). */
   async remove(actorId: string, id: string, meta: Meta = {}): Promise<void> {
     this.can(actorId);
     const cur = this.custom.get(id);
     if (!cur) throw new TemplateError(this.get(id) ? 'BUILTIN' : 'NOT_FOUND');
-    if (this.deps.inUse?.(id)) throw new TemplateError('IN_USE');
+    if (!this.isBuiltinId(id) && this.deps.inUse?.(id)) throw new TemplateError('IN_USE');
     await this.deps.db.delete(schema.settingsTemplates).where(eq(schema.settingsTemplates.id, id));
     this.custom.delete(id);
     await this.deps.audit?.log({ actorId, action: 'sablona.smazat', targetType: 'template', targetId: id, before: { name: cur.name }, ...meta });

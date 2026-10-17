@@ -461,7 +461,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   // Orientační odhad délky turnaje simulací s boty (jen pro ty, kdo turnaje zakládají).
   // ---------- šablony nastavení (vestavěné + vlastní) ----------
   const templateBody = z.object({ name: z.string().max(100), description: z.string().max(300).optional(), kind: z.enum(['cash', 'tournament', 'live']), tags: z.array(z.string().max(30)).max(20).optional(), values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])) });
-  const templateDto = (t: SettingsTemplate) => ({ id: t.id, kind: t.kind, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, values: t.values });
+  const templateDto = (t: SettingsTemplate) => ({ id: t.id, kind: t.kind, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, overridden: svc.templates().isOverridden(t.id), values: t.values });
   app.get('/api/admin/templates', guard(async (req, reply) => {
     if (!svc.perms.can(need(req).id, 'nastaveni.globalni').allowed) throw new AccountError('FORBIDDEN');
     return reply.send({ templates: svc.templates().list().map(templateDto) });

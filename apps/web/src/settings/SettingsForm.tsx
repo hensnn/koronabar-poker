@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button } from '../ui';
+import { Button, NumInput } from '../ui';
 import {
   categoryKey,
   helpKey,
@@ -172,16 +172,7 @@ function Control({
               onChange={(e) => onChange(Number(e.target.value))}
             />
           )}
-          <input
-            id={id}
-            type="number"
-            className={`${field} w-28 font-mono`}
-            min={def.min}
-            max={def.max}
-            step={def.step ?? 1}
-            value={Number(value)}
-            onChange={(e) => onChange(Number(e.target.value))}
-          />
+          <NumInput id={id} className="w-28" min={def.min} max={def.max} step={def.step ?? 1} value={Number(value)} onChange={onChange} />
           {unit && <span className="text-muted">{unit}</span>}
         </div>
       );

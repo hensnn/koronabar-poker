@@ -153,11 +153,13 @@ export interface CreateProps {
   bodyExtra?: Record<string, unknown>;
   /** Doplňující editory (struktura blindů, vlastní výplaty) pod formulářem nastavení. */
   extras?: (v: { values: SettingValues; set: (k: string, v: SettingValue) => void }) => React.ReactNode;
+  /** Hlavní nastavení hned nahoře (nad podrobným formulářem). */
+  top?: (v: { values: SettingValues; set: (k: string, v: SettingValue) => void }) => React.ReactNode;
 }
 
 export type { Template };
 
-export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', postPath = '/api/lobby/tables', title, nameLabel, extras, bodyExtra }: CreateProps) {
+export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', postPath = '/api/lobby/tables', title, nameLabel, extras, top, bodyExtra }: CreateProps) {
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? '');
   const [name, setName] = useState('');
   const [overrides, setOverrides] = useState<Record<string, SettingValue>>({});
@@ -183,6 +185,7 @@ export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', pos
             </label>
           ))}
         </fieldset>
+        {top?.({ values: resolved.values, set: (k, v) => setOverrides((o) => ({ ...o, [k]: v })) })}
         <Button onClick={() => setAdvanced(!advanced)}>{advanced ? t('lobby.hideAdvanced') : t('lobby.showAdvanced')}</Button>
         {advanced && (
           <SettingsForm
@@ -233,7 +236,7 @@ interface Details {
   isAdmin: boolean;
 }
 
-export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/lobby/tables', extras }: { tableId: string; onClose: () => void; kind?: 'cash' | 'tournament'; basePath?: string; extras?: CreateProps['extras'] }) {
+export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/lobby/tables', extras, top }: { tableId: string; onClose: () => void; kind?: 'cash' | 'tournament'; basePath?: string; extras?: CreateProps['extras']; top?: CreateProps['top'] }) {
   const detailsPath = kind === 'tournament' ? `${basePath}/${tableId}/details` : `${basePath}/${tableId}`;
   const [d, setD] = useState<Details | null>(null);
   const [changes, setChanges] = useState<Record<string, SettingValue>>({});
@@ -261,6 +264,7 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
   return (
     <Modal title={`${t('lobby.edit')}: ${d.name}`} onClose={onClose} dirty={dirty}>
       <div className="flex flex-col gap-3">
+        {top?.({ values, set: (k, v) => setChanges((c) => ({ ...c, [k]: v })) })}
         <SettingsForm
           registry={registry}
           values={values}

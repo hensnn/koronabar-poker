@@ -4,7 +4,7 @@ import { del, errorText, get, post, put } from '../../api';
 import { registry } from '../../settings';
 import { SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, DataTable, Modal, Notice, Select, Td, TextArea, TextInput } from '../../ui';
-import { MoneyPreview, RebuyCard, StructureEditor } from '../structure-editor';
+import { MoneyPreview, RebuyCard, StructureEditor, TournamentBasics } from '../structure-editor';
 
 interface Template {
   id: string;
@@ -13,6 +13,8 @@ interface Template {
   description: string;
   tags: string[];
   builtin: boolean;
+  /** Vestavěná šablona, kterou správce přepsal (jde obnovit). */
+  overridden?: boolean;
   values: Record<string, SettingValue>;
 }
 
@@ -22,7 +24,7 @@ const templateScoped = (d: { scopes?: readonly string[] }) => scopeAllowed(d.sco
 export function TemplatesPage() {
   const [rows, setRows] = useState<Template[]>([]);
   const [error, setError] = useState('');
-  const [editor, setEditor] = useState<{ base: Template | null; kind: Template['kind'] } | null>(null);
+  const [editor, setEditor] = useState<{ base: Template | null; kind: Template['kind']; copy?: boolean } | null>(null);
   const reload = useCallback(() => {
     get<{ templates: Template[] }>('/api/admin/templates')
       .then((d) => setRows(d.templates))
@@ -50,11 +52,27 @@ export function TemplatesPage() {
               <div className="text-sm text-muted">{x.builtin ? t(x.description) : x.description}</div>
             </Td>
             <Td>{t(`templates.kind.${x.kind}`)}</Td>
-            <Td>{x.builtin ? <Badge>{t('templates.builtin')}</Badge> : <Badge tone="primary">{t('templates.custom')}</Badge>}</Td>
+            <Td>{x.builtin ? <Badge>{t('templates.builtin')}</Badge> : x.overridden ? <Badge tone="warning">{t('templates.overridden')}</Badge> : <Badge tone="primary">{t('templates.custom')}</Badge>}</Td>
             <Td>
               <div className="flex flex-wrap gap-1">
-                <Button onClick={() => setEditor({ base: x, kind: x.kind })}>{x.builtin ? t('templates.copy') : t('lobby.edit')}</Button>
-                {!x.builtin && (
+                <Button onClick={() => setEditor({ base: x, kind: x.kind })}>{t('lobby.edit')}</Button>
+                <Button onClick={() => setEditor({ base: x, kind: x.kind, copy: true })}>{t('templates.copy')}</Button>
+                {x.overridden && (
+                  <Button
+                    onClick={async () => {
+                      if (!confirm(t('templates.restoreConfirm', { name: x.name }))) return;
+                      try {
+                        await del(`/api/admin/templates/${x.id}`);
+                        reload();
+                      } catch (e) {
+                        setError(errorText(e));
+                      }
+                    }}
+                  >
+                    {t('templates.restore')}
+                  </Button>
+                )}
+                {!x.builtin && !x.overridden && (
                   <Button
                     variant="danger"
                     onClick={async () => {
@@ -79,6 +97,7 @@ export function TemplatesPage() {
         <TemplateEditor
           base={editor.base}
           kind={editor.kind}
+          copy={!!editor.copy}
           onClose={() => setEditor(null)}
           onSaved={() => {
             setEditor(null);
@@ -91,9 +110,10 @@ export function TemplatesPage() {
 }
 
 /** Editor šablony: název, popis a celý formulář nastavení (jen parametry, které šablona smí určit). */
-function TemplateEditor({ base, kind, onClose, onSaved }: { base: Template | null; kind: Template['kind']; onClose: () => void; onSaved: () => void }) {
-  const editing = !!base && !base.builtin;
-  const [name, setName] = useState(base ? (base.builtin ? `${t(base.name)} (${t('templates.copySuffix')})` : base.name) : '');
+function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template | null; kind: Template['kind']; copy: boolean; onClose: () => void; onSaved: () => void }) {
+  // Úprava = existující šablona (i vestavěná: uloží se jako její přepsání); kopie = nová vlastní šablona.
+  const editing = !!base && !copy;
+  const [name, setName] = useState(base ? (copy ? `${base.builtin ? t(base.name) : base.name} (${t('templates.copySuffix')})` : base.builtin ? t(base.name) : base.name) : '');
   const [description, setDescription] = useState(base ? (base.builtin ? t(base.description) : base.description) : '');
   const [values, setValues] = useState<Record<string, SettingValue>>(base?.values ?? {});
   const [dirty, setDirty] = useState<string[]>([]);
@@ -116,13 +136,14 @@ function TemplateEditor({ base, kind, onClose, onSaved }: { base: Template | nul
     }
   };
   return (
-    <Modal title={editing ? `${t('lobby.edit')}: ${base.name}` : t('templates.new')} onClose={onClose} dirty={dirty.length > 0 || (editing ? name !== base.name : name.trim().length > 0)}>
+    <Modal title={editing ? `${t('lobby.edit')}: ${base.builtin ? t(base.name) : base.name}` : t('templates.new')} onClose={onClose} dirty={dirty.length > 0 || (editing ? name !== (base.builtin ? t(base.name) : base.name) : name.trim().length > 0)}>
       <div className="flex flex-col gap-3">
         <TextInput label={t('templates.name')} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />
         <TextArea label={t('templates.description')} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />
         <Select label={t('templates.kind')} value={kind} disabled>
           <option value={kind}>{t(`templates.kind.${kind}`)}</option>
         </Select>
+        {gameKind === 'tournament' && <TournamentBasics values={resolved.values} set={setOne} />}
         <SettingsForm
           registry={registry}
           values={resolved.values}
@@ -143,9 +164,9 @@ function TemplateEditor({ base, kind, onClose, onSaved }: { base: Template | nul
         />
         {gameKind === 'tournament' && (
           <>
-            <MoneyPreview values={resolved.values} set={setOne} />
-            <RebuyCard values={resolved.values} set={setOne} />
             <StructureEditor values={resolved.values} set={setOne} />
+            <MoneyPreview values={resolved.values} />
+            <RebuyCard values={resolved.values} set={setOne} />
           </>
         )}
         {error && <Notice kind="error">{error}</Notice>}

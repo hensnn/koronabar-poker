@@ -1,5 +1,5 @@
 import { t } from '@kb/shared';
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -152,3 +152,37 @@ export function DataTable({ head, children }: { head: string[]; children: ReactN
   );
 }
 export const Td = ({ children, className = '' }: { children?: ReactNode; className?: string }) => <td className={`border-b border-line px-2 py-1 align-top ${className}`}>{children}</td>;
+
+/**
+ * Číselné pole, které při psaní nevnucuje nulu: dokud je pole prázdné nebo rozepsané, drží si text,
+ * hodnotu předá až když je to platné číslo; po opuštění prázdného pole se vrátí poslední hodnota.
+ */
+export function NumInput({ value, onChange, className = '', ...p }: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & { value: number; onChange: (n: number) => void }) {
+  const [text, setText] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(String(value));
+  }, [value, focused]);
+  return (
+    <input
+      {...p}
+      type="number"
+      className={`${inputClass} font-mono ${className}`}
+      value={text}
+      onFocus={(e) => {
+        setFocused(true);
+        p.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        if (text.trim() === '' || !Number.isFinite(Number(text))) setText(String(value));
+        p.onBlur?.(e);
+      }}
+      onChange={(e) => {
+        const v = e.target.value;
+        setText(v);
+        if (v.trim() !== '' && Number.isFinite(Number(v))) onChange(Number(v));
+      }}
+    />
+  );
+}

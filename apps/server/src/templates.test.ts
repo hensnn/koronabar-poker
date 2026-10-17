@@ -70,7 +70,6 @@ describe('vlastní šablony nastavení', () => {
   it('oprávnění a validace: hráč nesmí, vestavěná šablona se neupravuje, neplatné hodnoty se odmítnou', async () => {
     const s = await start();
     expect(await code(s.server.templates.create(s.player, { name: 'Moje', kind: 'cash', values: {} }))).toBe('FORBIDDEN');
-    expect(await code(s.server.templates.update(s.admin, 'cash-klasika', { name: 'X', kind: 'cash', values: {} }))).toBe('BUILTIN');
     expect(await code(s.server.templates.remove(s.admin, 'cash-klasika'))).toBe('BUILTIN');
     expect(await code(s.server.templates.remove(s.admin, 'neexistuje'))).toBe('NOT_FOUND');
     expect(await code(s.server.templates.create(s.admin, { name: 'X', kind: 'cash', values: {} }))).toBe('INVALID');
@@ -81,6 +80,26 @@ describe('vlastní šablony nastavení', () => {
     await expect(s.server.tournaments.create(s.admin, { name: 'Pátek', templateId: cash.id })).rejects.toThrow();
     const { id } = await s.server.tables.createTable(s.player, { name: 'Stůl z vlastní', templateId: cash.id });
     expect(s.server.tables.settingsOf(id)!['table.bigBlind']).toBe(20);
+  });
+
+  it('vestavěnou šablonu jde přepsat (název i hodnoty) a obnovit', async () => {
+    const s = await start();
+    const before = s.server.templates.get('tour-turbo')!;
+    const t2 = await s.server.templates.update(s.admin, 'tour-turbo', { name: 'Páteční turbo', kind: 'tournament', values: { ...before.values, 'tournament.levelMinutes': 4 } });
+    expect(t2.name).toBe('Páteční turbo');
+    expect(t2.builtin).toBe(false);
+    expect(s.server.templates.isOverridden('tour-turbo')).toBe(true);
+    expect(s.server.templates.get('tour-turbo')!.values['tournament.levelMinutes']).toBe(4);
+    // v seznamu je jen jednou, na místě vestavěné
+    expect(s.server.templates.list('tournament').filter((x) => x.id === 'tour-turbo')).toHaveLength(1);
+    // turnaj z přepsané šablony si uloží snímek
+    const { id } = await s.server.tournaments.create(s.admin, { name: 'Pátek', templateId: 'tour-turbo' });
+    expect(s.server.tournaments.settingsOf(id)!['tournament.levelMinutes']).toBe(4);
+    // obnovení původní verze (i když šablonu používá turnaj)
+    await s.server.templates.remove(s.admin, 'tour-turbo');
+    expect(s.server.templates.isOverridden('tour-turbo')).toBe(false);
+    expect(s.server.templates.get('tour-turbo')!.name).toBe(before.name);
+    expect(s.server.tournaments.settingsOf(id)!['tournament.levelMinutes']).toBe(4);
   });
 
   it('vlastní šablony přežijí restart (načtou se z databáze)', async () => {

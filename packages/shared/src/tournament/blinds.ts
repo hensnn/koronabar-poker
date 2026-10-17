@@ -93,3 +93,11 @@ export function generateStructure(o: GenerateOptions): Level[] {
   // Nikdy dvakrát stejný level (na konci žebříčku).
   return levels.filter((l, i) => i === 0 || l.bigBlind > levels[i - 1]!.bigBlind);
 }
+
+/** Předvolby tempa turnaje: délka levelu a cílová délka; samotné blindy se z nich dopočítají podle stacku a počtu hráčů. */
+export const STRUCTURE_PRESETS: { id: 'slow' | 'standard' | 'turbo' | 'hyper'; levelMinutes: number; targetMinutes: number }[] = [
+  { id: 'slow', levelMinutes: 20, targetMinutes: 240 },
+  { id: 'standard', levelMinutes: 15, targetMinutes: 150 },
+  { id: 'turbo', levelMinutes: 6, targetMinutes: 60 },
+  { id: 'hyper', levelMinutes: 3, targetMinutes: 30 },
+];

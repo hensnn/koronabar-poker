@@ -9,7 +9,7 @@ import { DealPanel } from './deal';
 import { ShareToChat } from './chat-extras';
 import { CalendarPanel, fmtDate, PlansPanel, ScheduleDialog, SeriesPanel } from './planning';
 import { CreateDialog, EditDialog, type Template } from './lobby';
-import { MoneyPreview, RebuyCard, StructureEditor } from './structure-editor';
+import { MoneyPreview, RebuyCard, StructureEditor, TournamentBasics } from './structure-editor';
 import { RulesDialog } from './rules';
 import { LiveDirectorPanel } from './live';
 import { useAnnounceRoom } from '../announcer/host';
@@ -212,6 +212,7 @@ export function TournamentsPage() {
           nameLabel={t('tournament.name')}
           onClose={() => setCreating(false)}
           onCreated={(id) => navigate(`/turnaj/${id}`)}
+          top={({ values, set }) => <TournamentBasics values={values} set={set} />}
           extras={({ values, set }) => (
             <>
               {can(me, 'zivahra.rizeni') && (
@@ -223,9 +224,9 @@ export function TournamentsPage() {
                   <span className="text-sm text-muted">{t('live.createHint')}</span>
                 </label>
               )}
-              <MoneyPreview values={values} set={set} />
-              <RebuyCard values={values} set={set} />
               <StructureEditor values={values} set={set} />
+              <MoneyPreview values={values} />
+              <RebuyCard values={values} set={set} />
               {values['tournament.payoutPreset'] === 'custom' && <PayoutEditor values={values} set={set} />}
             </>
           )}
@@ -695,11 +696,12 @@ export function TournamentPage({ id }: { id: string }) {
           tableId={view.id}
           kind="tournament"
           basePath="/api/tournaments"
+          top={({ values, set }) => <TournamentBasics values={values} set={set} />}
           extras={({ values, set }) => (
             <>
-              <MoneyPreview values={values} set={set} />
-              <RebuyCard values={values} set={set} />
               <StructureEditor values={values} set={set} />
+              <MoneyPreview values={values} />
+              <RebuyCard values={values} set={set} />
             </>
           )}
           onClose={() => {
