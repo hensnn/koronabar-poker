@@ -107,7 +107,7 @@ export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; 
         🔊
       </Button>
       {open && (
-        <div role="dialog" aria-label={t('sounds.palette')} className="absolute bottom-full right-0 z-20 mb-1 flex max-h-96 w-80 flex-col gap-2 overflow-auto rounded-md border border-line bg-surface p-2 shadow-lg">
+        <div role="dialog" aria-label={t('sounds.palette')} className="absolute bottom-full left-0 z-20 mb-1 flex max-h-96 w-80 max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-auto rounded-md border border-line bg-surface p-2 shadow-lg">
           <input className="rounded-sm border border-line bg-surface px-2 py-1" aria-label={t('sounds.search')} placeholder={t('sounds.search')} value={q} onChange={(e) => setQ(e.target.value)} />
           {msg && <p className="text-sm text-danger">{msg}</p>}
           {usable.length === 0 && <p className="text-sm text-muted">{t('sounds.none')}</p>}

@@ -611,3 +611,7 @@ h3,
 [data-focus] > body > #root > div > footer,
 [data-focus] .tk-tp-hide-focus { display: none !important; }
 [data-focus] > body > #root > div { max-width: none; padding: calc(var(--spacing) * 2); }
+
+/* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */
+.tk-turn-row { min-height: 2.75rem; display: flex; align-items: center; justify-content: center; }
+.tk-actionbar { min-height: 7.25rem; }

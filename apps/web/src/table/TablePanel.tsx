@@ -6,7 +6,7 @@ import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { SoundPalette } from '../pages/sounds';
-import { Button, Modal } from '../ui';
+import { Button } from '../ui';
 import { CardView } from './CardView';
 import { formatAmount } from './format';
 import { setPlan, usePlan, type Plan } from './plan';
@@ -150,8 +150,9 @@ function PanelSettings({ state, setState, titles, onClose }: { state: PanelState
     { key: 'xp.showAtTable', label: t('settings.xp.showAtTable.label'), def: true },
   ];
   return (
-    <Modal title={t('table.panelSettings')} onClose={onClose}>
-      <div className="flex flex-col gap-3">
+    <section className="tk-widget">
+      <div className="tk-widget-head">{t('table.panelSettings')}</div>
+      <div className="tk-widget-body flex flex-col gap-3">
         <h3 className="font-bold">{t('table.panelWidgets')}</h3>
         <ul className="flex flex-col gap-1">
           {state.order.map((id, i) => (
@@ -183,7 +184,7 @@ function PanelSettings({ state, setState, titles, onClose }: { state: PanelState
           </Button>
         </div>
       </div>
-    </Modal>
+    </section>
   );
 }
 
@@ -283,14 +284,17 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
           ⚙
         </button>
       </div>
-      {state.order
-        .filter((id) => bodies[id].show && !state.hidden.includes(id))
-        .map((id) => (
-          <Widget key={id} id={id} title={titles[id]} state={state} setState={setState}>
-            {bodies[id].body}
-          </Widget>
-        ))}
-      {open && <PanelSettings state={state} setState={setState} titles={titles} onClose={() => setOpen(false)} />}
+      {open ? (
+        <PanelSettings state={state} setState={setState} titles={titles} onClose={() => setOpen(false)} />
+      ) : (
+        state.order
+          .filter((id) => bodies[id].show && !state.hidden.includes(id))
+          .map((id) => (
+            <Widget key={id} id={id} title={titles[id]} state={state} setState={setState}>
+              {bodies[id].body}
+            </Widget>
+          ))
+      )}
     </>
   );
 }

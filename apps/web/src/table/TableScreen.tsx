@@ -18,7 +18,6 @@ import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
 import { Modal } from '../ui';
-import { PlanBar } from './TablePanel';
 import { usePlanExecutor } from './plan';
 
 interface Props {
@@ -36,7 +35,7 @@ const btnPrimary = 'rounded-md border border-primary bg-primary px-3 py-1 text-o
 /** Sázka hráče leží mezi jeho sedadlem a středem stolu. */
 function betPosition(seat: number, viewerSeat: number | null, count: number) {
   const p = seatPosition(seat, viewerSeat, count);
-  return { left: 50 + (p.left - 50) * 0.5, top: 50 + (p.top - 50) * 0.4 };
+  return { left: 50 + (p.left - 50) * 0.52, top: 50 + (p.top - 50) * 0.6 };
 }
 
 export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props) {
@@ -179,6 +178,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       </div>
 
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
+      <div className="tk-turn-row">
       {myTurn ? (
         <div role="status" className="tk-your-turn tk-pop">
           {t('table.yourTurn')} · <Countdown deadline={view.deadline} offset={net.clockOffset} />
@@ -193,6 +193,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </p>
         )
       )}
+      {!myTurn && !acting && <p className="text-center text-sm text-muted">{t('table.waitingPlayers')}</p>}
+      </div>
 
       {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && (
         <div role="dialog" aria-label={t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })} className="mx-auto flex max-w-md flex-col gap-2 rounded-md border border-primary bg-surface p-3">
@@ -214,12 +216,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
         </div>
       )}
 
-      {mine && !view.legal && mine.hasCards && mine.status === 'active' && (
-        <div className="tk-tp-mobile">
-          <PlanBar view={view} />
-        </div>
-      )}
-      {mine && view.legal && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
+      {mine && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
       {mine && (
         <div className="flex flex-wrap items-center gap-2">

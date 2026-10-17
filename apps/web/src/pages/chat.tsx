@@ -24,7 +24,7 @@ import {
 } from '../chat-store';
 import { useNet } from '../net';
 import { can, useSession } from '../session';
-import { useSettings } from '../settings';
+import { saveUserSetting, useSettings } from '../settings';
 import { previewSound, useSoundState } from '../sound-client';
 import { SoundPalette } from './sounds';
 import { RankBadge } from '../progress-client';
@@ -151,8 +151,23 @@ export function ChatPanel({ channel, compact }: { channel: Channel; compact?: bo
   };
 
   const canMod = can(me, 'chat.mazat_zpravy');
+  // U stolu jde skrýt zprávy o hře (systémové) a zprávy hráčů; volba je osobní a synchronizuje se.
+  const showSystem = settings.values['chat.showSystemAtTable'] !== false;
+  const showPlayers = settings.values['chat.showPlayersAtTable'] !== false;
+  const shown = compact ? messages.filter((m) => (m.system ? showSystem : showPlayers)) : messages;
+  const toggle = (key: string, value: boolean) => void saveUserSetting(key, value).catch((e: unknown) => setError(errMsg(e)));
   return (
-    <div className="flex flex-col gap-2">
+    <div className={`flex flex-col ${compact ? 'gap-1 text-sm' : 'gap-2'}`}>
+      {compact && (
+        <div className="flex items-center gap-1 text-xs">
+          <button className={`rounded-sm border px-2 ${showSystem ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-muted'}`} aria-pressed={showSystem} onClick={() => toggle('chat.showSystemAtTable', !showSystem)}>
+            {t('chat.filterGame')}
+          </button>
+          <button className={`rounded-sm border px-2 ${showPlayers ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-muted'}`} aria-pressed={showPlayers} onClick={() => toggle('chat.showPlayersAtTable', !showPlayers)}>
+            {t('chat.filterPlayers')}
+          </button>
+        </div>
+      )}
       {!compact && (
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-heading text-xl font-bold">{channel.name}</h2>
@@ -163,12 +178,12 @@ export function ChatPanel({ channel, compact }: { channel: Channel; compact?: bo
           )}
         </div>
       )}
-      <div ref={listRef} className={`flex flex-col gap-2 overflow-y-auto rounded-md border border-line bg-surface p-2 ${compact ? 'h-48' : 'h-96'}`} aria-live="polite" aria-label={t('chat.messages')}>
+      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${compact ? 'h-32 gap-0 p-1 leading-tight' : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')}>
         {messages.length >= 50 && (
           <Button onClick={() => void openChannel(channel.id, messages[0]!.id)}>{t('chat.older')}</Button>
         )}
-        {messages.map((m) => (
-          <div key={m.id} className={`rounded-sm px-2 py-1 ${m.system ? 'text-muted' : ''} ${m.mentions.includes(me?.user.id ?? '') ? 'bg-raised' : ''}`}>
+        {shown.map((m) => (
+          <div key={m.id} className={`rounded-sm px-2 ${compact ? 'py-0' : 'py-1'} ${m.system ? 'text-muted' : ''} ${m.mentions.includes(me?.user.id ?? '') ? 'bg-raised' : ''}`}>
             {m.system ? (
               <em className="not-italic">
                 <RichBody body={m.body} />
@@ -191,7 +206,7 @@ export function ChatPanel({ channel, compact }: { channel: Channel; compact?: bo
                 {m.replyTo && <p className="border-l-2 border-line pl-2 text-sm text-muted">{t('chat.replyTo', { nick: nick.get(m.replyTo) ?? '…' })}</p>}
                 {m.body && <MessageBody body={m.body} />}
                 {m.image && <img src={chatImageUrl(m.image)} alt={t('chat.image')} loading="lazy" className="mt-1 max-h-64 max-w-full rounded-sm border border-line" />}
-                <div className="mt-1 flex flex-wrap items-center gap-1 text-sm">
+                <div className={`flex flex-wrap items-center gap-1 text-sm ${compact ? 'hidden' : 'mt-1'}`}>
                   {Object.entries(m.reactions).map(([emoji, users]) => (
                     <button key={emoji} className={`rounded-sm border px-1 ${users.includes(me?.user.id ?? '') ? 'border-primary' : 'border-line'}`} onClick={() => void reactTo(m.id, emoji).catch((e) => setError(errMsg(e)))} aria-label={`${emoji} ${users.length}`}>
                       {emoji} {users.length}
