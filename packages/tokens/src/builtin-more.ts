@@ -4,6 +4,44 @@ const v = (id: string, light: Record<string, string>, dark: Record<string, strin
 
 /** Další vestavěné motivy: Kasino, Noční, Minimalistický, Retro. */
 export const MORE_THEMES: Theme[] = [
+  // Červený salon: v duchu klasických desktopových heren (červené plátno s tmavým okrajem, šedé okolí, velké indexy karet).
+  v(
+    'red-salon',
+    {
+      'color.felt': '#9a1c1c',
+      'color.feltBorder': '#3b0d0d',
+      'color.feltText': '#ffffff',
+      'color.roomBg': '#8a8a8a',
+      'color.vignette': '#000000aa',
+      'color.turnGlow': '#ffd166',
+      'color.dealerButton': '#f2f2f2',
+      'color.primary': '#8a1c1c',
+      'color.onPrimary': '#ffffff',
+      'cards.style': 'bigIndex',
+      'cards.back': 'solid',
+      'size.cardWidth': '64px',
+      'table.vignetteSize': '140px',
+      'table.edgeWidth': '10px',
+      'timer.style': 'bar',
+    },
+    {
+      'color.felt': '#7a1414',
+      'color.feltBorder': '#2a0808',
+      'color.feltText': '#ffffff',
+      'color.roomBg': '#3a3a3a',
+      'color.vignette': '#000000cc',
+      'color.turnGlow': '#ffd166',
+      'color.dealerButton': '#f2f2f2',
+      'color.primary': '#c0392b',
+      'color.onPrimary': '#ffffff',
+      'cards.style': 'bigIndex',
+      'cards.back': 'solid',
+      'size.cardWidth': '64px',
+      'table.vignetteSize': '140px',
+      'table.edgeWidth': '10px',
+      'timer.style': 'bar',
+    },
+  ),
   v(
     'casino',
     {

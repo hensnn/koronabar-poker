@@ -11,6 +11,8 @@ import { onSocket, useNet } from '../net';
 import { Link } from '../router';
 import { useSettings } from '../settings';
 import { TableScreen } from '../table/TableScreen';
+import { TablePanel } from '../table/TablePanel';
+import { SoundPalette } from './sounds';
 import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
@@ -31,14 +33,21 @@ function useFollowMyTable(tournamentId: string, tableId: string, enabled: boolea
   }, [tournamentId, tableId, enabled]);
 }
 
+/**
+ * Stránka stolu: na širokém displeji levý panel s widgety, stůl uprostřed a chat dole (nebo vpravo podle motivu);
+ * na telefonu stůl na celou šířku a panel i chat pod tlačítky.
+ */
 export function TablePage({ tableId }: { tableId: string }) {
   const settings = useSettings();
   const store = useChatStore();
+  const net = useNet();
   const [showSettlement, setShowSettlement] = useState(false);
+  const [drawer, setDrawer] = useState<'chat' | 'panel' | null>(null);
   useEffect(() => {
     void loadChannels().catch(() => undefined);
   }, [tableId]);
-  const tableInfo = useNet().views[tableId]?.info;
+  const view = net.views[tableId];
+  const tableInfo = view?.info;
   const isTournament = tableInfo?.tournament === true;
   // U turnaje na více stolech patří chat, dohoda a hlasování celému turnaji.
   const tournamentId = tableInfo?.tournamentId ?? tableId;
@@ -46,37 +55,72 @@ export function TablePage({ tableId }: { tableId: string }) {
   useFollowMyTable(tournamentId, tableId, isTournament);
   const { me } = useSession();
   const [pollOpen, setPollOpen] = useState(false);
+  const inBb = Boolean(settings.values['ui.showInBb']);
+  const seated = !!view?.seats.some((s) => s.playerId === me?.user.id);
   return (
     <div className="tk-tablepage">
-      <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link to={isTournament ? `/turnaj/${tournamentId}` : '/'} className="underline">
-          {isTournament ? t('tournament.backToTournament') : t('table.backToLobby')}
-        </Link>
+      <aside className="tk-tp-panel" aria-label={t('table.panel')}>
+        <TablePanel view={view} tableId={tableId} inBb={inBb} />
+      </aside>
+      <div className="tk-tp-main flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          {!isTournament && <ShareToChat kind="stul" id={tableId} />}
-          {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
-          {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+          <Link to={isTournament ? `/turnaj/${tournamentId}` : '/'} className="underline">
+            {isTournament ? t('tournament.backToTournament') : t('table.backToLobby')}
+          </Link>
+          <span className="tk-tp-mobile ml-auto flex gap-2">
+            <Button onClick={() => setDrawer('panel')}>{t('table.panelOpen')}</Button>
+            <Button onClick={() => setDrawer('chat')}>
+              {t('table.chatOpen')}
+              {channel && channel.unread > 0 && <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-on-act">{channel.unread}</span>}
+            </Button>
+          </span>
+          <span className="flex flex-wrap items-center gap-2 max-lg:w-full">
+            {!isTournament && <ShareToChat kind="stul" id={tableId} />}
+            {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
+            {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+          </span>
         </div>
-      </div>
-      <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />
-      {pollOpen && (
-        <PollEditor
-          table={{ id: tableId }}
-          onClose={() => setPollOpen(false)}
-          onCreated={(id) => {
-            setPollOpen(false);
-            navigate(`/ankety/${id}`);
-          }}
+        <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />
+        {pollOpen && (
+          <PollEditor
+            table={{ id: tableId }}
+            onClose={() => setPollOpen(false)}
+            onCreated={(id) => {
+              setPollOpen(false);
+              navigate(`/ankety/${id}`);
+            }}
+          />
+        )}
+        {isTournament && <DealPanel id={tournamentId} onlyOpen />}
+        <TableScreen
+          tableId={tableId}
+          inBb={inBb}
+          quickPost={String(settings.values['ui.quickBetsPostflop'])}
+          quickPre={String(settings.values['ui.quickBetsPreflop'])}
+          extra={
+            seated ? (
+              <span className="tk-tp-mobile">
+                <SoundPalette target={{ kind: 'table', id: tableId }} />
+              </span>
+            ) : undefined
+          }
         />
-      )}
-      {isTournament && <DealPanel id={tournamentId} onlyOpen />}
-      <TableScreen tableId={tableId} inBb={Boolean(settings.values['ui.showInBb'])} quickPost={String(settings.values['ui.quickBetsPostflop'])} quickPre={String(settings.values['ui.quickBetsPreflop'])} />
       </div>
-      {channel && (
-        <Card title={t('table.chat')}>
-          <ChatPanel channel={channel} compact />
-        </Card>
+      <div className="tk-tp-chat">
+        {channel && (
+          <Card title={t('table.chat')}>
+            <ChatPanel channel={channel} compact />
+          </Card>
+        )}
+      </div>
+      {drawer && (
+        <div className="tk-drawer lg:hidden" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : t('table.panel')}>
+          <div className="tk-drawer-head">
+            <strong>{drawer === 'chat' ? t('table.chat') : t('table.panel')}</strong>
+            <Button onClick={() => setDrawer(null)}>{t('table.close')}</Button>
+          </div>
+          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact /> : <TablePanel view={view} tableId={tableId} inBb={inBb} />}</div>
+        </div>
       )}
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}
     </div>

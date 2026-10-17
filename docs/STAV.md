@@ -418,3 +418,9 @@ Repozitář na GitHubu je veřejný. Z obsahu i z historie commitů byly odstran
 
 ## Produkce (17. 10. 2026)
 Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běží za Nginx Proxy Managerem s HTTPS na vlastní doméně majitele. Kontejnery `app`, `db` i `backup` jsou zdravé. Aktualizace: v kontejneru `cd /opt/koronabar && git pull && docker compose up -d --build`. Další krok: ladění vzhledu podle poznámek majitele z telefonu a televize.
+
+## Nový vzhled stolu podle předlohy majitele (17. 10. 2026)
+- **Sedadla jako na klasických desktopových hernách:** karty (vlastní velké, cizí menší), pod nimi jméno a stack jako text přímo na plátně (token `color.feltText`), dealer button „D“ u karet, sázky jako žetony uvnitř oválu mezi hráčem a středem, záře kolem karet hráče na tahu, bubliny s akcí („Call 10 KČ“, „Raise 20 KČ“, „Fold“, „All-in“, „Check“) odvozené z rozdílu pohledů na stůl (`table/actions-feed.ts`, testy), výrazný pruh „Jsi na tahu“ s odpočtem.
+- **Desktop:** levý panel s widgety (hodiny turnaje, můj stůl, moje handa, šance na výhru, hráči, zvukové emotikony), každý sbalitelný a skrytelný, stav uložený v osobním nastavení `ui.tablePanel` (synchronizuje se); stůl se vejde nad akční lištu i na nižší monitor; chat dole (nebo vpravo podle motivu).
+- **Mobil:** stůl na celou šířku s vyšším oválem, menší karty soupeřů, prázdná sedadla jen jako tečky, chat a panel v celoobrazovkových panelech pod tlačítky „Chat“ (s počtem nepřečtených) a „Panel“.
+- **Motiv „Červený salon“** (vestavěný): červené plátno s tmavým okrajem, šedé okolí, karty s velkými indexy, bílý text na plátně.

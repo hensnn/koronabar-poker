@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'vitest';
+import type { TableView } from '@kb/game-core';
+import { detectActions } from './actions-feed';
+
+const view = (over: Record<string, unknown> = {}): TableView =>
+  ({
+    handId: 'h1',
+    street: 'PREFLOP',
+    actingSeat: null,
+    seats: [
+      { seat: 0, bet: 0, status: 'active' },
+      { seat: 1, bet: 10, status: 'active' },
+      { seat: 2, bet: 20, status: 'active' },
+    ],
+    ...over,
+  }) as unknown as TableView;
+const seats = (a: number, b: number, c: number, st: Record<number, string> = {}) => [
+  { seat: 0, bet: a, status: st[0] ?? 'active' },
+  { seat: 1, bet: b, status: st[1] ?? 'active' },
+  { seat: 2, bet: c, status: st[2] ?? 'active' },
+];
+
+describe('akce hráčů odvozené ze stavu stolu', () => {
+  it('call, raise, bet, fold a all-in podle změny sázek a stavu', () => {
+    const before = view({ actingSeat: 0 });
+    expect(detectActions(before, view({ actingSeat: 1, seats: seats(20, 10, 20) }))).toEqual([{ seat: 0, kind: 'call', amount: 20 }]);
+    expect(detectActions(before, view({ actingSeat: 1, seats: seats(60, 10, 20) }))).toEqual([{ seat: 0, kind: 'raise', amount: 60 }]);
+    expect(detectActions(before, view({ actingSeat: 1, seats: seats(0, 10, 20, { 0: 'folded' }) }))).toEqual([{ seat: 0, kind: 'fold', amount: 0 }]);
+    expect(detectActions(before, view({ actingSeat: 1, seats: seats(500, 10, 20, { 0: 'allIn' }) }))).toEqual([{ seat: 0, kind: 'allIn', amount: 500 }]);
+    const flop = view({ street: 'FLOP', actingSeat: 1, seats: seats(0, 0, 0) });
+    expect(detectActions(flop, view({ street: 'FLOP', actingSeat: 2, seats: seats(0, 30, 0) }))).toEqual([{ seat: 1, kind: 'bet', amount: 30 }]);
+  });
+
+  it('check: hráč na tahu předal tah bez změny sázky', () => {
+    const flop = view({ street: 'FLOP', actingSeat: 1, seats: seats(0, 0, 0) });
+    expect(detectActions(flop, view({ street: 'FLOP', actingSeat: 2, seats: seats(0, 0, 0) }))).toEqual([{ seat: 1, kind: 'check', amount: 0 }]);
+  });
+
+  it('akce, která uzavřela ulici, se pozná i po smetení sázek do potu', () => {
+    const before = view({ actingSeat: 0, seats: seats(0, 20, 20) });
+    expect(detectActions(before, view({ street: 'FLOP', actingSeat: 1, seats: seats(0, 0, 0) }))).toEqual([{ seat: 0, kind: 'call', amount: 20 }]);
+    const checkRound = view({ street: 'FLOP', actingSeat: 2, seats: seats(0, 0, 0) });
+    expect(detectActions(checkRound, view({ street: 'TURN', actingSeat: 0, seats: seats(0, 0, 0) }))).toEqual([{ seat: 2, kind: 'check', amount: 0 }]);
+  });
+
+  it('nová handa nebo první pohled nevyvolá nic', () => {
+    expect(detectActions(null, view())).toEqual([]);
+    expect(detectActions(view({ handId: 'h1' }), view({ handId: 'h2', seats: seats(0, 0, 0) }))).toEqual([]);
+  });
+});

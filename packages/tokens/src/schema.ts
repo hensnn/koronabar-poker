@@ -63,6 +63,7 @@ export const TOKEN_DEFS: TokenDef[] = [
   c('color.feltBorder', '#5b3a1f', '#3a2614', 'table'),
   c('color.roomBg', '#e3e8e4', '#0b0f0d', 'table'),
   c('color.vignette', '#00000033', '#00000099', 'table'),
+  c('color.feltText', '#ffffff', '#ffffff', 'table'),
   len('table.edgeWidth', '8px', 'table'),
   len('table.radius', '9999px', 'table'),
   len('table.vignetteSize', '80px', 'table'),

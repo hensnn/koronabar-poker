@@ -25,6 +25,7 @@
   --color-on-act: var(--tk-color-onAction);
   --color-felt: var(--tk-color-felt);
   --color-felt-edge: var(--tk-color-feltBorder);
+  --color-felt-text: var(--tk-color-feltText);
   --color-card-face: var(--tk-color-cardFace);
   --color-card-back: var(--tk-color-cardBack);
   --color-card-ink: var(--tk-color-cardInk);
@@ -392,4 +393,213 @@ h3,
     width: calc(var(--tk-size-avatar) * 0.8);
     height: calc(var(--tk-size-avatar) * 0.8);
   }
+}
+
+/* ---------- stůl podle předlohy: text na plátně, sedadla, bubliny, panel ---------- */
+.tk-pot {
+  color: var(--tk-color-feltText);
+  font-family: var(--tk-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-shadow: 0 1px 2px var(--tk-color-vignette);
+}
+.tk-card-slot {
+  display: inline-block;
+  border: 1px dashed var(--tk-color-feltText);
+  opacity: 0.35;
+  animation: none;
+}
+.tk-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--spacing) * 0.5);
+  width: calc(var(--tk-size-cardWidth) * 2.6);
+  color: var(--tk-color-feltText);
+  text-align: center;
+  text-shadow: 0 1px 2px var(--tk-color-vignette);
+  transition: opacity calc(200ms / var(--tk-anim-speed));
+}
+.tk-seat-dim { opacity: 0.55; }
+.tk-seat-cards {
+  border-radius: var(--tk-shape-cardRadius);
+  padding: 2px;
+}
+.tk-seat-acting .tk-seat-cards {
+  box-shadow: 0 0 0 3px var(--tk-color-turnGlow), 0 0 calc(var(--spacing) * 4) var(--tk-color-turnGlow);
+}
+.tk-seat-won .tk-seat-cards {
+  box-shadow: 0 0 0 3px var(--tk-color-turnGlow);
+  animation: tk-win calc(1.2s / var(--tk-anim-speed)) ease-in-out 3;
+}
+.tk-seat-name {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 1);
+  max-width: 100%;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tk-seat-mine .tk-seat-name { font-size: 1.1rem; }
+.tk-seat-acting .tk-seat-name { color: var(--tk-color-turnGlow); }
+.tk-seat-stack {
+  font-family: var(--tk-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
+.tk-seat-status {
+  display: inline-block;
+  padding: calc(var(--spacing) * 0.5) calc(var(--spacing) * 2);
+  border-radius: var(--tk-shape-radiusMd);
+  background: var(--tk-color-vignette);
+  font-size: 0.8rem;
+}
+.tk-seat-empty {
+  padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
+  border: 1px dashed var(--tk-color-feltText);
+  border-radius: var(--tk-shape-radiusLg);
+  color: var(--tk-color-feltText);
+  background: var(--tk-color-vignette);
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+.tk-seat-empty:hover:not(:disabled) { opacity: 1; }
+.tk-dealer, .tk-straddle {
+  position: absolute;
+  right: calc(var(--spacing) * -3);
+  bottom: calc(var(--spacing) * -1);
+  width: calc(var(--spacing) * 6);
+  height: calc(var(--spacing) * 6);
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  font-family: var(--tk-font-heading);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-shadow: none;
+  box-shadow: var(--tk-shape-shadow);
+}
+.tk-dealer { background: var(--tk-color-dealerButton); color: var(--tk-color-cardInk); }
+.tk-straddle { right: auto; left: calc(var(--spacing) * -3); background: var(--tk-color-accent); color: var(--tk-color-onAction); }
+.tk-bet {
+  padding: calc(var(--spacing) * 0.5) calc(var(--spacing) * 2);
+  border-radius: 9999px;
+  background: var(--tk-color-surface);
+  color: var(--tk-color-text);
+  font-size: 0.8rem;
+  box-shadow: var(--tk-shape-shadow);
+  white-space: nowrap;
+}
+.tk-bubble {
+  position: absolute;
+  top: calc(var(--spacing) * -8);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2.5);
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  text-shadow: none;
+  box-shadow: var(--tk-shape-shadow);
+  z-index: 2;
+}
+.tk-your-turn {
+  margin: 0 auto;
+  padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 4);
+  border-radius: 9999px;
+  background: var(--tk-color-turnGlow);
+  color: var(--tk-color-cardInk);
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 0 calc(var(--spacing) * 4) var(--tk-color-turnGlow);
+}
+@media (max-width: 40rem) {
+  .tk-room { padding: calc(var(--spacing) * 1.5); }
+  .tk-seat { width: calc(var(--tk-size-cardWidth) * 2.1); }
+  .tk-seat-name { font-size: 0.8rem; }
+  .tk-seat-stack { font-size: 0.75rem; }
+  .tk-seat:not(.tk-seat-mine) .tk-card { --card-scale: 0.55; }
+  .tk-bubble { font-size: 0.75rem; top: calc(var(--spacing) * -6); }
+  .tk-pot { font-size: 0.9rem; }
+}
+
+/* ---------- panel s widgety a rozvržení stránky stolu ---------- */
+.tk-tablepage {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+}
+.tk-tp-panel, .tk-tp-chat { display: none; }
+@media (min-width: 64rem) {
+  .tk-tablepage {
+    display: grid;
+    grid-template-columns: 17rem minmax(0, 1fr);
+    grid-template-areas: 'panel main' 'panel chat';
+    align-items: start;
+  }
+  .tk-tp-panel { display: flex; flex-direction: column; gap: calc(var(--spacing) * 2); grid-area: panel; position: sticky; top: calc(var(--spacing) * 2); }
+  .tk-tp-main { grid-area: main; min-width: 0; }
+  .tk-tp-chat { display: block; grid-area: chat; min-width: 0; }
+  [data-tk-layout-chat='right'] .tk-tablepage {
+    grid-template-columns: 17rem minmax(0, 1fr) 22rem;
+    grid-template-areas: 'panel main chat';
+  }
+  .tk-tp-mobile { display: none; }
+}
+.tk-widget {
+  border: 1px solid var(--tk-color-border);
+  border-radius: var(--tk-shape-radiusMd);
+  background: var(--tk-color-surface);
+}
+.tk-widget-head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2);
+  width: 100%;
+  padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2);
+  font-weight: 600;
+  text-align: left;
+  background: var(--tk-color-surfaceRaised);
+  border-radius: var(--tk-shape-radiusMd) var(--tk-shape-radiusMd) 0 0;
+}
+.tk-widget-body { padding: calc(var(--spacing) * 2); font-size: 0.9rem; }
+.tk-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--tk-color-bg);
+}
+.tk-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+  border-bottom: 1px solid var(--tk-color-border);
+}
+.tk-drawer-body { flex: 1; overflow: auto; padding: calc(var(--spacing) * 3); }
+/* Na širokém displeji se stůl vejde nad akční lištu i na nižší monitor. */
+@media (min-width: 64rem) {
+  .tk-table { width: min(100%, calc(56vh * var(--tk-table-aspect))); }
+}
+/* Telefon: vyšší ovál, menší karty, prázdná sedadla jen jako tečka. */
+@media (max-width: 40rem) {
+  .tk-table { aspect-ratio: 1.15; }
+  .tk-seat-mine .tk-card { --card-scale: 0.85; }
+  .tk-seat-empty {
+    width: calc(var(--spacing) * 7);
+    height: calc(var(--spacing) * 7);
+    padding: 0;
+    border-radius: 9999px;
+    font-size: 0;
+  }
+  .tk-seat-empty::after { content: '+'; font-size: 1rem; line-height: 1; }
+  .tk-dealer, .tk-straddle { width: calc(var(--spacing) * 4.5); height: calc(var(--spacing) * 4.5); font-size: 0.7rem; right: calc(var(--spacing) * -2); }
 }

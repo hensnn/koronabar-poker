@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { onSocket } from '../net';
 import { RankBadge } from '../progress-client';
 import { useSettings } from '../settings';
-import { SoundPalette } from '../pages/sounds';
 import { NoteDialog, NoteDot } from '../pages/notes';
 import type { SoundPlayEvent } from '../sound-client';
 import type { SeatView, TableView } from '@kb/game-core';
@@ -13,9 +12,10 @@ import { ActionBar } from './ActionBar';
 import { CardView } from './CardView';
 import { formatAmount, seatPosition } from './format';
 import { Amount } from './Chips';
-import { Countdown, TimerBar, TimerRing } from './TimerRing';
+import { Countdown, TimerBar } from './TimerRing';
 import { useThemeToken } from '../theme/ThemeProvider';
 import { useTableSfx } from './sfx';
+import { useActionBubbles, type Bubble } from './actions-feed';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
 
 interface Props {
@@ -23,11 +23,19 @@ interface Props {
   inBb: boolean;
   quickPost: string;
   quickPre: string;
+  /** Doplňková tlačítka pod akční lištou (zvuky, ankety…). */
+  extra?: React.ReactNode;
 }
 
 const btn = 'rounded-md border border-line bg-surface px-3 py-1';
 
-export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
+/** Sázka hráče leží mezi jeho sedadlem a středem stolu. */
+function betPosition(seat: number, viewerSeat: number | null, count: number) {
+  const p = seatPosition(seat, viewerSeat, count);
+  return { left: 50 + (p.left - 50) * 0.58, top: 50 + (p.top - 50) * 0.55 };
+}
+
+export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props) {
   const net = useNet();
   const logoTextToken = useThemeToken('table.logoText');
   const logoImageToken = useThemeToken('image.logo');
@@ -36,6 +44,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
   const view = net.views[tableId];
   useTableSfx(view, net.clockOffset);
   const myLook = useMyTableLook();
+  const actionBubbles = useActionBubbles(view, inBb);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<{ kind: 'join'; seat: number } | { kind: 'topUp' } | null>(null);
 
@@ -43,15 +52,15 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
     if (net.status === 'online') void table.subscribe(tableId);
   }, [net.status, tableId]);
 
-  // Zvukové emotikony u stolu: bublina u avataru na pár vteřin.
-  const [bubbles, setBubbles] = useState<Record<string, { emoji: string; name: string }>>({});
+  // Zvukové emotikony u stolu: bublina u hráče na pár vteřin.
+  const [soundBubbles, setSoundBubbles] = useState<Record<string, { emoji: string; name: string }>>({});
   useEffect(
     () =>
       onSocket<SoundPlayEvent>('sound', (e) => {
         if (e.target.kind !== 'table' || e.target.id !== tableId) return;
         const who = e.from.userId;
-        setBubbles((b) => ({ ...b, [who]: { emoji: e.emoji, name: e.name } }));
-        window.setTimeout(() => setBubbles((b) => (b[who]?.name === e.name ? Object.fromEntries(Object.entries(b).filter(([k]) => k !== who)) : b)), 3500);
+        setSoundBubbles((b) => ({ ...b, [who]: { emoji: e.emoji, name: e.name } }));
+        window.setTimeout(() => setSoundBubbles((b) => (b[who]?.name === e.name ? Object.fromEntries(Object.entries(b).filter(([k]) => k !== who)) : b)), 3500);
       }),
     [tableId],
   );
@@ -60,6 +69,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
   const info = view.info;
   const mine = view.seats.find((s) => s.playerId === userId);
   const seated = !!mine;
+  const myTurn = !!mine && view.actingSeat === mine.seat;
   const run = async (p: Promise<{ ok: boolean; code?: string; params?: Record<string, unknown> }>) => {
     const r = await p;
     setError(r.ok ? '' : t(`error.${r.code}`, r.params));
@@ -67,117 +77,116 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
   };
 
   const seatNumbers = Array.from({ length: info.seatCount }, (_, i) => i);
-  const logoText = logoTextToken;
-  const logoImage = logoImageToken;
+  const viewerSeat = view.viewerSeat ?? mine?.seat ?? 0;
   const odds = view.odds;
   const mainOdds = odds?.[0];
+  const acting = view.actingSeat !== null ? view.seats.find((s) => s.seat === view.actingSeat) : undefined;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <div className="tk-room" {...myLook}>
-      <div className="tk-table relative mx-auto w-full max-w-3xl">
-        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
-          {(logoText || logoImage !== 'none') && (
-            <div className="tk-table-logo flex items-center justify-center text-sm font-heading text-on-primary">{logoText}</div>
-          )}
-          {view.runs && view.runs.length > 1 ? (
-            <div className="flex flex-col gap-1">
-              {view.runs.map((r, n) => (
-                <div key={n} className="flex items-center gap-2">
-                  <span className="w-12 text-xs text-muted">{t('table.run', { n: n + 1 })}</span>
-                  <div className="flex gap-1">
-                    {r.board.map((c, i) => (
-                      <CardView key={i} card={c} small />
-                    ))}
+        <div className="tk-table relative mx-auto w-full max-w-4xl">
+          {/* střed: board, pot, hlášky */}
+          <div className="absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
+            {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
+            {view.runs && view.runs.length > 1 ? (
+              <div className="flex flex-col gap-1">
+                {view.runs.map((r, n) => (
+                  <div key={n} className="flex items-center gap-2">
+                    <span className="w-12 text-xs text-felt-text">{t('table.run', { n: n + 1 })}</span>
+                    <div className="flex gap-1">
+                      {r.board.map((c, i) => (
+                        <CardView key={i} card={c} small />
+                      ))}
+                    </div>
+                    <span className="text-xs text-felt-text">
+                      {r.winners.map((w) => t('table.runWon', { nick: view.seats.find((s) => s.seat === w.seat)?.name ?? '', amount: formatAmount(w.amount, info, inBb) })).join(' · ')}
+                    </span>
                   </div>
-                  <span className="text-xs">
-                    {r.winners.map((w) => t('table.runWon', { nick: view.seats.find((s) => s.seat === w.seat)?.name ?? '', amount: formatAmount(w.amount, info, inBb) })).join(' · ')}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-1">
+                {Array.from({ length: 5 }, (_, i) =>
+                  view.board[i] ? <CardView key={i} card={view.board[i]!} delay={Math.min(4, Math.max(0, i - (view.street === 'TURN' ? 3 : view.street === 'RIVER' ? 4 : 0)) + 1)} /> : <span key={i} className="tk-card tk-card-slot" />,
+                )}
+              </div>
+            )}
+            <div className="tk-pot" aria-label={t('table.pot')}>
+              {t('table.pot')}: {formatAmount(view.totalPot, info, inBb)}
+              {view.bombPot && <span className="ml-2 rounded-md bg-accent px-2 text-on-act">{t('table.bombPot')}</span>}
             </div>
-          ) : (
-            <div className="flex gap-1">
-              {Array.from({ length: 5 }, (_, i) =>
-                view.board[i] ? <CardView key={i} card={view.board[i]!} delay={Math.min(4, Math.max(0, i - (view.street === 'TURN' ? 3 : view.street === 'RIVER' ? 4 : 0)) + 1)} /> : <span key={i} className="tk-card border border-line opacity-30" />,
-              )}
-            </div>
-          )}
-          {view.bombPot && <div className="rounded-md bg-accent px-3 py-1 text-on-act">{t('table.bombPot')}</div>}
-          {view.rabbit && (
-            <div className="flex items-center gap-1 text-xs text-muted">
-              {t('table.rabbit')}:
-              {view.rabbit.map((c) => (
-                <CardView key={c} card={c} small />
-              ))}
-            </div>
-          )}
-          <div className="rounded-md bg-surface px-3 py-1 font-mono" aria-label={t('table.pot')}>
-            {t('table.pot')}: {formatAmount(view.totalPot, info, inBb)}
+            {view.rabbit && (
+              <div className="flex items-center gap-1 text-xs text-felt-text">
+                {t('table.rabbit')}:
+                {view.rabbit.map((c) => (
+                  <CardView key={c} card={c} small />
+                ))}
+              </div>
+            )}
+            {odds && odds.length > 1 && (
+              <ul className="text-xs text-felt-text">
+                {odds.slice(1).map((o) => (
+                  <li key={o.pot}>
+                    {t('table.sidePot')} {o.pot}: {formatAmount(o.amount, info, inBb)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {view.winners && (
+              <div role="status" className="tk-pop rounded-md bg-primary px-3 py-1 text-sm text-on-primary">
+                {view.winners
+                  .map((w) => `${view.seats.find((s) => s.seat === w.seat)?.name ?? ''}: +${formatAmount(w.amount, info, inBb)}${w.hand ? ` (${t(w.hand.key, w.hand.params)})` : ''}`)
+                  .join(' · ')}
+              </div>
+            )}
           </div>
-          {(info.rake || info.jackpot !== undefined) && (
-            <div className="flex flex-wrap justify-center gap-2 text-xs text-muted">
-              {info.rake && <span>{info.rake.capChips > 0 ? t('table.rakeInfo', { percent: info.rake.percent, cap: formatAmount(info.rake.capChips, info, false) }) : t('table.rakeInfoNoCap', { percent: info.rake.percent })}</span>}
-              {info.jackpot !== undefined && (
-                <span>
-                  {t('table.jackpot')}: {info.jackpot} {info.currencySymbol}
-                </span>
-              )}
-            </div>
-          )}
-          {odds && odds.length > 1 && (
-            <ul className="text-sm text-on-act">
-              {odds.slice(1).map((o) => (
-                <li key={o.pot}>
-                  {t('table.sidePot')} {o.pot}: {formatAmount(o.amount, info, inBb)}
-                </li>
-              ))}
-            </ul>
-          )}
-          {view.winners && (
-            <div role="status" className="rounded-md bg-primary px-3 py-1 text-on-primary">
-              {view.winners
-                .map((w) => `${view.seats.find((s) => s.seat === w.seat)?.name ?? ''}: +${formatAmount(w.amount, info, inBb)}${w.hand ? ` (${t(w.hand.key, w.hand.params)})` : ''}`)
-                .join(' · ')}
-            </div>
-          )}
+
+          {/* sázky uvnitř oválu */}
+          {view.seats
+            .filter((s) => s.bet > 0)
+            .map((s) => {
+              const p = betPosition(s.seat, viewerSeat, info.seatCount);
+              return (
+                <div key={`bet-${s.seat}-${s.bet}`} className="tk-bet tk-pop absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${p.left}%`, top: `${p.top}%` }}>
+                  <Amount amount={s.bet} text={formatAmount(s.bet, info, inBb)} />
+                </div>
+              );
+            })}
+
+          {/* sedadla po obvodu */}
+          {seatNumbers.map((n) => {
+            const seat = view.seats.find((s) => s.seat === n);
+            const pos = seatPosition(n, viewerSeat, info.seatCount);
+            return (
+              <div key={n} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos.left}%`, top: `${pos.top}%` }}>
+                {seat ? (
+                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} />
+                ) : info.tournament ? null : (
+                  <button className="tk-seat-empty" disabled={seated} onClick={() => setDialog({ kind: 'join', seat: n })}>
+                    {t('table.sit')}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
-        {seatNumbers.map((n) => {
-          const seat = view.seats.find((s) => s.seat === n);
-          const pos = seatPosition(n, view.viewerSeat ?? mine?.seat ?? 0, info.seatCount);
-          return (
-            <div key={n} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos.left}%`, top: `${pos.top}%` }}>
-              {seat ? (
-                <Seat
-                  seat={seat}
-                  view={view}
-                  mine={seat.playerId === userId}
-                  offset={net.clockOffset}
-                  inBb={inBb}
-                  oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)}
-                  bubble={bubbles[seat.playerId]}
-                />
-              ) : info.tournament ? null : (
-                <button
-                  className="rounded-full border border-line bg-surface px-3 py-2 text-sm opacity-80"
-                  disabled={seated}
-                  onClick={() => setDialog({ kind: 'join', seat: n })}
-                >
-                  {t('table.sit')}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
       </div>
 
-      {view.actingSeat !== null && (
-        <p className="text-center text-muted">
-          {view.seats.find((s) => s.seat === view.actingSeat)?.name} · <Countdown deadline={view.deadline} offset={net.clockOffset} />{' '}
-          {view.bankActive && `(${t('table.timeBank')})`}
+      {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
+      {myTurn ? (
+        <div role="status" className="tk-your-turn tk-pop">
+          {t('table.yourTurn')} · <Countdown deadline={view.deadline} offset={net.clockOffset} />
+          {view.bankActive && ` (${t('table.timeBank')})`}
           {view.clockCalled && ` · ${t('table.clockCalled')}`}
-        </p>
+        </div>
+      ) : (
+        acting && (
+          <p className="text-center text-sm text-muted">
+            {t('table.waitingFor', { nick: acting.name })} · <Countdown deadline={view.deadline} offset={net.clockOffset} />
+            {view.bankActive && ` (${t('table.timeBank')})`}
+          </p>
+        )
       )}
 
       {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && (
@@ -200,13 +209,11 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
         </div>
       )}
 
-      {mine && view.legal && (
-        <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />
-      )}
+      {mine && view.legal && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
       {mine && (
-        <div className="flex flex-wrap gap-2">
-          <SoundPalette target={{ kind: 'table', id: tableId }} />
+        <div className="flex flex-wrap items-center gap-2">
+          {extra}
           {view.winners && mine.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards) && (
             <>
               <button className={btn} onClick={() => void run(table.show(tableId, 'both'))}>
@@ -256,6 +263,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
           )}
         </div>
       )}
+      {!mine && extra && <div className="flex flex-wrap items-center gap-2">{extra}</div>}
 
       {error && (
         <p role="alert" className="text-danger">
@@ -279,6 +287,16 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre }: Props) {
   );
 }
 
+const BUBBLE_TONE: Record<Bubble['kind'], string> = {
+  fold: 'bg-act-fold text-on-act',
+  check: 'bg-act-check text-on-act',
+  call: 'bg-act-call text-on-act',
+  bet: 'bg-act-raise text-on-act',
+  raise: 'bg-act-raise text-on-act',
+  allIn: 'bg-accent text-on-act',
+};
+
+/** Sedadlo jako na předloze: karty, pod nimi jméno a stack jako text na plátně, dealer button vedle karet. */
 function Seat({
   seat,
   view,
@@ -286,100 +304,90 @@ function Seat({
   offset,
   inBb,
   oddsPct,
-  bubble,
+  sound,
+  action,
 }: {
-  bubble?: { emoji: string; name: string };
   seat: SeatView;
   view: TableView;
   mine: boolean;
   offset: number;
   inBb: boolean;
   oddsPct?: { win: number; tie: number };
+  sound?: { emoji: string; name: string };
+  action?: Bubble;
 }) {
   const showRank = useSettings().values['xp.showAtTable'] !== false;
   const [noteOpen, setNoteOpen] = useState(false);
-  const timerStyle = useThemeToken('timer.style');
   const look = useLook(seat.playerId);
-  const frame = avatarClasses(look, 'border-2 border-line');
+  const frame = avatarClasses(look, '');
   const won = view.winners?.find((w) => w.seat === seat.seat);
   const acting = view.actingSeat === seat.seat;
   const dim = seat.status === 'folded' || seat.status === 'sittingOut' || seat.status === 'waiting';
   const pct = oddsPct ? `${(oddsPct.win * 100).toFixed(1)} %` : null;
+  const status = seat.status === 'allIn' ? t('table.allIn') : seat.status === 'folded' ? t('table.fold') : seat.status === 'sittingOut' ? t('table.sittingOut') : seat.status === 'waiting' ? t('table.waiting') : null;
   return (
-    <div className={`flex w-20 flex-col items-center gap-1 text-center sm:w-28 ${dim ? 'opacity-60' : ''}`}>
-      <div className="flex gap-1">
-        {seat.hasCards && (seat.cards ? seat.cards.map((c) => <CardView key={c} card={c} small />) : [0, 1].map((i) => <CardView key={i} card={seat.exposed?.[i] ?? null} small />))}
-      </div>
-      <div className={`tk-avatar relative flex items-center justify-center bg-surface ${acting ? 'border-2 tk-turn' : won ? 'border-2 tk-winner' : frame.cls}`}>
-        {acting && timerStyle !== 'bar' && <TimerRing deadline={view.deadline} offset={offset} bank={view.bankActive} />}
-        <span className="truncate px-1 text-xs font-medium max-sm:hidden">
-          {showRank && <RankBadge userId={seat.playerId} />} <LookName userId={seat.playerId}>{seat.name}</LookName>
-        </span>
+    <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''}`}>
+      <div className="relative flex justify-center">
+        <div className={`tk-seat-cards flex gap-1 ${frame.cls}`}>
+          {seat.hasCards
+            ? seat.cards
+              ? seat.cards.map((c) => <CardView key={c} card={c} small={!mine} />)
+              : [0, 1].map((i) => <CardView key={i} card={seat.exposed?.[i] ?? null} small={!mine} />)
+            : status && <span className="tk-seat-status">{status}</span>}
+        </div>
+        {seat.isDealer && (
+          <span className="tk-dealer" title={t('table.dealer')}>
+            D
+          </span>
+        )}
+        {view.straddleSeat === seat.seat && <span className="tk-straddle">S</span>}
         {frame.sparkle && (
           <span aria-hidden className="absolute -right-2 -top-2 text-xs">
             ✨
           </span>
         )}
-        {!mine && <NoteDot userId={seat.playerId} onOpen={() => setNoteOpen(true)} />}
-        {noteOpen && <NoteDialog userId={seat.playerId} nickname={seat.name} onClose={() => setNoteOpen(false)} />}
-        {bubble && (
-          <span role="status" className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-surface px-2 py-0.5 text-sm shadow-lg">
-            {bubble.emoji} {bubble.name}
+        {(action || sound) && (
+          <span key={action?.key ?? sound?.name} role="status" className={`tk-bubble tk-pop ${action ? BUBBLE_TONE[action.kind] : 'bg-surface text-text'}`}>
+            {action ? action.text : `${sound!.emoji} ${sound!.name}`}
           </span>
         )}
-        {view.straddleSeat === seat.seat && <span className="absolute -left-1 -top-1 rounded-full bg-accent px-1 text-xs text-on-act">S</span>}
-        {seat.isDealer && <span className="absolute -right-1 -top-1 rounded-full bg-dealer px-1 text-xs text-on-primary">D</span>}
+        {won && (
+          <span key={view.handId} aria-hidden className="tk-float absolute -top-3 right-0 font-mono text-sm font-bold text-accent">
+            +{formatAmount(won.amount, view.info, inBb)}
+          </span>
+        )}
       </div>
-      {/* Na telefonu je jméno pod avatarem, uvnitř by se nevešlo. */}
-      <span className="max-w-full truncate rounded-md bg-surface px-1 text-xs font-medium sm:hidden">
+      <div className="tk-seat-name">
+        {showRank && <RankBadge userId={seat.playerId} />}
         <LookName userId={seat.playerId}>{seat.name}</LookName>
-      </span>
-      <div className={`rounded-md px-2 text-xs ${mine ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
-        <Amount amount={seat.stack} text={formatAmount(seat.stack, view.info, inBb)} />
+        {!mine && <NoteDot userId={seat.playerId} onOpen={() => setNoteOpen(true)} />}
       </div>
-      {seat.wanted !== undefined && seat.wanted > 0 && (
-        <div className="rounded-md bg-danger px-2 font-mono text-xs text-on-primary" title={t('tournament.wanted')}>
-          ⚑ {seat.wanted}
+      {noteOpen && <NoteDialog userId={seat.playerId} nickname={seat.name} onClose={() => setNoteOpen(false)} />}
+      <div className="tk-seat-stack">
+        <Amount amount={seat.stack} text={formatAmount(seat.stack, view.info, inBb)} />
+        {seat.hasCards && status && <span className="ml-1 text-xs opacity-80">{status}</span>}
+      </div>
+      {acting && <TimerBar deadline={view.deadline} offset={offset} bank={view.bankActive} />}
+      {((seat.wanted ?? 0) > 0 || (seat.bounty ?? 0) > 0 || pct) && (
+        <div className="flex justify-center gap-1">
+          {(seat.wanted ?? 0) > 0 && (
+            <span className="rounded-md bg-danger px-1 font-mono text-xs text-on-primary" title={t('tournament.wanted')}>
+              ⚑ {seat.wanted}
+            </span>
+          )}
+          {(seat.bounty ?? 0) > 0 && (
+            <span className="rounded-md bg-accent px-1 font-mono text-xs text-on-act" title={t('tournament.head')}>
+              ☠ {seat.bounty}
+            </span>
+          )}
+          {pct && <span className="rounded-md bg-info px-1 font-mono text-xs text-on-act">{pct}</span>}
         </div>
       )}
-      {seat.bounty !== undefined && seat.bounty > 0 && (
-        <div className="rounded-md bg-accent px-2 font-mono text-xs text-on-act" title={t('tournament.head')}>
-          ☠ {seat.bounty}
-        </div>
-      )}
-      {acting && timerStyle === 'bar' && <TimerBar deadline={view.deadline} offset={offset} bank={view.bankActive} />}
-      {won && (
-        <span key={view.handId} aria-hidden className="tk-float absolute -top-2 font-mono text-sm font-bold text-accent">
-          +{formatAmount(won.amount, view.info, inBb)}
-        </span>
-      )}
-      {seat.bet > 0 && (
-        <div key={seat.bet} className="tk-pop rounded-md bg-raised px-2 text-xs">
-          <Amount amount={seat.bet} text={formatAmount(seat.bet, view.info, inBb)} />
-        </div>
-      )}
-      {seat.status === 'allIn' && <div className="text-xs text-accent">{t('table.allIn')}</div>}
-      {seat.status === 'folded' && <div className="text-xs text-muted">{t('table.fold')}</div>}
-      {seat.status === 'sittingOut' && <div className="text-xs text-muted">{t('table.sittingOut')}</div>}
-      {seat.status === 'waiting' && <div className="text-xs text-muted">{t('table.waiting')}</div>}
-      {pct && <div className="rounded-md bg-info px-2 font-mono text-xs text-on-act">{pct}</div>}
     </div>
   );
 }
 
-function AmountDialog({
-  title,
-  view,
-  balance,
-  onCancel,
-  onOk,
-}: {
-  title: string;
-  view: TableView;
-  balance: number;
-  onCancel: () => void;
-  onOk: (currency: number) => void;
-}) {
+function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string; view: TableView; balance: number; onCancel: () => void; onOk: (currency: number) => void }) {
   const info = view.info;
   const rate = info.chipsPerCurrencyUnit;
   const min = Math.ceil(info.minBuyIn / rate);
@@ -396,15 +404,7 @@ function AmountDialog({
       </p>
       <div className="flex items-center gap-3">
         <input aria-label={t('table.amount')} type="range" className="flex-1" min={min} max={Math.max(min, max)} value={v} onChange={(e) => setV(Number(e.target.value))} />
-        <input
-          aria-label={t('table.amountExact')}
-          type="number"
-          className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono"
-          min={min}
-          max={max}
-          value={v}
-          onChange={(e) => setV(Number(e.target.value))}
-        />
+        <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono" min={min} max={max} value={v} onChange={(e) => setV(Number(e.target.value))} />
       </div>
       <div className="flex gap-2">
         <button className={`${btn} bg-primary text-on-primary`} onClick={() => onOk(v)}>
