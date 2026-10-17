@@ -161,7 +161,10 @@ export type { Template };
 
 export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', postPath = '/api/lobby/tables', title, nameLabel, extras, top, bodyExtra }: CreateProps) {
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? '');
-  const [name, setName] = useState('');
+  // Turnaj dostane navržený název (šablona + čas založení), dokud ho hráč sám nepřepíše.
+  const suggestName = (x?: Template) => (kind === 'tournament' && x ? `${t(x.name).replace(/^Turnaj:\s*/i, '')} ${new Date().toLocaleString(undefined, { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}` : '');
+  const [name, setName] = useState(() => suggestName(templates[0]));
+  const [nameTouched, setNameTouched] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, SettingValue>>({});
   const [advanced, setAdvanced] = useState(false);
   const [error, setError] = useState('');
@@ -170,15 +173,33 @@ export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', pos
   const issues = useMemo(() => validateValues(registry, { ...(tpl?.values ?? {}), ...overrides }), [tpl, overrides]);
 
   return (
-    <Modal title={title ?? t('lobby.create')} onClose={onClose} dirty={name.trim().length > 0 || Object.keys(overrides).length > 0}>
+    <Modal title={title ?? t('lobby.create')} onClose={onClose} dirty={nameTouched || Object.keys(overrides).length > 0}>
       <div className="flex flex-col gap-3">
-        <TextInput label={nameLabel ?? t('lobby.tableName')} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />
+        <TextInput
+          label={nameLabel ?? t('lobby.tableName')}
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setNameTouched(true);
+          }}
+          maxLength={60}
+          autoFocus
+        />
         <fieldset className="flex flex-col gap-2">
           <legend className="font-medium">{t('lobby.template')}</legend>
           {templates.map((x) => (
             <label key={x.id} className={`flex cursor-pointer flex-col rounded-md border p-2 ${x.id === templateId ? 'border-primary' : 'border-line'}`}>
               <span className="flex items-center gap-2">
-                <input type="radio" name="tpl" checked={x.id === templateId} onChange={() => { setTemplateId(x.id); setOverrides({}); }} />
+                <input
+                  type="radio"
+                  name="tpl"
+                  checked={x.id === templateId}
+                  onChange={() => {
+                    setTemplateId(x.id);
+                    setOverrides({});
+                    if (!nameTouched) setName(suggestName(x));
+                  }}
+                />
                 <strong>{t(x.name)}</strong>
               </span>
               <span className="text-sm text-muted">{t(x.description)}</span>

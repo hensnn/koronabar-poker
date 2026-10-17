@@ -114,6 +114,12 @@ export function TournamentBasics({ values, set }: { values: SettingValues; set: 
             <NumField k="tournament.breakEveryLevels" values={values} set={set} label={t('basics.breakEvery')} />
             {Number(values['tournament.breakEveryLevels']) > 0 && <NumField k="tournament.breakMinutes" values={values} set={set} min={1} label={t('basics.breakMinutes')} />}
           </div>
+          {Number(values['tournament.breakEveryLevels']) > 0 && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={values['tournament.breakRepeat'] !== false} onChange={(e) => set('tournament.breakRepeat', e.target.checked)} />
+              {t('basics.breakRepeat')}
+            </label>
+          )}
         </div>
       </div>
     </Card>

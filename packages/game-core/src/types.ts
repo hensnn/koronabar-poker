@@ -115,6 +115,8 @@ export interface TableInfo {
   rebuyEnabled: boolean;
   currencySymbol: string;
   currencyDecimals: number;
+  /** Vlastní označení žetonů u stolu (prázdné = nezobrazovat). */
+  chipLabel?: string;
   /** Straddle u tohoto stolu: vypnutý, povinný, nebo dobrovolný (hráč si ho vyžádá). */
   straddle: 'off' | 'mandatory' | 'optional';
   /** Turnajový stůl: žetony nejsou měna. */

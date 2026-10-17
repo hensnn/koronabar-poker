@@ -650,6 +650,19 @@ describe('turnaj: hodiny a přestávky', () => {
     expect(h.tableBlinds()).toEqual([80, 160]);
   });
 
+  it('přestávka jen jednou: po N-tém levelu, pak už ne', () => {
+    const h = harness({ 'tournament.structure': '10/20, 20/40, 30/60, 40/80, 50/100', 'tournament.breakEveryLevels': 2, 'tournament.breakMinutes': 3, 'tournament.breakRepeat': false }, 3);
+    registerAll(h);
+    h.tour.start();
+    h.clock.advance(2 * 60_000 + 10);
+    expect(h.tour.state().onBreak).toBe(true);
+    h.clock.advance(3 * 60_000 + 10);
+    expect(h.tour.levelNumber()).toBe(3);
+    h.clock.advance(2 * 60_000 + 10);
+    expect(h.tour.state().onBreak).toBe(false);
+    expect(h.tour.levelNumber()).toBe(5);
+  });
+
   it('level podle počtu hand', async () => {
     const h = harness({ 'tournament.structure': '10/20, 20/40, 30/60', 'tournament.levelMode': 'hands', 'tournament.levelHands': 3 }, 3);
     registerAll(h);

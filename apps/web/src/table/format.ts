@@ -13,12 +13,13 @@ export function formatAmount(chips: number, info: TableInfo, inBb: boolean): str
     const bb = chips / info.bigBlind;
     return `${Number.isInteger(bb) ? bb : bb.toFixed(1)} BB`;
   }
-  // Turnajové žetony nejsou měna: bez symbolu měny a bez kurzu.
-  if (info.tournament) return `${chips} ${t('table.chipsShort')}`;
+  // Turnajové žetony nejsou měna: bez symbolu měny a bez kurzu; vlastní označení žetonů (table.chipLabel) má přednost.
+  if (info.tournament) return `${chips} ${info.chipLabel || t('table.chipsShort')}`;
   const cur = chips / info.chipsPerCurrencyUnit;
   const d = info.currencyDecimals;
   const n = d > 0 ? (cur / 10 ** d).toFixed(d) : String(Math.round(cur));
-  return showSymbol ? `${n} ${info.currencySymbol}` : n;
+  const label = info.chipLabel ? ` ${info.chipLabel}` : '';
+  return showSymbol ? `${n} ${info.currencySymbol}${label}` : `${n}${label}`;
 }
 
 const POSTFLOP_DEFAULT = [33, 50, 75, 100];

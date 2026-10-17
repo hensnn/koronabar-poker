@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SECRETS, SMTP_PRESETS, scopeAllowed, t, validateValues, type SettingValue } from '@kb/shared';
 import { errorText, get, post, put, del } from '../../api';
 import { can, useSession } from '../../session';
-import { loadSettings, registry, useSettings } from '../../settings';
+import { loadSettings, registry, saveGlobalSetting, useSettings } from '../../settings';
 import { SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, Card, DataTable, Notice, Tabs, Td, TextArea, TextInput } from '../../ui';
 
@@ -16,10 +16,10 @@ export function GlobalSettingsPage() {
   const issues = useMemo(() => validateValues(registry, values), [values]);
   const save = async () => {
     try {
-      for (const [k, v] of Object.entries(pending)) await put('/api/settings/global', { key: k, value: v });
+      for (const [k, v] of Object.entries(pending)) await saveGlobalSetting(k, v);
       setPending({});
-      await loadSettings();
       setMsg({ kind: 'success', text: t('lobby.saved') });
+      void loadSettings().catch(() => undefined);
     } catch (e) {
       setMsg({ kind: 'error', text: errorText(e) });
     }
@@ -167,9 +167,9 @@ function SmtpCard() {
   const values = { ...settings.values, ...pending };
   const keys = registry.all().filter((d) => d.category === 'email');
   const save = async () => {
-    for (const [k, v] of Object.entries(pending)) await put('/api/settings/global', { key: k, value: v });
+    for (const [k, v] of Object.entries(pending)) await saveGlobalSetting(k, v);
     setPending({});
-    await loadSettings();
+    void loadSettings().catch(() => undefined);
   };
   return (
     <Card title={t('smtp.title')}>

@@ -438,6 +438,7 @@ export class TableActor {
         rebuyEnabled: !!s['cash.rebuyEnabled'],
         currencySymbol: String(s['economy.currencySymbol']),
         currencyDecimals: num(s, 'economy.decimals'),
+        chipLabel: s['table.showChipLabel'] ? String(s['table.chipLabel'] ?? '').trim() : '',
         straddle: !s['table.straddleEnabled'] ? 'off' : s['table.straddleMandatory'] ? 'mandatory' : 'optional',
         tournament: !!this.opt.tournament,
         ...(this.opt.tournamentId ? { tournamentId: this.opt.tournamentId } : {}),

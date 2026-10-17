@@ -32,6 +32,19 @@ export function TemplatesPage() {
   }, []);
   useEffect(reload, [reload]);
   const label = (x: Template) => (x.builtin ? t(x.name) : x.name);
+  const move = async (x: Template, dir: -1 | 1) => {
+    const same = rows.filter((r) => r.kind === x.kind).map((r) => r.id);
+    const i = same.indexOf(x.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= same.length) return;
+    [same[i], same[j]] = [same[j]!, same[i]!];
+    try {
+      await put('/api/admin/templates/order', { kind: x.kind, ids: same });
+      reload();
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
   return (
     <div className="flex flex-col gap-3">
       <Notice>{t('templates.info')}</Notice>
@@ -55,6 +68,12 @@ export function TemplatesPage() {
             <Td>{x.builtin ? <Badge>{t('templates.builtin')}</Badge> : x.overridden ? <Badge tone="warning">{t('templates.overridden')}</Badge> : <Badge tone="primary">{t('templates.custom')}</Badge>}</Td>
             <Td>
               <div className="flex flex-wrap gap-1">
+                <Button aria-label={t('table.moveUp')} onClick={() => void move(x, -1)}>
+                  ↑
+                </Button>
+                <Button aria-label={t('table.moveDown')} onClick={() => void move(x, 1)}>
+                  ↓
+                </Button>
                 <Button onClick={() => setEditor({ base: x, kind: x.kind })}>{t('lobby.edit')}</Button>
                 <Button onClick={() => setEditor({ base: x, kind: x.kind, copy: true })}>{t('templates.copy')}</Button>
                 {x.overridden && (

@@ -53,16 +53,17 @@ const set = (patch: Partial<State>) => {
 // Klíče změněné od začátku posledního načtení: pomalá odpověď serveru nesmí přepsat čerstvou místní změnu
 // (na telefonu přepínač „probliknul“ zpět, než doběhl GET rozběhnutý před uložením).
 let loadToken = 0;
-const written: Record<'user' | 'device', Set<string>> = { user: new Set(), device: new Set() };
+const written: Record<'user' | 'device' | 'global', Set<string>> = { user: new Set(), device: new Set(), global: new Set() };
 
 /** Server je zdroj pravdy; localStorage je jen mezipaměť pro rychlé načtení. */
 export async function loadSettings(): Promise<void> {
   const token = ++loadToken;
   written.user.clear();
   written.device.clear();
+  written.global.clear();
   const [mine, glob] = await Promise.all([get<{ user: Partial<SettingValues>; device: Partial<SettingValues> }>(`/api/me/settings?device=${deviceId()}`), get<{ values: Partial<SettingValues> }>('/api/settings/global')]);
   if (token !== loadToken) return; // mezitím začalo novější načtení
-  const overlay = (layer: 'user' | 'device', fresh: Partial<SettingValues>) => {
+  const overlay = (layer: 'user' | 'device' | 'global', fresh: Partial<SettingValues>) => {
     const out: Partial<SettingValues> = { ...fresh };
     for (const k of written[layer]) {
       if (k in state[layer]) out[k] = state[layer][k];
@@ -70,7 +71,7 @@ export async function loadSettings(): Promise<void> {
     }
     return out;
   };
-  set({ user: overlay('user', mine.user), device: overlay('device', mine.device), global: glob.values, loaded: true });
+  set({ user: overlay('user', mine.user), device: overlay('device', mine.device), global: overlay('global', glob.values), loaded: true });
 }
 
 export function clearSettings() {
@@ -114,6 +115,19 @@ export async function saveUserSetting(key: string, value: SettingValue, deviceOn
     await put('/api/me/settings', { key, value, device: deviceOnly ? deviceId() : undefined });
   } catch (e) {
     set({ [layer]: before } as Partial<State>);
+    throw e;
+  }
+}
+
+/** Uloží globální hodnotu (správce): projeví se hned, při chybě se vrátí; pomalé načtení ji nepřepíše. */
+export async function saveGlobalSetting(key: string, value: SettingValue): Promise<void> {
+  const before = state.global;
+  written.global.add(key);
+  set({ global: { ...before, [key]: value } });
+  try {
+    await put('/api/settings/global', { key, value });
+  } catch (e) {
+    set({ global: before });
     throw e;
   }
 }

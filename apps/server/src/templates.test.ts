@@ -102,6 +102,17 @@ describe('vlastní šablony nastavení', () => {
     expect(s.server.tournaments.settingsOf(id)!['tournament.levelMinutes']).toBe(4);
   });
 
+  it('pořadí šablon v nabídce jde změnit a drží', async () => {
+    const s = await start();
+    const ids = s.server.templates.list('tournament').map((x) => x.id);
+    const moved = [ids[2]!, ...ids.filter((x) => x !== ids[2])];
+    await s.server.templates.reorder(s.admin, 'tournament', moved);
+    expect(s.server.templates.list('tournament').map((x) => x.id)).toEqual(moved);
+    // cash šablony zůstaly, jak byly
+    expect(s.server.templates.list('cash').map((x) => x.id)).toEqual(s.server.templates.list('cash').map((x) => x.id));
+    expect(await code(s.server.templates.reorder(s.player, 'tournament', ids))).toBe('FORBIDDEN');
+  });
+
   it('vlastní šablony přežijí restart (načtou se z databáze)', async () => {
     const s = await start();
     const tpl = await s.server.templates.create(s.admin, { name: 'Trvalá', kind: 'tournament', values: { 'tournament.levelMinutes': 7 } });

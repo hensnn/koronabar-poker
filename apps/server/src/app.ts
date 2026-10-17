@@ -340,7 +340,22 @@ export async function buildServer(opts: ServerOptions = {}) {
   };
   const rating = new RatingService({ db, perms, settings: () => settings.resolve(), now: () => clock.now(), notify: (userId, kind, params, link) => notificationsRef.current?.simple(userId, kind, params, link) ?? Promise.resolve(), onError: (e) => console.error('Výpočet ratingu selhal:', e instanceof Error ? e.message : e) });
   const stats = new StatsService({ db, perms, settings: () => settings.resolve(), now: () => clock.now(), onHand: (h) => progress.onHand(h), onError: (e) => console.error('Záznam handy selhal:', e instanceof Error ? e.message : e) });
-  const templates = new TemplateService({ db, registry, perms, audit, inUse: (id) => (tablesRef.current?.usesTemplate(id) ?? false) || (tournamentsRef.current?.usesTemplate(id) ?? false) });
+  const templates = new TemplateService({
+    db,
+    registry,
+    perms,
+    audit,
+    inUse: (id) => (tablesRef.current?.usesTemplate(id) ?? false) || (tournamentsRef.current?.usesTemplate(id) ?? false),
+    order: () => {
+      try {
+        const v = JSON.parse(String(settings.resolve()['templates.order'] || '[]')) as unknown;
+        return Array.isArray(v) ? v.map(String) : [];
+      } catch {
+        return [];
+      }
+    },
+    setOrder: (actorId, ids) => settings.set(actorId, 'global', '', 'templates.order', JSON.stringify(ids)),
+  });
   await templates.load();
   const tables = new TableManager({
     db,

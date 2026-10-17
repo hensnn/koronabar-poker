@@ -51,7 +51,8 @@ export function estimateTournament(settings: SettingValues, opt: EstimateOptions
     let frac = i;
     if (i > 0 && bbAt(i) > bbAt(i - 1)) frac = i - 1 + Math.log(targetBb / bbAt(i - 1)) / Math.log(bbAt(i) / bbAt(i - 1));
     frac = Math.max(0.5, frac);
-    const breaks = breakEvery > 0 ? Math.floor(frac / breakEvery) * breakMinutes : 0;
+    const repeat = settings['tournament.breakRepeat'] !== false;
+    const breaks = breakEvery > 0 ? (repeat ? Math.floor(frac / breakEvery) : frac >= breakEvery ? 1 : 0) * breakMinutes : 0;
     return { minutes: frac * levelMinutes + breaks, level: Math.min(levels.length, Math.max(1, Math.ceil(frac))) };
   };
   const mid = endAt(chips / 20);

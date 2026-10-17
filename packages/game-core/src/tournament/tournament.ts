@@ -673,7 +673,9 @@ export class Tournament {
   private levelDone(): void {
     const s = this.deps.settings();
     const every = num(s, 'tournament.breakEveryLevels');
-    if (every > 0 && this.levelNumber() % every === 0) {
+    // Přestávka po každých N levelech, nebo jen jednou (po N-tém levelu), když je opakování vypnuté.
+    const due = every > 0 && (s['tournament.breakRepeat'] === false ? this.levelNumber() === every : this.levelNumber() % every === 0);
+    if (due) {
       this.st.onBreak = true;
       const minutes = num(s, 'tournament.breakMinutes');
       this.st.clock = { kind: 'break', remainingMs: minutes * 60_000 };

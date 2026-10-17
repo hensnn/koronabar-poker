@@ -17,6 +17,9 @@ interface Deps {
   db: Db;
   registry: SettingsRegistry;
   perms: PermissionChecker;
+  /** Pořadí šablon v nabídce (seznam id uložený v nastavení `templates.order`). */
+  order?: () => string[];
+  setOrder?: (actorId: string, ids: string[]) => Promise<void>;
   audit?: AuditService;
   /** Zda šablonu právě používá otevřený stůl nebo běžící turnaj (pak se nedá smazat). */
   inUse?: (id: string) => boolean;
@@ -55,7 +58,12 @@ export class TemplateService {
   list(kind?: TemplateKind): SettingsTemplate[] {
     const builtin = builtinTemplates(this.deps.registry).map((t) => this.custom.get(t.id) ?? t);
     const own = [...this.custom.values()].filter((t) => !this.isBuiltinId(t.id));
-    const all = [...builtin, ...own];
+    const order = this.deps.order?.() ?? [];
+    const rank = (id: string) => {
+      const i = order.indexOf(id);
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    const all = [...builtin, ...own].map((t, i) => ({ t, i })).sort((a, b) => rank(a.t.id) - rank(b.t.id) || a.i - b.i).map((x) => x.t);
     return kind ? all.filter((t) => t.kind === kind) : all;
   }
 
@@ -131,6 +139,16 @@ export class TemplateService {
   }
 
   /** Smazání vlastní šablony; u přepsané vestavěné se obnoví původní verze (hry si nesou snímek, nic se jim nemění). */
+  /** Nové pořadí šablon daného druhu (id v pořadí, jak mají být v nabídce); ostatní druhy se nemění. */
+  async reorder(actorId: string, kind: TemplateKind, ids: string[]): Promise<void> {
+    this.can(actorId);
+    const known = new Set(this.list(kind).map((t) => t.id));
+    const clean = ids.filter((id) => known.has(id));
+    const rest = this.list(kind).map((t) => t.id).filter((id) => !clean.includes(id));
+    const others = this.list().filter((t) => t.kind !== kind).map((t) => t.id);
+    await this.deps.setOrder?.(actorId, [...others, ...clean, ...rest]);
+  }
+
   async remove(actorId: string, id: string, meta: Meta = {}): Promise<void> {
     this.can(actorId);
     const cur = this.custom.get(id);
