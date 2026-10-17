@@ -149,6 +149,37 @@ h3,
 [data-tk-cards-style='bigIndex'] .tk-card-rank {
   font-size: 1.35em;
 }
+/* Další líce: tučné indexy se silnějším rámečkem; obrysové karty s barevným rámečkem podle barvy. */
+[data-tk-cards-style='bold'] .tk-card {
+  border-width: 2px;
+  border-color: var(--tk-color-cardInk);
+}
+[data-tk-cards-style='bold'] .tk-card-rank {
+  font-size: 1.25em;
+  font-weight: 900;
+}
+[data-tk-cards-style='outline'] .tk-card {
+  border-width: 2px;
+  border-color: currentColor;
+  box-shadow: none;
+}
+/* Další ruby: mřížka, šachovnice, paprsky, rámeček. */
+[data-tk-cards-back='crosshatch'] {
+  --card-pattern: repeating-linear-gradient(0deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 6px), repeating-linear-gradient(90deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 6px);
+}
+[data-tk-cards-back='checker'] {
+  --card-pattern: conic-gradient(var(--tk-color-cardBackAccent) 25%, transparent 0 50%, var(--tk-color-cardBackAccent) 0 75%, transparent 0);
+}
+[data-tk-cards-back='rays'] {
+  --card-pattern: repeating-conic-gradient(from 0deg at 50% 50%, var(--tk-color-cardBackAccent) 0 8deg, transparent 8deg 20deg);
+}
+[data-tk-cards-back='rays'] .tk-card-back { background-size: cover, 100% 100%; }
+[data-tk-cards-back='frame'] {
+  --card-pattern: none;
+}
+[data-tk-cards-back='frame'] .tk-card-back {
+  box-shadow: inset 0 0 0 2px var(--tk-color-cardBack), inset 0 0 0 4px var(--tk-color-cardBackAccent), var(--tk-shape-shadow);
+}
 .tk-suit-h { color: var(--suit-h); }
 .tk-suit-d { color: var(--suit-d); }
 .tk-suit-c { color: var(--suit-c); }

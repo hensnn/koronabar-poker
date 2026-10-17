@@ -334,6 +334,7 @@ export const cs: Record<string, string> = {
   'settings.templates.order.help': 'Interní: seznam id šablon v pořadí, jak se nabízejí. Mění se šipkami ve Správa → Šablony.',
   'basics.breakRepeat': 'opakovat po každých N levelech (vypnuto = jen jednou)',
   'nav.myTable': 'Ke stolu',
+  'table.chatFull': 'Chat na celou obrazovku',
   'table.pause': 'Pauza',
   'table.resume': 'Pokračovat',
   'table.paused': 'Hra je pozastavená – po dohrání handy se nerozdává.',

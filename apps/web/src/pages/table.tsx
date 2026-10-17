@@ -178,18 +178,25 @@ export function TablePage({ tableId }: { tableId: string }) {
       </div>
       <div className="tk-tp-chat">
         {channel && (
-          <Card title={t('table.chat')}>
+          <Card
+            title={t('table.chat')}
+            actions={
+              <Button onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
+                ⛶
+              </Button>
+            }
+          >
             <ChatPanel channel={channel} compact />
           </Card>
         )}
       </div>
       {drawer && (
-        <div className="tk-drawer lg:hidden" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : t('table.panel')}>
+        <div className="tk-drawer" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : t('table.panel')}>
           <div className="tk-drawer-head">
             <strong>{drawer === 'chat' ? t('table.chat') : t('table.panel')}</strong>
             <Button onClick={() => setDrawer(null)}>{t('table.close')}</Button>
           </div>
-          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact /> : <TablePanel view={view} tableId={tableId} inBb={inBb} />}</div>
+          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact fill /> : <TablePanel view={view} tableId={tableId} inBb={inBb} />}</div>
         </div>
       )}
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}

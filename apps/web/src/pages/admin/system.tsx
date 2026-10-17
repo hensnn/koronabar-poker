@@ -3,7 +3,7 @@ import { SECRETS, SMTP_PRESETS, scopeAllowed, t, validateValues, type SettingVal
 import { errorText, get, post, put, del } from '../../api';
 import { can, useSession } from '../../session';
 import { loadSettings, registry, saveGlobalSetting, useSettings } from '../../settings';
-import { SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
+import { blockingIssues, SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, Card, DataTable, Notice, Tabs, Td, TextArea, TextInput } from '../../ui';
 
 // ---------- globální nastavení ----------
@@ -14,6 +14,7 @@ export function GlobalSettingsPage() {
   const [pending, setPending] = useState<Record<string, SettingValue>>({});
   const values = { ...settings.values, ...pending };
   const issues = useMemo(() => validateValues(registry, values), [values]);
+  const problems = blockingIssues(issues, Object.keys(pending));
   const save = async () => {
     try {
       for (const [k, v] of Object.entries(pending)) await saveGlobalSetting(k, v);
@@ -39,7 +40,7 @@ export function GlobalSettingsPage() {
         pendingKeys={Object.keys(pending)}
       />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-      <UnsavedBar count={Object.keys(pending).length} disabled={issues.length > 0} onSave={() => void save()} onDiscard={() => setPending({})} />
+      <UnsavedBar count={Object.keys(pending).length} disabled={problems.length > 0} onSave={() => void save()} onDiscard={() => setPending({})} problems={problems} />
     </div>
   );
 }

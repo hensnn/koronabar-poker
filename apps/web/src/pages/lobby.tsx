@@ -6,7 +6,7 @@ import { del, errorText, get, patch, post } from '../api';
 import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
 import { registry } from '../settings';
-import { SettingsForm, UnsavedBar } from '../settings/SettingsForm';
+import { blockingIssues, SettingsForm, UnsavedBar } from '../settings/SettingsForm';
 import { Badge, Button, Card, Modal, Notice, Spinner, TextInput } from '../ui';
 
 interface LobbyTable {
@@ -271,6 +271,7 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
   if (!d) return <Modal title={t('lobby.edit')} onClose={onClose}>{error ? <Notice kind="error">{error}</Notice> : <Spinner label={t('app.loading')} />}</Modal>;
   const ctx = { gameStarted: d.started, handInProgress: d.handInProgress, isAdmin: d.isAdmin };
   const dirty = Object.keys(changes).length > 0;
+  const problems = blockingIssues(issues, Object.keys(changes));
   const save = async () => {
     try {
       const r = await patch<{ applied: string[]; pending: string[] }>(`${basePath}/${tableId}`, { settings: changes });
@@ -303,12 +304,12 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
         {error && <Notice kind="error">{error}</Notice>}
         {info && <Notice kind="success">{info}</Notice>}
         <div className="flex gap-2">
-          <Button variant="primary" disabled={issues.length > 0 || !dirty} onClick={() => void save()}>
+          <Button variant="primary" disabled={problems.length > 0 || !dirty} onClick={() => void save()}>
             {t('lobby.save')}
           </Button>
           <Button onClick={() => (!dirty || confirm(t('modal.discardConfirm'))) && onClose()}>{t('table.close')}</Button>
         </div>
-        <UnsavedBar count={Object.keys(changes).length} disabled={issues.length > 0} onSave={() => void save()} onDiscard={() => setChanges({})} />
+        <UnsavedBar count={Object.keys(changes).length} disabled={problems.length > 0} onSave={() => void save()} onDiscard={() => setChanges({})} problems={problems} />
       </div>
     </Modal>
   );

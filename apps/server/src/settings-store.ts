@@ -1,3 +1,4 @@
+import type { SettingDef } from '@kb/shared';
 import { and, eq } from 'drizzle-orm';
 import {
   decideChange,
@@ -26,6 +27,18 @@ export class SettingsError extends Error {
   }
 }
 
+/**
+ * Hodnota z jsonb sloupce přijde podle ovladače někdy „dvakrát rozparsovaná“ (text „[1,2]“ jako pole, „12“ jako číslo).
+ * Podle definice parametru se vrátí do správného typu, aby validace neodmítla celé nastavení.
+ */
+function coerce(def: SettingDef | undefined, raw: unknown): SettingValue {
+  if (!def) return raw as SettingValue;
+  if (def.type === 'string' || def.type === 'color') return typeof raw === 'string' ? raw : JSON.stringify(raw);
+  if (def.type === 'int') return typeof raw === 'number' ? raw : Number.isFinite(Number(raw)) ? Number(raw) : (raw as SettingValue);
+  if (def.type === 'bool') return typeof raw === 'boolean' ? raw : raw === 'true' ? true : raw === 'false' ? false : (raw as SettingValue);
+  return raw as SettingValue;
+}
+
 type Listener = (scope: Scope, scopeId: string, key: string, value: SettingValue | undefined) => void;
 
 /**
@@ -52,7 +65,7 @@ export class SettingsStore {
     for (const r of rows) {
       const key = this.k(r.scopeType as Scope, r.scopeId);
       const layer = this.layers.get(key) ?? {};
-      layer[r.key] = r.value as SettingValue;
+      layer[r.key] = coerce(this.registry.get(r.key), r.value);
       this.layers.set(key, layer);
     }
   }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { resolveSettings, scopeAllowed, t, validateValues, type SettingValue } from '@kb/shared';
 import { del, errorText, get, post, put } from '../../api';
 import { registry } from '../../settings';
-import { SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
+import { blockingIssues, SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, DataTable, Modal, Notice, Select, Td, TextArea, TextInput } from '../../ui';
 import { MoneyPreview, RebuyCard, StructureEditor, TournamentBasics } from '../structure-editor';
 
@@ -142,6 +142,7 @@ function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template
   const [error, setError] = useState('');
   const resolved = useMemo(() => resolveSettings(registry, [{ scope: 'template', values }]), [values]);
   const issues = useMemo(() => validateValues(registry, values), [values]);
+  const problems = blockingIssues(issues, dirty.length ? dirty : Object.keys(values));
   const gameKind = kind === 'live' ? 'tournament' : kind;
   const setOne = (k: string, v: SettingValue) => {
     setValues((cur) => ({ ...cur, [k]: v }));
@@ -193,15 +194,16 @@ function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template
         )}
         {error && <Notice kind="error">{error}</Notice>}
         <div className="flex gap-2">
-          <Button variant="primary" disabled={issues.length > 0 || name.trim().length < 2} onClick={() => void save()}>
+          <Button variant="primary" disabled={problems.length > 0 || name.trim().length < 2} onClick={() => void save()}>
             {t('lobby.save')}
           </Button>
           <Button onClick={() => (dirty.length === 0 || confirm(t('modal.discardConfirm'))) && onClose()}>{t('table.cancel')}</Button>
         </div>
         <UnsavedBar
           count={dirty.length}
-          disabled={issues.length > 0 || name.trim().length < 2}
+          disabled={problems.length > 0 || name.trim().length < 2}
           onSave={() => void save()}
+          problems={problems}
           onDiscard={() => {
             setValues(base?.values ?? {});
             setDirty([]);

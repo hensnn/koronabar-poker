@@ -110,7 +110,7 @@ export function ChatPage() {
 }
 
 /** Panel jednoho kanálu: zprávy a pole pro psaní. Používá ho stránka chatu i okno u stolu. */
-export function ChatPanel({ channel, compact }: { channel: Channel; compact?: boolean }) {
+export function ChatPanel({ channel, compact, fill }: { channel: Channel; compact?: boolean; /** Vyplní výšku rodiče (celoobrazovkový chat u stolu). */ fill?: boolean }) {
   const store = useChatStore();
   const { me } = useSession();
   const settings = useSettings();
@@ -157,7 +157,7 @@ export function ChatPanel({ channel, compact }: { channel: Channel; compact?: bo
   const shown = compact ? messages.filter((m) => (m.system ? showSystem : showPlayers)) : messages;
   const toggle = (key: string, value: boolean) => void saveUserSetting(key, value).catch((e: unknown) => setError(errMsg(e)));
   return (
-    <div className={`flex flex-col ${compact ? 'gap-1 text-sm' : 'gap-2'}`}>
+    <div className={`flex flex-col ${compact ? 'gap-1 text-sm' : 'gap-2'} ${fill ? 'h-full min-h-0' : ''}`}>
       {compact && (
         <div className="flex items-center gap-1 text-xs">
           <button className={`rounded-sm border px-2 ${showSystem ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-muted'}`} aria-pressed={showSystem} onClick={() => toggle('chat.showSystemAtTable', !showSystem)}>
@@ -178,7 +178,7 @@ export function ChatPanel({ channel, compact }: { channel: Channel; compact?: bo
           )}
         </div>
       )}
-      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${compact ? 'h-32 gap-0 p-1 leading-tight' : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')}>
+      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${fill ? 'min-h-0 flex-1 gap-0 p-1 leading-tight' : compact ? 'h-32 min-h-16 resize-y gap-0 p-1 leading-tight' : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')}>
         {messages.length >= 50 && (
           <Button onClick={() => void openChannel(channel.id, messages[0]!.id)}>{t('chat.older')}</Button>
         )}

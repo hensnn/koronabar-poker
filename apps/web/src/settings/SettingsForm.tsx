@@ -220,7 +220,7 @@ function Control({
 }
 
 /** Přilepená lišta dole: počet neuložených změn, Uložit a Zahodit. Při odchodu ze stránky prohlížeč varuje. */
-export function UnsavedBar({ count, disabled, onSave, onDiscard }: { count: number; disabled?: boolean; onSave: () => void; onDiscard: () => void }) {
+export function UnsavedBar({ count, disabled, onSave, onDiscard, problems = [] }: { count: number; disabled?: boolean; onSave: () => void; onDiscard: () => void; /** Proč nejde uložit (texty chyb). */ problems?: string[] }) {
   useEffect(() => {
     if (count === 0) return;
     const warn = (e: BeforeUnloadEvent) => {
@@ -233,10 +233,24 @@ export function UnsavedBar({ count, disabled, onSave, onDiscard }: { count: numb
   return (
     <div role="status" className="sticky bottom-2 z-30 flex flex-wrap items-center gap-2 rounded-md border border-warning bg-surface p-2 shadow-lg">
       <strong className="flex-1">{t('settings.unsavedCount', { n: count })}</strong>
+      {problems.length > 0 && (
+        <ul className="w-full text-sm text-danger" role="alert">
+          {problems.map((p, i) => (
+            <li key={i}>{p}</li>
+          ))}
+        </ul>
+      )}
       <Button variant="primary" disabled={disabled} onClick={onSave}>
         {t('lobby.save')}
       </Button>
       <Button onClick={onDiscard}>{t('settings.discard')}</Button>
     </div>
   );
+}
+
+/** Chyby, které brání uložení změněných klíčů (chyby jiných, nezměněných hodnot ukládání neblokují), jako čitelné texty. */
+export function blockingIssues(issues: ValidationIssue[], changedKeys: string[]): string[] {
+  return issues
+    .filter((i) => i.keys.length === 0 || i.keys.some((k) => changedKeys.includes(k)))
+    .map((i) => `${i.keys.map((k) => t(labelKey(k))).join(', ')}${i.keys.length ? ': ' : ''}${t(i.messageKey, i.params)}`);
 }
