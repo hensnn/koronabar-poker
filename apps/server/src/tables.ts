@@ -126,6 +126,11 @@ export class TableManager {
   list(): TableRow[] {
     return [...this.rows.values()];
   }
+  /** Zda v databázi někdy nějaký stůl byl (i zavřený) – výchozí stůl se zakládá jen při úplně prvním startu. */
+  async anyEver(): Promise<boolean> {
+    const rows = await this.deps.db.select({ id: schema.gameTables.id }).from(schema.gameTables).limit(1);
+    return rows.length > 0;
+  }
   get(id: string): TableActor | undefined {
     return this.actors.get(id);
   }

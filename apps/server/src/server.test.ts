@@ -242,4 +242,17 @@ describe('server: Socket.IO brána s účty a oprávněními', () => {
     await until(() => a2.views.length > 0);
     expect(a2.last()!.viewerSeat).toBe(0);
   });
+
+  it('po zavření výchozího stolu server nastartuje a stůl znovu nezakládá', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kb-pglite-'));
+    open.dirs.push(dir);
+    const first = await start({ dataDir: dir });
+    await first.server.tables.close('stul-1');
+    await first.server.journal.flush();
+    await first.server.close();
+    open.servers.pop();
+
+    const second = await start({ dataDir: dir });
+    expect(second.server.tables.list()).toEqual([]);
+  });
 });

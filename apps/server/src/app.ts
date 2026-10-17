@@ -544,7 +544,8 @@ export async function buildServer(opts: ServerOptions = {}) {
   const series = new SeriesService({ db, perms, audit, tournaments });
   seriesRef.current = series;
   await tournaments.load();
-  if (opts.defaultTable !== false && tables.list().length === 0) {
+  // Jen při úplně prvním startu: když správce výchozí stůl zavře, nesmí se při dalším startu zakládat znovu (pád na duplicitním id).
+  if (opts.defaultTable !== false && tables.list().length === 0 && !(await tables.anyEver())) {
     await tables.create({ id: 'stul-1', name: 'Stůl 1', templateId: 'cash-klasika', settings: opts.tableSettings ?? {} });
   }
 
