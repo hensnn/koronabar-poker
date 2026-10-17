@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Button } from '../ui';
 import {
   categoryKey,
   helpKey,
@@ -26,6 +27,8 @@ interface Props {
   issues: ValidationIssue[];
   /** Jen parametry, které smí tato vrstva přepsat. */
   allowedKeys: (def: SettingDef) => boolean;
+  /** Klíče změněné, ale ještě neuložené (ukáže se štítek „Neuloženo“). */
+  pendingKeys?: string[];
   gameKind?: 'cash' | 'tournament' | 'live';
 }
 
@@ -86,8 +89,9 @@ export function SettingsForm(p: Props) {
   );
 }
 
-function Row({ def, values, origins, editScope, onChange, onReset, issues }: Props & { def: SettingDef }) {
+function Row({ def, values, origins, editScope, onChange, onReset, issues, pendingKeys }: Props & { def: SettingDef }) {
   const value = values[def.key] as SettingValue;
+  const unsaved = pendingKeys?.includes(def.key) ?? false;
   const origin = origins[def.key] ?? 'default';
   const own = origin === editScope;
   const errs = issues.filter((i) => i.keys.includes(def.key));
@@ -99,6 +103,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues }: Pro
           {t(labelKey(def.key))}
         </label>
         <span className={`text-sm ${own ? 'text-primary' : 'text-muted'}`}>
+          {unsaved && <span className="mr-2 rounded-sm bg-warning px-1 text-xs text-on-primary">{t('settings.unsaved')}</span>}
           {t(`settings.origin.${origin}`)}
           {own && (
             <button className="ml-2 underline" onClick={() => onReset(def.key)}>
@@ -204,4 +209,26 @@ function Control({
         />
       );
   }
+}
+
+/** Přilepená lišta dole: počet neuložených změn, Uložit a Zahodit. Při odchodu ze stránky prohlížeč varuje. */
+export function UnsavedBar({ count, disabled, onSave, onDiscard }: { count: number; disabled?: boolean; onSave: () => void; onDiscard: () => void }) {
+  useEffect(() => {
+    if (count === 0) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [count]);
+  if (count === 0) return null;
+  return (
+    <div role="status" className="sticky bottom-2 z-30 flex flex-wrap items-center gap-2 rounded-md border border-warning bg-surface p-2 shadow-lg">
+      <strong className="flex-1">{t('settings.unsavedCount', { n: count })}</strong>
+      <Button variant="primary" disabled={disabled} onClick={onSave}>
+        {t('lobby.save')}
+      </Button>
+      <Button onClick={onDiscard}>{t('settings.discard')}</Button>
+    </div>
+  );
 }

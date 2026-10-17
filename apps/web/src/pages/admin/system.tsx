@@ -3,7 +3,7 @@ import { SECRETS, SMTP_PRESETS, scopeAllowed, t, validateValues, type SettingVal
 import { errorText, get, post, put, del } from '../../api';
 import { can, useSession } from '../../session';
 import { loadSettings, registry, useSettings } from '../../settings';
-import { SettingsForm } from '../../settings/SettingsForm';
+import { SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, Card, DataTable, Notice, Tabs, Td, TextArea, TextInput } from '../../ui';
 
 // ---------- globální nastavení ----------
@@ -36,13 +36,10 @@ export function GlobalSettingsPage() {
         onReset={(k) => setPending(Object.fromEntries(Object.entries(pending).filter(([x]) => x !== k)))}
         issues={issues}
         allowedKeys={(d) => scopeAllowed(d.scopes, 'global') || d.scopes === undefined}
+        pendingKeys={Object.keys(pending)}
       />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-      <div>
-        <Button variant="primary" disabled={Object.keys(pending).length === 0 || issues.length > 0} onClick={() => void save()}>
-          {t('lobby.save')}
-        </Button>
-      </div>
+      <UnsavedBar count={Object.keys(pending).length} disabled={issues.length > 0} onSave={() => void save()} onDiscard={() => setPending({})} />
     </div>
   );
 }
@@ -191,13 +188,12 @@ function SmtpCard() {
           origins={Object.fromEntries(keys.map((d) => [d.key, d.key in pending || d.key in settings.global ? 'global' : 'default']))}
           editScope="global"
           onChange={(k, v) => setPending({ ...pending, [k]: v })}
-          onReset={() => undefined}
+          onReset={(k) => setPending(Object.fromEntries(Object.entries(pending).filter(([x]) => x !== k)))}
           issues={[]}
           allowedKeys={(d) => d.category === 'email'}
+          pendingKeys={Object.keys(pending)}
         />
-        <Button variant="primary" disabled={Object.keys(pending).length === 0} onClick={() => void save().catch((e) => setResult({ kind: 'error', text: errorText(e) }))}>
-          {t('lobby.save')}
-        </Button>
+        <UnsavedBar count={Object.keys(pending).length} onSave={() => void save().catch((e) => setResult({ kind: 'error', text: errorText(e) }))} onDiscard={() => setPending({})} />
         <div className="flex flex-wrap items-end gap-3">
           <TextInput label={t('smtp.testTo')} type="email" value={to} onChange={(e) => setTo(e.target.value)} />
           <Button
