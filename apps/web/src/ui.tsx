@@ -81,16 +81,20 @@ export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?
 /** Dialog s ovládáním klávesnicí (Esc zavře) a návratem zaměření. */
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  // onClose bývá nová funkce při každém překreslení; efekt běží jen při otevření, jinak by se okno
+  // při každé obnově dat znovu zaměřilo a odrolovalo na začátek (na telefonu „vyhazovalo nahoru“).
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
       prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="max-h-full w-full max-w-lg overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg">

@@ -9,6 +9,7 @@ import { DealPanel } from './deal';
 import { ShareToChat } from './chat-extras';
 import { CalendarPanel, fmtDate, PlansPanel, ScheduleDialog, SeriesPanel } from './planning';
 import { CreateDialog, EditDialog, type Template } from './lobby';
+import { RulesDialog } from './rules';
 import { LiveDirectorPanel } from './live';
 import { useAnnounceRoom } from '../announcer/host';
 import { BetsPanel } from './bets';
@@ -416,6 +417,7 @@ export function TournamentPage({ id }: { id: string }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [rules, setRules] = useState(false);
 
   const load = useCallback(() => {
     get<View>(`/api/tournaments/${id}`)
@@ -545,6 +547,7 @@ export function TournamentPage({ id }: { id: string }) {
             {view.paused ? t('tournament.resume') : t('tournament.pause')}
           </Button>
         )}
+        <Button onClick={() => setRules(true)}>{t('lobby.rules')}</Button>
         {view.can.manage && view.status !== 'finished' && view.status !== 'cancelled' && <Button onClick={() => setEditing(true)}>{t('lobby.edit')}</Button>}
         {view.can.cancel && (
           <Button variant="danger" disabled={busy} onClick={() => void act('cancel', t('tournament.confirmCancel'))}>
@@ -789,6 +792,7 @@ export function TournamentPage({ id }: { id: string }) {
         </details>
       </Card>
 
+      {rules && <RulesDialog detailsPath={`/api/tournaments/${view.id}/details`} kind="tournament" onClose={() => setRules(false)} />}
       {editing && (
         <EditDialog
           tableId={view.id}

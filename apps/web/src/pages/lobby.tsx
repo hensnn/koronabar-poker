@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PollsPanel } from './polls';
+import { RulesDialog } from './rules';
 import { decideChange, resolveSettings, scopeAllowed, t, validateValues, type SettingValue, type SettingValues } from '@kb/shared';
 import { del, errorText, get, patch, post } from '../api';
 import { Link, navigate } from '../router';
@@ -43,7 +44,7 @@ export function LobbyPage() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [freeOnly, setFreeOnly] = useState(false);
-  const [dialog, setDialog] = useState<'create' | { edit: string } | null>(null);
+  const [dialog, setDialog] = useState<'create' | { edit: string } | { rules: string } | null>(null);
 
   const reload = useCallback(() => {
     get<{ tables: LobbyTable[]; templates: Template[] }>('/api/lobby')
@@ -106,6 +107,7 @@ export function LobbyPage() {
                 <Button variant="primary" onClick={() => navigate(`/stul/${x.id}`)}>
                   {x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
                 </Button>
+                <Button onClick={() => setDialog({ rules: x.id })}>{t('lobby.rules')}</Button>
                 <Button onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/stul/${x.id}`)}>{t('lobby.copyLink')}</Button>
                 {(x.ownerId === me?.user.id ? can(me, 'cash.upravit_vlastni') : can(me, 'cash.upravit_vse')) && <Button onClick={() => setDialog({ edit: x.id })}>{t('lobby.edit')}</Button>}
                 {(x.ownerId === me?.user.id ? can(me, 'cash.zrusit_vlastni') : can(me, 'cash.zrusit_vse')) && (
@@ -126,7 +128,8 @@ export function LobbyPage() {
         ))}
       </div>
       {dialog === 'create' && <CreateDialog templates={data.templates} onClose={() => setDialog(null)} onCreated={(id) => navigate(`/stul/${id}`)} />}
-      {dialog && typeof dialog === 'object' && <EditDialog tableId={dialog.edit} onClose={() => { setDialog(null); reload(); }} />}
+      {dialog && typeof dialog === 'object' && 'edit' in dialog && <EditDialog tableId={dialog.edit} onClose={() => { setDialog(null); reload(); }} />}
+      {dialog && typeof dialog === 'object' && 'rules' in dialog && <RulesDialog detailsPath={`/api/lobby/tables/${dialog.rules}`} kind="cash" onClose={() => setDialog(null)} />}
       <p className="text-sm text-muted">
         <Link to="/penezenka" className="underline">
           {t('lobby.walletLink')}
