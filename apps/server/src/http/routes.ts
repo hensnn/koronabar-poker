@@ -1588,8 +1588,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     }
   }));
   app.get('/api/stats/hands', guard(async (req, reply) => {
-    const q = req.query as { limit?: string; before?: string };
-    reply.send({ hands: await svc.stats().myHands(need(req).id, { limit: q.limit ? Number(q.limit) : undefined, before: q.before ? Number(q.before) : undefined }) });
+    const q = req.query as { limit?: string; before?: string; tableId?: string };
+    reply.send({ hands: await svc.stats().myHands(need(req).id, { limit: q.limit ? Number(q.limit) : undefined, before: q.before ? Number(q.before) : undefined, tableId: q.tableId?.slice(0, 80) || undefined }) });
   }));
   app.get('/api/stats/hands/:id', guard(async (req, reply) => {
     try {

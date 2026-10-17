@@ -145,6 +145,7 @@ function PanelSettings({ state, setState, titles, onClose }: { state: PanelState
   };
   const toggle = (key: string, value: boolean) => void saveUserSetting(key, value).catch(() => undefined);
   const flags: { key: string; label: string; def: boolean }[] = [
+    { key: 'ui.rotateToMe', label: t('settings.ui.rotateToMe.label'), def: true },
     { key: 'ui.showInBb', label: t('settings.ui.showInBb.label'), def: false },
     { key: 'ui.showSymbolAtTable', label: t('settings.ui.showSymbolAtTable.label'), def: false },
     { key: 'xp.showAtTable', label: t('settings.xp.showAtTable.label'), def: true },

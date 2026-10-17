@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LegalActions, PlayerAction, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { formatAmount, parseList, quickBetDefaults } from './format';
@@ -38,10 +38,23 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct }: Pro
     ? parseList(quickPre, quickBetDefaults.preflop).map((m) => ({ label: `${m}×`, value: clamp(m * info.bigBlind) }))
     : parseList(quickPost, quickBetDefaults.postflop).map((p) => ({ label: `${p} %`, value: clamp(myBet + (view.totalPot * p) / 100) }));
   const sliderOn = aggress && !fixed;
+  // Kolečko myši nad řádkem s posuvníkem mění výšku sázky po big blindech (posluchač bez passive, aby se stránka neposouvala).
+  const sliderRow = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sliderRow.current;
+    if (!el || !sliderOn) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const step = info.bigBlind || 1;
+      setAmount((a) => clamp(a + (e.deltaY < 0 ? step : -step)));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [sliderOn, info.bigBlind, min, max]);
 
   return (
     <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" role="group" aria-label={t('table.actions')}>
-      <div className={`flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`}>
+      <div ref={sliderRow} className={`flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`} title={sliderOn ? t('table.wheelHint') : undefined}>
         {quick.map((q) => (
           <button key={q.label} className="rounded-md border border-line bg-raised px-2 py-1 text-sm" disabled={!sliderOn} onClick={() => setAmount(q.value)}>
             {q.label}

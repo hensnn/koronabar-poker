@@ -13,6 +13,7 @@ import { useSettings } from '../settings';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { TablePanel } from '../table/TablePanel';
+import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
 import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
@@ -45,6 +46,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [showSettlement, setShowSettlement] = useState(false);
   const [drawer, setDrawer] = useState<'chat' | 'panel' | null>(null);
   const [focus, setFocus] = useState(false);
+  const [history, setHistory] = useState(false);
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
   useEffect(() => {
@@ -100,6 +102,9 @@ export function TablePage({ tableId }: { tableId: string }) {
             {!isTournament && <ShareToChat kind="stul" id={tableId} />}
             {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
             {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+            <Button onClick={() => setHistory(true)} title={t('table.history')}>
+              📜 {t('table.history')}
+            </Button>
             <Button onClick={() => setFocus((v) => !v)} aria-pressed={focus} title={focus ? t('table.fullscreenExit') : t('table.fullscreen')}>
               {focus ? '⤡' : '⛶'} {focus ? t('table.fullscreenExit') : t('table.fullscreen')}
             </Button>
@@ -148,6 +153,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}
+      {history && <HandHistory tableId={tableId} onClose={() => setHistory(false)} />}
     </div>
   );
 }

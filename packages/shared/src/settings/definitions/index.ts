@@ -646,6 +646,7 @@ const ui: SettingDef[] = [
   text('ui.themeId', { category: 'ui', mutability: A, scopes: USER }, 'classic-green', 60),
   text('ui.tablePanel', { category: 'ui', mutability: A, scopes: USER }, '', 400),
   bool('ui.showSymbolAtTable', { category: 'ui', mutability: A, scopes: USER }, false),
+  bool('ui.rotateToMe', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('chat.showSystemAtTable', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('chat.showPlayersAtTable', { category: 'ui', mutability: A, scopes: USER }, true),
   text('ui.quickBetsPostflop', { category: 'ui', mutability: A, scopes: USER }, '33,50,75,100', 40),

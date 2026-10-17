@@ -400,7 +400,7 @@ export class StatsService {
 
   // ---------- historie hand ----------
 
-  async myHands(userId: string, opts: { limit?: number; before?: number } = {}): Promise<
+  async myHands(userId: string, opts: { limit?: number; before?: number; tableId?: string } = {}): Promise<
     { id: string; playedAt: number; kind: string; tableId: string; handNumber: number; board: string[]; hole: [string, string] | null; net: number; pot: number; chipsPerUnit: number; blinds: { sb: number; bb: number; ante: number }; showdown: boolean }[]
   > {
     const hp = schema.handPlayers;
@@ -408,7 +408,7 @@ export class StatsService {
       .select({ h: schema.hands, p: hp })
       .from(hp)
       .innerJoin(schema.hands, eq(schema.hands.id, hp.handId))
-      .where(and(eq(hp.userId, userId), opts.before ? lt(hp.playedAt, new Date(opts.before)) : undefined))
+      .where(and(eq(hp.userId, userId), opts.before ? lt(hp.playedAt, new Date(opts.before)) : undefined, opts.tableId ? eq(schema.hands.tableId, opts.tableId) : undefined))
       .orderBy(desc(hp.playedAt), desc(schema.hands.handNumber))
       .limit(Math.min(Math.max(opts.limit ?? 50, 1), 200));
     return rows.map(({ h, p }) => ({

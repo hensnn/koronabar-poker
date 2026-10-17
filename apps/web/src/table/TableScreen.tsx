@@ -48,6 +48,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   useTableSfx(view, net.clockOffset);
   const myLook = useMyTableLook();
   const actionBubbles = useActionBubbles(view, inBb);
+  const rotate = useSettings().values['ui.rotateToMe'] !== false;
   usePlanExecutor(view, tableId);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<{ kind: 'join'; seat: number } | { kind: 'topUp' } | null>(null);
@@ -81,7 +82,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   };
 
   const seatNumbers = Array.from({ length: info.seatCount }, (_, i) => i);
-  const viewerSeat = view.viewerSeat ?? mine?.seat ?? 0;
+  // Otočení stolu: moje místo dole uprostřed (výchozí), jinak pevné pozice podle čísel sedadel.
+  const viewerSeat = rotate ? (view.viewerSeat ?? mine?.seat ?? 0) : 0;
   const odds = view.odds;
   const mainOdds = odds?.[0];
   const acting = view.actingSeat !== null ? view.seats.find((s) => s.seat === view.actingSeat) : undefined;

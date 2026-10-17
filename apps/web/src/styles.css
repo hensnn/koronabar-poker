@@ -615,3 +615,16 @@ h3,
 /* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */
 .tk-turn-row { min-height: 2.75rem; display: flex; align-items: center; justify-content: center; }
 .tk-actionbar { min-height: 7.25rem; }
+
+/* Celá obrazovka: vše se vejde do okna bez posuvníků; panel a chat rolují uvnitř sebe. */
+[data-focus] body { overflow: hidden; }
+@media (min-width: 64rem) {
+  [data-focus] .tk-tablepage {
+    height: calc(100vh - var(--spacing) * 4);
+    grid-template-columns: 16rem minmax(0, 1fr) 20rem;
+    grid-template-areas: 'panel main chat';
+  }
+  [data-focus] .tk-tp-panel, [data-focus] .tk-tp-chat { max-height: 100%; overflow: auto; position: static; }
+  [data-focus] .tk-tp-main { height: 100%; overflow: hidden; }
+  [data-focus] .tk-table { width: min(100%, calc((100vh - 18rem) * var(--tk-table-aspect))); }
+}
