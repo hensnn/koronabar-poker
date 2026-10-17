@@ -20,6 +20,7 @@ import type { TableManager } from '../tables.js';
 import type { TemplateService } from '../templates.js';
 import type { MaintenanceService } from '../maintenance.js';
 import type { HistoryService, HistoryKind } from '../history.js';
+import type { BlindStructureService } from '../structures.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -70,6 +71,7 @@ export interface Services {
   templates: () => TemplateService;
   maintenance: () => MaintenanceService;
   history: () => HistoryService;
+  structures: () => BlindStructureService;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
   push: () => PushService;
@@ -285,6 +287,16 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   userAction('force-password', (a, t, _b, m) => svc.accounts.forcePasswordChange(a, t, m));
   userAction('verify-email', (a, t, _b, m) => svc.accounts.markEmailVerified(a, t, m));
   userAction('reset-progress', (a, t, b, m) => svc.maintenance().resetUser(a, t, b, m), z.object({ xp: z.boolean().optional(), achievements: z.boolean().optional(), rating: z.boolean().optional() }));
+
+  // ---------- uložené struktury blindů ----------
+  const structureBody = z.object({ name: z.string().max(100), description: z.string().max(300).optional(), levels: z.string().max(5000), startingStack: z.number().int().min(1), levelMinutes: z.number().int().min(1).max(240) });
+  app.get('/api/structures', guard(async (_req, reply) => reply.send({ structures: await svc.structures().list() })));
+  app.post('/api/admin/structures', guard(async (req, reply) => reply.send(await svc.structures().create(need(req).id, structureBody.parse(req.body), meta(req)))));
+  app.put('/api/admin/structures/:id', guard(async (req, reply) => reply.send(await svc.structures().update(need(req).id, (req.params as { id: string }).id, structureBody.parse(req.body), meta(req)))));
+  app.delete('/api/admin/structures/:id', guard(async (req, reply) => {
+    await svc.structures().remove(need(req).id, (req.params as { id: string }).id, meta(req));
+    return reply.send({ ok: true });
+  }));
 
   // ---------- správa historie ----------
   app.get('/api/admin/history', guard(async (req, reply) => reply.send(await svc.history().overview(need(req).id))));

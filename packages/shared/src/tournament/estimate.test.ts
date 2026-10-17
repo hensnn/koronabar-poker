@@ -31,3 +31,17 @@ describe('odhad délky turnaje', () => {
     expect(estimateTournament({ ...base, 'tournament.structure': 'xx' }, { players: 9 }).minutes).toBeNull();
   });
 });
+
+describe('přepočet struktury na jiný stack', () => {
+  it('dvojnásobný stack zhruba zdvojnásobí blindy a drží rostoucí posloupnost', async () => {
+    const { parseStructure, scaleStructure } = await import('./blinds.js');
+    const base = parseStructure('25/50, 50/100, 75/150/15, 100/200/20');
+    const doubled = scaleStructure(base, 2);
+    expect(doubled.map((l) => l.bigBlind)).toEqual([100, 200, 300, 400]);
+    expect(doubled[2]!.ante).toBe(30);
+    expect(doubled[0]!.ante).toBe(0);
+    const third = scaleStructure(base, 1 / 3);
+    for (let i = 1; i < third.length; i++) expect(third[i]!.bigBlind).toBeGreaterThan(third[i - 1]!.bigBlind);
+    expect(scaleStructure(base, 1)).toEqual(base);
+  });
+});

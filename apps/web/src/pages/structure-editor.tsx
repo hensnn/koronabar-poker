@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react';
-import { computePayouts, estimateTournament, formatStructure, generateStructure, labelKey, optionKey, parseStructure, percentsFor, STRUCTURE_PRESETS, t, type Level, type PayoutPreset, type SettingValue, type SettingValues } from '@kb/shared';
+import { useEffect, useMemo, useState } from 'react';
+import { computePayouts, estimateTournament, formatStructure, generateStructure, labelKey, optionKey, parseStructure, percentsFor, scaleStructure, STRUCTURE_PRESETS, t, type Level, type PayoutPreset, type SettingValue, type SettingValues } from '@kb/shared';
+import { get } from '../api';
+import { can, useSession } from '../session';
 import { Button, Card, DataTable, NumInput, Td } from '../ui';
+import { StructureDialog, type BlindStructure } from './admin/structures';
 
 type Set = (k: string, v: SettingValue) => void;
 const numCls = 'w-24';
@@ -138,9 +141,31 @@ export function StructureEditor({ values, set }: { values: SettingValues; set: S
   const preview = useMemo(() => levelsFor(values, n), [values, n]);
   const [showPreview, setShowPreview] = useState(true);
   const mode = text.trim() ? 'custom' : 'auto';
+  // Uložené struktury (Správa → Struktury blindů): při výběru se přepočítají na aktuální stack.
+  const { me } = useSession();
+  const [saved, setSaved] = useState<BlindStructure[]>([]);
+  const [saveAs, setSaveAs] = useState(false);
+  useEffect(() => {
+    get<{ structures: BlindStructure[] }>('/api/structures')
+      .then((d) => setSaved(d.structures))
+      .catch(() => undefined);
+  }, []);
   const applyPreset = (id: string) => {
     if (id === 'auto') return set('tournament.structure', '');
     if (id === 'custom') return;
+    if (id.startsWith('saved:')) {
+      const s = saved.find((x) => x.id === id.slice(6));
+      if (!s) return;
+      try {
+        const stack = Number(values['tournament.startingStack']);
+        const levels = scaleStructure(parseStructure(s.levels), stack > 0 && s.startingStack > 0 ? stack / s.startingStack : 1);
+        set('tournament.levelMinutes', s.levelMinutes);
+        set('tournament.structure', formatStructure(levels));
+      } catch {
+        /* neplatný zápis uložené struktury se přeskočí */
+      }
+      return;
+    }
     const p = STRUCTURE_PRESETS.find((x) => x.id === id);
     if (!p) return;
     set('tournament.levelMinutes', p.levelMinutes);
@@ -162,8 +187,33 @@ export function StructureEditor({ values, set }: { values: SettingValues; set: S
                 </option>
               ))}
               <option value="auto">{t('structure.mode.auto')}</option>
+              {saved.length > 0 && (
+                <optgroup label={t('structures.savedGroup')}>
+                  {saved.map((s) => (
+                    <option key={s.id} value={`saved:${s.id}`}>
+                      {s.name} ({s.startingStack} / {s.levelMinutes} min)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
+          {can(me, 'nastaveni.globalni') && text.trim() && !preview.error && (
+            <Button onClick={() => setSaveAs(true)}>{t('structures.saveAs')}</Button>
+          )}
+          {saveAs && (
+            <StructureDialog
+              base={null}
+              initial={{ levels: formatStructure(preview.levels), startingStack: Number(values['tournament.startingStack']), levelMinutes: Number(values['tournament.levelMinutes']) }}
+              onClose={() => setSaveAs(false)}
+              onSaved={() => {
+                setSaveAs(false);
+                get<{ structures: BlindStructure[] }>('/api/structures')
+                  .then((d) => setSaved(d.structures))
+                  .catch(() => undefined);
+              }}
+            />
+          )}
           <label className="flex items-center gap-1 text-sm">
             {t('structure.players')}
             <NumInput className="w-20" min={2} max={seats} value={players} onChange={setPlayers} />

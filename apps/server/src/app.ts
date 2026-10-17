@@ -29,6 +29,7 @@ import { TableManager } from './tables.js';
 import { TemplateService } from './templates.js';
 import { MaintenanceService } from './maintenance.js';
 import { HistoryService } from './history.js';
+import { BlindStructureService } from './structures.js';
 import { TournamentManager, tournamentChatText, type TournamentNotice } from './tournaments.js';
 import { NotificationService } from './notifications.js';
 import { StatsService } from './stats.js';
@@ -224,11 +225,12 @@ export async function buildServer(opts: ServerOptions = {}) {
   const tablesRef: { current?: TableManager } = {};
   const maintenanceRef: { current?: MaintenanceService } = {};
   const historyRef: { current?: HistoryService } = {};
+  const structuresRef: { current?: BlindStructureService } = {};
   const tournamentsRef: { current?: TournamentManager } = {};
   const schedulerRef: { current?: Scheduler } = {};
   const notificationsRef: { current?: NotificationService } = {};
   const seriesRef: { current?: SeriesService } = {};
-  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, history: () => historyRef.current!, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
+  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
 
   let broadcast: (tableId: string) => void = () => undefined;
   // Chat: hlavní kanál, kanály stolů a systémové zprávy u stolů.
@@ -957,6 +959,8 @@ export async function buildServer(opts: ServerOptions = {}) {
   maintenanceRef.current = maintenance;
   const history = new HistoryService({ db, perms, audit, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, now: () => clock.now() });
   historyRef.current = history;
+  const structures = new BlindStructureService({ db, perms, audit });
+  structuresRef.current = structures;
 
   let bootstrap: { created: boolean; password?: string } | undefined;
   if (opts.bootstrapAdmin) bootstrap = await accounts.ensureMainAdmin(opts.bootstrapAdmin.nickname, opts.bootstrapAdmin.password);
@@ -981,6 +985,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     templates,
     maintenance,
     history,
+    structures,
     scheduler,
     notifications,
     push,

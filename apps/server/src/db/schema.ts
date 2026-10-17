@@ -1173,6 +1173,21 @@ export const settingsTemplates = pgTable('settings_templates', {
   createdAt: createdAt(),
 });
 
+/** Uložené struktury blindů (pojmenované), které jde vybrat při zakládání turnaje a přepočítat na jiný stack. */
+export const blindStructures = pgTable('blind_structures', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  /** Zápis levelů „25/50, 50/100/10…“. */
+  levels: text('levels').notNull(),
+  /** Stack, pro který byla struktura navržena (podle něj se přepočítává). */
+  startingStack: integer('starting_stack').notNull(),
+  levelMinutes: integer('level_minutes').notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+});
+
 // ---------- AI asistent a MCP ----------
 
 /** Historie konverzace s asistentem (jen vlastní uživatel ji vidí). */

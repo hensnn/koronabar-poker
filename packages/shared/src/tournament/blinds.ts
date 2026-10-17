@@ -101,3 +101,24 @@ export const STRUCTURE_PRESETS: { id: 'slow' | 'standard' | 'turbo' | 'hyper'; l
   { id: 'turbo', levelMinutes: 6, targetMinutes: 60 },
   { id: 'hyper', levelMinutes: 3, targetMinutes: 30 },
 ];
+
+/**
+ * Přepočítá uloženou strukturu na jiný startovní stack (poměr nového a původního stacku):
+ * blindy se zaokrouhlí na „hezké“ hodnoty ze žebříčku, ante na desetinu velkého blindu, levely zůstávají rostoucí.
+ */
+export function scaleStructure(levels: Level[], factor: number): Level[] {
+  if (!Number.isFinite(factor) || factor <= 0 || levels.length === 0) return levels;
+  const maxBb = Math.max(...levels.map((l) => l.bigBlind)) * factor;
+  const ladder = bigBlindLadder(maxBb);
+  const nearest = (x: number): number => ladder.reduce((best, v) => (Math.abs(Math.log(v / x)) < Math.abs(Math.log(best / x)) ? v : best), ladder[0]!);
+  const out: Level[] = [];
+  let lastIdx = -1;
+  for (const l of levels) {
+    let idx = ladder.indexOf(nearest(l.bigBlind * factor));
+    if (idx <= lastIdx) idx = lastIdx + 1;
+    const bb = ladder[idx] ?? ladder[ladder.length - 1]!;
+    lastIdx = idx;
+    out.push({ smallBlind: bb / 2, bigBlind: bb, ante: l.ante > 0 ? Math.max(1, Math.floor(bb / 10)) : 0 });
+  }
+  return out.filter((l, i) => i === 0 || l.bigBlind > out[i - 1]!.bigBlind);
+}

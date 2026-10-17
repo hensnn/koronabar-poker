@@ -10,6 +10,7 @@ import { TableError } from '../tables.js';
 import { TemplateError } from '../templates.js';
 import { MaintenanceError } from '../maintenance.js';
 import { HistoryError } from '../history.js';
+import { BlindStructureError } from '../structures.js';
 
 const STATUS: Record<string, number> = {
   INVALID_CREDENTIALS: 401,
@@ -37,6 +38,7 @@ export function sendError(reply: FastifyReply, e: unknown): FastifyReply {
   if (e instanceof SecretError) return reply.status(e.code === 'FORBIDDEN' ? 403 : 400).send({ code: 'SECRET_' + e.code });
   if (e instanceof Error && e.message === 'FORBIDDEN') return reply.status(403).send({ code: 'FORBIDDEN' });
   if (e instanceof TableError) return reply.status(e.code === 'FORBIDDEN' ? 403 : e.code === 'NOT_FOUND' ? 404 : 400).send({ code: 'TABLE_' + e.code, params: { issues: e.issues, ...e.params } });
+  if (e instanceof BlindStructureError) return reply.status(e.code === 'FORBIDDEN' ? 403 : e.code === 'NOT_FOUND' ? 404 : 400).send({ code: 'STRUCTURE_' + e.code, params: { detail: e.detail } });
   if (e instanceof HistoryError) return reply.status(e.code === 'FORBIDDEN' ? 403 : e.code === 'NOT_FOUND' ? 404 : e.code === 'STATE' ? 409 : 400).send({ code: 'HISTORY_' + e.code });
   if (e instanceof MaintenanceError) return reply.status(e.code === 'FORBIDDEN' ? 403 : 400).send({ code: 'MAINTENANCE_' + e.code });
   if (e instanceof TemplateError) return reply.status(e.code === 'FORBIDDEN' ? 403 : e.code === 'NOT_FOUND' ? 404 : e.code === 'IN_USE' || e.code === 'BUILTIN' ? 409 : 400).send({ code: 'TEMPLATE_' + e.code, params: { issues: e.issues } });
