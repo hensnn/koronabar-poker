@@ -1,3 +1,4 @@
+import { t } from '@kb/shared';
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -79,16 +80,22 @@ export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?
 }
 
 /** Dialog s ovládáním klávesnicí (Esc zavře) a návratem zaměření. */
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ title, onClose, children, dirty = false }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
-  // onClose bývá nová funkce při každém překreslení; efekt běží jen při otevření, jinak by se okno
-  // při každé obnově dat znovu zaměřilo a odrolovalo na začátek (na telefonu „vyhazovalo nahoru“).
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const close = () => {
+    if (dirtyRef.current && !confirm(t('modal.discardConfirm'))) return;
+    closeRef.current();
+  };
+  // onClose bývá nová funkce při každém překreslení; efekt běží jen při otevření, jinak by se okno
+  // při každé obnově dat znovu zaměřilo a odrolovalo na začátek (na telefonu „vyhazovalo nahoru“).
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
@@ -96,7 +103,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     };
   }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="max-h-full w-full max-w-lg overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg">
         <h2 className="mb-3 font-heading text-lg font-bold">{title}</h2>
         {children}

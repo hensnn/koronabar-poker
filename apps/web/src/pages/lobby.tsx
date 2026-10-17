@@ -6,7 +6,7 @@ import { del, errorText, get, patch, post } from '../api';
 import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
 import { registry } from '../settings';
-import { SettingsForm } from '../settings/SettingsForm';
+import { SettingsForm, UnsavedBar } from '../settings/SettingsForm';
 import { Badge, Button, Card, Modal, Notice, Spinner, TextInput } from '../ui';
 
 interface LobbyTable {
@@ -168,7 +168,7 @@ export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', pos
   const issues = useMemo(() => validateValues(registry, { ...(tpl?.values ?? {}), ...overrides }), [tpl, overrides]);
 
   return (
-    <Modal title={title ?? t('lobby.create')} onClose={onClose}>
+    <Modal title={title ?? t('lobby.create')} onClose={onClose} dirty={name.trim().length > 0 || Object.keys(overrides).length > 0}>
       <div className="flex flex-col gap-3">
         <TextInput label={nameLabel ?? t('lobby.tableName')} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />
         <fieldset className="flex flex-col gap-2">
@@ -246,8 +246,20 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
   const issues = useMemo(() => (d ? validateValues(registry, { ...d.values, ...changes }) : []), [d, changes]);
   if (!d) return <Modal title={t('lobby.edit')} onClose={onClose}>{error ? <Notice kind="error">{error}</Notice> : <Spinner label={t('app.loading')} />}</Modal>;
   const ctx = { gameStarted: d.started, handInProgress: d.handInProgress, isAdmin: d.isAdmin };
+  const dirty = Object.keys(changes).length > 0;
+  const save = async () => {
+    try {
+      const r = await patch<{ applied: string[]; pending: string[] }>(`${basePath}/${tableId}`, { settings: changes });
+      setInfo(r.pending.length ? t('lobby.savedPending') : t('lobby.saved'));
+      setChanges({});
+      setError('');
+      setD(await get<Details>(detailsPath));
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
   return (
-    <Modal title={`${t('lobby.edit')}: ${d.name}`} onClose={onClose}>
+    <Modal title={`${t('lobby.edit')}: ${d.name}`} onClose={onClose} dirty={dirty}>
       <div className="flex flex-col gap-3">
         <SettingsForm
           registry={registry}
@@ -259,31 +271,19 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
           issues={issues}
           allowedKeys={(def) => tableScoped(def) && decideChange(registry, def.key, ctx).result !== 'denied'}
           gameKind={kind}
+          pendingKeys={Object.keys(changes)}
         />
         {extras?.({ values, set: (k, v) => setChanges((c) => ({ ...c, [k]: v })) })}
         {Object.keys(d.pending).length > 0 && <Notice>{t('lobby.pending', { keys: Object.keys(d.pending).join(', ') })}</Notice>}
         {error && <Notice kind="error">{error}</Notice>}
         {info && <Notice kind="success">{info}</Notice>}
         <div className="flex gap-2">
-          <Button
-            variant="primary"
-            disabled={issues.length > 0 || Object.keys(changes).length === 0}
-            onClick={async () => {
-              try {
-                const r = await patch<{ applied: string[]; pending: string[] }>(`${basePath}/${tableId}`, { settings: changes });
-                setInfo(r.pending.length ? t('lobby.savedPending') : t('lobby.saved'));
-                setChanges({});
-                setError('');
-                setD(await get<Details>(detailsPath));
-              } catch (e) {
-                setError(errorText(e));
-              }
-            }}
-          >
+          <Button variant="primary" disabled={issues.length > 0 || !dirty} onClick={() => void save()}>
             {t('lobby.save')}
           </Button>
-          <Button onClick={onClose}>{t('table.close')}</Button>
+          <Button onClick={() => (!dirty || confirm(t('modal.discardConfirm'))) && onClose()}>{t('table.close')}</Button>
         </div>
+        <UnsavedBar count={Object.keys(changes).length} disabled={issues.length > 0} onSave={() => void save()} onDiscard={() => setChanges({})} />
       </div>
     </Modal>
   );

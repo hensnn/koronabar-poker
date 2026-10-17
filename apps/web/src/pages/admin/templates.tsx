@@ -116,7 +116,7 @@ function TemplateEditor({ base, kind, onClose, onSaved }: { base: Template | nul
     }
   };
   return (
-    <Modal title={editing ? `${t('lobby.edit')}: ${base.name}` : t('templates.new')} onClose={onClose}>
+    <Modal title={editing ? `${t('lobby.edit')}: ${base.name}` : t('templates.new')} onClose={onClose} dirty={dirty.length > 0 || (editing ? name !== base.name : name.trim().length > 0)}>
       <div className="flex flex-col gap-3">
         <TextInput label={t('templates.name')} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />
         <TextArea label={t('templates.description')} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />
@@ -153,9 +153,17 @@ function TemplateEditor({ base, kind, onClose, onSaved }: { base: Template | nul
           <Button variant="primary" disabled={issues.length > 0 || name.trim().length < 2} onClick={() => void save()}>
             {t('lobby.save')}
           </Button>
-          <Button onClick={onClose}>{t('table.cancel')}</Button>
+          <Button onClick={() => (dirty.length === 0 || confirm(t('modal.discardConfirm'))) && onClose()}>{t('table.cancel')}</Button>
         </div>
-        <UnsavedBar count={dirty.length} disabled={issues.length > 0 || name.trim().length < 2} onSave={() => void save()} onDiscard={onClose} />
+        <UnsavedBar
+          count={dirty.length}
+          disabled={issues.length > 0 || name.trim().length < 2}
+          onSave={() => void save()}
+          onDiscard={() => {
+            setValues(base?.values ?? {});
+            setDirty([]);
+          }}
+        />
       </div>
     </Modal>
   );
