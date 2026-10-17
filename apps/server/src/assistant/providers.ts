@@ -5,6 +5,8 @@ export interface ToolCall {
   id: string;
   name: string;
   args: Record<string, unknown>;
+  /** Data poskytovatele, která se musí poslat zpět (Gemini: thoughtSignature). */
+  meta?: Record<string, unknown>;
 }
 
 export type ChatMsg =
@@ -95,7 +97,15 @@ function gemini(o: Options): AiProvider {
       const contents: unknown[] = [];
       for (const m of r.messages) {
         if (m.role === 'user') contents.push({ role: 'user', parts: [{ text: m.content }] });
-        else if (m.role === 'assistant') contents.push({ role: 'model', parts: [...(m.content ? [{ text: m.content }] : []), ...(m.toolCalls ?? []).map((c) => ({ functionCall: { name: c.name, args: c.args } }))] });
+        else if (m.role === 'assistant')
+          contents.push({
+            role: 'model',
+            parts: [
+              ...(m.content ? [{ text: m.content }] : []),
+              // Gemini 3 vyžaduje vrátit thoughtSignature u každého functionCall, jinak volání nástrojů odmítne.
+              ...(m.toolCalls ?? []).map((c) => ({ functionCall: { name: c.name, args: c.args }, ...(c.meta?.thoughtSignature ? { thoughtSignature: c.meta.thoughtSignature } : {}) })),
+            ],
+          });
         else contents.push({ role: 'user', parts: [{ functionResponse: { name: m.name, response: { result: m.content } } }] });
       }
       const body = {
@@ -107,8 +117,11 @@ function gemini(o: Options): AiProvider {
       const j = await post(f, `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(r.model)}:generateContent`, { 'x-goog-api-key': o.apiKey }, body, r.timeoutMs);
       const parts: any[] = j.candidates?.[0]?.content?.parts ?? [];
       return {
-        text: parts.filter((p) => typeof p.text === 'string').map((p) => p.text).join(''),
-        toolCalls: parts.filter((p) => p.functionCall).map((p, i) => ({ id: `g${i}-${p.functionCall.name}`, name: String(p.functionCall.name), args: (p.functionCall.args ?? {}) as Record<string, unknown> })),
+        // části označené jako „thought“ jsou interní uvažování modelu, uživateli se neukazují
+        text: parts.filter((p) => typeof p.text === 'string' && !p.thought).map((p) => p.text).join(''),
+        toolCalls: parts
+          .filter((p) => p.functionCall)
+          .map((p, i) => ({ id: `g${i}-${p.functionCall.name}`, name: String(p.functionCall.name), args: (p.functionCall.args ?? {}) as Record<string, unknown>, ...(p.thoughtSignature ? { meta: { thoughtSignature: p.thoughtSignature } } : {}) })),
         tokens: Number(j.usageMetadata?.totalTokenCount ?? 0),
       };
     },

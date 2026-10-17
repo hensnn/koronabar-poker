@@ -400,6 +400,18 @@ describe('poskytovatelé AI: převod požadavků a odpovědí', () => {
     expect(r).toMatchObject({ text: 'Čau', tokens: 42, toolCalls: [{ name: 'list_games', args: { a: 'b' } }] });
   });
 
+  it('Gemini 3: thoughtSignature u volání nástroje se uloží a pošle zpět, části „thought“ se nezobrazí', async () => {
+    const { f, calls } = fakeFetch({ candidates: [{ content: { parts: [{ text: 'tajné uvažování', thought: true }, { text: 'Viditelné' }, { functionCall: { name: 'list_games', args: {} }, thoughtSignature: 'sig-123' }] } }], usageMetadata: { totalTokenCount: 1 } });
+    const p = createProvider('gemini', { apiKey: 'K', fetcher: f });
+    const r = await p.complete(req());
+    expect(r.text).toBe('Viditelné');
+    expect(r.toolCalls[0]).toMatchObject({ name: 'list_games', meta: { thoughtSignature: 'sig-123' } });
+    // druhé kolo: odpověď asistenta s voláním nástroje se posílá zpět i s podpisem
+    await p.complete(req({ messages: [{ role: 'user', content: 'Ahoj' }, { role: 'assistant', content: '', toolCalls: [r.toolCalls[0]!] }, { role: 'tool', toolCallId: r.toolCalls[0]!.id, name: 'list_games', content: '{}' }] }));
+    const modelParts = calls[1]!.body.contents[1].parts;
+    expect(modelParts[0]).toMatchObject({ functionCall: { name: 'list_games' }, thoughtSignature: 'sig-123' });
+  });
+
   it('Claude: tool_use a tool_result se spojují do střídajících se zpráv', async () => {
     const { f, calls } = fakeFetch({ content: [{ type: 'text', text: 'Ano' }, { type: 'tool_use', id: 'u1', name: 'list_games', input: { a: 'x' } }], usage: { input_tokens: 5, output_tokens: 7 } });
     const r = await createProvider('anthropic', { apiKey: 'K', fetcher: f }).complete(req());
