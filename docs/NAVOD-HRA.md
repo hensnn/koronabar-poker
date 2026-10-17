@@ -24,6 +24,8 @@ Každý parametr má výchozí hodnotu, kterou jde přepsat na třech místech. 
 2. **Šablona**: hotová sada hodnot (Klasika, Hluboké stacky, Freezeout, Rebuy, Turbo, Re-entry, Hyper, Deepstack, Winner takes all, Heads-up, Retro…).
 3. **Konkrétní stůl nebo turnaj**: při zakládání nebo později tlačítkem Upravit.
 
+Šablony jsou vestavěné a v GUI se neupravují; jejich hodnoty vidíš a můžeš je přepsat při zakládání stolu nebo turnaje (po výběru šablony se zobrazí formulář s jejími hodnotami) a později tlačítkem **Upravit** u konkrétní hry. Hodnota ze šablony má přednost před globálním nastavením.
+
 U každého parametru je napsáno, **kdy jde měnit**: hned, od další handy, jen před startem, nebo jen administrátor. Změny během hry se hráčům oznámí v chatu a jsou v audit logu. Když si nevíš rady, zeptej se asistenta 🤖 („co dělá …“, „nastav …“); změnu jen navrhne a ty ji potvrdíš.
 
 ## 3. Jak založit turnaj
@@ -43,7 +45,20 @@ U každého parametru je napsáno, **kdy jde měnit**: hned, od další handy, j
 
 Po založení: hráči se registrují (nebo je organizátor přihlásí), start ručně nebo automaticky, průběh řídí server (levely, přestávky, pauzy, vyřazení, výplaty). Výsledky jdou do statistik, XP, ratingu a herního večera. Hlasatel a TV režim hlásí a ukazují průběh.
 
-## 4. Kde co najdeš
+## 4. Čas na tah a time bank
+
+Nastavení → Časovač tahu. Hráč má na rozhodnutí **Čas na tah** (`time.turnSeconds`, výchozí 30 s). Co se stane, když vyprší, určuje **Režim rezervy času** (`time.bankMode`):
+
+- **Společná rezerva (time bank)** – výchozí: každému hráči se při usednutí přidělí zásoba (`time.timeBankSeconds`, 60 s). Po vypršení základního času se rezerva spustí sama, odečte se jen skutečně spotřebovaný čas. Dá se doplňovat po N handách (`bankRefillEveryHands`, `bankRefillSeconds`) a omezit stropem (`bankMaxSeconds`).
+- **Časové žetony:** místo zásoby má hráč N žetonů (`timeChips`), každý prodlouží tah o pevný čas (`timeChipSeconds`) a spotřebuje se celý.
+- **Šachové hodiny / Fischer / Bronstein:** celý tah se hraje z rezervy; Fischer po každém tahu přičte přírůstek (`incrementSeconds`), Bronstein vrátí nejvýš tolik, kolik hráč spotřeboval. Hráč má vždy aspoň `minTurnSeconds`.
+- **Jen pevný limit (shot clock):** bez rezervy.
+
+**Po uplynutí všeho času** server zahraje za hráče **Akci po vypršení** (`time.expiryAction`): *Check, jinak Fold* (výchozí) nebo *Vždy Fold*. Každé vypršení se počítá; po **N vypršeních za sebou** (`time.timeoutsToSitOut`, výchozí 3) hráč přejde do **sit outu** (handy se mu rozdávají jen s automatickým foldem, u cash game neplatí blindy). Jakmile hráč sám zahraje, počítadlo se vynuluje. Z sit outu se vrací tlačítkem **Vrátit se do hry**; u cash game je po `cash.maxSitOutMinutes` (30 min) od stolu odebrán a žetony mu jdou do peněženky, v turnaji zůstává a blindy platí dál.
+
+Odpojený hráč (zavřená aplikace, výpadek) dostane jen **prodlevu pro odpojeného** (`time.disconnectGraceSeconds`, 30 s) a rezerva se nepoužije. Pokud je zapnuté **zavolání času** (`time.callClockEnabled`), smí soupeř pomalému hráči odpočet zkrátit na `callClockSeconds`.
+
+## 5. Kde co najdeš
 
 | Chci | Kde |
 |---|---|

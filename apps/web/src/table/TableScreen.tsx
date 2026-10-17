@@ -19,6 +19,7 @@ import { useActionBubbles, type Bubble } from './actions-feed';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
 import { Modal } from '../ui';
 import { usePlanExecutor } from './plan';
+import { useMobileLayout } from './mobile';
 
 interface Props {
   tableId: string;
@@ -32,10 +33,12 @@ interface Props {
 const btn = 'rounded-md border border-line bg-surface px-3 py-1';
 const btnPrimary = 'rounded-md border border-primary bg-primary px-3 py-1 text-on-primary';
 
-/** Sázka hráče leží mezi jeho sedadlem a středem stolu. */
-function betPosition(seat: number, viewerSeat: number | null, count: number) {
+/** Sázka hráče leží mezi jeho sedadlem a středem stolu; na telefonu blíž ke středu, aby ji nezakrývaly karty. */
+function betPosition(seat: number, viewerSeat: number | null, count: number, mobile: boolean) {
   const p = seatPosition(seat, viewerSeat, count);
-  return { left: 50 + (p.left - 50) * 0.52, top: 50 + (p.top - 50) * 0.6 };
+  const fx = mobile ? 0.5 : 0.52;
+  const fy = mobile ? 0.4 : 0.6;
+  return { left: 50 + (p.left - 50) * fx, top: 50 + (p.top - 50) * fy };
 }
 
 export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props) {
@@ -49,6 +52,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const myLook = useMyTableLook();
   const actionBubbles = useActionBubbles(view, inBb);
   const rotate = useSettings().values['ui.rotateToMe'] !== false;
+  const mobile = useMobileLayout();
   usePlanExecutor(view, tableId);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<{ kind: 'join'; seat: number } | { kind: 'topUp' } | null>(null);
@@ -152,7 +156,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           {view.seats
             .filter((s) => s.bet > 0)
             .map((s) => {
-              const p = betPosition(s.seat, viewerSeat, info.seatCount);
+              const p = betPosition(s.seat, viewerSeat, info.seatCount, mobile);
               return (
                 <div key={`bet-${s.seat}-${s.bet}`} className="tk-bet tk-pop absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${p.left}%`, top: `${p.top}%` }}>
                   <Amount amount={s.bet} text={formatAmount(s.bet, info, inBb)} />

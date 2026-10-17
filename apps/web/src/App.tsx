@@ -31,6 +31,8 @@ import { LiveCashListPage, LiveCashPage } from './pages/live';
 import { TvPage } from './pages/tv';
 import { EveningPage, EveningsPage } from './pages/evenings';
 import { NotificationBell } from './notifications';
+import { SoundMenu } from './sound-menu';
+import { useTournamentAutoJoin } from './tournament-autojoin';
 
 const PUBLIC = ['/prihlaseni', '/registrace', '/zapomenute-heslo', '/obnova-hesla', '/overit-email', '/potvrdit-email'];
 
@@ -116,6 +118,7 @@ function Shell({ me }: { me: Me }) {
   // Na telefonu je hlavní nabídka sbalená pod tlačítkem; po přechodu na jinou stránku se zavře.
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [path]);
+  useTournamentAutoJoin();
   const stul = matchPath('/stul/:id', path);
   const turnaj = matchPath('/turnaj/:id', path);
   const anketa = matchPath('/ankety/:id', path);
@@ -167,6 +170,7 @@ function Shell({ me }: { me: Me }) {
               ))}
           </div>
           <NotificationBell />
+          <SoundMenu />
           <SoundHost />
           <AnnouncerHost />
           <LevelUpToast />

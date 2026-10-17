@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { t } from '@kb/shared';
 import { onSocket, announceRoom } from '../net';
-import { useSettings, saveUserSetting } from '../settings';
+import { useSettings } from '../settings';
 import { AnnouncerPlayer, type AnnounceItem, type PlayerNotice, type PlayerPrefs } from './engine';
 
 let noticeSink: (n: PlayerNotice) => void = () => undefined;
@@ -22,7 +22,7 @@ export function usePrefs(): PlayerPrefs {
   };
 }
 
-/** Přijímá hlášky hlasatele ze serveru a čte je; nabízí rychlé ztlumení a upozornění, že zařízení nemá český hlas. */
+/** Přijímá hlášky hlasatele ze serveru a čte je; upozorní, že zařízení nemá český hlas. Ztlumení je v nabídce 🔊 (SoundMenu). */
 export function AnnouncerHost() {
   const prefs = usePrefs();
   const ref = useRef(prefs);
@@ -50,23 +50,11 @@ export function AnnouncerHost() {
 
   if (settings.values['announcer.enabled'] === false) return null;
   const muted = settings.values['announcer.mute'] === true;
+  if (notice !== 'noVoice' || muted) return null;
   return (
-    <>
-      <button
-        type="button"
-        className="rounded-md border border-line bg-surface px-3 py-1"
-        aria-pressed={muted}
-        title={t(muted ? 'announcer.muteOn' : 'announcer.muteOff')}
-        onClick={() => void saveUserSetting('announcer.mute', !muted).catch(() => undefined)}
-      >
-        {muted ? '🔇' : '🔊'}
-      </button>
-      {notice === 'noVoice' && !muted && (
-        <button type="button" className="fixed bottom-3 right-3 z-30 max-w-sm rounded-md border border-line bg-surface px-3 py-2 text-left shadow-lg" onClick={() => setNotice(null)}>
-          {t('announcer.noCzechVoice')}
-        </button>
-      )}
-    </>
+    <button type="button" className="fixed bottom-3 right-3 z-30 max-w-sm rounded-md border border-line bg-surface px-3 py-2 text-left shadow-lg" onClick={() => setNotice(null)}>
+      {t('announcer.noCzechVoice')}
+    </button>
   );
 }
 

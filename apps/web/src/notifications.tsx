@@ -4,6 +4,7 @@ import { errorText, get, post } from './api';
 import { onSocket } from './net';
 import { disablePush, currentSubscription, enablePush, pushSupported } from './push';
 import { Link } from './router';
+import { popoverTop } from './sound-menu';
 
 interface Item {
   id: number;
@@ -59,6 +60,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const box = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState<number | null>(null);
   const load = useCallback(() => {
     get<{ items: Item[]; unread: number }>('/api/notifications')
       .then((d) => {
@@ -85,12 +87,17 @@ export function NotificationBell() {
   }, [open]);
   return (
     <div className="relative" ref={box}>
-      <button className="rounded-md border border-line bg-surface px-3 py-1" aria-label={unread > 0 ? t('notifications.unread', { n: unread }) : t('notifications.title')} aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button className="rounded-md border border-line bg-surface px-3 py-1" aria-label={unread > 0 ? t('notifications.unread', { n: unread }) : t('notifications.title')} aria-expanded={open}
+        onClick={() => {
+          setTop(popoverTop(box.current));
+          setOpen(!open);
+        }}
+      >
         🔔
         {unread > 0 && <span className="ml-1 rounded-full bg-danger px-1 text-xs text-on-primary">{unread}</span>}
       </button>
       {open && (
-        <div role="dialog" aria-label={t('notifications.title')} className="absolute right-0 z-20 mt-1 flex max-h-96 w-80 flex-col gap-2 overflow-auto rounded-md border border-line bg-surface p-2 shadow-lg">
+        <div role="dialog" aria-label={t('notifications.title')} style={top === null ? undefined : { top }} className="fixed inset-x-2 z-20 flex max-h-[70vh] flex-col gap-2 overflow-auto rounded-md border border-line bg-surface p-2 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:max-h-96 sm:w-80">
           <div className="flex items-center justify-between">
             <strong>{t('notifications.title')}</strong>
             {unread > 0 && (

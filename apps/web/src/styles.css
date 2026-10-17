@@ -552,6 +552,10 @@ h3,
   }
   .tk-tp-mobile { display: none; }
 }
+/* Pod širokým displejem jsou nástroje stolu schované pod „⋯“. */
+@media (max-width: 63.99rem) {
+  .tk-tp-desktop { display: none; }
+}
 .tk-widget {
   border: 1px solid var(--tk-color-border);
   border-radius: var(--tk-shape-radiusMd);
@@ -628,3 +632,41 @@ h3,
   [data-focus] .tk-tp-main { height: 100%; overflow: hidden; }
   [data-focus] .tk-table { width: min(100%, calc((100vh - 18rem) * var(--tk-table-aspect))); }
 }
+
+/* ---------- mobilní rozložení stolu (data-mobile na <html>): vše v okně bez posuvníků ---------- */
+[data-mobile] body { overflow: hidden; }
+[data-mobile] > body > #root > div > header,
+[data-mobile] > body > #root > div > footer { display: none !important; }
+[data-mobile] > body > #root > div {
+  height: 100dvh;
+  min-height: 0;
+  max-width: none;
+  padding: calc(var(--spacing) * 1);
+  gap: calc(var(--spacing) * 1);
+  overflow: hidden;
+}
+[data-mobile] > body > #root > div > main { min-height: 0; display: flex; flex-direction: column; }
+[data-mobile] .tk-tablepage { flex: 1; min-height: 0; gap: calc(var(--spacing) * 1); }
+[data-mobile] .tk-tp-main { flex: 1; min-height: 0; overflow: auto; gap: calc(var(--spacing) * 1); }
+[data-mobile] .tk-room { padding: calc(var(--spacing) * 1); }
+/* Výška oválu je omezená místem, které zbyde po liště, stavovém řádku a akční liště; na šířku nikdy nepřeteče. */
+[data-mobile] .tk-table { aspect-ratio: 1.15; width: clamp(12rem, calc((100dvh - 21rem) * 1.15), 100%); }
+[data-mobile] .tk-seat-mine .tk-card { --card-scale: 0.85; }
+[data-mobile] .tk-seat:not(.tk-seat-mine) .tk-card { --card-scale: 0.55; }
+[data-mobile] .tk-seat { width: calc(var(--tk-size-cardWidth) * 2.1); }
+[data-mobile] .tk-seat-name { font-size: 0.8rem; }
+[data-mobile] .tk-seat-stack { font-size: 0.75rem; }
+[data-mobile] .tk-bubble { font-size: 0.75rem; top: calc(var(--spacing) * -6); }
+[data-mobile] .tk-pot { font-size: 0.9rem; }
+[data-mobile] .tk-turn-row { min-height: 2rem; }
+[data-mobile] .tk-actionbar { min-height: 0; padding: calc(var(--spacing) * 1.5); gap: calc(var(--spacing) * 1.5); }
+[data-mobile] .tk-act { padding-top: calc(var(--spacing) * 2); padding-bottom: calc(var(--spacing) * 2); }
+[data-mobile] .tk-seat-empty {
+  width: calc(var(--spacing) * 7);
+  height: calc(var(--spacing) * 7);
+  padding: 0;
+  border-radius: 9999px;
+  font-size: 0;
+}
+[data-mobile] .tk-seat-empty::after { content: '+'; font-size: 1rem; line-height: 1; }
+[data-mobile] .tk-dealer, [data-mobile] .tk-straddle { width: calc(var(--spacing) * 4.5); height: calc(var(--spacing) * 4.5); font-size: 0.7rem; right: calc(var(--spacing) * -2); }

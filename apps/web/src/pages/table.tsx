@@ -9,7 +9,8 @@ import { errorText, get } from '../api';
 import { loadChannels, useChatStore } from '../chat-store';
 import { onSocket, useNet } from '../net';
 import { Link } from '../router';
-import { useSettings } from '../settings';
+import { saveUserSetting, useSettings } from '../settings';
+import { useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { TablePanel } from '../table/TablePanel';
@@ -47,6 +48,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [drawer, setDrawer] = useState<'chat' | 'panel' | null>(null);
   const [focus, setFocus] = useState(false);
   const [history, setHistory] = useState(false);
+  const [more, setMore] = useState(false);
+  const mobile = useMobileLayout();
+  useMobileAttribute(mobile);
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
   useEffect(() => {
@@ -81,6 +85,20 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [pollOpen, setPollOpen] = useState(false);
   const inBb = Boolean(settings.values['ui.showInBb']);
   const seated = !!view?.seats.some((s) => s.playerId === me?.user.id);
+  // Nástroje stolu: na širokém displeji v liště, na telefonu pod tlačítkem „⋯“.
+  const tools = (
+    <>
+      {!isTournament && <ShareToChat kind="stul" id={tableId} />}
+      {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
+      {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+      <Button onClick={() => setHistory(true)} title={t('table.history')}>
+        📜 {t('table.history')}
+      </Button>
+      <Button onClick={() => setFocus((v) => !v)} aria-pressed={focus} title={focus ? t('table.fullscreenExit') : t('table.fullscreen')}>
+        {focus ? '⤡' : '⛶'} {focus ? t('table.fullscreenExit') : t('table.fullscreen')}
+      </Button>
+    </>
+  );
   return (
     <div className="tk-tablepage">
       <aside className="tk-tp-panel" aria-label={t('table.panel')}>
@@ -91,24 +109,23 @@ export function TablePage({ tableId }: { tableId: string }) {
           <Link to={isTournament ? `/turnaj/${tournamentId}` : '/'} className="underline">
             {isTournament ? t('tournament.backToTournament') : t('table.backToLobby')}
           </Link>
-          <span className="tk-tp-mobile ml-auto flex gap-2">
+          <span className="tk-tp-mobile relative ml-auto flex gap-2">
             <Button onClick={() => setDrawer('panel')}>{t('table.panelOpen')}</Button>
             <Button onClick={() => setDrawer('chat')}>
               {t('table.chatOpen')}
               {channel && channel.unread > 0 && <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-on-act">{channel.unread}</span>}
             </Button>
-          </span>
-          <span className="flex flex-wrap items-center gap-2 max-lg:w-full">
-            {!isTournament && <ShareToChat kind="stul" id={tableId} />}
-            {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
-            {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
-            <Button onClick={() => setHistory(true)} title={t('table.history')}>
-              📜 {t('table.history')}
+            <Button aria-haspopup="menu" aria-expanded={more} aria-label={t('table.more')} onClick={() => setMore((v) => !v)}>
+              ⋯
             </Button>
-            <Button onClick={() => setFocus((v) => !v)} aria-pressed={focus} title={focus ? t('table.fullscreenExit') : t('table.fullscreen')}>
-              {focus ? '⤡' : '⛶'} {focus ? t('table.fullscreenExit') : t('table.fullscreen')}
-            </Button>
+            {more && (
+              <div role="menu" className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col gap-1 rounded-md border border-line bg-surface p-2 shadow-lg" onClick={() => setMore(false)}>
+                {tools}
+                <Button onClick={() => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on').catch(() => undefined)}>{mobile ? t('table.mobileOff') : t('table.mobileOn')}</Button>
+              </div>
+            )}
           </span>
+          <span className="tk-tp-desktop flex flex-wrap items-center gap-2">{tools}</span>
         </div>
         <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />
         {pollOpen && (
