@@ -8,6 +8,7 @@ import { InvitesPage, UsersPage } from './users';
 import { RolesPage } from './roles';
 import { TablesPage } from './tables';
 import { TemplatesPage } from './templates';
+import { MaintenancePage } from './maintenance';
 import { FinancePage } from './finance';
 import { TvAdminPage } from './tv';
 import { AnnouncerAdminPage } from './announcer';
@@ -38,6 +39,7 @@ const SECTIONS: Section[] = [
   { path: '/admin/napojeni', label: 'admin.integrations', show: (m) => can(m, 'integrace.spravovat'), render: () => <IntegrationsAdminPage /> },
   { path: '/admin/asistent', label: 'admin.assistant', show: (m) => can(m, 'asistent.spravovat'), render: () => <AssistantAdminPage /> },
   { path: '/admin/audit', label: 'admin.audit', show: (m) => can(m, 'audit.zobrazit'), render: () => <AuditPage /> },
+  { path: '/admin/udrzba', label: 'admin.maintenance', show: (m) => can(m, 'nastaveni.globalni'), render: () => <MaintenancePage /> },
 ];
 
 /** Zda má uživatel přístup aspoň k jedné části správy (UI jen skrývá, server kontroluje vždy). */

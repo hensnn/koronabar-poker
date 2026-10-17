@@ -1,0 +1,172 @@
+import { randomUUID } from 'node:crypto';
+import { eq, or, sql } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
+import { accounts as ledgerAccounts, type Ledger } from '@kb/ledger';
+import type { PermissionChecker, SettingValues } from '@kb/shared';
+import type { AuditService, AuditSource } from './auth/audit.js';
+import { schema, type Db } from './db/index.js';
+import type { TableManager } from './tables.js';
+import type { TournamentManager } from './tournaments.js';
+
+export class MaintenanceError extends Error {
+  constructor(public readonly code: 'FORBIDDEN' | 'INVALID') {
+    super(code);
+  }
+}
+
+interface Deps {
+  db: Db;
+  ledger: Ledger;
+  perms: PermissionChecker;
+  audit: AuditService;
+  settings: () => SettingValues;
+  tables: () => TableManager;
+  tournaments: () => TournamentManager;
+  /** Služby si drží frontu zápisů; před mazáním se nechá doběhnout. */
+  idle: () => Promise<void>;
+}
+
+type Meta = { ip?: string | null; source?: AuditSource; reason?: string | null };
+
+/** Co se má vynulovat (každá oblast zvlášť). */
+export interface ResetAreas {
+  /** Nejdřív zavřít otevřené stoly a zrušit běžící turnaje (žetony se vrátí do peněženek). */
+  games?: boolean;
+  xp?: boolean;
+  achievements?: boolean;
+  rating?: boolean;
+  /** Historie hand, výsledky her a vyřazení (statistiky). */
+  stats?: boolean;
+  /** Peněženky všech hráčů na startovní zůstatek (`economy.startingBalance`). */
+  wallets?: boolean;
+}
+
+export interface MaintenanceCounts {
+  xpEvents: number;
+  players: number;
+  achievements: number;
+  ratings: number;
+  hands: number;
+  results: number;
+  openTables: number;
+  activeTournaments: number;
+}
+
+const ACTIVE = new Set(['registering', 'running']);
+
+/**
+ * Údržba pro hlavního správce: vynulování postupu (XP), úspěchů, ratingu, statistik a peněženek po testování.
+ * Mazání je nevratné; každé spuštění je v audit logu.
+ */
+export class MaintenanceService {
+  constructor(private deps: Deps) {}
+
+  private can(actorId: string): void {
+    if (!this.deps.perms.can(actorId, 'nastaveni.globalni').allowed) throw new MaintenanceError('FORBIDDEN');
+  }
+
+  private async count(table: PgTable): Promise<number> {
+    const [r] = await this.deps.db.select({ n: sql<number>`count(*)::int` }).from(table);
+    return Number(r?.n ?? 0);
+  }
+
+  async counts(actorId: string): Promise<MaintenanceCounts> {
+    this.can(actorId);
+    const tournaments = this.deps.tournaments();
+    return {
+      xpEvents: await this.count(schema.xpEvents),
+      players: await this.count(schema.playerProgress),
+      achievements: await this.count(schema.playerAchievements),
+      ratings: await this.count(schema.ratingState),
+      hands: await this.count(schema.hands),
+      results: await this.count(schema.gameResults),
+      openTables: this.deps.tables().list().length,
+      activeTournaments: tournaments.list().filter((r) => ACTIVE.has(tournaments.get(r.id)?.state().status ?? '')).length,
+    };
+  }
+
+  /** Hromadné vynulování vybraných oblastí. Vrací, co se smazalo. */
+  async reset(actorId: string, areas: ResetAreas, meta: Meta = {}): Promise<Record<string, number>> {
+    this.can(actorId);
+    if (!Object.values(areas).some(Boolean)) throw new MaintenanceError('INVALID');
+    const done: Record<string, number> = {};
+    if (areas.games) {
+      const tournaments = this.deps.tournaments();
+      let n = 0;
+      for (const r of tournaments.list()) {
+        if (!ACTIVE.has(tournaments.get(r.id)?.state().status ?? '')) continue;
+        await tournaments.cancel(actorId, r.id, meta);
+        n++;
+      }
+      done.tournaments = n;
+      const tables = this.deps.tables();
+      let m = 0;
+      for (const r of tables.list()) {
+        await tables.close(r.id);
+        m++;
+      }
+      done.tables = m;
+    }
+    await this.deps.idle();
+    const db = this.deps.db;
+    if (areas.xp) {
+      done.xpEvents = await this.count(schema.xpEvents);
+      await db.delete(schema.xpEvents);
+      await db.delete(schema.playerProgress);
+    }
+    if (areas.achievements) {
+      done.achievements = await this.count(schema.playerAchievements);
+      await db.delete(schema.playerAchievements);
+    }
+    if (areas.rating) {
+      done.ratings = await this.count(schema.ratingState);
+      await db.delete(schema.ratingFlags);
+      await db.delete(schema.ratingEvents);
+      await db.delete(schema.ratingState);
+    }
+    if (areas.stats) {
+      done.hands = await this.count(schema.hands);
+      await db.delete(schema.sharedHands);
+      await db.delete(schema.hands);
+      await db.delete(schema.gameResults);
+      await db.delete(schema.tournamentEliminations);
+    }
+    if (areas.wallets) done.wallets = await this.resetWallets(actorId);
+    await this.deps.audit.log({ actorId, action: 'udrzba.vynulovani', targetType: 'system', after: { areas, done }, ...meta });
+    return done;
+  }
+
+  /** Všechny peněženky na startovní zůstatek; rozdíl jde z/do účtu „mint“ (virtuální měna bez hodnoty). */
+  private async resetWallets(actorId: string): Promise<number> {
+    const target = Number(this.deps.settings()['economy.startingBalance'] ?? 0);
+    const users = await this.deps.db.select({ id: schema.users.id }).from(schema.users);
+    let n = 0;
+    for (const u of users) {
+      const wallet = ledgerAccounts.wallet(u.id);
+      const delta = target - this.deps.ledger.balance(wallet);
+      if (delta === 0) continue;
+      this.deps.ledger.post({ kind: 'manual_adjustment', idempotencyKey: `reset:${randomUUID()}`, entries: [{ account: wallet, amount: delta }, { account: ledgerAccounts.mint(), amount: -delta }], createdBy: actorId, note: 'udrzba.vynulovani' });
+      n++;
+    }
+    return n;
+  }
+
+  /** Vynulování jednoho hráče: XP (a úroveň), úspěchy, rating. */
+  async resetUser(actorId: string, userId: string, areas: { xp?: boolean; achievements?: boolean; rating?: boolean }, meta: Meta = {}): Promise<void> {
+    this.can(actorId);
+    if (!Object.values(areas).some(Boolean)) throw new MaintenanceError('INVALID');
+    await this.deps.idle();
+    const db = this.deps.db;
+    if (areas.xp) {
+      await db.delete(schema.xpEvents).where(eq(schema.xpEvents.userId, userId));
+      await db.delete(schema.playerProgress).where(eq(schema.playerProgress.userId, userId));
+    }
+    if (areas.achievements) await db.delete(schema.playerAchievements).where(eq(schema.playerAchievements.userId, userId));
+    if (areas.rating) {
+      await db.delete(schema.ratingFlags).where(or(eq(schema.ratingFlags.userA, userId), eq(schema.ratingFlags.userB, userId)));
+      await db.delete(schema.ratingEvents).where(eq(schema.ratingEvents.userId, userId));
+      await db.delete(schema.ratingState).where(eq(schema.ratingState.userId, userId));
+    }
+    await this.deps.audit.log({ actorId, action: 'udrzba.vynulovani_hrace', targetType: 'user', targetId: userId, after: areas, ...meta });
+  }
+}

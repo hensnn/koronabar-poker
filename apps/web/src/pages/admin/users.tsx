@@ -69,6 +69,15 @@ export function UsersPage() {
                   {can(me, 'role.prirazovat') && <Button onClick={() => setRolesFor(u)}>{t('admin.roles')}</Button>}
                   {can(me, 'uzivatel.blokovat') && (u.status === 'blocked' ? <Button onClick={() => void act(`/api/admin/users/${u.id}/unblock`)}>{t('admin.unblock')}</Button> : <Button onClick={() => setBlockFor(u)}>{t('admin.block')}</Button>)}
                   {can(me, 'uzivatel.overit_email') && !u.emailVerified && <Button onClick={() => void act(`/api/admin/users/${u.id}/verify-email`)}>{t('admin.verifyEmail')}</Button>}
+                  {can(me, 'nastaveni.globalni') && (
+                    <Button
+                      onClick={() => {
+                        if (confirm(t('admin.resetProgressConfirm', { nick: u.nickname }))) void act(`/api/admin/users/${u.id}/reset-progress`, { xp: true, achievements: true, rating: true });
+                      }}
+                    >
+                      {t('admin.resetProgress')}
+                    </Button>
+                  )}
                   {can(me, 'uzivatel.vynutit_zmenu_hesla') && (
                     <Button
                       onClick={() => {

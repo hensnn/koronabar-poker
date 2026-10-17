@@ -62,7 +62,11 @@ Nastavení → Časovač tahu. Hráč má na rozhodnutí **Čas na tah** (`time.
 
 Odpojený hráč (zavřená aplikace, výpadek) dostane jen **prodlevu pro odpojeného** (`time.disconnectGraceSeconds`, 30 s) a rezerva se nepoužije. Pokud je zapnuté **zavolání času** (`time.callClockEnabled`), smí soupeř pomalému hráči odpočet zkrátit na `callClockSeconds`.
 
-## 5. Kde co najdeš
+## 5. Po testování: vynulování
+
+**Správa → Údržba** (jen hlavní správce). Zaškrtni, co se má smazat všem hráčům: zavřít stoly a zrušit turnaje (žetony se vrátí), XP a úrovně, úspěchy, rating, statistiky a historie hand, peněženky na startovní zůstatek. Potvrzuje se slovem VYNULOVAT a je to nevratné (zápis v audit logu). Doporučený postup po zkušebním provozu: 1) zavřít hry, 2) vynulovat XP, úspěchy, rating a statistiky, 3) peněženky na startovní zůstatek. Jednotlivému hráči vynuluješ XP, úspěchy a rating ve **Správa → Uživatelé** tlačítkem *Vynulovat XP a rating*. Rating navíc umí „měkký reset sezóny“ a přepočet z historie ve Statistiky → Rating (pro běžné sezóny bez mazání).
+
+## 6. Kde co najdeš
 
 | Chci | Kde |
 |---|---|

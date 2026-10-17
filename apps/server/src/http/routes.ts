@@ -18,6 +18,7 @@ import type { ApprovalService } from '../auth/approvals.js';
 import type { WalletService } from '../wallet/service.js';
 import type { TableManager } from '../tables.js';
 import type { TemplateService } from '../templates.js';
+import type { MaintenanceService } from '../maintenance.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -66,6 +67,7 @@ export interface Services {
   tables: () => TableManager;
   tournaments: () => TournamentManager;
   templates: () => TemplateService;
+  maintenance: () => MaintenanceService;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
   push: () => PushService;
@@ -280,6 +282,14 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   userAction('unblock', (a, t, _b, m) => svc.accounts.unblockUser(a, t, m));
   userAction('force-password', (a, t, _b, m) => svc.accounts.forcePasswordChange(a, t, m));
   userAction('verify-email', (a, t, _b, m) => svc.accounts.markEmailVerified(a, t, m));
+  userAction('reset-progress', (a, t, b, m) => svc.maintenance().resetUser(a, t, b, m), z.object({ xp: z.boolean().optional(), achievements: z.boolean().optional(), rating: z.boolean().optional() }));
+
+  // ---------- údržba: vynulování po testování ----------
+  app.get('/api/admin/maintenance', guard(async (req, reply) => reply.send(await svc.maintenance().counts(need(req).id))));
+  app.post('/api/admin/maintenance/reset', guard(async (req, reply) => {
+    const b = z.object({ games: z.boolean().optional(), xp: z.boolean().optional(), achievements: z.boolean().optional(), rating: z.boolean().optional(), stats: z.boolean().optional(), wallets: z.boolean().optional() }).parse(req.body ?? {});
+    return reply.send({ done: await svc.maintenance().reset(need(req).id, b, meta(req)) });
+  }));
 
   app.get('/api/admin/invites', guard(async (req, reply) => {
     const u = need(req);
