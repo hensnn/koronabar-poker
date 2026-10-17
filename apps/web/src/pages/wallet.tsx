@@ -1,0 +1,220 @@
+import { SettlementPanel } from './settlement';
+import { useCallback, useEffect, useState } from 'react';
+import { t } from '@kb/shared';
+import { del, errorText, get, post } from '../api';
+import { can, useSession } from '../session';
+import { Badge, Button, Card, DataTable, Notice, Td, TextInput, Select, TextArea } from '../ui';
+
+interface HistoryRow {
+  id: number;
+  kind: string;
+  at: string;
+  gameId: string | null;
+  note: string | null;
+  amount: number;
+}
+interface RequestRow {
+  id: string;
+  userId: string;
+  kind: string;
+  amount: number | null;
+  message: string | null;
+  status: string;
+  decisionNote: string | null;
+  createdAt: string;
+}
+
+export function WalletPage() {
+  const { me } = useSession();
+  const [hist, setHist] = useState<HistoryRow[]>([]);
+  const [reqs, setReqs] = useState<RequestRow[]>([]);
+  const [error, setError] = useState('');
+  const [amount, setAmount] = useState('');
+  const [message, setMessage] = useState('');
+  const canRequest = can(me, 'zadost.vytvorit');
+  const reload = useCallback(() => {
+    get<HistoryRow[]>('/api/wallet/history').then(setHist).catch((e) => setError(errorText(e)));
+    get<RequestRow[]>('/api/requests').then(setReqs).catch(() => undefined);
+  }, []);
+  useEffect(reload, [reload, me?.balance]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h1 className="font-heading text-2xl font-bold">{t('wallet.title')}</h1>
+      <Card>
+        <p className="text-lg">
+          {t('wallet.balance')}: <strong className="font-mono">{me?.balance}</strong>
+        </p>
+        <p className="text-sm text-muted">{t('footer.virtualCurrency')}</p>
+      </Card>
+      {error && <Notice kind="error">{error}</Notice>}
+
+      {canRequest && (
+        <Card title={t('wallet.request.title')}>
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await post('/api/requests', { kind: 'dobiti', amount: Number(amount), message });
+                setAmount('');
+                setMessage('');
+                setError('');
+                reload();
+              } catch (er) {
+                setError(errorText(er));
+              }
+            }}
+          >
+            <TextInput label={t('wallet.request.amount')} type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} required />
+            <TextInput label={t('wallet.request.message')} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} />
+            <Button variant="primary" type="submit">
+              {t('wallet.request.submit')}
+            </Button>
+          </form>
+          <DataTable head={[t('wallet.request.amount'), t('wallet.request.status'), t('wallet.request.note'), '']}>
+            {reqs.filter((r) => r.userId === me?.user.id).map((r) => (
+              <tr key={r.id}>
+                <Td className="font-mono">{r.amount}</Td>
+                <Td><Badge tone={r.status === 'approved' ? 'success' : r.status === 'rejected' ? 'danger' : 'muted'}>{t(`request.status.${r.status}`)}</Badge></Td>
+                <Td>{r.decisionNote}</Td>
+                <Td>{r.status === 'pending' && <Button onClick={() => void del(`/api/requests/${r.id}`).then(reload)}>{t('wallet.request.cancel')}</Button>}</Td>
+              </tr>
+            ))}
+          </DataTable>
+        </Card>
+      )}
+
+      <SettlementPanel />
+
+      <Card title={t('wallet.history')}>
+        <DataTable head={[t('wallet.when'), t('wallet.kind'), t('wallet.amount'), t('wallet.note')]}>
+          {hist.map((h) => (
+            <tr key={h.id}>
+              <Td>{new Date(h.at).toLocaleString('cs-CZ')}</Td>
+              <Td>{t(`ledger.kind.${h.kind}`)}</Td>
+              <Td className={`font-mono ${h.amount >= 0 ? 'text-success' : 'text-danger'}`}>{h.amount > 0 ? `+${h.amount}` : h.amount}</Td>
+              <Td>{h.note ?? h.gameId ?? ''}</Td>
+            </tr>
+          ))}
+        </DataTable>
+      </Card>
+    </div>
+  );
+}
+
+/** Pokladník: dobití, strhnutí, vyřizování žádostí, schvalování, kniha. */
+export function CashierPanel() {
+  const { me } = useSession();
+  const [users, setUsers] = useState<{ id: string; nickname: string }[]>([]);
+  const [reqs, setReqs] = useState<RequestRow[]>([]);
+  const [form, setForm] = useState({ userId: '', amount: '', reason: '', mode: 'topup' });
+  const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
+  const reload = useCallback(() => {
+    get<RequestRow[]>('/api/requests?all=1&status=pending').then(setReqs).catch(() => setReqs([]));
+  }, []);
+  useEffect(() => {
+    reload();
+    void get<{ id: string; nickname: string }[]>('/api/directory').then(setUsers);
+  }, [reload]);
+  const nick = (id: string) => users.find((u) => u.id === id)?.nickname ?? id;
+  const limits = me?.limits['mena.dobit'];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Card title={t('cashier.operation')}>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              const r = await post<{ done: boolean }>(`/api/admin/wallet/${form.mode}`, { userId: form.userId, amount: Number(form.amount), reason: form.reason });
+              setMsg({ kind: 'success', text: r.done ? t('cashier.done') : t('cashier.pending') });
+              setForm({ ...form, amount: '', reason: '' });
+            } catch (er) {
+              setMsg({ kind: 'error', text: errorText(er) });
+            }
+          }}
+        >
+          <Select label={t('cashier.mode')} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
+            {can(me, 'mena.dobit') && <option value="topup">{t('cashier.topup')}</option>}
+            {can(me, 'mena.strhnout') && <option value="debit">{t('cashier.debit')}</option>}
+          </Select>
+          <Select label={t('cashier.user')} value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })} required>
+            <option value="">{t('cashier.pick')}</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nickname}
+              </option>
+            ))}
+          </Select>
+          <TextInput label={t('wallet.amount')} type="number" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} hint={limits?.maxPerOperation ? t('cashier.limit', { n: limits.maxPerOperation }) : undefined} required />
+          <TextArea label={t('cashier.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
+          {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+          <Button variant="primary" type="submit">
+            {t('table.confirm')}
+          </Button>
+        </form>
+      </Card>
+
+      {can(me, 'mena.vyridit_zadost') && (
+        <Card title={t('cashier.requests')}>
+          {reqs.length === 0 && <p className="text-muted">{t('cashier.noRequests')}</p>}
+          <DataTable head={[t('cashier.user'), t('wallet.amount'), t('wallet.request.message'), '']}>
+            {reqs.map((r) => (
+              <tr key={r.id}>
+                <Td>{nick(r.userId)}</Td>
+                <Td className="font-mono">{r.amount}</Td>
+                <Td>{r.message}</Td>
+                <Td>
+                  <div className="flex gap-2">
+                    <Button variant="primary" onClick={() => void post(`/api/requests/${r.id}/decide`, { approve: true }).then(reload).catch((e) => setMsg({ kind: 'error', text: errorText(e) }))}>
+                      {t('cashier.approve')}
+                    </Button>
+                    <Button onClick={() => void post(`/api/requests/${r.id}/decide`, { approve: false, note: prompt(t('cashier.rejectReason')) ?? '' }).then(reload)}>{t('cashier.reject')}</Button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </DataTable>
+        </Card>
+      )}
+      {can(me, 'mena.zobrazit_knihu') && <LedgerPanel />}
+    </div>
+  );
+}
+
+interface LedgerTx {
+  id: number;
+  kind: string;
+  at: string;
+  note: string | null;
+  entries: { account: string; amount: number }[];
+}
+
+function LedgerPanel() {
+  const [rows, setRows] = useState<LedgerTx[]>([]);
+  const [house, setHouse] = useState<Record<string, number>>({});
+  useEffect(() => {
+    void get<LedgerTx[]>('/api/admin/ledger').then(setRows).catch(() => undefined);
+    void get<Record<string, number>>('/api/admin/house').then(setHouse).catch(() => undefined);
+  }, []);
+  return (
+    <Card title={t('cashier.ledger')}>
+      <p className="mb-2">
+        {t('cashier.house')}: <strong className="font-mono">{house.house ?? 0}</strong>
+      </p>
+      <DataTable head={['#', t('wallet.when'), t('wallet.kind'), t('cashier.entries'), t('wallet.note')]}>
+        {rows.map((r) => (
+          <tr key={r.id}>
+            <Td>{r.id}</Td>
+            <Td>{new Date(r.at).toLocaleString('cs-CZ')}</Td>
+            <Td>{t(`ledger.kind.${r.kind}`)}</Td>
+            <Td className="font-mono text-xs">{r.entries.map((e) => `${e.account}: ${e.amount > 0 ? '+' : ''}${e.amount}`).join(' · ')}</Td>
+            <Td>{r.note}</Td>
+          </tr>
+        ))}
+      </DataTable>
+    </Card>
+  );
+}

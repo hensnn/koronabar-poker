@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+patchedDependencies:
+  '@pokertools/engine': patches/@pokertools__engine.patch
+allowBuilds:
+  esbuild: true

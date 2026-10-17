@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.log
+.vite
+coverage
+backups
+
+# lokální vývojová data (DB, hlavní klíč)
+.data

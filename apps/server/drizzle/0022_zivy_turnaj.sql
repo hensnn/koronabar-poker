@@ -1,0 +1,1 @@
+ALTER TABLE "game_results" ADD COLUMN "live" boolean DEFAULT false NOT NULL;

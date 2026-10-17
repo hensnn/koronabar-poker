@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "server", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@kb/server", "exec", "tsx", "src/index.ts"], "port": 3000, "env": { "ADMIN_NICKNAME": "Majitel", "ADMIN_PASSWORD": "vyvoj-heslo-123", "PGLITE_DIR": ".data/pglite" } },
+    { "name": "web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@kb/web", "dev"], "port": 5173 }
+  ]
+}

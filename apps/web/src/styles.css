@@ -1,0 +1,395 @@
+@import 'tailwindcss';
+
+/* Komponenty používají jen tokeny. Výchozí paleta Tailwindu je vypnutá. */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--tk-color-bg);
+  --color-surface: var(--tk-color-surface);
+  --color-raised: var(--tk-color-surfaceRaised);
+  --color-text: var(--tk-color-text);
+  --color-muted: var(--tk-color-textMuted);
+  --color-line: var(--tk-color-border);
+  --color-primary: var(--tk-color-primary);
+  --color-on-primary: var(--tk-color-onPrimary);
+  --color-secondary: var(--tk-color-secondary);
+  --color-accent: var(--tk-color-accent);
+  --color-success: var(--tk-color-success);
+  --color-warning: var(--tk-color-warning);
+  --color-danger: var(--tk-color-danger);
+  --color-info: var(--tk-color-info);
+  --color-focus: var(--tk-color-focus);
+  --color-act-fold: var(--tk-color-actionFold);
+  --color-act-check: var(--tk-color-actionCheck);
+  --color-act-call: var(--tk-color-actionCall);
+  --color-act-raise: var(--tk-color-actionRaise);
+  --color-on-act: var(--tk-color-onAction);
+  --color-felt: var(--tk-color-felt);
+  --color-felt-edge: var(--tk-color-feltBorder);
+  --color-card-face: var(--tk-color-cardFace);
+  --color-card-back: var(--tk-color-cardBack);
+  --color-card-ink: var(--tk-color-cardInk);
+  --color-suit-red: var(--tk-color-suitRed);
+  --color-room: var(--tk-color-roomBg);
+  --color-turn-glow: var(--tk-color-turnGlow);
+  --color-timer-ok: var(--tk-color-timerOk);
+  --color-timer-bank: var(--tk-color-timerBank);
+  --color-dealer: var(--tk-color-dealerButton);
+  --color-chip-white: var(--tk-color-chipWhite);
+  --color-chip-red: var(--tk-color-chipRed);
+  --color-chip-green: var(--tk-color-chipGreen);
+  --color-chip-blue: var(--tk-color-chipBlue);
+  --color-chip-black: var(--tk-color-chipBlack);
+  --radius-sm: var(--tk-shape-radiusSm);
+  --radius-md: var(--tk-shape-radiusMd);
+  --radius-lg: var(--tk-shape-radiusLg);
+  --font-sans: var(--tk-font-body);
+  --font-heading: var(--tk-font-heading);
+  --font-mono: var(--tk-font-number);
+  --spacing: calc(var(--tk-space-unit) * var(--tk-density-scale));
+}
+
+html {
+  font-size: var(--tk-size-textBase);
+}
+
+body {
+  background: var(--tk-color-bg);
+  color: var(--tk-color-text);
+  font-family: var(--tk-font-body);
+  font-weight: var(--tk-font-weightBody);
+  line-height: var(--tk-font-lineHeight);
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+.font-heading {
+  font-family: var(--tk-font-heading);
+  font-weight: var(--tk-font-weightHeading);
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+[data-tk-font-tabular='off'] .font-mono {
+  font-variant-numeric: normal;
+}
+
+/* ---------- herní stůl ---------- */
+.tk-room {
+  background-color: var(--tk-color-roomBg);
+  background-image: var(--tk-image-roomBg);
+  background-size: cover;
+  background-position: center;
+  border-radius: var(--tk-shape-radiusLg);
+  padding: calc(var(--spacing) * 3);
+}
+.tk-table {
+  aspect-ratio: var(--tk-table-aspect);
+  border-radius: var(--tk-table-radius);
+  border: var(--tk-table-edgeWidth) solid var(--tk-color-feltBorder);
+  background-color: var(--tk-color-felt);
+  background-image: var(--tk-image-felt);
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 var(--tk-table-vignetteSize) var(--tk-color-vignette);
+}
+.tk-table-logo {
+  background-image: var(--tk-image-logo);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  min-height: calc(var(--spacing) * 8);
+  min-width: calc(var(--spacing) * 24);
+  opacity: 0.8;
+}
+
+/* ---------- karty ---------- */
+:root {
+  --suit-h: var(--tk-color-suitRed);
+  --suit-d: var(--tk-color-suitRed);
+  --suit-c: var(--tk-color-cardInk);
+  --suit-s: var(--tk-color-cardInk);
+  --card-pattern: none;
+}
+[data-tk-cards-four-color='on'] {
+  --suit-h: var(--tk-color-suitHeart);
+  --suit-d: var(--tk-color-suitDiamond);
+  --suit-c: var(--tk-color-suitClub);
+  --suit-s: var(--tk-color-suitSpade);
+}
+[data-tk-cards-back='stripes'] {
+  --card-pattern: repeating-linear-gradient(45deg, var(--tk-color-cardBackAccent) 0 2px, transparent 2px 7px);
+}
+[data-tk-cards-back='dots'] {
+  --card-pattern: radial-gradient(var(--tk-color-cardBackAccent) 20%, transparent 22%);
+}
+[data-tk-cards-back='diamonds'] {
+  --card-pattern: repeating-linear-gradient(45deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 8px), repeating-linear-gradient(-45deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 8px);
+}
+.tk-card {
+  border-radius: var(--tk-shape-cardRadius);
+  box-shadow: var(--tk-shape-shadow);
+  width: calc(var(--tk-size-cardWidth) * var(--card-scale, 1));
+  aspect-ratio: 5 / 7;
+  font-size: calc(var(--tk-size-cardWidth) * var(--card-scale, 1) * 0.36);
+  transition: transform calc(var(--tk-anim-flip) * 1ms / var(--tk-anim-speed));
+}
+.tk-card-back {
+  background-color: var(--tk-color-cardBack);
+  background-image: var(--tk-image-cardBack), var(--card-pattern);
+  background-size: cover, 8px 8px;
+}
+[data-tk-cards-style='minimal'] .tk-card {
+  box-shadow: none;
+  border-color: transparent;
+}
+[data-tk-cards-style='bigIndex'] .tk-card-rank {
+  font-size: 1.35em;
+}
+.tk-suit-h { color: var(--suit-h); }
+.tk-suit-d { color: var(--suit-d); }
+.tk-suit-c { color: var(--suit-c); }
+.tk-suit-s { color: var(--suit-s); }
+
+/* ---------- hráči ---------- */
+.tk-avatar {
+  width: var(--tk-size-avatar);
+  height: var(--tk-size-avatar);
+  border-radius: var(--tk-shape-avatarRadius);
+}
+.tk-turn {
+  border-color: var(--tk-color-turnGlow);
+  box-shadow: 0 0 calc(var(--spacing) * 3) var(--tk-color-turnGlow);
+}
+@keyframes tk-pulse {
+  50% {
+    box-shadow: 0 0 calc(var(--spacing) * 6) var(--tk-color-turnGlow);
+  }
+}
+[data-tk-anim-pulse='on'] .tk-turn {
+  animation: tk-pulse calc(1.4s / var(--tk-anim-speed)) ease-in-out infinite;
+}
+.tk-timer-bar {
+  height: calc(var(--spacing) * 1.5);
+  width: var(--tk-size-avatar);
+  border-radius: var(--tk-shape-radiusSm);
+  background: var(--tk-color-border);
+  overflow: hidden;
+}
+.tk-timer-bar > span {
+  display: block;
+  height: 100%;
+  width: calc(var(--p, 1) * 100%);
+  background: var(--tk-color-timerOk);
+}
+.tk-timer-bar[data-bank='true'] > span {
+  background: var(--tk-color-timerBank);
+}
+.tk-chip {
+  display: inline-block;
+  width: calc(var(--spacing) * 4);
+  height: calc(var(--spacing) * 4);
+  border-radius: 9999px;
+  border: calc(var(--tk-shape-borderWidth) * 2) dashed var(--tk-color-cardFace);
+  box-shadow: var(--tk-shape-shadow);
+}
+
+/* ---------- tlačítka akcí ---------- */
+.tk-act {
+  --act: var(--tk-color-border);
+  border-radius: var(--tk-shape-buttonRadius);
+  border: var(--tk-shape-borderWidth) solid var(--act);
+  background: var(--act);
+  color: var(--tk-color-onAction);
+}
+.tk-act-fold { --act: var(--tk-color-actionFold); }
+.tk-act-check { --act: var(--tk-color-actionCheck); }
+.tk-act-call { --act: var(--tk-color-actionCall); }
+.tk-act-raise { --act: var(--tk-color-actionRaise); }
+.tk-act-allin { --act: var(--tk-color-accent); }
+[data-tk-buttons-style='outline'] .tk-act {
+  background: transparent;
+  color: var(--act);
+  border-width: calc(var(--tk-shape-borderWidth) * 2);
+}
+[data-tk-buttons-style='glossy'] .tk-act {
+  background-image: linear-gradient(to bottom, color-mix(in srgb, white 30%, transparent), transparent 55%);
+  background-color: var(--act);
+}
+
+/* ---------- rozvržení stolu ---------- */
+.tk-tablepage {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+}
+@media (min-width: 64rem) {
+  [data-tk-layout-chat='right'] .tk-tablepage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    align-items: start;
+  }
+}
+
+/* ---------- simulace barvosleposti (editor vzhledu) ---------- */
+.tk-cb-protanopia { filter: url(#tk-cb-protanopia); }
+.tk-cb-deuteranopia { filter: url(#tk-cb-deuteranopia); }
+.tk-cb-tritanopia { filter: url(#tk-cb-tritanopia); }
+
+/* ---------- animace ---------- */
+[data-tk-anim-enabled='off'] *,
+[data-tk-anim-enabled='off'] *::before,
+[data-tk-anim-enabled='off'] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+:focus-visible {
+  outline: var(--tk-shape-borderWidth) solid var(--tk-color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- kosmetika: moje plsť a rub karet (vidím je jen já) ---------- */
+[data-my-felt='primary'] {
+  --my-felt: var(--tk-color-primary);
+}
+[data-my-felt='secondary'] {
+  --my-felt: var(--tk-color-secondary);
+}
+[data-my-felt='accent'] {
+  --my-felt: var(--tk-color-accent);
+}
+[data-my-felt='info'] {
+  --my-felt: var(--tk-color-info);
+}
+[data-my-felt='success'] {
+  --my-felt: var(--tk-color-success);
+}
+[data-my-felt='warning'] {
+  --my-felt: var(--tk-color-warning);
+}
+[data-my-felt='danger'] {
+  --my-felt: var(--tk-color-danger);
+}
+[data-my-felt='muted'] {
+  --my-felt: var(--tk-color-muted);
+}
+[data-my-felt] .tk-table {
+  background-color: var(--my-felt);
+  background-image: none;
+}
+[data-my-back-color='primary'] {
+  --my-back: var(--tk-color-primary);
+}
+[data-my-back-color='secondary'] {
+  --my-back: var(--tk-color-secondary);
+}
+[data-my-back-color='accent'] {
+  --my-back: var(--tk-color-accent);
+}
+[data-my-back-color='info'] {
+  --my-back: var(--tk-color-info);
+}
+[data-my-back-color='success'] {
+  --my-back: var(--tk-color-success);
+}
+[data-my-back-color='warning'] {
+  --my-back: var(--tk-color-warning);
+}
+[data-my-back-color='danger'] {
+  --my-back: var(--tk-color-danger);
+}
+[data-my-back-color='muted'] {
+  --my-back: var(--tk-color-muted);
+}
+[data-my-back-style='solid'] .tk-card-back {
+  background-color: var(--my-back);
+  background-image: none;
+}
+[data-my-back-style='stripes'] .tk-card-back {
+  background-color: var(--my-back);
+  background-image: repeating-linear-gradient(45deg, transparent 0 4px, var(--tk-color-surface) 4px 6px);
+  background-size: auto;
+}
+[data-my-back-style='dots'] .tk-card-back {
+  background-color: var(--my-back);
+  background-image: radial-gradient(var(--tk-color-surface) 20%, transparent 22%);
+  background-size: 8px 8px;
+}
+
+/* ---------- animace u stolu (řídí je tokeny anim.enabled a anim.speed, ve výchozím stavu respektují „omezit pohyb“) ---------- */
+@keyframes tk-deal {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--spacing) * -6)) scale(0.7) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tk-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes tk-win {
+  50% {
+    box-shadow: 0 0 calc(var(--spacing) * 6) var(--tk-color-turnGlow);
+  }
+}
+@keyframes tk-float {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--spacing) * 2));
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--spacing) * -8));
+  }
+}
+.tk-card {
+  animation: tk-deal calc(0.28s / var(--tk-anim-speed)) ease-out both;
+}
+.tk-delay-1 { animation-delay: calc(0.08s / var(--tk-anim-speed)); }
+.tk-delay-2 { animation-delay: calc(0.16s / var(--tk-anim-speed)); }
+.tk-delay-3 { animation-delay: calc(0.24s / var(--tk-anim-speed)); }
+.tk-delay-4 { animation-delay: calc(0.32s / var(--tk-anim-speed)); }
+.tk-pop {
+  animation: tk-pop calc(0.25s / var(--tk-anim-speed)) ease-out both;
+}
+.tk-winner {
+  border-color: var(--tk-color-turnGlow);
+  animation: tk-win calc(1.2s / var(--tk-anim-speed)) ease-in-out 3;
+}
+.tk-float {
+  animation: tk-float calc(2s / var(--tk-anim-speed)) ease-out both;
+}
+
+/* ---------- telefon: menší avatary u stolu (poměr k tokenu, ne pevná velikost) ---------- */
+@media (max-width: 40rem) {
+  .tk-room .tk-avatar {
+    width: calc(var(--tk-size-avatar) * 0.8);
+    height: calc(var(--tk-size-avatar) * 0.8);
+  }
+}

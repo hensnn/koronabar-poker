@@ -1,0 +1,86 @@
+diff --git a/dist/actions/dealing.js b/dist/actions/dealing.js
+index f088081b6c4e647e5574e1e4c6d3c64ae12d42c3..aee33b02991e61927b658af26c41e8246943711a 100644
+--- a/dist/actions/dealing.js
++++ b/dist/actions/dealing.js
+@@ -225,6 +225,47 @@ function handleDeal(state, action) {
+             }
+         }
+     }
++    // KoronaBar patch: straddle (UTG nebo Mississippi). Parametry jdou v akci DEAL:
++    // action.straddle = { type: 'utg' | 'mississippi', amount, optInPlayerIds? }.
++    // Heads-up se straddle nehraje. Bez optInPlayerIds je straddle povinný.
++    let straddleSeat = null;
++    let straddleAmount = 0;
++    const straddleCfg = action.straddle;
++    if (straddleCfg && blindPositions && playersToReceive.length >= 3 && straddleCfg.amount > state.bigBlind) {
++        let candidate = null;
++        if (straddleCfg.type === 'mississippi') {
++            candidate = newButtonSeat;
++        }
++        else {
++            let seat = (0, positioning_1.getNextSeat)(blindPositions.bigBlindSeat, state.maxPlayers);
++            for (let i = 0; i < state.maxPlayers; i++) {
++                if (playersToReceive.includes(seat)) {
++                    candidate = seat;
++                    break;
++                }
++                seat = (0, positioning_1.getNextSeat)(seat, state.maxPlayers);
++            }
++        }
++        const sp = candidate === null ? null : newPlayers[candidate];
++        const allowed = sp && playersToReceive.includes(candidate) && sp.stack > 0 && sp.status === types_1.PlayerStatus.ACTIVE &&
++            (!straddleCfg.optInPlayerIds || straddleCfg.optInPlayerIds.includes(sp.id));
++        // Straddle nesmí být na místě malého ani velkého blindu.
++        if (allowed && candidate !== blindPositions.smallBlindSeat && candidate !== blindPositions.bigBlindSeat) {
++            const amt = Math.min(sp.stack, straddleCfg.amount);
++            const alreadyPosted = currentBets.get(candidate) ?? 0;
++            const post = Math.max(0, amt - alreadyPosted);
++            currentBets.set(candidate, alreadyPosted + post);
++            newPlayers[candidate] = {
++                ...sp,
++                stack: sp.stack - post,
++                betThisStreet: sp.betThisStreet + post,
++                totalInvestedThisHand: sp.totalInvestedThisHand + post,
++                status: sp.stack - post === 0 ? types_1.PlayerStatus.ALL_IN : sp.status,
++            };
++            straddleSeat = candidate;
++            straddleAmount = alreadyPosted + post;
++        }
++    }
+     const pots = anteTotal > 0
+         ? [
+             {
+@@ -256,8 +297,8 @@ function handleDeal(state, action) {
+         initialChips: newPlayers.reduce((sum, player) => sum + (player ? player.stack : 0), 0) +
+             Array.from(currentBets.values()).reduce((sum, amount) => sum + amount, 0) +
+             anteTotal,
+-        minRaise: Math.max(...currentBets.values(), state.bigBlind) + state.bigBlind,
+-        lastRaiseAmount: state.bigBlind,
++        minRaise: Math.max(...currentBets.values(), state.bigBlind) + (straddleSeat !== null ? Math.max(state.bigBlind, straddleAmount - state.bigBlind) : state.bigBlind),
++        lastRaiseAmount: straddleSeat !== null ? Math.max(state.bigBlind, straddleAmount - state.bigBlind) : state.bigBlind,
+         lastAggressorSeat: null,
+         activePlayers,
+         winners: null,
+@@ -270,7 +311,7 @@ function handleDeal(state, action) {
+     // Use the blind positions selected before chips were posted. Recomputing
+     // them now skips a blind who posted all-in (their stack is zero), which can
+     // rotate action past the only actionable player and leave actionTo null.
+-    const firstToAct = (0, action_order_1.getFirstToAct)(newState, blindPositions?.bigBlindSeat);
++    const firstToAct = (0, action_order_1.getFirstToAct)(newState, straddleSeat !== null ? straddleSeat : blindPositions?.bigBlindSeat);
+     return {
+         ...newState,
+         actionTo: firstToAct,
+diff --git a/dist/rules/blinds.js b/dist/rules/blinds.js
+index 28d55e39e0a5929d93c9230f44d7f7e083f89a45..c3c36022b5fbc5b0333a98bcb6a52a6bf1795cbf 100644
+--- a/dist/rules/blinds.js
++++ b/dist/rules/blinds.js
+@@ -60,7 +60,8 @@ function getNextActiveOrOccupiedSeat(currentSeat, players, maxPlayers, isTournam
+         if (player !== null && player.stack > 0) {
+             // In tournaments, include sitting-out players (they must blind off)
+             // In cash games, skip sitting-out players
+-            if (isTournament || !player.isSittingOut) {
++            // KoronaBar patch: hráč čekající na big blind se na něj musí dostat i ve sit outu.
++            if (isTournament || !player.isSittingOut || player.sitInOption === 'WAIT_FOR_BB') {
+                 return seat;
+             }
+         }

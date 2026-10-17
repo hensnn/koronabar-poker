@@ -1,0 +1,26 @@
+{
+  "name": "koronabar-poker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:server": "pnpm --filter @kb/server dev",
+    "dev:web": "pnpm --filter @kb/web dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "oxlint --react-plugin -A all -D react-hooks/rules-of-hooks -D no-debugger -D no-dupe-keys -D no-unreachable apps/web/src apps/server/src packages/*/src"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^26.6.5",
+    "oxlint": "^1.88.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}
