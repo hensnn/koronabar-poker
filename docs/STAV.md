@@ -415,3 +415,6 @@ Projito na šířce telefonu (375 px): lobby, stůl, chat, obchod, turnaje, admi
 
 ## Zveřejnění repozitáře (17. 10. 2026)
 Repozitář na GitHubu je veřejný. Z obsahu i z historie commitů byly odstraněny osobní údaje: e-maily (odesílatel aplikace je teď zástupný `poker@example.cz`, skutečný se zadává v GUI), doména (v dokumentaci zástupná `poker.example.cz`, skutečná jen v `.env` jako `PUBLIC_URL`) a e-mail autora commitů (commity jdou pod GitHub adresou `noreply`). Instalační skript se na veřejnou adresu ptá. Historie commitů byla kvůli tomu sloučena do jednoho; původní historie zůstává jen lokálně ve větvi `historie-soukroma` (nepushovat).
+
+## Produkce (17. 10. 2026)
+Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běží za Nginx Proxy Managerem s HTTPS na vlastní doméně majitele. Kontejnery `app`, `db` i `backup` jsou zdravé. Aktualizace: v kontejneru `cd /opt/koronabar && git pull && docker compose up -d --build`. Další krok: ladění vzhledu podle poznámek majitele z telefonu a televize.
