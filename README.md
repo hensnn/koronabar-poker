@@ -62,6 +62,9 @@ Pak otevři `https://poker.example.cz` a přihlas se jako hlavní administrátor
 
 ## První kroky po přihlášení
 
+Krátké vysvětlení logiky hry a nastavení turnajů je v `docs/NAVOD-HRA.md`.
+
+
 1. **Správa → Uživatelé / Pozvánky:** vytvoř pozvánky a pošli je kamarádům. Registrace je pouze na pozvánku.
 2. **Správa → Pokladna:** dobij hráčům virtuální měnu (jde o interní účetnictví, ne o peníze).
 3. **Lobby:** založte stůl z šablony nebo si uprav parametry.
