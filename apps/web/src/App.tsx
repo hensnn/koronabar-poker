@@ -182,7 +182,7 @@ function Shell({ me }: { me: Me }) {
           <AnnouncerHost />
           <LevelUpToast />
           <span className="rounded-md bg-raised px-3 py-1 font-mono" title={t('nav.balance')}>
-            {me.balance}
+            {me.balance} {String(settings.values['economy.currencySymbol'] ?? '')}
           </span>
           <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
         </nav>

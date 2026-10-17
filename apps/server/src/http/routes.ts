@@ -19,6 +19,7 @@ import type { WalletService } from '../wallet/service.js';
 import type { TableManager } from '../tables.js';
 import type { TemplateService } from '../templates.js';
 import type { MaintenanceService } from '../maintenance.js';
+import type { HistoryService, HistoryKind } from '../history.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -68,6 +69,7 @@ export interface Services {
   tournaments: () => TournamentManager;
   templates: () => TemplateService;
   maintenance: () => MaintenanceService;
+  history: () => HistoryService;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
   push: () => PushService;
@@ -283,6 +285,18 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   userAction('force-password', (a, t, _b, m) => svc.accounts.forcePasswordChange(a, t, m));
   userAction('verify-email', (a, t, _b, m) => svc.accounts.markEmailVerified(a, t, m));
   userAction('reset-progress', (a, t, b, m) => svc.maintenance().resetUser(a, t, b, m), z.object({ xp: z.boolean().optional(), achievements: z.boolean().optional(), rating: z.boolean().optional() }));
+
+  // ---------- správa historie ----------
+  app.get('/api/admin/history', guard(async (req, reply) => reply.send(await svc.history().overview(need(req).id))));
+  app.delete('/api/admin/history/:kind/:id', guard(async (req, reply) => {
+    const p = z.object({ kind: z.enum(['tournament', 'cashTable', 'liveCash', 'poll', 'evening', 'sharedHand']), id: z.string().max(100) }).parse(req.params);
+    await svc.history().remove(need(req).id, p.kind as HistoryKind, p.id, meta(req));
+    return reply.send({ ok: true });
+  }));
+  app.post('/api/admin/history/purge-hands', guard(async (req, reply) => {
+    const b = z.object({ olderThanDays: z.number().int().min(0).max(36500) }).parse(req.body);
+    return reply.send({ deleted: await svc.history().purgeHands(need(req).id, b.olderThanDays, meta(req)) });
+  }));
 
   // ---------- údržba: vynulování po testování ----------
   app.get('/api/admin/maintenance', guard(async (req, reply) => reply.send(await svc.maintenance().counts(need(req).id))));
@@ -1731,6 +1745,10 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   tAction('pause', (m, u, id, req) => m.pause(u, id, false, meta(req)));
   tAction('resume', (m, u, id, req) => m.pause(u, id, true, meta(req)));
   tAction('cancel', (m, u, id, req) => m.cancel(u, id, meta(req)));
+  app.delete('/api/tournaments/:id', guard(async (req, reply) => {
+    await svc.tournaments().deleteFromHistory(need(req).id, tid(req), meta(req));
+    return reply.send({ ok: true });
+  }));
 
   // ---------- peněženka, žádosti, schvalování, vyúčtování ----------
 

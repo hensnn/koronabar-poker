@@ -9,6 +9,7 @@ import { RolesPage } from './roles';
 import { TablesPage } from './tables';
 import { TemplatesPage } from './templates';
 import { MaintenancePage } from './maintenance';
+import { HistoryPage } from './history';
 import { FinancePage } from './finance';
 import { TvAdminPage } from './tv';
 import { AnnouncerAdminPage } from './announcer';
@@ -26,6 +27,7 @@ const SECTIONS: Section[] = [
   { path: '/admin/uzivatele', label: 'admin.users', show: (m) => can(m, 'uzivatel.zobrazit'), render: () => <UsersPage /> },
   { path: '/admin/pozvanky', label: 'admin.invites', show: (m) => can(m, 'uzivatel.pozvat'), render: () => <InvitesPage /> },
   { path: '/admin/stoly', label: 'admin.tables', show: (m) => can(m, 'cash.upravit_vse') || can(m, 'cash.zrusit_vse'), render: () => <TablesPage /> },
+  { path: '/admin/historie', label: 'admin.history', show: (m) => can(m, 'historie.spravovat'), render: () => <HistoryPage /> },
   { path: '/admin/role', label: 'admin.roles', show: (m) => can(m, 'role.zobrazit'), render: () => <RolesPage /> },
   { path: '/admin/pokladna', label: 'admin.cashier', show: (m) => can(m, 'mena.dobit') || can(m, 'mena.strhnout') || can(m, 'mena.vyridit_zadost') || can(m, 'mena.zobrazit_knihu'), render: () => <CashierPanel /> },
   { path: '/admin/finance', label: 'admin.finance', show: (m) => can(m, 'mena.zobrazit_knihu'), render: () => <FinancePage /> },

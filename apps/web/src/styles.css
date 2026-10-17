@@ -683,10 +683,16 @@ h3,
 /* Výška oválu je omezená místem, které zbyde po liště, stavovém řádku a akční liště; na šířku nikdy nepřeteče. */
 [data-mobile] .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 21rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
 /* Telefon: menší karty (vlastní, soupeřů i board), moje sedadlo posunuté níž k okraji, aby nezakrývalo plátno. */
-[data-mobile] .tk-seat-mine .tk-card { --card-scale: 0.62; }
-[data-mobile] .tk-seat:not(.tk-seat-mine) .tk-card { --card-scale: 0.45; }
-[data-mobile] .tk-center .tk-card { --card-scale: 0.58; }
-[data-mobile] .tk-center { gap: calc(var(--spacing) * 1); }
+[data-mobile] .tk-seat-mine .tk-card { --card-scale: 0.58; }
+[data-mobile] .tk-seat:not(.tk-seat-mine) .tk-card { --card-scale: 0.4; }
+[data-mobile] .tk-center .tk-card { --card-scale: 0.48; }
+[data-mobile] .tk-center { gap: calc(var(--spacing) * 0.5); width: 60%; }
+[data-mobile] .tk-center .flex.gap-1 { gap: 2px; }
+[data-mobile] .tk-seat { width: calc(var(--tk-size-cardWidth) * 1.7); gap: 1px; }
+[data-mobile] .tk-seat-name { font-size: 0.72rem; }
+[data-mobile] .tk-seat-stack { font-size: 0.7rem; }
+[data-mobile] .tk-seat-status { font-size: 0.68rem; padding: 1px calc(var(--spacing) * 1.5); }
+[data-mobile] .tk-table-logo { display: none; }
 [data-mobile]:not([data-landscape]) .tk-seat-mine { transform: translateY(18%); }
 [data-mobile] .tk-pot { font-size: 0.85rem; }
 [data-mobile] .tk-seat { width: calc(var(--tk-size-cardWidth) * 2.1); }

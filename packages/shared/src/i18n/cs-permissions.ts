@@ -116,6 +116,7 @@ export const csPermissions: Record<string, string> = {
   ...perm('system.kryptovani_klic', 'Šifrovací klíč', 'Rotace hlavního šifrovacího klíče.'),
   ...perm('system.zalohy', 'Zálohy a údržba', 'Spravovat zálohy databáze.'),
   ...perm('audit.zobrazit', 'Audit log', 'Procházet historii změn.'),
+  ...perm('historie.spravovat', 'Správa historie', 'Mazat skončené turnaje, zavřené stoly, ankety, večery, sdílené handy a staré handy (nevratné).'),
   ...perm('schvalovani.rozhodovat', 'Schvalovat žádosti (čtyři oči)', 'Schválit nebo zamítnout akci, kterou navrhl někdo jiný.'),
 
   'limit.maxPerOperation': 'Max. za jednu operaci',

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import { accounts, Ledger, TournamentMoney, type CashService } from '@kb/ledger';
 import { poolPart, LiveTable, Tournament, TournamentError, TournamentTableSet, TableActor, type TableSetEvent, type Clock, type PersistedTable, type TableEvent, type TournamentEvent, type TournamentState } from '@kb/game-core';
 import {
@@ -771,6 +771,34 @@ export class TournamentManager {
   }
 
   // ---------- pohledy ----------
+
+  /**
+   * Smaže ukončený nebo zrušený turnaj z historie (nevratné, jen hlavní správce): záznam turnaje, výsledky,
+   * vyřazení, handy jeho stolů, sázky, odměny na hlavu, zařazení do večera a chat stolu.
+   * Rating a XP, které z turnaje vznikly, zůstávají (rating jde přepočítat z historie ve Statistikách).
+   */
+  async deleteFromHistory(actorId: string, id: string, meta: Meta = {}): Promise<void> {
+    if (!this.can(actorId, 'historie.spravovat').allowed && !this.can(actorId, 'nastaveni.globalni').allowed) throw new TournamentError('FORBIDDEN');
+    const db = this.deps.db;
+    const [row] = await db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
+    if (!row) throw new TournamentError('NOT_FOUND');
+    const live = this.tours.get(id);
+    const status = live?.state().status ?? row.status;
+    if (status !== 'finished' && status !== 'cancelled') throw new TournamentError('STATE');
+    const state = (live?.state() ?? row.state) as TournamentState | null;
+    const tableIds = [...new Set([id, ...(state?.tableIds ?? [])])];
+    this.archive(id);
+    await db.delete(schema.tournamentEliminations).where(eq(schema.tournamentEliminations.tournamentId, id));
+    await db.delete(schema.gameResults).where(and(eq(schema.gameResults.kind, 'tournament'), eq(schema.gameResults.ref, id)));
+    await db.delete(schema.hands).where(or(eq(schema.hands.tournamentId, id), inArray(schema.hands.tableId, tableIds)));
+    await db.delete(schema.tableState).where(inArray(schema.tableState.tableId, tableIds));
+    await db.delete(schema.bets).where(eq(schema.bets.tournamentId, id));
+    await db.delete(schema.headBounties).where(eq(schema.headBounties.tournamentId, id));
+    await db.delete(schema.eveningGames).where(and(eq(schema.eveningGames.kind, 'tournament'), eq(schema.eveningGames.ref, id)));
+    await db.delete(schema.chatChannels).where(eq(schema.chatChannels.key, `table:${id}`));
+    await db.delete(schema.tournaments).where(eq(schema.tournaments.id, id));
+    await this.deps.audit?.log({ actorId, action: 'turnaj.smazat_historii', targetType: 'tournament', targetId: id, before: { name: row.name, status }, ...meta });
+  }
 
   /** Odstraní ukončený turnaj z paměti (po čase), stůl už je zavřený. */
   private archive(id: string): void {

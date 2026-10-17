@@ -59,6 +59,17 @@ describe('údržba: vynulování po testování', () => {
     expect((await s.server.progress.progressOf(s.admin)).xp).toBe(700);
   });
 
+  it('ukončený turnaj jde smazat z historie; běžící ne; hráč bez oprávnění ne', async () => {
+    const s = await start();
+    const t = await s.server.tournaments.create(s.admin, { name: 'Historie', templateId: 'tour-turbo' });
+    await expect(s.server.tournaments.deleteFromHistory(s.admin, t.id)).rejects.toThrow('STATE');
+    await s.server.tournaments.cancel(s.admin, t.id);
+    await expect(s.server.tournaments.deleteFromHistory(s.player, t.id)).rejects.toThrow('FORBIDDEN');
+    await s.server.tournaments.deleteFromHistory(s.admin, t.id);
+    expect((await s.server.tournaments.lobby()).some((x) => x.id === t.id)).toBe(false);
+    await expect(s.server.tournaments.deleteFromHistory(s.admin, t.id)).rejects.toThrow('NOT_FOUND');
+  });
+
   it('zavře otevřené stoly a zruší turnaje, žetony se vrátí', async () => {
     const s = await start();
     const { id } = await s.server.tables.createTable(s.admin, { name: 'Test', templateId: 'cash-klasika' });

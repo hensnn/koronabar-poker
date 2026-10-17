@@ -57,14 +57,17 @@ export function useActionBubbles(view: TableView | undefined, inBb: boolean, ttl
   const [bubbles, setBubbles] = useState<Record<number, Bubble>>({});
   useEffect(() => {
     if (!view) return;
+    // Konec sázkového kola nebo nová handa: staré bubliny zmizí hned.
+    const roundOver = !!prev.current && (prev.current.street !== view.street || prev.current.handId !== view.handId);
     const actions = detectActions(prev.current, view);
     prev.current = view;
+    if (roundOver) setBubbles({});
     if (actions.length === 0) return;
     const added: Record<number, Bubble> = {};
     for (const a of actions) added[a.seat] = { key: ++counter.current, text: actionLabel(a, view, inBb), kind: a.kind };
     setBubbles((b) => ({ ...b, ...added }));
-    const timer = window.setTimeout(() => setBubbles((b) => Object.fromEntries(Object.entries(b).filter(([seat, v]) => added[Number(seat)]?.key !== v.key))), ttlMs);
-    return () => window.clearTimeout(timer);
+    // Časovač se neruší při dalším překreslení (jinak by při živé hře bubliny nikdy nezmizely); odstraní jen „své“ bubliny.
+    window.setTimeout(() => setBubbles((b) => Object.fromEntries(Object.entries(b).filter(([seat, v]) => added[Number(seat)]?.key !== v.key))), ttlMs);
   }, [view, inBb, ttlMs]);
   return bubbles;
 }

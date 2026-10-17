@@ -127,6 +127,7 @@ export const PERMISSIONS: PermissionDef[] = [
   p('system.kryptovani_klic', 'system', { sensitive: true }),
   p('system.zalohy', 'system', { sensitive: true }),
   p('audit.zobrazit', 'system'),
+  p('historie.spravovat', 'system', { sensitive: true }),
   p('tv.spravovat', 'system'),
   p('hlasatel.spravovat', 'system'),
   p('vecer.spravovat', 'turnaje', { scopable: true }),

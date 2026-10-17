@@ -1,11 +1,10 @@
 import type { SettingsRegistry } from '../settings/registry.js';
 import { fillTemplate, type SettingsTemplate } from '../settings/templates.js';
-import { formatStructure, generateStructure } from '../tournament/blinds.js';
 
 /** Vestavěné šablony (kompletní nastavení). Texty jsou v překladech `template.<id>.*`. */
 export function builtinTemplates(reg: SettingsRegistry): SettingsTemplate[] {
   const base = { builtin: true, description: '' } as const;
-  return withStructures([
+  return [
     fillTemplate(reg, {
       ...base,
       id: 'cash-klasika',
@@ -411,15 +410,5 @@ export function builtinTemplates(reg: SettingsRegistry): SettingsTemplate[] {
         'cash.maxBuyInBb': 100,
       },
     }),
-  ]);
-}
-
-/** Turnajové šablony mají hotovou strukturu blindů (z jejich stacku, délky levelu a cílové délky pro 9 hráčů), aby šla hned prohlédnout a upravit. */
-function withStructures(list: SettingsTemplate[]): SettingsTemplate[] {
-  return list.map((t) => {
-    if (t.kind !== 'tournament' || String(t.values['tournament.structure'] ?? '').trim()) return t;
-    const v = t.values;
-    const levels = generateStructure({ startingStack: Number(v['tournament.startingStack']), targetMinutes: Number(v['tournament.targetMinutes']), levelMinutes: Number(v['tournament.levelMinutes']), players: 9 });
-    return { ...t, values: { ...v, 'tournament.structure': formatStructure(levels) } };
-  });
+  ];
 }
