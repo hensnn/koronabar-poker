@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -60,6 +60,14 @@ describe('PWA', () => {
     const m = await server.app.inject({ method: 'GET', url: '/manifest.webmanifest' });
     expect(String(m.headers['content-type'])).toContain('application/manifest+json');
     expect(JSON.parse(m.body).shortcuts).toHaveLength(3);
+    // hlavičky mezipaměti: obal aplikace a service worker vždy čerstvé, soubory s otiskem natrvalo
+    writeFileSync(join(dir, 'sw.js'), '// sw');
+    mkdirSync(join(dir, 'assets'));
+    writeFileSync(join(dir, 'assets', 'index-abc123.js'), '// js');
+    expect((await server.app.inject({ method: 'GET', url: '/' })).headers['cache-control']).toBe('no-cache');
+    expect((await server.app.inject({ method: 'GET', url: '/turnaje' })).headers['cache-control']).toBe('no-cache');
+    expect((await server.app.inject({ method: 'GET', url: '/sw.js' })).headers['cache-control']).toBe('no-cache');
+    expect((await server.app.inject({ method: 'GET', url: '/assets/index-abc123.js' })).headers['cache-control']).toContain('immutable');
     // v adresáři webu nesmí být statický manifest, jinak by se routa zdvojila a server by nenastartoval
     expect(existsSync(join(PUBLIC, 'manifest.webmanifest'))).toBe(false);
   });

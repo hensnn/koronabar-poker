@@ -553,9 +553,16 @@ export async function buildServer(opts: ServerOptions = {}) {
 
   const webDir = opts.webDir ?? process.env.WEB_DIR;
   if (webDir && existsSync(webDir)) {
-    await app.register(fastifyStatic, { root: webDir, wildcard: false });
+    // index.html a service worker se nesmí kešovat (jinak hráči po aktualizaci vidí starou verzi); soubory s otiskem v názvu naopak natrvalo.
+    await app.register(fastifyStatic, {
+      root: webDir,
+      wildcard: false,
+      setHeaders: (res) => {
+        res.header('cache-control', res.request.url.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache');
+      },
+    });
     app.setNotFoundHandler((req, reply) => {
-      if (req.method === 'GET' && !req.url.startsWith('/api') && !req.url.startsWith('/socket.io')) return reply.sendFile('index.html');
+      if (req.method === 'GET' && !req.url.startsWith('/api') && !req.url.startsWith('/socket.io')) return reply.header('cache-control', 'no-cache').sendFile('index.html');
       return reply.status(404).send({ code: 'NOT_FOUND' });
     });
   }
