@@ -603,3 +603,11 @@ h3,
   .tk-seat-empty::after { content: '+'; font-size: 1rem; line-height: 1; }
   .tk-dealer, .tk-straddle { width: calc(var(--spacing) * 4.5); height: calc(var(--spacing) * 4.5); font-size: 0.7rem; right: calc(var(--spacing) * -2); }
 }
+
+/* Sázky leží nad kartami, aby je nezakrývaly. */
+.tk-bet { z-index: 3; }
+/* Celá obrazovka u stolu: schová vše, co se netýká hry. */
+[data-focus] > body > #root > div > header,
+[data-focus] > body > #root > div > footer,
+[data-focus] .tk-tp-hide-focus { display: none !important; }
+[data-focus] > body > #root > div { max-width: none; padding: calc(var(--spacing) * 2); }

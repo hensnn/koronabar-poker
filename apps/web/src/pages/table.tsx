@@ -11,6 +11,7 @@ import { onSocket, useNet } from '../net';
 import { Link } from '../router';
 import { useSettings } from '../settings';
 import { TableScreen } from '../table/TableScreen';
+import { setTableFormat } from '../table/format';
 import { TablePanel } from '../table/TablePanel';
 import { SoundPalette } from './sounds';
 import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
@@ -43,6 +44,27 @@ export function TablePage({ tableId }: { tableId: string }) {
   const net = useNet();
   const [showSettlement, setShowSettlement] = useState(false);
   const [drawer, setDrawer] = useState<'chat' | 'panel' | null>(null);
+  const [focus, setFocus] = useState(false);
+  setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true });
+  // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (focus) {
+      root.setAttribute('data-focus', '1');
+      void root.requestFullscreen?.().catch(() => undefined);
+    } else {
+      root.removeAttribute('data-focus');
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    }
+    const onChange = () => {
+      if (!document.fullscreenElement) setFocus(false);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      root.removeAttribute('data-focus');
+    };
+  }, [focus]);
   useEffect(() => {
     void loadChannels().catch(() => undefined);
   }, [tableId]);
@@ -78,6 +100,9 @@ export function TablePage({ tableId }: { tableId: string }) {
             {!isTournament && <ShareToChat kind="stul" id={tableId} />}
             {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
             {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+            <Button onClick={() => setFocus((v) => !v)} aria-pressed={focus} title={focus ? t('table.fullscreenExit') : t('table.fullscreen')}>
+              {focus ? '⤡' : '⛶'} {focus ? t('table.fullscreenExit') : t('table.fullscreen')}
+            </Button>
           </span>
         </div>
         <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />

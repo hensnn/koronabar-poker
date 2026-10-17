@@ -6,25 +6,30 @@ import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { SoundPalette } from '../pages/sounds';
+import { Button, Modal } from '../ui';
 import { CardView } from './CardView';
 import { formatAmount } from './format';
+import { setPlan, usePlan, type Plan } from './plan';
 
-/** Widgety panelu u stolu; pořadí je i výchozí pořadí zobrazení. */
-export const WIDGETS = ['clock', 'table', 'hand', 'odds', 'players', 'sounds'] as const;
+/** Widgety panelu u stolu; pořadí je výchozí pořadí zobrazení. */
+export const WIDGETS = ['clock', 'plan', 'table', 'hand', 'players', 'sounds'] as const;
 export type WidgetId = (typeof WIDGETS)[number];
 
 interface PanelState {
   collapsed: WidgetId[];
   hidden: WidgetId[];
+  order: WidgetId[];
 }
+
+const isIds = (x: unknown): x is WidgetId[] => Array.isArray(x) && x.every((v) => (WIDGETS as readonly string[]).includes(String(v)));
 
 function parseState(raw: unknown): PanelState {
   try {
     const p = JSON.parse(String(raw || '{}')) as Partial<PanelState>;
-    const ok = (x: unknown): x is WidgetId[] => Array.isArray(x) && x.every((v) => (WIDGETS as readonly string[]).includes(String(v)));
-    return { collapsed: ok(p.collapsed) ? p.collapsed : [], hidden: ok(p.hidden) ? p.hidden : [] };
+    const order = isIds(p.order) ? [...new Set(p.order)] : [];
+    return { collapsed: isIds(p.collapsed) ? p.collapsed : [], hidden: isIds(p.hidden) ? p.hidden : [], order: [...order, ...WIDGETS.filter((w) => !order.includes(w))] };
   } catch {
-    return { collapsed: [], hidden: [] };
+    return { collapsed: [], hidden: [], order: [...WIDGETS] };
   }
 }
 
@@ -37,11 +42,8 @@ export function usePanelState(): [PanelState, (next: PanelState) => void] {
 }
 
 interface Clock {
-  name: string;
-  status: string;
   paused: boolean;
   onBreak: boolean;
-  serverTime: number;
   levelNumber: number;
   level: { smallBlind: number; bigBlind: number; ante: number } | null;
   nextLevel: { smallBlind: number; bigBlind: number; ante: number } | null;
@@ -49,7 +51,6 @@ interface Clock {
   clockMs: number | null;
   alive: number;
   players: number;
-  prizePool?: number;
 }
 
 const mmss = (ms: number) => {
@@ -103,6 +104,21 @@ function ClockWidget({ tournamentId }: { tournamentId: string }) {
   );
 }
 
+/** Plánovaný tah: zvolí se dopředu, provede se automaticky na tahu. */
+export function PlanBar({ view }: { view: TableView }) {
+  const plan = usePlan();
+  const opts: Plan[] = ['fold', 'checkFold', 'check', 'call'];
+  return (
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('table.widget.plan')}>
+      {opts.map((p) => (
+        <button key={p} className={`rounded-md border px-2 py-1 text-sm ${plan === p ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface'}`} aria-pressed={plan === p} onClick={() => setPlan(plan === p ? null : p, view.handId)}>
+          {t(`table.plan.${p}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Widget({ id, title, state, setState, children }: { id: WidgetId; title: string; state: PanelState; setState: (s: PanelState) => void; children: ReactNode }) {
   const collapsed = state.collapsed.includes(id);
   return (
@@ -110,36 +126,89 @@ function Widget({ id, title, state, setState, children }: { id: WidgetId; title:
       <button className="tk-widget-head" aria-expanded={!collapsed} onClick={() => setState({ ...state, collapsed: collapsed ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id] })}>
         <span aria-hidden>{collapsed ? '▸' : '▾'}</span>
         <span className="flex-1">{title}</span>
-        <span
-          role="button"
-          aria-label={t('table.widget.hidden')}
-          className="text-muted"
-          onClick={(e) => {
-            e.stopPropagation();
-            setState({ ...state, hidden: [...state.hidden, id] });
-          }}
-        >
-          ×
-        </span>
       </button>
       {!collapsed && <div className="tk-widget-body">{children}</div>}
     </section>
   );
 }
 
-/** Levý panel s widgety (hodiny, stůl, moje handa, šance, hráči, zvuky). Sbalení a skrytí se ukládá u hráče. */
+/** Ozubené kolečko: které widgety a v jakém pořadí, plus volby zobrazení u stolu. */
+function PanelSettings({ state, setState, titles, onClose }: { state: PanelState; setState: (s: PanelState) => void; titles: Record<WidgetId, string>; onClose: () => void }) {
+  const settings = useSettings();
+  const move = (id: WidgetId, dir: -1 | 1) => {
+    const order = [...state.order];
+    const i = order.indexOf(id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j]!, order[i]!];
+    setState({ ...state, order });
+  };
+  const toggle = (key: string, value: boolean) => void saveUserSetting(key, value).catch(() => undefined);
+  const flags: { key: string; label: string; def: boolean }[] = [
+    { key: 'ui.showInBb', label: t('settings.ui.showInBb.label'), def: false },
+    { key: 'ui.showSymbolAtTable', label: t('settings.ui.showSymbolAtTable.label'), def: false },
+    { key: 'xp.showAtTable', label: t('settings.xp.showAtTable.label'), def: true },
+  ];
+  return (
+    <Modal title={t('table.panelSettings')} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <h3 className="font-bold">{t('table.panelWidgets')}</h3>
+        <ul className="flex flex-col gap-1">
+          {state.order.map((id, i) => (
+            <li key={id} className="flex items-center gap-2">
+              <label className="flex flex-1 items-center gap-2">
+                <input type="checkbox" checked={!state.hidden.includes(id)} onChange={(e) => setState({ ...state, hidden: e.target.checked ? state.hidden.filter((x) => x !== id) : [...state.hidden, id] })} />
+                {titles[id]}
+              </label>
+              <Button aria-label={t('table.moveUp')} disabled={i === 0} onClick={() => move(id, -1)}>
+                ↑
+              </Button>
+              <Button aria-label={t('table.moveDown')} disabled={i === state.order.length - 1} onClick={() => move(id, 1)}>
+                ↓
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <h3 className="font-bold">{t('table.panelDisplay')}</h3>
+        {flags.map((f) => (
+          <label key={f.key} className="flex items-center gap-2">
+            <input type="checkbox" checked={Boolean(settings.values[f.key] ?? f.def)} onChange={(e) => toggle(f.key, e.target.checked)} />
+            {f.label}
+          </label>
+        ))}
+        <div className="flex gap-2">
+          <Button onClick={() => setState({ collapsed: [], hidden: [], order: [...WIDGETS] })}>{t('table.widget.reset')}</Button>
+          <Button variant="primary" onClick={onClose}>
+            {t('table.close')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Levý panel s widgety (hodiny, plánovaný tah, stůl, moje handa, hráči, zvuky). Nastavení pod ozubeným kolečkem. */
 export function TablePanel({ view, tableId, inBb }: { view: TableView | undefined; tableId: string; inBb: boolean }) {
   const [state, setState] = usePanelState();
+  const [open, setOpen] = useState(false);
   const { me } = useSession();
   const mine = view?.seats.find((s) => s.playerId === me?.user.id);
   const info = view?.info;
   const tournamentId = info?.tournamentId;
-  const myOdds = view?.odds?.[0]?.entries.find((e) => e.seat === mine?.seat);
-  const widgets: { id: WidgetId; title: string; show: boolean; body: ReactNode }[] = [
-    { id: 'clock', title: t('table.widget.clock'), show: !!tournamentId, body: tournamentId ? <ClockWidget tournamentId={tournamentId} /> : null },
-    {
-      id: 'table',
-      title: t('table.widget.table'),
+  const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
+  const titles: Record<WidgetId, string> = { clock: t('table.widget.clock'), plan: t('table.widget.plan'), table: t('table.widget.table'), hand: t('table.widget.hand'), players: t('table.widget.players'), sounds: t('table.widget.sounds') };
+  const bodies: Record<WidgetId, { show: boolean; body: ReactNode }> = {
+    clock: { show: !!tournamentId, body: tournamentId ? <ClockWidget tournamentId={tournamentId} /> : null },
+    plan: {
+      show: !!mine && !!view,
+      body: view && (
+        <div className="flex flex-col gap-2">
+          <PlanBar view={view} />
+          <p className="text-xs text-muted">{t('table.plan.help')}</p>
+        </div>
+      ),
+    },
+    table: {
       show: !!info,
       body: info && view && (
         <dl className="grid grid-cols-2 gap-x-2 gap-y-1">
@@ -170,9 +239,7 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
         </dl>
       ),
     },
-    {
-      id: 'hand',
-      title: t('table.widget.hand'),
+    hand: {
       show: true,
       body:
         mine && mine.hasCards && mine.cards ? (
@@ -182,27 +249,13 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
                 <CardView key={c} card={c} />
               ))}
             </div>
-            {view?.winners?.find((w) => w.seat === mine.seat)?.hand && <span className="text-sm">{t(view.winners.find((w) => w.seat === mine.seat)!.hand!.key, view.winners.find((w) => w.seat === mine.seat)!.hand!.params)}</span>}
+            {myWin?.hand && <span className="text-sm">{t(myWin.hand.key, myWin.hand.params)}</span>}
           </div>
         ) : (
           <p className="text-muted">{t('table.notInHand')}</p>
         ),
     },
-    {
-      id: 'odds',
-      title: t('table.widget.odds'),
-      show: true,
-      body: myOdds ? (
-        <div className="font-mono text-2xl">
-          {(myOdds.win * 100).toFixed(1)} %{myOdds.tie > 0 && <span className="ml-2 text-sm text-muted">({(myOdds.tie * 100).toFixed(1)} %)</span>}
-        </div>
-      ) : (
-        <p className="text-muted">{t('table.widget.oddsNone')}</p>
-      ),
-    },
-    {
-      id: 'players',
-      title: t('table.widget.players'),
+    players: {
       show: !!view,
       body: view && (
         <ul className="flex flex-col gap-0.5">
@@ -220,30 +273,24 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
         </ul>
       ),
     },
-    { id: 'sounds', title: t('table.widget.sounds'), show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
-  ];
-  const visible = widgets.filter((w) => w.show && !state.hidden.includes(w.id));
-  const hidden = widgets.filter((w) => w.show && state.hidden.includes(w.id));
+    sounds: { show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
+  };
   return (
     <>
-      {visible.map((w) => (
-        <Widget key={w.id} id={w.id} title={w.title} state={state} setState={setState}>
-          {w.body}
-        </Widget>
-      ))}
-      {hidden.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1 text-xs text-muted">
-          <span>{t('table.widget.hidden')}:</span>
-          {hidden.map((w) => (
-            <button key={w.id} className="rounded-sm border border-line px-1" onClick={() => setState({ ...state, hidden: state.hidden.filter((x) => x !== w.id) })}>
-              {w.title}
-            </button>
-          ))}
-          <button className="rounded-sm border border-line px-1" onClick={() => setState({ collapsed: [], hidden: [] })}>
-            {t('table.widget.reset')}
-          </button>
-        </div>
-      )}
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-bold text-muted">{t('table.panel')}</span>
+        <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" aria-label={t('table.panelSettings')} title={t('table.panelSettings')} onClick={() => setOpen(true)}>
+          ⚙
+        </button>
+      </div>
+      {state.order
+        .filter((id) => bodies[id].show && !state.hidden.includes(id))
+        .map((id) => (
+          <Widget key={id} id={id} title={titles[id]} state={state} setState={setState}>
+            {bodies[id].body}
+          </Widget>
+        ))}
+      {open && <PanelSettings state={state} setState={setState} titles={titles} onClose={() => setOpen(false)} />}
     </>
   );
 }

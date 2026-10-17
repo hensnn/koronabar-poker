@@ -17,6 +17,9 @@ import { useThemeToken } from '../theme/ThemeProvider';
 import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
+import { Modal } from '../ui';
+import { PlanBar } from './TablePanel';
+import { usePlanExecutor } from './plan';
 
 interface Props {
   tableId: string;
@@ -28,11 +31,12 @@ interface Props {
 }
 
 const btn = 'rounded-md border border-line bg-surface px-3 py-1';
+const btnPrimary = 'rounded-md border border-primary bg-primary px-3 py-1 text-on-primary';
 
 /** Sázka hráče leží mezi jeho sedadlem a středem stolu. */
 function betPosition(seat: number, viewerSeat: number | null, count: number) {
   const p = seatPosition(seat, viewerSeat, count);
-  return { left: 50 + (p.left - 50) * 0.58, top: 50 + (p.top - 50) * 0.55 };
+  return { left: 50 + (p.left - 50) * 0.5, top: 50 + (p.top - 50) * 0.4 };
 }
 
 export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props) {
@@ -45,6 +49,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   useTableSfx(view, net.clockOffset);
   const myLook = useMyTableLook();
   const actionBubbles = useActionBubbles(view, inBb);
+  usePlanExecutor(view, tableId);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<{ kind: 'join'; seat: number } | { kind: 'topUp' } | null>(null);
 
@@ -198,7 +203,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </p>
           {view.vote.canVote && (
             <div className="flex gap-2">
-              <button className={`${btn} bg-primary text-on-primary`} disabled={view.vote.myVote === true} onClick={() => void run(table.vote(tableId, true))}>
+              <button className={btnPrimary} disabled={view.vote.myVote === true} onClick={() => void run(table.vote(tableId, true))}>
                 {t('table.runIt.agree', { times: String((view.vote.payload as { times: number }).times) })}
               </button>
               <button className={btn} disabled={view.vote.myVote === false} onClick={() => void run(table.vote(tableId, false))}>
@@ -209,6 +214,11 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
         </div>
       )}
 
+      {mine && !view.legal && mine.hasCards && mine.status === 'active' && (
+        <div className="tk-tp-mobile">
+          <PlanBar view={view} />
+        </div>
+      )}
       {mine && view.legal && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
       {mine && (
@@ -394,8 +404,7 @@ function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string;
   const max = Math.min(Math.floor(info.maxBuyIn / rate), balance);
   const [v, setV] = useState(Math.min(max, Math.max(min, Math.floor((min + max) / 2))));
   return (
-    <div role="dialog" aria-modal="true" aria-label={title} className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
-      <h2 className="font-heading text-lg font-bold">{title}</h2>
+    <Modal title={title} onClose={onCancel}>
       <p className="text-sm text-muted">
         {t('table.wallet')}:{' '}
         <span className="font-mono">
@@ -407,13 +416,13 @@ function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string;
         <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono" min={min} max={max} value={v} onChange={(e) => setV(Number(e.target.value))} />
       </div>
       <div className="flex gap-2">
-        <button className={`${btn} bg-primary text-on-primary`} onClick={() => onOk(v)}>
+        <button className={btnPrimary} onClick={() => onOk(v)}>
           {t('table.confirm')}
         </button>
         <button className={btn} onClick={onCancel}>
           {t('table.cancel')}
         </button>
       </div>
-    </div>
+    </Modal>
   );
 }

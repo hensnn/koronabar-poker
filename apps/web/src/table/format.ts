@@ -1,7 +1,13 @@
 import type { TableInfo } from '@kb/game-core';
 import { t } from '@kb/shared';
 
-/** Zformátuje částku v žetonech: v měně (se symbolem), nebo v big blindech. */
+let showSymbol = false;
+/** Zobrazovat u stolu symbol měny (osobní nastavení ui.showSymbolAtTable). */
+export function setTableFormat(opts: { symbol: boolean }): void {
+  showSymbol = opts.symbol;
+}
+
+/** Zformátuje částku v žetonech: v měně (symbol jen když je zapnutý), nebo v big blindech. */
 export function formatAmount(chips: number, info: TableInfo, inBb: boolean): string {
   if (inBb) {
     const bb = chips / info.bigBlind;
@@ -12,7 +18,7 @@ export function formatAmount(chips: number, info: TableInfo, inBb: boolean): str
   const cur = chips / info.chipsPerCurrencyUnit;
   const d = info.currencyDecimals;
   const n = d > 0 ? (cur / 10 ** d).toFixed(d) : String(Math.round(cur));
-  return `${n} ${info.currencySymbol}`;
+  return showSymbol ? `${n} ${info.currencySymbol}` : n;
 }
 
 const POSTFLOP_DEFAULT = [33, 50, 75, 100];

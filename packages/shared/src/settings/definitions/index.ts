@@ -645,6 +645,7 @@ const ui: SettingDef[] = [
   ]),
   text('ui.themeId', { category: 'ui', mutability: A, scopes: USER }, 'classic-green', 60),
   text('ui.tablePanel', { category: 'ui', mutability: A, scopes: USER }, '', 400),
+  bool('ui.showSymbolAtTable', { category: 'ui', mutability: A, scopes: USER }, false),
   text('ui.quickBetsPostflop', { category: 'ui', mutability: A, scopes: USER }, '33,50,75,100', 40),
   text('ui.quickBetsPreflop', { category: 'ui', mutability: A, scopes: USER }, '2.5,3,4', 40),
   bool('ui.showInBb', { category: 'ui', mutability: A, scopes: USER }, false),
