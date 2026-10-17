@@ -20,6 +20,7 @@ export * from './integrations.js';
 export * from './api.js';
 export * from './assistant.js';
 export * from './tournament/blinds.js';
+export * from './tournament/estimate.js';
 export * from './tournament/payouts.js';
 export * from './tournament/bounty.js';
 export * from './tournament/deal.js';

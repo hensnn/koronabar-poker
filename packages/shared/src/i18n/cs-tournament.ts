@@ -1757,7 +1757,7 @@ export const csTournament: Record<string, string> = {
   'tournament.structure': 'Struktura blindů',
   'tournament.structurePlaceholder': '25/50, 50/100, 75/150/15 …',
   'tournament.structureInvalid': 'Zápis je neplatný. Použij tvar malý/velký blind nebo malý/velký/ante, levely oddělené čárkou, blindy musí růst.',
-  'tournament.generate': 'Vygenerovat podle cílové délky',
+  'tournament.generate': 'Vygenerovat blindy podle cílové délky',
   'tournament.structureAuto': 'Nechat automaticky',
   'tournament.structureSummary': '{levels} levelů, asi {minutes} min',
   'tournament.structureAutoHint': 'Prázdné pole = struktura se vygeneruje sama podle cílové délky turnaje.',

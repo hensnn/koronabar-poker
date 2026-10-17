@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { estimateTournament } from '@kb/game-core';
+import { estimateTournament } from '@kb/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';

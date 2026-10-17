@@ -66,14 +66,15 @@ export interface GenerateOptions {
 }
 
 /**
- * Vygeneruje rostoucí strukturu tak, aby poslední level měl velký blind zhruba 1/10 celkových žetonů
- * (hra se tam normálně dohraje) a levelů bylo tolik, kolik se vejde do cílové délky.
+ * Vygeneruje rostoucí strukturu tak, aby poslední level měl velký blind zhruba 1/20 celkových žetonů
+ * (tam turnaj typicky končí, viz odhad délky) a levelů bylo tolik, kolik se vejde do cílové délky.
+ * Kdyby hra trvala déle, blindy se za posledním levelem dál zdvojnásobují.
  */
 export function generateStructure(o: GenerateOptions): Level[] {
   const count = Math.max(2, Math.min(MAX_LEVELS, Math.round(o.targetMinutes / Math.max(1, o.levelMinutes))));
   const players = Math.max(2, o.players ?? 9);
   const startBb = Math.max(2, o.startingStack / 100);
-  const endBb = Math.max(startBb * 2, (o.startingStack * players) / 10);
+  const endBb = Math.max(startBb * 2, (o.startingStack * players) / 20);
   const ladder = bigBlindLadder(endBb);
   const nearest = (x: number): number => ladder.reduce((best, v) => (Math.abs(Math.log(v / x)) < Math.abs(Math.log(best / x)) ? v : best), ladder[0]!);
   const ratio = Math.pow(endBb / startBb, 1 / (count - 1));

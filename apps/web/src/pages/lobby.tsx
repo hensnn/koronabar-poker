@@ -233,7 +233,7 @@ interface Details {
   isAdmin: boolean;
 }
 
-export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/lobby/tables' }: { tableId: string; onClose: () => void; kind?: 'cash' | 'tournament'; basePath?: string }) {
+export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/lobby/tables', extras }: { tableId: string; onClose: () => void; kind?: 'cash' | 'tournament'; basePath?: string; extras?: CreateProps['extras'] }) {
   const detailsPath = kind === 'tournament' ? `${basePath}/${tableId}/details` : `${basePath}/${tableId}`;
   const [d, setD] = useState<Details | null>(null);
   const [changes, setChanges] = useState<Record<string, SettingValue>>({});
@@ -260,6 +260,7 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
           allowedKeys={(def) => tableScoped(def) && decideChange(registry, def.key, ctx).result !== 'denied'}
           gameKind={kind}
         />
+        {extras?.({ values, set: (k, v) => setChanges((c) => ({ ...c, [k]: v })) })}
         {Object.keys(d.pending).length > 0 && <Notice>{t('lobby.pending', { keys: Object.keys(d.pending).join(', ') })}</Notice>}
         {error && <Notice kind="error">{error}</Notice>}
         {info && <Notice kind="success">{info}</Notice>}

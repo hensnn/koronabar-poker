@@ -305,9 +305,15 @@ export class Tournament {
     }
   }
 
+  /** Aktuální level; za posledním zadaným levelem se blindy i ante dál zdvojnásobují (turnaj se vždy dohraje). */
   currentLevel(): Level | null {
     const lv = this.st.levels;
-    return lv ? (lv[Math.min(this.st.levelIndex, lv.length - 1)] ?? null) : null;
+    if (!lv || lv.length === 0) return null;
+    const last = lv[lv.length - 1]!;
+    const beyond = this.st.levelIndex - (lv.length - 1);
+    if (beyond <= 0) return lv[this.st.levelIndex] ?? null;
+    const k = 2 ** beyond;
+    return { smallBlind: last.smallBlind * k, bigBlind: last.bigBlind * k, ante: last.ante * k };
   }
 
   /** Číslo levelu od 1. */
@@ -603,10 +609,6 @@ export class Tournament {
     return num(this.deps.settings(), 'tournament.levelMinutes') * 60_000;
   }
 
-  private isLastLevel(): boolean {
-    return !!this.st.levels && this.st.levelIndex >= this.st.levels.length - 1;
-  }
-
   private beginLevelClock(): void {
     this.cancelClock();
     const s = this.deps.settings();
@@ -671,7 +673,7 @@ export class Tournament {
   private levelDone(): void {
     const s = this.deps.settings();
     const every = num(s, 'tournament.breakEveryLevels');
-    if (every > 0 && this.levelNumber() % every === 0 && !this.isLastLevel()) {
+    if (every > 0 && this.levelNumber() % every === 0) {
       this.st.onBreak = true;
       const minutes = num(s, 'tournament.breakMinutes');
       this.st.clock = { kind: 'break', remainingMs: minutes * 60_000 };
@@ -684,7 +686,7 @@ export class Tournament {
   }
 
   private advanceLevel(): void {
-    if (!this.isLastLevel()) this.st.levelIndex++;
+    this.st.levelIndex++;
     this.st.handsInLevel = 0;
     this.emitLevel();
     this.beginLevelClock();

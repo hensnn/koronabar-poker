@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { categoryKey, isVisible, labelKey, optionKey, parseStructure, scopeAllowed, t, type Level, type SettingDef, type SettingValue, type SettingValues } from '@kb/shared';
+import { categoryKey, isVisible, labelKey, optionKey, scopeAllowed, t, type SettingDef, type SettingValue, type SettingValues } from '@kb/shared';
+import { EstimateLine, LevelsTable, levelsFor } from './structure-editor';
 import { errorText, get } from '../api';
 import { registry } from '../settings';
-import { Button, DataTable, Modal, Notice, Spinner, Tabs, Td } from '../ui';
+import { Button, Modal, Notice, Spinner, Tabs } from '../ui';
 
 interface Details {
   name: string;
@@ -24,15 +25,10 @@ function formatValue(def: SettingDef, v: SettingValue): string {
   }
 }
 
-/** Tabulka levelů turnaje ze struktury blindů (jako „Levels & Blinds“). */
+/** Tabulka levelů turnaje (jako „Levels & Blinds“); bez zadané struktury ukáže tu, která vznikne automaticky. */
 function LevelsTab({ values }: { values: SettingValues }) {
-  const levels = useMemo<Level[]>(() => {
-    try {
-      return parseStructure(String(values['tournament.structure'] ?? ''));
-    } catch {
-      return [];
-    }
-  }, [values]);
+  const players = Math.max(2, Math.min(Number(values['table.seats']), Number(values['tournament.minPlayers']) + 3));
+  const { levels, generated, error } = useMemo(() => levelsFor(values, players), [values, players]);
   const byTime = values['tournament.levelMode'] !== 'hands';
   const length = byTime ? `${values['tournament.levelMinutes']} ${t('unit.min')}` : `${values['tournament.levelHands']} ${t('unit.hand')}`;
   const breakEvery = Number(values['tournament.breakEveryLevels'] ?? 0);
@@ -42,19 +38,14 @@ function LevelsTab({ values }: { values: SettingValues }) {
         {t('rules.levelLength')}: {length}
         {breakEvery > 0 && ` · ${t('rules.breaks', { n: breakEvery, min: Number(values['tournament.breakMinutes'] ?? 0) })}`}
       </p>
-      {levels.length === 0 ? (
-        <p className="text-muted">{t('rules.noStructure')}</p>
-      ) : (
-        <DataTable head={['#', t('rules.ante'), t('rules.sb'), t('rules.bb')]}>
-          {levels.map((l, i) => (
-            <tr key={i} className={breakEvery > 0 && (i + 1) % breakEvery === 0 ? 'border-b-2 border-line' : ''}>
-              <Td>{i + 1}</Td>
-              <Td className="font-mono">{l.ante || '–'}</Td>
-              <Td className="font-mono">{l.smallBlind}</Td>
-              <Td className="font-mono">{l.bigBlind}</Td>
-            </tr>
-          ))}
-        </DataTable>
+      <p>
+        <EstimateLine values={values} players={players} />
+      </p>
+      {error ? <p className="text-danger">{error}</p> : (
+        <>
+          {generated && <p className="text-sm text-muted">{t('structure.generatedNote', { n: players })}</p>}
+          <LevelsTable levels={levels} breakEvery={breakEvery} />
+        </>
       )}
     </div>
   );

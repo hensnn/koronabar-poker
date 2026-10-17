@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { balancePercents, BP, computePayouts, defaultPercents, formatStructure, generateStructure, parseStructure, t, type SettingValue, type SettingValues } from '@kb/shared';
+import { balancePercents, BP, computePayouts, defaultPercents, t, type SettingValue, type SettingValues } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { onSocket } from '../net';
 import { Link, navigate } from '../router';
@@ -9,6 +9,7 @@ import { DealPanel } from './deal';
 import { ShareToChat } from './chat-extras';
 import { CalendarPanel, fmtDate, PlansPanel, ScheduleDialog, SeriesPanel } from './planning';
 import { CreateDialog, EditDialog, type Template } from './lobby';
+import { MoneyPreview, RebuyCard, StructureEditor } from './structure-editor';
 import { RulesDialog } from './rules';
 import { LiveDirectorPanel } from './live';
 import { useAnnounceRoom } from '../announcer/host';
@@ -222,7 +223,8 @@ export function TournamentsPage() {
                   <span className="text-sm text-muted">{t('live.createHint')}</span>
                 </label>
               )}
-              <FeePreview values={values} />
+              <MoneyPreview values={values} set={set} />
+              <RebuyCard values={values} set={set} />
               <StructureEditor values={values} set={set} />
               {values['tournament.payoutPreset'] === 'custom' && <PayoutEditor values={values} set={set} />}
             </>
@@ -234,115 +236,6 @@ export function TournamentsPage() {
 }
 
 // ---------- editory struktury a výplat ----------
-
-/** Struktura blindů: textový zápis, tlačítko pro vygenerování podle cílové délky a náhled. */
-function StructureEditor({ values, set }: { values: SettingValues; set: (k: string, v: SettingValue) => void }) {
-  const text = String(values['tournament.structure'] ?? '');
-  const parsed = useMemo(() => {
-    if (!text.trim()) return null;
-    try {
-      return { levels: parseStructure(text), error: '' };
-    } catch {
-      return { levels: [], error: t('tournament.structureInvalid') };
-    }
-  }, [text]);
-  const generate = () => {
-    const mode = values['tournament.levelMode'];
-    const minutes = mode === 'hands' ? Math.max(1, Number(values['tournament.levelHands'])) : Number(values['tournament.levelMinutes']);
-    const levels = generateStructure({ startingStack: Number(values['tournament.startingStack']), targetMinutes: Number(values['tournament.targetMinutes']), levelMinutes: minutes, players: Number(values['table.seats']) });
-    set('tournament.structure', formatStructure(levels));
-  };
-  const total = parsed && parsed.levels.length ? parsed.levels.length * Number(values['tournament.levelMinutes']) : null;
-  return (
-    <Card title={t('tournament.structure')}>
-      <div className="flex flex-col gap-2">
-        <textarea className="min-h-24 w-full rounded-sm border border-line bg-surface px-2 py-1 font-mono text-text" aria-label={t('tournament.structure')} value={text} placeholder={t('tournament.structurePlaceholder')} onChange={(e) => set('tournament.structure', e.target.value)} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={generate}>{t('tournament.generate')}</Button>
-          <Button onClick={() => set('tournament.structure', '')} disabled={!text}>
-            {t('tournament.structureAuto')}
-          </Button>
-          {parsed?.error && <span className="text-danger">{parsed.error}</span>}
-          {parsed && !parsed.error && parsed.levels.length > 0 && (
-            <span className="text-sm text-muted">
-              {t('tournament.structureSummary', { levels: parsed.levels.length, minutes: values['tournament.levelMode'] === 'hands' ? '?' : (total ?? 0) })}
-            </span>
-          )}
-          {!text && <span className="text-sm text-muted">{t('tournament.structureAutoHint')}</span>}
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/** Živý náhled poplatků: kolik hráč zaplatí, kam peníze jdou a kolik bude prize pool pro zadaný počet hráčů. */
-function FeePreview({ values }: { values: SettingValues }) {
-  const seats = Number(values['table.seats']);
-  const [players, setPlayers] = useState(Math.max(2, Math.min(seats, Number(values['tournament.minPlayers']) + 3)));
-  const n = Math.max(2, Math.min(seats, players));
-  const [busy, setBusy] = useState(false);
-  const [estimate, setEstimate] = useState<{ minutes: number | null; range: [number, number] | null; levels: number | null } | string | null>(null);
-  const buyIn = Number(values['tournament.buyIn']);
-  const fee = Number(values['tournament.fee']);
-  const house = Math.floor((buyIn * Number(values['tournament.houseCutPercent'])) / 100);
-  const fund = Math.floor((buyIn * Number(values['tournament.fundPercent'])) / 100);
-  const pool = (buyIn - house - fund) * n;
-  const guarantee = Number(values['tournament.guarantee']);
-  const overlay = Math.max(0, guarantee - pool);
-  return (
-    <Card title={t('tournament.feePreview')}>
-      <div className="flex flex-col gap-2">
-        <label className="flex items-center gap-2">
-          {t('tournament.previewPlayers')}
-          <input type="number" min={1} max={seats} value={players} onChange={(e) => setPlayers(Number(e.target.value))} className="w-20 rounded-sm border border-line bg-surface px-2 py-1" />
-        </label>
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-          <dt className="text-muted">{t('tournament.playerPays')}</dt>
-          <dd className="font-mono">{buyIn + fee}</dd>
-          <dt className="text-muted">{t('tournament.toPool')}</dt>
-          <dd className="font-mono">{buyIn - house - fund}</dd>
-          <dt className="text-muted">{t('tournament.toHouse')}</dt>
-          <dd className="font-mono">{house + fee}</dd>
-          <dt className="text-muted">{t('tournament.toFund')}</dt>
-          <dd className="font-mono">{fund}</dd>
-          <dt className="text-muted">{t('tournament.prizePool')}</dt>
-          <dd className="font-mono">{Math.max(pool, guarantee)}</dd>
-          {overlay > 0 && (
-            <>
-              <dt className="text-muted">{t('tournament.overlay')}</dt>
-              <dd className="font-mono">{overlay}</dd>
-            </>
-          )}
-        </dl>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setEstimate(null);
-              try {
-                setEstimate(await post<{ minutes: number | null; range: [number, number] | null; levels: number | null }>('/api/tournaments/estimate', { values, players: n }));
-              } catch (e) {
-                setEstimate(errorText(e));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {t('tournament.estimate')}
-          </Button>
-          {busy && <Spinner label={t('tournament.estimating')} />}
-          {typeof estimate === 'string' && <span className="text-danger">{estimate}</span>}
-          {estimate && typeof estimate === 'object' && (
-            <span>
-              {estimate.minutes === null ? t('tournament.estimateNone') : t('tournament.estimateResult', { minutes: estimate.minutes, from: estimate.range![0], to: estimate.range![1], levels: estimate.levels ?? 0 })}
-            </span>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 const fmtPct = (bp: number): string => String(bp / 100);
 
@@ -548,7 +441,11 @@ export function TournamentPage({ id }: { id: string }) {
           </Button>
         )}
         <Button onClick={() => setRules(true)}>{t('lobby.rules')}</Button>
-        {view.can.manage && view.status !== 'finished' && view.status !== 'cancelled' && <Button onClick={() => setEditing(true)}>{t('lobby.edit')}</Button>}
+        {view.can.manage && view.status !== 'finished' && view.status !== 'cancelled' && (
+          <Button variant={running ? 'secondary' : 'primary'} onClick={() => setEditing(true)}>
+            ✎ {t('tournament.editRules')}
+          </Button>
+        )}
         {view.can.cancel && (
           <Button variant="danger" disabled={busy} onClick={() => void act('cancel', t('tournament.confirmCancel'))}>
             {t('tournament.cancel')}
@@ -798,6 +695,13 @@ export function TournamentPage({ id }: { id: string }) {
           tableId={view.id}
           kind="tournament"
           basePath="/api/tournaments"
+          extras={({ values, set }) => (
+            <>
+              <MoneyPreview values={values} set={set} />
+              <RebuyCard values={values} set={set} />
+              <StructureEditor values={values} set={set} />
+            </>
+          )}
           onClose={() => {
             setEditing(false);
             load();

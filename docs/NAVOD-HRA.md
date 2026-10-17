@@ -34,9 +34,9 @@ U každého parametru je napsáno, **kdy jde měnit**: hned, od další handy, j
 
 **Turnaje → Založit turnaj** (hned) nebo **Naplánovat turnaj** (s datem; registrace se otevře sama, hráčům chodí připomínky).
 
-1. **Název a šablona.** Pro začátek: *Freezeout* (bez rebuy, klidné tempo), *Rebuy* (dokupování v první části), *Turbo* (rychlé levely na večer).
+1. **Název a šablona.** Pro začátek: *Freezeout* (bez rebuy, klidné tempo), *Rebuy* (dokupování v první části), *Turbo* (rychlé levely na večer). Pod šablonou jsou tři karty s tím hlavním: **Peníze a výplaty**, **Rebuy, add-on a re-entry** a **Struktura blindů**; zbytek je pod „Upravit podrobné nastavení“.
 2. **Buy-in a poplatek** (`tournament.buyIn`, `tournament.fee`): buy-in jde do prize poolu, poplatek domu (volitelný). Dále část poolu do fondu nebo domu v procentech, garance (dům doplní, když se sejde málo hráčů).
-3. **Startovní stack** (`tournament.startingStack`) a **struktura blindů** (`tournament.structure`, editor levelů). Levely podle času (`levelMinutes`) nebo podle počtu hand. Přestávka po každých N levelech (`breakEveryLevels`, `breakMinutes`). Nebo zadej cílovou délku (`targetMinutes`) a struktura se dopočítá.
+3. **Startovní stack** a **struktura blindů**: v kartě *Struktura blindů* zadej cílovou délku, délku levelu, stack a očekávaný počet hráčů a klikni *Vygenerovat blindy podle cílové délky* – vznikne rostoucí struktura (s ante od poloviny), kterou můžeš ručně doladit (zápis „25/50, 50/100/10“). Prázdné pole = vygeneruje se automaticky při startu. Hned vidíš odhad délky; za posledním levelem se blindy dál zdvojnásobují, takže se turnaj vždy dohraje. Levely podle času nebo podle počtu hand; přestávka po každých N levelech.
 4. **Hráči:** minimum pro start, co dělat při nedostatku (zrušit nebo odložit), pozdní registrace do levelu N, odhlášení do N minut před startem, automatický start při naplnění.
 5. **Rebuy, add-on, re-entry:** zapnutí, cena a žetony, do kterého levelu, kolikrát nejvýš. Rebuy když stack klesne pod hranici (`rebuyWhen`).
 6. **Výplaty** (`tournament.payoutPreset`): *standard* (podle počtu hráčů), *wta* (vítěz bere vše), *top2*, *top3*, nebo *custom* (např. `50,30,20`). Zaokrouhlení a co se zbytkem.
@@ -44,6 +44,8 @@ U každého parametru je napsáno, **kdy jde měnit**: hned, od další handy, j
 8. **Dohoda (deal):** zda se hráči na konci smí dohodnout (ICM, chip chop, rovným dílem, vlastní), kolik procent zůstane ve hře.
 9. **Více stolů:** `tournament.maxTables` a povolený rozdíl obsazení; stoly se vyvažují a ruší samy, finálový stůl a hand-for-hand na bublině jsou automatické.
 10. **Živý turnaj** (`tournament.live`): hodiny, registrace a vyřazení zapisuje ředitel, hráči vidí stav na mobilu.
+
+Po založení jde vše upravit tlačítkem **Upravit pravidla** na stránce turnaje (zakladatel nebo správce): před startem cokoli, během turnaje jen parametry označené „lze měnit kdykoli“ nebo „od další handy“. Tlačítko **Pravidla** ukáže, co právě platí.
 
 Po založení: hráči se registrují (nebo je organizátor přihlásí), start ručně nebo automaticky, průběh řídí server (levely, přestávky, pauzy, vyřazení, výplaty). Výsledky jdou do statistik, XP, ratingu a herního večera. Hlasatel a TV režim hlásí a ukazují průběh.
 

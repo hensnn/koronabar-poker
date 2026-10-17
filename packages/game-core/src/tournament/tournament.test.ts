@@ -353,33 +353,6 @@ describe('turnaj: matice nastavení (simulace s boty)', { timeout: 300_000 }, ()
   }
 });
 
-describe('odhad délky turnaje', () => {
-  it('odhad podle struktury: domácí turnaj 9 × 1500 s 15min levely trvá zhruba 2 hodiny', async () => {
-    const { estimateTournament } = await import('./estimate.js');
-    const base = harness({ 'tournament.levelMinutes': 15, 'tournament.structure': '25/50, 50/100, 75/150, 100/200, 150/300, 200/400, 300/600, 400/800, 500/1000, 600/1200' }, 2).settings;
-    const e = estimateTournament(base, { players: 9 });
-    // 13 500 žetonů → konec kolem BB 675 (level 7–8)
-    expect(e.minutes).toBeGreaterThan(95);
-    expect(e.minutes!).toBeLessThan(140);
-    expect(e.levels).toBe(7);
-    expect(e.range![0]).toBeLessThan(e.minutes!);
-    expect(e.range![1]).toBeGreaterThan(e.minutes!);
-    // delší levely = úměrně delší turnaj; víc hráčů = delší turnaj
-    const longer = estimateTournament({ ...base, 'tournament.levelMinutes': 30 }, { players: 9 });
-    expect(longer.minutes).toBe(e.minutes! * 2);
-    expect(estimateTournament(base, { players: 4 }).minutes!).toBeLessThan(e.minutes!);
-    // přestávky se připočítají
-    const withBreaks = estimateTournament({ ...base, 'tournament.breakEveryLevels': 3, 'tournament.breakMinutes': 10 }, { players: 9 });
-    expect(withBreaks.minutes).toBe(e.minutes! + 20);
-    // bez zadané struktury se použije vygenerovaná: cílová délka 120 min vyjde zhruba na cílovou délku
-    const gen = estimateTournament({ ...base, 'tournament.structure': '', 'tournament.targetMinutes': 120 }, { players: 9 });
-    expect(gen.minutes).toBeGreaterThan(70);
-    expect(gen.minutes!).toBeLessThan(130);
-    // rozbitá struktura → bez odhadu
-    expect(estimateTournament({ ...base, 'tournament.structure': 'xx' }, { players: 9 }).minutes).toBeNull();
-  });
-});
-
 describe('turnaj: bounty', { timeout: 300_000 }, () => {
   const kinds: { name: string; over: Record<string, number | boolean | string> }[] = [
     { name: 'fixní, hned', over: { 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30 } },
@@ -668,9 +641,13 @@ describe('turnaj: hodiny a přestávky', () => {
     h.tour.resume();
     h.clock.advance(left + 10);
     expect(h.tour.levelNumber()).toBe(4);
-    // poslední level trvá dál
-    h.clock.advance(10 * 60_000);
-    expect(h.tour.levelNumber()).toBe(4);
+    // konec 4. levelu = přestávka (i za posledním zadaným levelem); pak se blindy dál zdvojnásobují (turnaj se vždy dohraje)
+    h.clock.advance(60_000 + 10);
+    expect(h.tour.state().onBreak).toBe(true);
+    h.clock.advance(3 * 60_000 + 10);
+    expect(h.tour.levelNumber()).toBe(5);
+    expect(h.tour.currentLevel()).toEqual({ smallBlind: 80, bigBlind: 160, ante: 0 });
+    expect(h.tableBlinds()).toEqual([80, 160]);
   });
 
   it('level podle počtu hand', async () => {

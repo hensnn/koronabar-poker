@@ -1,4 +1,5 @@
-import { generateStructure, parseStructure, type Level, type SettingValues } from '@kb/shared';
+import type { SettingValues } from '../settings/types.js';
+import { generateStructure, parseStructure, type Level } from './blinds.js';
 
 export interface Estimate {
   /** Odhad délky v minutách, null = struktura se nedá rozebrat. */

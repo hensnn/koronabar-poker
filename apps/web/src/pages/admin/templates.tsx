@@ -4,6 +4,7 @@ import { del, errorText, get, post, put } from '../../api';
 import { registry } from '../../settings';
 import { SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, DataTable, Modal, Notice, Select, Td, TextArea, TextInput } from '../../ui';
+import { MoneyPreview, RebuyCard, StructureEditor } from '../structure-editor';
 
 interface Template {
   id: string;
@@ -100,6 +101,10 @@ function TemplateEditor({ base, kind, onClose, onSaved }: { base: Template | nul
   const resolved = useMemo(() => resolveSettings(registry, [{ scope: 'template', values }]), [values]);
   const issues = useMemo(() => validateValues(registry, values), [values]);
   const gameKind = kind === 'live' ? 'tournament' : kind;
+  const setOne = (k: string, v: SettingValue) => {
+    setValues((cur) => ({ ...cur, [k]: v }));
+    setDirty((d) => (d.includes(k) ? d : [...d, k]));
+  };
   const save = async () => {
     try {
       const body = { name, description, kind, values };
@@ -136,6 +141,13 @@ function TemplateEditor({ base, kind, onClose, onSaved }: { base: Template | nul
           gameKind={gameKind}
           pendingKeys={dirty}
         />
+        {gameKind === 'tournament' && (
+          <>
+            <MoneyPreview values={resolved.values} set={setOne} />
+            <RebuyCard values={resolved.values} set={setOne} />
+            <StructureEditor values={resolved.values} set={setOne} />
+          </>
+        )}
         {error && <Notice kind="error">{error}</Notice>}
         <div className="flex gap-2">
           <Button variant="primary" disabled={issues.length > 0 || name.trim().length < 2} onClick={() => void save()}>
