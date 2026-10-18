@@ -740,6 +740,21 @@ h3,
 [data-focus] .tk-tp-hide-focus { display: none !important; }
 [data-focus] > body > #root > div { max-width: none; padding: calc(var(--spacing) * 2); }
 
+/* Širší displej: akce (Sit out, Dokoupit, Odejít, ukázání karet…) leží ve sloupci vedle stolu, kde je místo, a ne pod ním, kde se na celé obrazovce nevejdou. */
+@media (min-width: 64rem) {
+  html:not([data-mobile]) .tk-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'room extra' 'turn turn' 'action action';
+    column-gap: calc(var(--spacing) * 2);
+    align-items: start;
+  }
+  html:not([data-mobile]) .tk-screen > .tk-room { grid-area: room; }
+  html:not([data-mobile]) .tk-screen > .tk-turn-row { grid-area: turn; }
+  html:not([data-mobile]) .tk-screen > .tk-actionbar { grid-area: action; }
+  html:not([data-mobile]) .tk-screen > :not(.tk-room):not(.tk-extra):not(.tk-turn-row):not(.tk-actionbar) { grid-column: 1 / -1; }
+  html:not([data-mobile]) .tk-screen > .tk-extra { grid-area: extra; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 11rem; }
+}
 /* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */
 .tk-turn-row { min-height: 2.75rem; display: flex; align-items: center; justify-content: center; }
 .tk-actionbar { min-height: 7.25rem; }
@@ -754,7 +769,7 @@ h3,
   }
   [data-focus] .tk-tp-panel { max-height: 100%; }
   [data-focus] .tk-tp-main { height: 100%; overflow: hidden; }
-  [data-focus] .tk-table { width: min(100%, calc((100vh - 18rem) * var(--tk-table-aspect))); }
+  [data-focus] .tk-table { width: min(100%, calc((100vh - 21rem) * var(--tk-table-aspect))); }
 }
 
 /* ---------- mobilní rozložení stolu (data-mobile na <html>): vše v okně bez posuvníků ---------- */

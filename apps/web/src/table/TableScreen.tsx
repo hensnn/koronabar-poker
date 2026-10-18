@@ -64,6 +64,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<{ kind: 'join'; seat: number } | { kind: 'topUp' } | null>(null);
 
+  // Dokoupení žetonů lze vyvolat i z panelu vlevo (widget Akce).
+  useEffect(() => {
+    const open = () => setDialog({ kind: 'topUp' });
+    window.addEventListener('kb:topup', open);
+    return () => window.removeEventListener('kb:topup', open);
+  }, []);
+
   useEffect(() => {
     if (net.status === 'online') void table.subscribe(tableId);
   }, [net.status, tableId]);

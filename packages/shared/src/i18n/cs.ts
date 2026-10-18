@@ -722,6 +722,7 @@ export const cs: Record<string, string> = {
   'table.widget.clock': 'Hodiny turnaje',
   'table.widget.table': 'Můj stůl',
   'table.widget.hand': 'Moje handa',
+  'table.widget.actions': 'Akce',
   'table.widget.best': 'Moje kombinace',
   'table.widget.bestNone': 'Kombinace se ukáže od flopu.',
   'table.widget.odds': 'Šance na výhru',

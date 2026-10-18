@@ -13,7 +13,7 @@ import { formatAmount } from './format';
 import { setPlan, usePlan, type Plan } from './plan';
 
 /** Widgety panelu u stolu; pořadí je výchozí pořadí zobrazení. */
-export const WIDGETS = ['table', 'plan', 'hand', 'best', 'players', 'chat', 'sounds'] as const;
+export const WIDGETS = ['table', 'plan', 'hand', 'best', 'actions', 'players', 'chat', 'sounds'] as const;
 export type WidgetId = (typeof WIDGETS)[number];
 
 interface PanelState {
@@ -244,7 +244,7 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
   const info = view?.info;
   const tournamentId = info?.tournamentId;
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
-  const titles: Record<WidgetId, string> = { plan: t('table.widget.plan'), table: tournamentId ? t('table.widget.clock') : t('table.widget.table'), hand: t('table.widget.hand'), best: t('table.widget.best'), players: t('table.widget.players'), chat: t('table.chat'), sounds: t('table.widget.sounds') };
+  const titles: Record<WidgetId, string> = { plan: t('table.widget.plan'), table: tournamentId ? t('table.widget.clock') : t('table.widget.table'), hand: t('table.widget.hand'), best: t('table.widget.best'), actions: t('table.widget.actions'), players: t('table.widget.players'), chat: t('table.chat'), sounds: t('table.widget.sounds') };
   const bodies: Record<WidgetId, { show: boolean; body: ReactNode }> = {
     plan: {
       show: !!mine && !!view,
@@ -314,6 +314,27 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
     best: {
       show: !!(mine && mine.hasCards && mine.cards),
       body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
+    },
+    // Důležité akce hry stále po ruce, i když je stůl na celou obrazovku (tlačítka pod stolem se tam nemusí vejít).
+    actions: {
+      show: !!mine && !!info,
+      body: mine && info && (
+        <div className="flex flex-wrap gap-1.5">
+          <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" onClick={() => void (mine.sitOut ?? mine.status === 'sittingOut' ? tableApi.sitIn(tableId) : tableApi.sitOut(tableId))}>
+            {mine.sitOut ?? mine.status === 'sittingOut' ? t('table.sitIn') : t('table.sitOut')}
+          </button>
+          {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
+            <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" onClick={() => window.dispatchEvent(new Event('kb:topup'))}>
+              {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}
+            </button>
+          )}
+          {!info.tournament && (
+            <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" onClick={() => void tableApi.leave(tableId)}>
+              {t('table.leave')}
+            </button>
+          )}
+        </div>
+      ),
     },
     players: {
       show: !!view,

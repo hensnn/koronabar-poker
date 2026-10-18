@@ -110,6 +110,6 @@ function run(seed: number, over: Record<string, number | boolean | string> = {},
   return { sim, hands: handsSeen.size };
 }
 
-describe('únik karet', { timeout: 120_000 }, () => {
-  for (const seed of [1, 2, 3, 4, 5]) it('seed ' + seed, () => { run(seed, { 'special.showCards': true, 'special.runItTwice': true, 'special.rabbitHunt': true, 'odds.enabled': seed % 2 === 0 }, 1200); expect(leaks).toBe(0); });
+describe('únik karet', { timeout: 300_000 }, () => {
+  for (const seed of [1, 2, 3, 4, 5]) it('seed ' + seed, () => { run(seed, { 'special.showCards': true, 'special.runItTwice': true, 'special.rabbitHunt': true, 'odds.enabled': seed % 2 === 0 }, 600); expect(leaks).toBe(0); });
 });

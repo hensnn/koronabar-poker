@@ -175,15 +175,16 @@ function Shell({ me }: { me: Me }) {
           <NotificationBell />
           <SoundMenu />
           <SoundHost />
-          <TournamentResultHost />
           <AnnouncerHost />
-          <LevelUpToast />
           <span className="rounded-md bg-raised px-3 py-1 font-mono" title={t('nav.balance')}>
             {me.balance} {String(settings.values['economy.currencySymbol'] ?? '')}
           </span>
           <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
         </nav>
       </header>
+      {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}
+      <TournamentResultHost />
+      <LevelUpToast />
       <OfflineBanner />
       {!me.user.emailVerified && !blocked && <VerifyBanner />}
       <main className="flex-1">{page}</main>

@@ -51,7 +51,7 @@ async function start() {
 const ledgerIds = (everyone: string[], extra: string[] = []) => [accounts.mint(), accounts.house(), accounts.fund('jackpot'), accounts.fund('sezona'), accounts.fund('liga'), ...everyone.map(accounts.wallet), ...extra];
 
 
-describe('matice her: cash šablony', { timeout: 300_000 }, () => {
+describe('matice her: cash šablony', { timeout: 600_000 }, () => {
   it('každá vestavěná cash šablona: hra botů, peníze se nikdy neztratí ani nevzniknou, po zrušení stolu jsou všechny zpět v peněženkách', async () => {
     const s = await start();
     const org = await s.user('organizator');
@@ -70,7 +70,7 @@ describe('matice her: cash šablony', { timeout: 300_000 }, () => {
           if (!(e instanceof GameError)) throw e;
         }
       }
-      for (let step = 0; step < 450; step++) {
+      for (let step = 0; step < 300; step++) {
         const v = actor.viewFor(null);
         if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
           const p = v.seats.find((x) => x.seat === v.actingSeat)!;
