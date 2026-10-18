@@ -944,6 +944,8 @@ export async function buildServer(opts: ServerOptions = {}) {
   const maintenance = new MaintenanceService({
     db,
     ledger,
+    cash,
+    flush: () => journal.flush(),
     perms,
     audit,
     settings: () => settings.resolve(),

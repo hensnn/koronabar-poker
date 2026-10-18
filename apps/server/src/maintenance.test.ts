@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { accounts } from '@kb/ledger';
 import { FakeClock } from '@kb/game-core';
 import { buildServer } from './app.js';
+import { schema } from './db/index.js';
 import { MaintenanceError } from './maintenance.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
@@ -47,6 +48,25 @@ describe('údržba: vynulování po testování', () => {
     expect(s.server.ledger.balance(accounts.wallet(s.admin))).toBe(10_000);
     const after = await s.server.maintenance.counts(s.admin);
     expect(after).toMatchObject({ xpEvents: 0, players: 0, achievements: 0, ratings: 0, hands: 0, results: 0 });
+  });
+
+  it('nový start účetní knihy: historie pryč, každý má počáteční zůstatek, kniha zůstává vyrovnaná', async () => {
+    const s = await start();
+    await s.server.wallet.topUp(s.admin, s.player, 777, 'test');
+    const { id } = await s.server.tables.createTable(s.admin, { name: 'Blokuje', templateId: 'cash-klasika' });
+    await expect(s.server.maintenance.resetLedger(s.admin)).rejects.toThrow('INVALID');
+    await s.server.tables.closeTable(s.admin, id);
+    await expect(s.server.maintenance.resetLedger(s.player)).rejects.toThrow('FORBIDDEN');
+    const r = await s.server.maintenance.resetLedger(s.admin);
+    expect(r.transactionsDeleted).toBeGreaterThan(0);
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(10_000);
+    expect(s.server.ledger.balance(accounts.wallet(s.admin))).toBe(10_000);
+    expect(s.server.ledger.balance(accounts.house())).toBe(0);
+    expect(s.server.ledger.transactions().length).toBe(r.users);
+    // zápis do DB odpovídá paměti
+    const rows = await s.server.db.select().from(schema.ledgerTransactions);
+    expect(rows.length).toBe(r.users);
+    expect(s.server.ledger.totalIsZero([accounts.mint(), accounts.house(), accounts.wallet(s.player), accounts.wallet(s.admin)])).toBe(true);
   });
 
   it('vynuluje jednoho hráče (XP), ostatním nic nemění', async () => {

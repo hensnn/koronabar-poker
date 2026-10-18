@@ -63,6 +63,21 @@ export function MaintenancePage() {
     }
   };
   const any = AREAS.some((a) => areas[a]);
+  const [ledgerWord, setLedgerWord] = useState('');
+  const resetLedger = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await post<{ transactionsDeleted: number; users: number }>('/api/admin/maintenance/reset-ledger');
+      setMsg({ kind: 'success', text: t('maintenance.ledgerDone', { n: r.transactionsDeleted, users: r.users }) });
+      setLedgerWord('');
+      reload();
+    } catch (e) {
+      setMsg({ kind: 'error', text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="flex flex-col gap-3">
       <Notice kind="error">{t('maintenance.warning')}</Notice>
@@ -84,6 +99,17 @@ export function MaintenancePage() {
           <div>
             <Button variant="danger" disabled={busy || !any || word.trim() !== CONFIRM_WORD} onClick={() => void run()}>
               {t('maintenance.run')}
+            </Button>
+          </div>
+        </div>
+      </Card>
+      <Card title={t('maintenance.ledgerTitle')}>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">{t('maintenance.ledgerHelp')}</p>
+          <TextInput label={t('maintenance.confirmLabel', { word: CONFIRM_WORD })} value={ledgerWord} onChange={(e) => setLedgerWord(e.target.value)} />
+          <div>
+            <Button variant="danger" disabled={busy || ledgerWord.trim() !== CONFIRM_WORD} onClick={() => void resetLedger()}>
+              {t('maintenance.ledgerRun')}
             </Button>
           </div>
         </div>

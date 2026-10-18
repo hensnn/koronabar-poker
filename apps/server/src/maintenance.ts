@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { eq, or, sql } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
-import { accounts as ledgerAccounts, type Ledger } from '@kb/ledger';
+import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
 import type { PermissionChecker, SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
@@ -17,6 +17,9 @@ export class MaintenanceError extends Error {
 interface Deps {
   db: Db;
   ledger: Ledger;
+  cash: CashService;
+  /** Zápisy do DB čekající ve frontě (musí se zapsat, než se tabulky smažou). */
+  flush: () => Promise<void>;
   perms: PermissionChecker;
   audit: AuditService;
   settings: () => SettingValues;
@@ -149,6 +152,31 @@ export class MaintenanceService {
       n++;
     }
     return n;
+  }
+
+  /**
+   * Nový start účetní knihy: smaže celou historii transakcí a zůstatků a každému hráči připíše počáteční zůstatek
+   * jedinou „otevírací“ transakcí (z účtu mint). Jde jen bez otevřených stolů a běžících turnajů (žádné žetony mimo peněženky).
+   */
+  async resetLedger(actorId: string, meta: Meta = {}): Promise<{ transactionsDeleted: number; users: number }> {
+    this.can(actorId);
+    const tournaments = this.deps.tournaments();
+    const active = tournaments.list().filter((r) => ACTIVE.has(tournaments.get(r.id)?.state().status ?? '')).length;
+    if (this.deps.tables().list().length > 0 || active > 0) throw new MaintenanceError('INVALID');
+    await this.deps.idle();
+    await this.deps.flush();
+    const db = this.deps.db;
+    const transactionsDeleted = await this.count(schema.ledgerTransactions);
+    await db.delete(schema.ledgerEntries);
+    await db.delete(schema.ledgerTransactions);
+    await db.delete(schema.ledgerAccounts);
+    this.deps.ledger.reset();
+    const target = Number(this.deps.settings()['economy.startingBalance'] ?? 0);
+    const users = await db.select({ id: schema.users.id }).from(schema.users);
+    for (const u of users) if (target > 0) this.deps.cash.mint(u.id, target, `opening:${u.id}:${randomUUID()}`, actorId, 'udrzba.novy_start');
+    await this.deps.flush();
+    await this.deps.audit.log({ actorId, action: 'udrzba.novy_start_knihy', targetType: 'system', after: { transactionsDeleted, users: users.length, startingBalance: target }, ...meta });
+    return { transactionsDeleted, users: users.length };
   }
 
   /** Vynulování jednoho hráče: XP (a úroveň), úspěchy, rating. */

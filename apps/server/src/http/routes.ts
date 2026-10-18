@@ -312,6 +312,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
 
   // ---------- údržba: vynulování po testování ----------
   app.get('/api/admin/maintenance', guard(async (req, reply) => reply.send(await svc.maintenance().counts(need(req).id))));
+  app.post('/api/admin/maintenance/reset-ledger', guard(async (req, reply) => reply.send(await svc.maintenance().resetLedger(need(req).id, meta(req)))));
   app.post('/api/admin/maintenance/reset', guard(async (req, reply) => {
     const b = z.object({ games: z.boolean().optional(), xp: z.boolean().optional(), achievements: z.boolean().optional(), rating: z.boolean().optional(), stats: z.boolean().optional(), wallets: z.boolean().optional() }).parse(req.body ?? {});
     return reply.send({ done: await svc.maintenance().reset(need(req).id, b, meta(req)) });
