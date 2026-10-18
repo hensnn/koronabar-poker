@@ -143,6 +143,8 @@ export class TableActor {
   private shown = new Map<number, (Card | null)[]>();
   private rabbit: Card[] | null = null;
   private bombPotHand: string | null = null;
+  /** Čas navíc pro první tah handy (rozdávání); spotřebuje se při prvním spuštění časovače. */
+  private dealGraceMs = 0;
   /** Přepočítaný výsledek handy (run it twice): výherci, které engine nezná, a jednotlivé běhy. */
   private override: { handId: string; winners: NonNullable<HandState['winners']>; engineWinners: HandState['winners']; runs: RunResult[] } | null = null;
   private highHand: { userId: string; score: number } | null = null;
@@ -657,6 +659,8 @@ export class TableActor {
       if (e instanceof GameError) throw e;
       // Hráč nemá v peněžence dost: je to jeho chyba, ne chyba stolu (kniha je při odmítnutí nedotčená), takže stůl hraje dál.
       if (e instanceof LedgerError && e.code === 'INSUFFICIENT_FUNDS') throw new GameError('INSUFFICIENT_FUNDS');
+      // Neočekávaná chyba zastaví jen tento stůl, ale nesmí zmizet beze stopy.
+      console.error(`[stůl ${this.opt.tableId}] zastaven kvůli chybě:`, e instanceof Error ? e.message : e);
       this.error = e;
       this.stopOnError();
       throw e;
@@ -813,6 +817,8 @@ export class TableActor {
     this.startStacks = new Map(h.players.map((p) => [p.playerId, p.stack + p.invested + p.dead]));
     this.pipeline.run('onHandStart', this.moduleCtx(), h);
     if (plan.bombPot) this.bombPotHand = h.handId;
+    // Rozdávání karet u stolu chvíli trvá: první hráč na tahu dostane čas o tolik delší, aby ho animace nepřipravila o vteřiny.
+    this.dealGraceMs = num(this.opt.settings(), 'time.dealMs');
     this.phase = 'hand';
     this.showHand = true;
     this.oddsCache = null;
@@ -941,10 +947,12 @@ export class TableActor {
     const userId = this.actingUser;
     const e = this.seats.get(userId);
     this.clockCalled = false;
+    const dealGrace = this.dealGraceMs;
+    this.dealGraceMs = 0;
     const grace = num(s, 'time.disconnectGraceSeconds') * 1000;
     if (this.isClockMode() && e) {
       const reserve = Math.max(num(s, 'time.minTurnSeconds'), e.timeBank) * 1000;
-      const wait = e.connected ? reserve : Math.min(reserve, grace);
+      const wait = (e.connected ? reserve : Math.min(reserve, grace)) + dealGrace;
       const now = this.opt.clock.now();
       this.bankActive = true;
       this.bankStartedAt = now;
@@ -954,7 +962,7 @@ export class TableActor {
       return;
     }
     const base = num(s, 'time.turnSeconds') * 1000;
-    const wait = e && !e.connected ? Math.min(base, grace) : base;
+    const wait = (e && !e.connected ? Math.min(base, grace) : base) + dealGrace;
     this.bankActive = false;
     this.deadline = this.opt.clock.now() + wait;
     this.changed();

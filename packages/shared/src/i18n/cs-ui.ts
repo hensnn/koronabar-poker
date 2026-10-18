@@ -39,6 +39,7 @@ export const csUi: Record<string, string> = {
   'chat.sys.shownOne': '{nick} ukázal jednu kartu.',
   'chat.sys.handResult': 'Handa č. {n}: {results}.',
   'chat.sys.handWinner': '{nick} vyhrál {amount}',
+  'chat.sys.handWinnerNet': '{nick} vyhrál {amount} (čistě +{net})',
   'chat.sys.handBoard': 'Board: {cards}.',
   'chat.sys.handRuns': 'Hrálo se {n}×.',
   'chat.sys.mucked': '{nick} odhodil karty (muck).',

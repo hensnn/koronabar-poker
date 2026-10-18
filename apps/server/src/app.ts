@@ -347,8 +347,9 @@ export async function buildServer(opts: ServerOptions = {}) {
     if (winners.length === 0) return;
     const results = winners
       .map((p) => {
+        const net = p.won - p.invested;
         const hand = e.showdown && p.revealed && p.handDesc ? ` (${t(p.handDesc.key, p.handDesc.params)})` : '';
-        return t('chat.sys.handWinner', { nick: p.name, amount: p.won }) + hand;
+        return t(net > 0 && net !== p.won ? 'chat.sys.handWinnerNet' : 'chat.sys.handWinner', { nick: p.name, amount: p.won, net }) + hand;
       })
       .join(', ');
     const board = e.board.length > 0 ? ' ' + t('chat.sys.handBoard', { cards: e.board.join(' ') }) : '';
@@ -448,6 +449,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   await tables.load();
 
   // Turnaje: stůl každého turnaje je v téže mapě jako cash stoly, takže Socket.IO brána funguje beze změn.
+  let closing = false;
   let emitTournamentChanged: (id: string) => void = () => undefined;
   let emitTournamentResult: (userId: string, payload: { id: string; name: string; summary: ReturnType<typeof resultSummary>[] }) => void = () => undefined;
   const publicUrlNow = () => String(settings.resolve()['system.publicUrl'] ?? '');
@@ -481,7 +483,8 @@ export async function buildServer(opts: ServerOptions = {}) {
       void cosmeticsRef?.sync(userId).catch(() => undefined);
       io.to(`user:${userId}`).emit('progress:achievement', { key: a.key, name: a.name, icon: a.icon, xp: a.xp });
     },
-    onError: (e) => console.error('Vyhodnocení úspěchů selhalo:', e instanceof Error ? e.message : e),
+    // Po zavření serveru dobíhající vyhodnocení narazí na zavřenou databázi; to není chyba, jen se o ní nehlásí.
+    onError: (e) => !closing && console.error('Vyhodnocení úspěchů selhalo:', e instanceof Error ? e.message : e),
   });
   await achievements.init();
   const notifications = new NotificationService({ db, email, settings, publicUrl: publicUrlNow, push });
@@ -1067,6 +1070,7 @@ export async function buildServer(opts: ServerOptions = {}) {
       return (app.server.address() as { port: number }).port;
     },
     async close() {
+      closing = true;
       email.stop();
       clearInterval(purgeTimer);
       clearInterval(digestTimer);

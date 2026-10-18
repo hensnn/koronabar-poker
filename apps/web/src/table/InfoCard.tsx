@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
 import type { TableView } from '@kb/game-core';
-import { get } from '../api';
+import { errorText, get, post } from '../api';
 import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { useSession } from '../session';
@@ -15,8 +15,12 @@ export interface TournamentInfo {
   alive: number;
   payouts: { place: number; amount: number }[];
   bounty: { type: string; percent: number; pkoCash: number; bank: number };
-  rebuy: { enabled: boolean };
-  addon: { enabled: boolean };
+  buyIn: number;
+  fee: number;
+  serverTime: number;
+  rebuy: { enabled: boolean; cost: number; chips: number };
+  addon: { enabled: boolean; cost: number; chips: number };
+  me: { status: string | null; decideUntil: number | null; canRebuy: boolean; canAddon: boolean; canReenter: boolean };
   reentry: { enabled: boolean };
   standings: { userId: string; place: number; chips: number | null; status: string }[];
   deal: { enabled: boolean; open: boolean; done: unknown | null };
@@ -193,5 +197,52 @@ export function DealButton({ tour, tournamentId }: { tour: TournamentInfo | null
         </Modal>
       )}
     </>
+  );
+}
+
+/** Rebuy, add-on a re-entry přímo u stolu (vyřazený hráč v rozhodovací době je nemusí hledat na stránce turnaje). */
+export function entryActions(tour: TournamentInfo | null): { kind: 'rebuy' | 'addon' | 'reenter'; label: string; confirm: string }[] {
+  if (!tour || tour.status !== 'running') return [];
+  const out: { kind: 'rebuy' | 'addon' | 'reenter'; label: string; confirm: string }[] = [];
+  if (tour.me.canRebuy) out.push({ kind: 'rebuy', label: `${t('tournament.rebuy')} (${tour.rebuy.cost})`, confirm: t('tournament.confirmRebuy', { cost: tour.rebuy.cost, chips: tour.rebuy.chips }) });
+  if (tour.me.canAddon) out.push({ kind: 'addon', label: `${t('tournament.addon')} (${tour.addon.cost})`, confirm: t('tournament.confirmAddon', { cost: tour.addon.cost, chips: tour.addon.chips }) });
+  if (tour.me.canReenter) out.push({ kind: 'reenter', label: `${t('tournament.reenter')} (${tour.buyIn + tour.fee})`, confirm: t('tournament.confirmRegister', { cost: tour.buyIn, fee: tour.fee }) });
+  return out;
+}
+
+export function EntryActions({ tour, tournamentId }: { tour: TournamentInfo | null; tournamentId: string | null }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const list = entryActions(tour);
+  if (!tournamentId || list.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      {list.map((a) => (
+        <button
+          key={a.kind}
+          className="rounded-md border border-primary bg-primary px-2 py-1 text-on-primary"
+          disabled={busy}
+          onClick={async () => {
+            if (!confirm(a.confirm)) return;
+            setBusy(true);
+            try {
+              setError('');
+              await post(`/api/tournaments/${tournamentId}/${a.kind}`);
+            } catch (e) {
+              setError(errorText(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {a.label}
+        </button>
+      ))}
+      {error && (
+        <p role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

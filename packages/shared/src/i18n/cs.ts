@@ -215,6 +215,8 @@ export const cs: Record<string, string> = {
   'settings.time.disconnectGraceSeconds.help': 'Jak dlouho se čeká na odpojeného hráče, než se za něj zahraje automatická akce.',
 
   // Časování handy
+  'settings.time.dealMs.label': 'Čas na rozdání karet',
+  'settings.time.dealMs.help': 'Prodleva, o kterou je první tah handy delší, aby hráč stihl vidět rozdávání karet. Nastavení u hráčů s vypnutou animací nic nemění.',
   'settings.time.betweenHandsMs.label': 'Pauza mezi handami',
   'settings.time.betweenHandsMs.help': 'Prodleva po skončení handy před rozdáním další.',
   'settings.time.dealCardMs.label': 'Rozdání jedné karty',

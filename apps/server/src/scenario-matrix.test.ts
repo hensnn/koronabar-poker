@@ -41,6 +41,19 @@ async function start() {
   return { server, clock, admin: admin!, user, everyone, names };
 }
 
+/** Celá historie kanálu po stránkách (jedna stránka má nejvýš 200 zpráv). */
+async function allMessages(server: Server, userId: string, channelId: string) {
+  const out: Awaited<ReturnType<Server['chat']['history']>> = [];
+  let before: number | undefined;
+  for (let i = 0; i < 50; i++) {
+    const page = await server.chat.history(userId, channelId, { before, limit: 200 });
+    if (page.length === 0) break;
+    out.push(...page);
+    before = Math.min(...page.map((m) => m.id));
+  }
+  return out;
+}
+
 const ids = (everyone: string[], extra: string[] = []) => [accounts.mint(), accounts.house(), accounts.fund('jackpot'), accounts.fund('sezona'), accounts.fund('liga'), ...everyone.map(accounts.wallet), ...extra];
 
 interface Scenario {
@@ -129,7 +142,7 @@ describe('odehrané scénáře: turnaje', { timeout: 900_000 }, () => {
         if (delta !== row.profit) problems.push(`${sc.name}: zisk ${s.names.get(row.userId)} v přehledu ${row.profit}, v peněžence ${delta}`);
       }
       const channelId = await s.server.chat.channelIdByKey('table:' + id);
-      const msgs = channelId ? (await s.server.chat.history(s.admin, channelId, { limit: 1000 })).map((m) => m.body) : [];
+      const msgs = channelId ? (await allMessages(s.server, s.admin, channelId)).map((m) => m.body) : [];
       if (!msgs.some((m) => m.startsWith('Handa č.'))) problems.push(`${sc.name}: v chatu nejsou výsledky hand`);
       if (!msgs.some((m) => m.includes('Turnaj skončil'))) problems.push(`${sc.name}: v chatu chybí konec turnaje`);
     }
@@ -206,7 +219,7 @@ describe('odehrané scénáře: cash stoly', { timeout: 600_000 }, () => {
       if (acted < 20) problems.push(`${sc.name}: odehrálo se jen ${acted} akcí`);
       await new Promise((r) => setTimeout(r, 100));
       const channelId = await s.server.chat.channelIdByKey('table:' + id);
-      const msgs = channelId ? (await s.server.chat.history(s.admin, channelId, { limit: 1000 })).map((m) => m.body) : [];
+      const msgs = channelId ? (await allMessages(s.server, s.admin, channelId)).map((m) => m.body) : [];
       if (!msgs.some((m) => m.startsWith('Handa č.'))) problems.push(`${sc.name}: v chatu nejsou výsledky hand (zpráv ${msgs.length}: ${[...new Set(msgs.map((m) => m.slice(0, 18)))].join(' | ')})`);
       await s.server.tables.closeTable(org, id);
       if (s.server.ledger.balance(accounts.table(id)) !== 0) problems.push(`${sc.name}: po zrušení stolu zůstaly žetony`);

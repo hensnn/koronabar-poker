@@ -102,6 +102,14 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
     return r.ok;
   };
 
+  // Run it: pot leží nad řádky jednotlivých běhů, aby se s nimi a s mými kartami nepřekrýval.
+  const multiRun = !!view.runs && view.runs.length >= 1;
+  const potEl = (
+    <div className="tk-pot" aria-label={t('table.pot')}>
+      {t('table.pot')}: {formatAmount(view.totalPot, info, inBb)}
+      {view.bombPot && <span className="ml-2 rounded-md bg-accent px-2 text-on-act">{t('table.bombPot')}</span>}
+    </div>
+  );
   const seatNumbers = Array.from({ length: info.seatCount }, (_, i) => i);
   // Otočení stolu: moje místo dole uprostřed (výchozí), jinak pevné pozice podle čísel sedadel.
   const viewerSeat = rotate ? (view.viewerSeat ?? mine?.seat ?? 0) : 0;
@@ -116,6 +124,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
+            {multiRun && potEl}
             {view.runs && view.runs.length >= 1 ? (
               <div className="flex flex-col gap-1">
                 {view.runs.map((r, n) => {
@@ -145,10 +154,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
                 )}
               </div>
             )}
-            <div className="tk-pot" aria-label={t('table.pot')}>
-              {t('table.pot')}: {formatAmount(view.totalPot, info, inBb)}
-              {view.bombPot && <span className="ml-2 rounded-md bg-accent px-2 text-on-act">{t('table.bombPot')}</span>}
-            </div>
+            {!multiRun && potEl}
             {view.rabbit && (
               <div className="flex items-center gap-1 text-xs text-felt-text">
                 {t('table.rabbit')}:
@@ -267,7 +273,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       {!myTurn && !acting && <p className="text-center text-sm text-muted">{view.paused ? `⏸ ${t('table.paused')}` : view.handId && view.winners === null && view.street !== null ? t('table.handRunning') : t('table.waitingPlayers')}</p>}
       </div>
 
-      {mine && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
+      {mine && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
       {/* Pravý sloupec: widgety o hře (přizpůsobitelné ozubeným kolečkem) a akce hráče. */}
       <div className="tk-extra flex flex-col gap-2">

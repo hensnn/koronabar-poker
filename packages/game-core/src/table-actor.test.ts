@@ -11,7 +11,7 @@ function make(over: Record<string, number | boolean | string> = {}, tableId = 't
   const clock = new FakeClock();
   const ledger = new Ledger();
   const cash = new CashService(ledger);
-  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, ...over } as SettingValues;
+  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'time.dealMs': 0, ...over } as SettingValues;
   const events: TableEvent[] = [];
   let changes = 0;
   const actor = new TableActor({ tableId, settings: () => settings, clock, cash, onChange: () => changes++, onEvent: (e) => events.push(e) });
@@ -400,5 +400,28 @@ describe('TableActor: zrušení stolu uprostřed handy', () => {
     expect(m.ledger.balance(accounts.wallet('a'))).toBe(10_000);
     expect(m.ledger.balance(accounts.wallet('b'))).toBe(10_000);
     expect(m.ledger.totalIsZero(m.ids())).toBe(true);
+  });
+});
+
+describe('TableActor: čas na rozdání (time.dealMs)', () => {
+  it('první tah handy je o dealMs delší, další tahy ne', () => {
+    const m = make({ 'time.dealMs': 2000, 'time.turnSeconds': 10 });
+    seatTwo(m);
+    startHand(m);
+    const v = m.actor.viewFor(null);
+    expect(v.deadline! - m.clock.now()).toBeGreaterThan(11_990);
+    expect(v.deadline! - m.clock.now()).toBeLessThanOrEqual(12_000);
+    const first = v.seats.find((s) => s.seat === v.actingSeat)!.playerId;
+    m.actor.act(first, { type: m.actor.viewFor(first).legal!.canCheck ? 'check' : 'call' });
+    const v2 = m.actor.viewFor(null);
+    expect(v2.deadline! - m.clock.now()).toBeGreaterThan(9_990);
+    expect(v2.deadline! - m.clock.now()).toBeLessThanOrEqual(10_000);
+  });
+  it('s dealMs=0 se čas nemění', () => {
+    const m = make({ 'time.dealMs': 0, 'time.turnSeconds': 10 });
+    seatTwo(m);
+    startHand(m);
+    expect(m.actor.viewFor(null).deadline! - m.clock.now()).toBeLessThanOrEqual(10_000);
+    expect(m.actor.viewFor(null).deadline! - m.clock.now()).toBeGreaterThan(9_990);
   });
 });

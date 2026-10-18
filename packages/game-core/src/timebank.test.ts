@@ -10,7 +10,7 @@ const reg = createDefaultRegistry();
 function make(over: Record<string, number | boolean | string> = {}) {
   const clock = new FakeClock();
   const cash = new CashService(new Ledger());
-  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'time.betweenHandsMs': 100, ...over } as SettingValues;
+  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'time.betweenHandsMs': 100, 'time.dealMs': 0, ...over } as SettingValues;
   const events: TableEvent[] = [];
   const actor = new TableActor({ tableId: 't', settings: () => settings, clock, cash, onEvent: (e) => events.push(e) });
   for (const u of ['a', 'b', 'c']) cash.mint(u, 10_000, `m-${u}`);

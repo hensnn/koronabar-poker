@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TableView } from '@kb/game-core';
 import { parseState as parseLeft, WIDGETS } from './TablePanel';
 import { parseState as parseRight, SIDE_WIDGETS } from './SidePanel';
-import { positionText, wantedList, type TournamentInfo } from './InfoCard';
+import { entryActions, positionText, wantedList, type TournamentInfo } from './InfoCard';
 
 
 const tour = (over: Partial<TournamentInfo> = {}): TournamentInfo => ({
@@ -12,8 +12,12 @@ const tour = (over: Partial<TournamentInfo> = {}): TournamentInfo => ({
   alive: 4,
   payouts: [{ place: 1, amount: 400 }, { place: 2, amount: 200 }],
   bounty: { type: 'none', percent: 0, pkoCash: 0, bank: 0 },
-  rebuy: { enabled: false },
-  addon: { enabled: false },
+  buyIn: 100,
+  fee: 10,
+  serverTime: 0,
+  rebuy: { enabled: true, cost: 100, chips: 600 },
+  addon: { enabled: true, cost: 50, chips: 400 },
+  me: { status: 'playing', decideUntil: null, canRebuy: false, canAddon: false, canReenter: false },
   reentry: { enabled: false },
   standings: [
     { userId: 'a', place: 1, chips: 3000, status: 'playing' },
@@ -85,5 +89,20 @@ describe('odměny na hlavu', () => {
       { seat: 2, name: 'C', amount: 200 },
       { seat: 0, name: 'A', amount: 50 },
     ]);
+  });
+});
+
+describe('rebuy, add-on a re-entry u stolu', () => {
+  it('nabídne jen to, co hráč smí, a jen v běžícím turnaji', () => {
+    expect(entryActions(tour())).toEqual([]);
+    const me = { status: 'deciding', decideUntil: 1, canRebuy: true, canAddon: false, canReenter: true };
+    expect(entryActions(tour({ me })).map((a) => a.kind)).toEqual(['rebuy', 'reenter']);
+    expect(entryActions(tour({ me: { ...me, canAddon: true } })).map((a) => a.kind)).toEqual(['rebuy', 'addon', 'reenter']);
+    expect(entryActions(tour({ me, status: 'finished' }))).toEqual([]);
+    expect(entryActions(null)).toEqual([]);
+  });
+  it('popisky nesou cenu (re-entry buy-in + poplatek)', () => {
+    const me = { status: 'deciding', decideUntil: 1, canRebuy: true, canAddon: true, canReenter: true };
+    expect(entryActions(tour({ me })).map((a) => a.label)).toEqual(['Rebuy (100)', 'Add-on (50)', 'Vstoupit znovu (110)']);
   });
 });

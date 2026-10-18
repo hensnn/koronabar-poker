@@ -4,7 +4,7 @@ import type { TableView } from '@kb/game-core';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { Button, Modal } from '../ui';
-import { BountiesBody, DealButton, InfoBody, positionText, useTournamentInfo, wantedList } from './InfoCard';
+import { BountiesBody, DealButton, EntryActions, InfoBody, entryActions, positionText, useTournamentInfo, wantedList } from './InfoCard';
 import { useFeatures } from '../features';
 import { useMobileLayout } from './mobile';
 
@@ -125,13 +125,18 @@ export function SidePanel({ view, tournamentId, inBb, tools }: { view: TableView
     // Odměny na hlavu jsou věc turnaje (nebo cokoli, co je u stolu právě vypsané)
     bounties: features.headBounty && (!!tournamentId || wanted.length > 0),
     deal: hasDeal,
-    tools: tools !== null,
+    tools: tools !== null || entryActions(tour).length > 0,
   };
   const bodies: Record<SideId, ReactNode> = {
     info: <InfoBody view={view} tour={tour} tournamentId={tournamentId} inBb={inBb} />,
     bounties: <BountiesBody view={view} />,
     deal: <DealButton tour={tour} tournamentId={tournamentId} />,
-    tools: tools,
+    tools: (
+      <div className="flex flex-col gap-2">
+        <EntryActions tour={tour} tournamentId={tournamentId} />
+        {tools}
+      </div>
+    ),
   };
   const visible = state.order.filter((id) => available[id] && !state.hidden.includes(id));
   const gear = (
@@ -151,7 +156,7 @@ export function SidePanel({ view, tournamentId, inBb, tools }: { view: TableView
     const inWindow = visible.filter((id) => id !== 'tools');
     return (
       <>
-        {!state.hidden.includes('tools') && tools}
+        {available.tools && !state.hidden.includes('tools') && bodies.tools}
         {inWindow.length > 0 && (
           <button className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs" aria-haspopup="dialog" onClick={() => setExpanded(true)}>
             <span className="shrink-0 whitespace-nowrap font-semibold">{t('table.info.title')}</span>

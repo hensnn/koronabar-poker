@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TableView } from '@kb/game-core';
 import { useSettings } from '../settings';
 import { playSfx } from './sfx';
@@ -54,6 +54,7 @@ export function useDealAnimation(view: TableView | undefined): DealState {
   const values = useSettings().values;
   const enabled = values['ui.dealAnimation'] !== false && values['ui.reducedMotion'] !== true;
   const stepSetting = Number(values['ui.dealCardMs'] ?? 280);
+  const [, setTick] = useState(0);
   const lastHand = useRef<string | null | undefined>(undefined);
   const started = useRef(0);
   const slots = useRef<Map<string, number>>(new Map());
@@ -87,6 +88,8 @@ export function useDealAnimation(view: TableView | undefined): DealState {
     const { startMs, stepMs } = timing.current;
     const count = slots.current.size;
     for (let i = 0; i < count; i++) ids.push(window.setTimeout(() => cfg.current.sound && playSfx('dealCard', cfg.current.volume), startMs + i * stepMs));
+    // po skončení rozdávání se stůl překreslí, aby se odemkla akční lišta
+    ids.push(window.setTimeout(() => setTick((n) => n + 1), timing.current.totalMs + 650));
     return () => ids.forEach((id) => window.clearTimeout(id));
     // jen jednou pro každou handu
     // eslint-disable-next-line react-hooks/exhaustive-deps
