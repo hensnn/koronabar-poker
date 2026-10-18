@@ -201,7 +201,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </p>
         )
       )}
-      {!myTurn && !acting && <p className="text-center text-sm text-muted">{view.paused ? `⏸ ${t('table.paused')}` : t('table.waitingPlayers')}</p>}
+      {!myTurn && !acting && <p className="text-center text-sm text-muted">{view.paused ? `⏸ ${t('table.paused')}` : view.handId && view.winners === null && view.street !== null ? t('table.handRunning') : t('table.waitingPlayers')}</p>}
       </div>
 
       {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && (

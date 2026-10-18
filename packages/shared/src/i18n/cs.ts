@@ -316,6 +316,7 @@ export const cs: Record<string, string> = {
   'chat.filterGame': 'Hra',
   'chat.filterPlayers': 'Hráči',
   'table.waitingPlayers': 'Čeká se na další handu',
+  'table.handRunning': 'Handa se dohrává…',
   'settings.ui.rotateToMe.label': 'Moje místo vždy dole uprostřed',
   'settings.ui.rotateToMe.help': 'Stůl se otočí tak, aby tvoje sedadlo bylo dole uprostřed. Vypnuto = sedadla mají pevná místa podle čísel.',
   'table.history': 'Historie',

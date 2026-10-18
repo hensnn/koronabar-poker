@@ -35,6 +35,8 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   // Živá data a spojení nikdy ze sítě nevynechávat.
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/')) return;
+  // Vývojový server (Vite): zdrojové moduly a interní adresy se nikdy nekešují, jinak se po změně kódu načte zastaralý soubor.
+  if (url.pathname.startsWith('/src/') || url.pathname.startsWith('/@') || url.pathname.startsWith('/node_modules/')) return;
 
   if (req.mode === 'navigate') {
     event.respondWith(
