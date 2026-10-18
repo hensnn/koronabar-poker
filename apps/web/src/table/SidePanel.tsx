@@ -20,7 +20,7 @@ interface SideState {
 
 const ids = (x: unknown): SideId[] => (Array.isArray(x) ? x.filter((v): v is SideId => (SIDE_WIDGETS as readonly string[]).includes(String(v))) : []);
 
-function parseState(raw: unknown): SideState {
+export function parseState(raw: unknown): SideState {
   try {
     const p = JSON.parse(String(raw || '{}')) as Partial<SideState>;
     const order = [...new Set(ids(p.order))];

@@ -363,3 +363,42 @@ describe('TableActor: odolnost', () => {
     });
   });
 });
+
+describe('TableActor: hráč bez dost peněz neshodí stůl', () => {
+  it('buy-in i dokoupení nad zůstatek peněženky skončí chybou pro hráče, stůl hraje dál', () => {
+    const m = make();
+    seatTwo(m);
+    m.fund('c', 50);
+    expect(() => m.actor.join('c', 'Cecil', 2, 500)).toThrowError(expect.objectContaining({ code: 'INSUFFICIENT_FUNDS' }));
+    expect(m.actor.currentPhase()).not.toBe('stopped');
+    expect(m.actor.hasError()).toBeNull();
+    // dokoupení nad zůstatek
+    m.fund('d', 5000);
+    m.actor.join('d', 'Dan', 3, 100);
+    m.ledger.post({ entries: [{ account: accounts.wallet('d'), amount: -m.ledger.balance(accounts.wallet('d')) }, { account: accounts.mint(), amount: m.ledger.balance(accounts.wallet('d')) }], kind: 'manual_adjustment', key: 'drain-d' } as never);
+    expect(() => m.actor.topUp('d', 200)).toThrowError(expect.objectContaining({ code: 'INSUFFICIENT_FUNDS' }));
+    expect(m.actor.currentPhase()).not.toBe('stopped');
+    // ostatní hráči dál hrají
+    startHand(m);
+    expect(m.actor.currentPhase()).toBe('hand');
+    expect(m.ledger.totalIsZero(m.ids())).toBe(true);
+  });
+});
+
+describe('TableActor: zrušení stolu uprostřed handy', () => {
+  it('s hráčem all-in se všem vrátí žetony z posledního předělu a kniha sedí', () => {
+    const m = make();
+    seatTwo(m);
+    startHand(m);
+    const v = m.actor.viewFor(null);
+    const first = v.seats.find((s) => s.seat === v.actingSeat)!.playerId;
+    m.actor.act(first, { type: 'allIn' });
+    // soupeř ještě neodpověděl: handa běží a hráč je all-in
+    expect(m.actor.currentPhase()).toBe('hand');
+    expect(() => m.actor.close()).not.toThrow();
+    expect(m.ledger.balance(accounts.table('t1'))).toBe(0);
+    expect(m.ledger.balance(accounts.wallet('a'))).toBe(10_000);
+    expect(m.ledger.balance(accounts.wallet('b'))).toBe(10_000);
+    expect(m.ledger.totalIsZero(m.ids())).toBe(true);
+  });
+});

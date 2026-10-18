@@ -424,7 +424,7 @@ export async function buildServer(opts: ServerOptions = {}) {
         return;
       }
       if (e.type === 'handEnd') {
-        void postHandResult('table:' + tableId, e).catch(() => undefined);
+        void postHandResult('table:' + tableId, e).catch((err) => console.error('Výsledek handy do chatu:', err instanceof Error ? err.message : err));
         return;
       }
       if (e.type === 'jackpot') {
@@ -513,7 +513,7 @@ export async function buildServer(opts: ServerOptions = {}) {
       sayAllIn(tableId, e, id);
       jingleBigPot(tableId, e, ts);
       outHand(e, ts);
-      if (e.type === 'handEnd') void postHandResult('table:' + id, e).catch(() => undefined);
+      if (e.type === 'handEnd') void postHandResult('table:' + id, e).catch((err) => console.error('Výsledek handy do chatu:', err instanceof Error ? err.message : err));
       stats.onTableEvent({ tableId, kind: 'tournament', tournamentId: id, settings: ts, chipsPerUnit: 1 }, e);
     },
     seatWanted: (tournamentId, userId) => bountiesRef?.wantedSync(tournamentId, userId) ?? 0,

@@ -25,7 +25,7 @@ interface PanelState {
 // Neznámé widgety (z dřívějších verzí, např. samostatné hodiny turnaje) se při načtení tiše zahodí.
 const ids = (x: unknown): WidgetId[] => (Array.isArray(x) ? x.filter((v): v is WidgetId => (WIDGETS as readonly string[]).includes(String(v))) : []);
 
-function parseState(raw: unknown): PanelState {
+export function parseState(raw: unknown): PanelState {
   try {
     const p = JSON.parse(String(raw || '{}')) as Partial<PanelState>;
     const order = [...new Set(ids(p.order))];

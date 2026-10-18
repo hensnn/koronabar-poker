@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { CashService } from '@kb/ledger';
+import { LedgerError, type CashService } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
 import { PokertoolsAdapter, type DealPlan, type PokerEngineAdapter } from './adapter.js';
 import type { Clock } from './clock.js';
@@ -655,6 +655,8 @@ export class TableActor {
       fn();
     } catch (e) {
       if (e instanceof GameError) throw e;
+      // Hráč nemá v peněžence dost: je to jeho chyba, ne chyba stolu (kniha je při odmítnutí nedotčená), takže stůl hraje dál.
+      if (e instanceof LedgerError && e.code === 'INSUFFICIENT_FUNDS') throw new GameError('INSUFFICIENT_FUNDS');
       this.error = e;
       this.stopOnError();
       throw e;
@@ -1628,7 +1630,14 @@ export class TableActor {
     const engineStack = this.adapter.stackOf(e.userId);
     const useEngine = engineStack !== null && !midHand;
     const chips = (useEngine ? engineStack : e.chips) + e.pendingChips;
-    if (engineStack !== null) this.adapter.unseat(e.userId);
+    if (engineStack !== null) {
+      try {
+        this.adapter.unseat(e.userId);
+      } catch (err) {
+        // Zrušení stolu uprostřed handy: engine hráče s all-inem nepustí, ale celá handa se stejně zahazuje a žetony se vrací z posledního předělu.
+        if (!(midHand && this.phase === 'stopped')) throw err;
+      }
+    }
     if (this.opt.tournament) {
       this.seats.delete(e.userId);
       this.opt.onEvent?.({ type: 'seat', userId: e.userId, seat: e.seat, change: 'leave', chips: 0 });
