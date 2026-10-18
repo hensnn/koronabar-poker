@@ -96,7 +96,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   return (
     <div className="tk-screen flex flex-col gap-2">
       <div className="tk-room" {...myLook}>
-        <div className="tk-table relative mx-auto w-full max-w-4xl">
+        <div className="tk-table relative mx-auto w-full">
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
@@ -171,9 +171,10 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             const seat = view.seats.find((s) => s.seat === n);
             const pos = seatPosition(n, viewerSeat, info.seatCount);
             return (
-              <div key={n} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos.left}%`, top: `${pos.top}%` }}>
+              // Sedadlo s bublinou nebo štítkem musí ležet nad sousedními sedadly i nad sázkami (každé sedadlo je vlastní vrstva).
+              <div key={n} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
                 {seat ? (
-                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} />
+                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} />
                 ) : info.tournament ? null : (
                   <button className="tk-seat-empty" disabled={seated} onClick={() => setDialog({ kind: 'join', seat: n })}>
                     {t('table.sit')}
@@ -340,6 +341,7 @@ function Seat({
   oddsPct,
   sound,
   action,
+  bubbleSide,
 }: {
   seat: SeatView;
   view: TableView;
@@ -349,6 +351,8 @@ function Seat({
   oddsPct?: { win: number; tie: number };
   sound?: { emoji: string; name: string };
   action?: Bubble;
+  /** Sedadla v dolní části stolu mají bublinu vedle karet, aby se nepřekrývala se sázkou, která leží nad nimi. */
+  bubbleSide?: 'left' | 'right';
 }) {
   const userSettings = useSettings().values;
   const showRank = userSettings['xp.showAtTable'] !== false;
@@ -403,7 +407,7 @@ function Seat({
           </span>
         )}
         {(action || sound) && (
-          <span key={action?.key ?? sound?.name} role="status" className={`tk-bubble ${action ? `tk-say-${action.kind} ${BUBBLE_TONE[action.kind]}` : 'tk-say-call bg-surface text-text'}`}>
+          <span key={action?.key ?? sound?.name} role="status" className={`tk-bubble ${bubbleSide ? `tk-bubble-${bubbleSide}` : ''} ${action ? `tk-say-${action.kind} ${BUBBLE_TONE[action.kind]}` : 'tk-say-call bg-surface text-text'}`}>
             {action ? action.text : `${sound!.emoji} ${sound!.name}`}
           </span>
         )}

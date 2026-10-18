@@ -6,7 +6,8 @@ import type { Clock } from './clock.js';
 import { computeOdds } from './odds.js';
 import { computeSidePots } from './pots.js';
 import { Voting, type VoteState } from './voting.js';
-import { extraBoards, settleRuns, type RunResult } from './runs.js';
+import { bestFive, extraBoards, settleRuns, type RunResult } from './runs.js';
+import { describeHand, type HandDescription } from './hand-names.js';
 import { assess, computeRake, jackpotAwards, type JackpotRules, type RakeRules } from './rake.js';
 import { GameError, type Card, type HandState, type PlayerAction, type SeatView, type TableView } from './types.js';
 import { allInRunout, buildView, wentToShowdown, type Reveal } from './view.js';
@@ -49,7 +50,7 @@ export interface HandRecordData {
   runs: number;
   /** Šance na výhru obou hráčů v okamžiku heads-up all-inu (userId → 0 až 1); jinak null. Jen pro server. */
   allInEquity: Record<string, number> | null;
-  players: { seat: number; userId: string; name: string; startStack: number; invested: number; won: number; status: string; hole: [string, string] | null; revealed: boolean; /** Síla ruky na showdownu (nižší je lepší) a překladový klíč kombinace. */ handScore: number | null; handKey: string | null }[];
+  players: { seat: number; userId: string; name: string; startStack: number; invested: number; won: number; status: string; hole: [string, string] | null; revealed: boolean; /** Síla ruky na showdownu (nižší je lepší) a překladový klíč kombinace. */ handScore: number | null; handKey: string | null; /** Popis kombinace včetně parametrů (pro hlášky v chatu). */ handDesc?: HandDescription | null }[];
 }
 
 export type TableEvent =
@@ -1202,9 +1203,11 @@ export class TableActor {
     return Object.keys(out).length === 2 ? out : null;
   }
 
-  private strength(p: HandState['players'][number], h: HandState, showdown: boolean): { handScore: number | null; handKey: string | null } {
-    const a = showdown && p.hole && p.status !== 'folded' && p.status !== 'sittingOut' ? assess(p.hole, h.board) : null;
-    return { handScore: a ? a.score : null, handKey: a ? a.key ?? null : null };
+  private strength(p: HandState['players'][number], h: HandState, showdown: boolean): { handScore: number | null; handKey: string | null; handDesc: HandDescription | null } {
+    const live = showdown && p.hole && p.status !== 'folded' && p.status !== 'sittingOut';
+    const a = live ? assess(p.hole!, h.board) : null;
+    const handDesc = live && h.board.length >= 5 ? describeHand(bestFive(p.hole!, h.board).cards) : null;
+    return { handScore: a ? a.score : null, handKey: a ? a.key ?? null : null, handDesc };
   }
 
   private onHandFinished(rawHand: HandState, runs?: number): void {

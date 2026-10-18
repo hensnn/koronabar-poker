@@ -1,4 +1,5 @@
 import { describeHand } from './hand-names.js';
+import { bestFive } from './runs.js';
 import type { VoteView } from './voting.js';
 import type { HandDescription } from './hand-names.js';
 import type { Card, HandState, LegalActions, SeatView, TableInfo, TableView } from './types.js';
@@ -166,7 +167,14 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     viewerSeat: viewer?.seat ?? (ctx.extraSeats ?? []).find((x) => x.playerId === ctx.viewerId)?.seat ?? null,
     myStraddle: ctx.myStraddle ?? false,
     odds: ctx.odds,
+    myBest: myBestHand(viewer, h.board.slice(0, ctx.reveal.boardCards)),
   };
+}
+
+/** Nejlepší kombinace, kterou má hráč právě teď (jen jeho vlastní karty a odhalený board; od flopu). */
+function myBestHand(viewer: HandState['players'][number] | undefined, board: Card[]): HandDescription | null {
+  if (!viewer?.hole || viewer.status === 'folded' || viewer.status === 'sittingOut' || board.length < 3) return null;
+  return describeHand(bestFive(viewer.hole, board).cards);
 }
 
 /**

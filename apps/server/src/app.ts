@@ -407,6 +407,25 @@ export async function buildServer(opts: ServerOptions = {}) {
         })().catch(() => undefined);
         return;
       }
+      if (e.type === 'handEnd') {
+        // Výsledek handy zůstane v chatu u stolu, i když zmizí z obrazovky: kdo vyhrál kolik, s jakou kombinací a jaký byl board.
+        void (async () => {
+          const channelId = await chat.channelIdByKey('table:' + tableId);
+          if (!channelId) return;
+          const winners = e.record.players.filter((p) => p.won > 0).sort((a, b) => b.won - a.won);
+          if (winners.length === 0) return;
+          const results = winners
+            .map((p) => {
+              const hand = e.showdown && p.revealed && p.handDesc ? ` (${t(p.handDesc.key, p.handDesc.params)})` : '';
+              return t('chat.sys.handWinner', { nick: p.name, amount: p.won }) + hand;
+            })
+            .join(', ');
+          const board = e.board.length > 0 ? ' ' + t('chat.sys.handBoard', { cards: e.board.join(' ') }) : '';
+          const runs = e.record.runs > 1 ? ' ' + t('chat.sys.handRuns', { n: e.record.runs }) : '';
+          await chat.system(channelId, t('chat.sys.handResult', { n: e.record.handNumber, results }) + board + runs);
+        })().catch(() => undefined);
+        return;
+      }
       if (e.type === 'jackpot') {
         void (async () => {
           const channelId = await chat.channelIdByKey('table:' + tableId);

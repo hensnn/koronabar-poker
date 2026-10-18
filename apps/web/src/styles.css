@@ -86,7 +86,9 @@ h3,
   border-radius: var(--tk-shape-radiusLg);
   padding: calc(var(--spacing) * 3);
 }
+/* Karty a sedadla rostou s šířkou stolu (min. velikost je token), takže velký stůl nezůstane prázdný. */
 .tk-table {
+  container-type: inline-size;
   aspect-ratio: var(--tk-table-aspect);
   border-radius: var(--tk-table-radius);
   border: var(--tk-table-edgeWidth) solid var(--tk-color-feltBorder);
@@ -129,14 +131,18 @@ h3,
 [data-tk-cards-back='diamonds'] {
   --card-pattern: repeating-linear-gradient(45deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 8px), repeating-linear-gradient(-45deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 8px);
 }
+.tk-table > * { --cw: clamp(var(--tk-size-cardWidth), 6.2cqw, 7rem); }
 .tk-card {
   border-radius: var(--tk-shape-cardRadius);
   box-shadow: var(--tk-shape-shadow);
-  width: calc(var(--tk-size-cardWidth) * var(--card-scale, 1));
+  width: calc(var(--cw, var(--tk-size-cardWidth)) * var(--card-scale, 1));
   aspect-ratio: 5 / 7;
-  font-size: calc(var(--tk-size-cardWidth) * var(--card-scale, 1) * 0.36);
+  /* Index a barva vyplní celou kartu, aby byly čitelné i z dálky a na malých kartách soupeřů. */
+  font-size: calc(var(--cw, var(--tk-size-cardWidth)) * var(--card-scale, 1) * 0.6);
   transition: transform calc(var(--tk-anim-flip) * 1ms / var(--tk-anim-speed));
 }
+.tk-card-rank { line-height: 0.95; }
+.tk-card-suit { line-height: 1; font-size: 0.95em; }
 .tk-card-back {
   background-color: var(--tk-color-cardBack);
   background-image: var(--tk-image-cardBack), var(--card-pattern);
@@ -147,7 +153,7 @@ h3,
   border-color: transparent;
 }
 [data-tk-cards-style='bigIndex'] .tk-card-rank {
-  font-size: 1.35em;
+  font-size: 1.12em;
 }
 /* Další líce: tučné indexy se silnějším rámečkem; obrysové karty s barevným rámečkem podle barvy. */
 [data-tk-cards-style='bold'] .tk-card {
@@ -155,7 +161,7 @@ h3,
   border-color: var(--tk-color-cardInk);
 }
 [data-tk-cards-style='bold'] .tk-card-rank {
-  font-size: 1.25em;
+  font-size: 1.1em;
   font-weight: 900;
 }
 [data-tk-cards-style='outline'] .tk-card {
@@ -419,17 +425,17 @@ h3,
 .tk-chip-fly { animation: tk-chip-fly calc(0.4s / var(--tk-anim-speed)) ease-out both; }
 /* Bublina akce: call a check vjedou, fold spadne, bet a raise vyskočí s vlnou, re-raise a all-in zazní dvakrát a třikrát. */
 @keyframes tk-act-slide {
-  from { opacity: 0; transform: translateX(-50%) translateY(calc(var(--spacing) * 2)); }
-  to { opacity: 1; transform: translateX(-50%); }
+  from { opacity: 0; transform: var(--bx, translateX(-50%)) translateY(calc(var(--spacing) * 2)); }
+  to { opacity: 1; transform: var(--bx, translateX(-50%)); }
 }
 @keyframes tk-act-drop {
-  from { opacity: 0; transform: translateX(-50%) translateY(calc(var(--spacing) * -3)); }
-  to { opacity: 1; transform: translateX(-50%); }
+  from { opacity: 0; transform: var(--bx, translateX(-50%)) translateY(calc(var(--spacing) * -3)); }
+  to { opacity: 1; transform: var(--bx, translateX(-50%)); }
 }
 @keyframes tk-act-pop {
-  0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
-  60% { opacity: 1; transform: translateX(-50%) scale(1.25); }
-  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  0% { opacity: 0; transform: var(--bx, translateX(-50%)) scale(0.5); }
+  60% { opacity: 1; transform: var(--bx, translateX(-50%)) scale(1.25); }
+  100% { opacity: 1; transform: var(--bx, translateX(-50%)) scale(1); }
 }
 @keyframes tk-act-ring {
   from { box-shadow: 0 0 0 0 var(--tk-color-turnGlow); }
@@ -486,7 +492,7 @@ h3,
   flex-direction: column;
   align-items: center;
   gap: calc(var(--spacing) * 0.5);
-  width: calc(var(--tk-size-cardWidth) * 2.6);
+  width: calc(var(--cw, var(--tk-size-cardWidth)) * 2.6);
   color: var(--tk-color-feltText);
   text-align: center;
   text-shadow: 0 1px 2px var(--tk-color-vignette);
@@ -539,11 +545,18 @@ h3,
 }
 .tk-seat-mine .tk-seat-name { font-size: 1.1rem; }
 .tk-seat-acting .tk-seat-name { color: var(--tk-color-turnGlow); }
+/* Stack je výrazný štítek (vlastní i soupeřův), aby se v něm dalo při hře snadno zorientovat. */
 .tk-seat-stack {
   font-family: var(--tk-font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 0 calc(var(--spacing) * 2.5);
+  border: 1px solid color-mix(in srgb, var(--tk-color-feltText) 40%, transparent);
+  border-radius: 9999px;
+  background: var(--tk-color-vignette);
 }
+.tk-seat-mine .tk-seat-stack { font-size: 1.25rem; padding: 0 calc(var(--spacing) * 3); border: 2px solid var(--tk-color-turnGlow); }
 .tk-seat-status {
   display: inline-block;
   padding: calc(var(--spacing) * 0.5) calc(var(--spacing) * 2);
@@ -591,7 +604,7 @@ h3,
   position: absolute;
   top: calc(var(--spacing) * -8);
   left: 50%;
-  transform: translateX(-50%);
+  transform: var(--bx, translateX(-50%));
   padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2.5);
   border-radius: 9999px;
   font-weight: 700;
@@ -601,6 +614,9 @@ h3,
   box-shadow: var(--tk-shape-shadow);
   z-index: 2;
 }
+/* Dolní sedadla: bublina vedle karet (směrem od středu stolu), nepřekrývá sázku ležící nad kartami. */
+.tk-bubble.tk-bubble-right { --bx: translateY(-50%); top: 50% !important; left: calc(100% + var(--spacing) * 2); }
+.tk-bubble.tk-bubble-left { --bx: translate(-100%, -50%); top: 50% !important; left: calc(var(--spacing) * -2); }
 .tk-your-turn {
   margin: 0 auto;
   padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 4);
@@ -615,7 +631,7 @@ h3,
   .tk-room { padding: calc(var(--spacing) * 1.5); }
   .tk-seat { width: calc(var(--tk-size-cardWidth) * 2.1); }
   .tk-seat-name { font-size: 0.8rem; }
-  .tk-seat-stack { font-size: 0.75rem; }
+  .tk-seat-stack, .tk-seat-mine .tk-seat-stack { font-size: 0.78rem; padding: 0 calc(var(--spacing) * 1.5); }
   .tk-seat:not(.tk-seat-mine) .tk-card { --card-scale: 0.55; }
   .tk-bubble { font-size: 0.75rem; top: calc(var(--spacing) * -6); }
   .tk-pot { font-size: 0.9rem; }
@@ -687,7 +703,7 @@ h3,
 .tk-drawer-body { flex: 1; overflow: auto; padding: calc(var(--spacing) * 3); }
 /* Na širokém displeji se stůl vejde nad akční lištu i na nižší monitor. */
 @media (min-width: 64rem) {
-  .tk-table { width: min(100%, calc(var(--tk-table-vh, 56vh) * var(--tk-table-aspect))); }
+  .tk-table { width: min(100%, calc(var(--tk-table-vh, max(22rem, calc(100vh - 22rem))) * var(--tk-table-aspect))); }
 }
 /* Telefon: vyšší ovál, menší karty, prázdná sedadla jen jako tečka. */
 @media (max-width: 40rem) {
@@ -728,7 +744,7 @@ h3,
   }
   [data-focus] .tk-tp-panel { max-height: 100%; }
   [data-focus] .tk-tp-main { height: 100%; overflow: hidden; }
-  [data-focus] .tk-table { width: min(100%, calc((100vh - 24rem) * var(--tk-table-aspect))); }
+  [data-focus] .tk-table { width: min(100%, calc((100vh - 18rem) * var(--tk-table-aspect))); }
 }
 
 /* ---------- mobilní rozložení stolu (data-mobile na <html>): vše v okně bez posuvníků ---------- */
@@ -757,14 +773,14 @@ h3,
 [data-mobile] .tk-center .flex.gap-1 { gap: 2px; }
 [data-mobile] .tk-seat { width: calc(var(--tk-size-cardWidth) * 1.7); gap: 1px; }
 [data-mobile] .tk-seat-name { font-size: 0.72rem; }
-[data-mobile] .tk-seat-stack { font-size: 0.7rem; }
+[data-mobile] .tk-seat-stack, [data-mobile] .tk-seat-mine .tk-seat-stack { font-size: 0.7rem; padding: 0 calc(var(--spacing) * 1.5); }
 [data-mobile] .tk-seat-status { font-size: 0.68rem; padding: 1px calc(var(--spacing) * 1.5); }
 [data-mobile] .tk-table-logo { display: none; }
 [data-mobile]:not([data-landscape]) .tk-seat-mine { transform: translateY(18%); }
 [data-mobile] .tk-pot { font-size: 0.85rem; }
 [data-mobile] .tk-seat { width: calc(var(--tk-size-cardWidth) * 2.1); }
 [data-mobile] .tk-seat-name { font-size: 0.8rem; }
-[data-mobile] .tk-seat-stack { font-size: 0.75rem; }
+[data-mobile] .tk-seat-stack, [data-mobile] .tk-seat-mine .tk-seat-stack { font-size: 0.75rem; }
 [data-mobile] .tk-bubble { font-size: 0.75rem; top: calc(var(--spacing) * -6); }
 [data-mobile] .tk-pot { font-size: 0.9rem; }
 [data-mobile] .tk-turn-row { min-height: 2rem; }

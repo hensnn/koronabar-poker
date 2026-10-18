@@ -177,4 +177,6 @@ export interface TableView {
   myStraddle: boolean;
   /** Šance na výhru (jen když to nastavení dovolí a nikdo už nemůže ovlivnit hru). */
   odds: { pot: number; amount: number; entries: { seat: number; win: number; tie: number }[] }[] | null;
+  /** Nejlepší kombinace vlastních karet a odhaleného boardu (jen pro viewera, od flopu), jinak null. */
+  myBest?: HandDescription | null;
 }

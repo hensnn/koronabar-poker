@@ -13,7 +13,7 @@ import { formatAmount } from './format';
 import { setPlan, usePlan, type Plan } from './plan';
 
 /** Widgety panelu u stolu; pořadí je výchozí pořadí zobrazení. */
-export const WIDGETS = ['clock', 'plan', 'table', 'hand', 'players', 'chat', 'sounds'] as const;
+export const WIDGETS = ['clock', 'plan', 'table', 'hand', 'best', 'players', 'chat', 'sounds'] as const;
 export type WidgetId = (typeof WIDGETS)[number];
 
 interface PanelState {
@@ -28,7 +28,13 @@ function parseState(raw: unknown): PanelState {
   try {
     const p = JSON.parse(String(raw || '{}')) as Partial<PanelState>;
     const order = isIds(p.order) ? [...new Set(p.order)] : [];
-    return { collapsed: isIds(p.collapsed) ? p.collapsed : [], hidden: isIds(p.hidden) ? p.hidden : [], order: [...order, ...WIDGETS.filter((w) => !order.includes(w))] };
+    // Widget přidaný novou verzí se zařadí na své výchozí místo (za předchozí widget), ne na konec.
+    for (const [i, w] of WIDGETS.entries()) {
+      if (order.includes(w)) continue;
+      const prev = WIDGETS.slice(0, i).reverse().find((x) => order.includes(x));
+      order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, w);
+    }
+    return { collapsed: isIds(p.collapsed) ? p.collapsed : [], hidden: isIds(p.hidden) ? p.hidden : [], order };
   } catch {
     return { collapsed: [], hidden: [], order: [...WIDGETS] };
   }
@@ -237,7 +243,7 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
   const info = view?.info;
   const tournamentId = info?.tournamentId;
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
-  const titles: Record<WidgetId, string> = { clock: t('table.widget.clock'), plan: t('table.widget.plan'), table: t('table.widget.table'), hand: t('table.widget.hand'), players: t('table.widget.players'), chat: t('table.chat'), sounds: t('table.widget.sounds') };
+  const titles: Record<WidgetId, string> = { clock: t('table.widget.clock'), plan: t('table.widget.plan'), table: t('table.widget.table'), hand: t('table.widget.hand'), best: t('table.widget.best'), players: t('table.widget.players'), chat: t('table.chat'), sounds: t('table.widget.sounds') };
   const bodies: Record<WidgetId, { show: boolean; body: ReactNode }> = {
     clock: { show: !!tournamentId, body: tournamentId ? <ClockWidget tournamentId={tournamentId} /> : null },
     plan: {
@@ -303,6 +309,10 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
         ) : (
           <p className="text-muted">{t('table.notInHand')}</p>
         ),
+    },
+    best: {
+      show: !!(mine && mine.hasCards && mine.cards),
+      body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
     players: {
       show: !!view,

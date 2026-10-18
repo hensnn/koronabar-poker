@@ -20,7 +20,7 @@ export function CardView({ card, small, delay = 0, reveal }: { card: Card | null
   return (
     <span role="img" aria-label={`${rank} ${suit.sym}`} className={`tk-card inline-flex flex-col items-center justify-center border border-line bg-card-face font-mono font-bold leading-none ${suit.cls} ${scale}`}>
       <span className="tk-card-rank">{rank}</span>
-      <span>{suit.sym}</span>
+      <span className="tk-card-suit">{suit.sym}</span>
     </span>
   );
 }

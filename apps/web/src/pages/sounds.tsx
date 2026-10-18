@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '@kb/shared';
 import { del, errorText, get, patch, post } from '../api';
@@ -50,13 +51,36 @@ export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; 
   const [q, setQ] = useState('');
   const [msg, setMsg] = useState('');
   const box = useRef<HTMLDivElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
+  // Nabídka je ve vlastní vrstvě nad stránkou (nesmí ji oříznout panel ani chat) a vejde se do okna: nahoru nebo dolů podle volného místa, jinak se posouvá.
+  const [place, setPlace] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
+  const toggle = () => {
+    if (open) return setOpen(false);
+    const r = box.current?.getBoundingClientRect();
+    if (r) {
+      const margin = 8;
+      const above = r.top - margin;
+      const below = window.innerHeight - r.bottom - margin;
+      const up = above >= below;
+      const width = Math.min(320, window.innerWidth - 2 * margin);
+      const left = Math.max(margin, Math.min(r.left, window.innerWidth - width - margin));
+      setPlace(up ? { left, bottom: window.innerHeight - r.top + 4, maxHeight: Math.max(160, above - 4) } : { left, top: r.bottom + 4, maxHeight: Math.max(160, below - 4) });
+    }
+    setOpen(true);
+  };
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+      const n = e.target as Node;
+      if (box.current && !box.current.contains(n) && !(popup.current && popup.current.contains(n))) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
   const usable = st.sounds.filter((s) => s.status === 'shared' || s.mine);
   const query = q.trim().toLowerCase();
@@ -103,11 +127,11 @@ export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; 
   };
   return (
     <div className="relative" ref={box}>
-      <Button aria-expanded={open} aria-label={t('sounds.palette')} onClick={() => setOpen(!open)}>
+      <Button aria-expanded={open} aria-label={t('sounds.palette')} onClick={toggle}>
         🔊
       </Button>
-      {open && (
-        <div role="dialog" aria-label={t('sounds.palette')} className="absolute bottom-full left-0 z-20 mb-1 flex max-h-96 w-80 max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-auto rounded-md border border-line bg-surface p-2 shadow-lg">
+      {open && place && createPortal(
+        <div ref={popup} role="dialog" aria-label={t('sounds.palette')} style={{ position: 'fixed', left: place.left, top: place.top, bottom: place.bottom, maxHeight: place.maxHeight }} className="z-50 flex w-80 max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-y-auto overscroll-contain rounded-md border border-line bg-surface p-2 shadow-lg">
           <input className="rounded-sm border border-line bg-surface px-2 py-1" aria-label={t('sounds.search')} placeholder={t('sounds.search')} value={q} onChange={(e) => setQ(e.target.value)} />
           {msg && <p className="text-sm text-danger">{msg}</p>}
           {usable.length === 0 && <p className="text-sm text-muted">{t('sounds.none')}</p>}
@@ -129,7 +153,8 @@ export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; 
               <div className="flex flex-wrap gap-1">{usable.filter((s) => s.category === c && match(s)).map(chip)}</div>
             </section>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
