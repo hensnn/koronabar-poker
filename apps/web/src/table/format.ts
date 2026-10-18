@@ -13,8 +13,8 @@ export function formatAmount(chips: number, info: TableInfo, inBb: boolean): str
     const bb = chips / info.bigBlind;
     return `${Number.isInteger(bb) ? bb : bb.toFixed(1)} BB`;
   }
-  // Turnajové žetony nejsou měna: bez symbolu měny a bez kurzu; vlastní označení žetonů (table.chipLabel) má přednost.
-  if (info.tournament) return `${chips} ${info.chipLabel || t('table.chipsShort')}`;
+  // Turnajové žetony nejsou měna: bez symbolu měny a bez kurzu; označení žetonů se řídí volbou table.showChipLabel (a textem table.chipLabel).
+  if (info.tournament) return info.chipLabel ? `${chips} ${info.chipLabel}` : String(chips);
   const cur = chips / info.chipsPerCurrencyUnit;
   const d = info.currencyDecimals;
   const n = d > 0 ? (cur / 10 ** d).toFixed(d) : String(Math.round(cur));
