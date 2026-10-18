@@ -70,7 +70,7 @@ export function MainMenu({ groups, isActive, path }: { groups: MenuGroup[]; isAc
                   key={i.to}
                   to={i.to}
                   aria-current={isActive(i.to) ? 'page' : undefined}
-                  className={`rounded-md border-l-4 px-3 py-1 ${tone.border} ${isActive(i.to) ? 'bg-primary text-on-primary' : 'bg-surface hover:bg-raised'}`}
+                  className={`rounded-md px-3 py-1 border-l-4 ${tone.border} ${isActive(i.to) ? 'bg-primary text-on-primary' : 'bg-surface hover:bg-raised'}`}
                 >
                   {i.label}
                 </Link>
