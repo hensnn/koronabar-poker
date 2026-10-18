@@ -908,6 +908,7 @@ export class TournamentManager {
       payoutPreset: String(s['tournament.payoutPreset']),
       standings,
       results,
+      summary: results ? results.map((r) => resultSummary(st, r)) : null,
       pending: this.pending.get(id) ?? {},
       tables: this.sets.get(id)?.overview().map((tb) => ({ id: tb.id, no: this.tableNo(id, tb.id), players: tb.players.map((p) => ({ userId: p.userId, name: p.name, seat: p.seat + 1, chips: p.chips })) })) ?? [],
       maxTables: Math.max(1, Number(s['tournament.maxTables']) || 1),
@@ -984,6 +985,7 @@ export class TournamentManager {
       maxTables: 1,
       standings: (st?.results ?? []).map((x) => ({ userId: x.userId, name: x.name, chips: null, seat: null, tableNo: null, place: x.place, status: 'out' as const, payout: x.payout, head: null, bounty: x.bounty ?? 0 })),
       results: st?.results ?? null,
+      summary: st?.results ? st.results.map((r) => resultSummary(st, r)) : null,
       live: null,
       pending: {},
       me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, canReenter: false },
@@ -1139,6 +1141,8 @@ export interface TournamentView {
   tables: { id: string; no: number; players: { userId: string; name: string; seat: number; chips: number }[] }[];
   maxTables: number;
   results: { userId: string; name: string; place: number; payout: number; bounty?: number }[] | null;
+  /** Po konci turnaje: pro každého hráče vstupy, rebuy, add-ony, zaplaceno, výhra a zisk. */
+  summary: ReturnType<typeof resultSummary>[] | null;
   pending: Record<string, SettingValue>;
   me: {
     registered: boolean;
@@ -1156,4 +1160,13 @@ export interface TournamentView {
     canReenter: boolean;
   };
   can: { manage: boolean; start: boolean; pause: boolean; cancel: boolean };
+}
+
+/** Přehled jednoho hráče po konci turnaje: kolikrát vstoupil, rebuy, add-on, kolik zaplatil, kolik dostal a zisk. */
+export function resultSummary(st: Pick<TournamentState, 'payments' | 'players'>, r: { userId: string; name: string; place: number; payout: number; bounty?: number }) {
+  const mine = st.payments.filter((p) => p.userId === r.userId && !p.refunded);
+  const count = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon') => mine.filter((p) => p.kind === kind).length;
+  const spent = mine.reduce((n, p) => n + p.cost + p.fee, 0);
+  const bounty = r.bounty ?? 0;
+  return { userId: r.userId, name: r.name, place: r.place, entries: count('turnaj_buyin'), rebuys: count('turnaj_rebuy'), addons: count('turnaj_addon'), spent, payout: r.payout, bounty, profit: r.payout + bounty - spent };
 }

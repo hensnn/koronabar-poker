@@ -269,8 +269,9 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
         </div>
       ),
     },
+    // V turnaji ukazují blindy hodiny turnaje; widget Můj stůl je jen pro cash game.
     table: {
-      show: !!info,
+      show: !!info && !info.tournament,
       body: info && view && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
           <dt className="text-muted">{t('table.widget.blinds')}</dt>

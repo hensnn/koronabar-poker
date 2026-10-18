@@ -339,6 +339,22 @@ export async function buildServer(opts: ServerOptions = {}) {
     }
   };
   /** All-in u stolu: hráč, jehož sedadlo po akci dostalo stav all-in (platí i pro call a raise na celý stack). */
+  /** Výsledek handy zůstane v chatu u stolu (cash i turnaj), i když zmizí z obrazovky: kdo vyhrál kolik, s jakou kombinací a jaký byl board. */
+  const postHandResult = async (channelKey: string, e: Extract<AnnounceTableEvent, { type: 'handEnd' }>) => {
+    const channelId = await chat.channelIdByKey(channelKey);
+    if (!channelId) return;
+    const winners = e.record.players.filter((p) => p.won > 0).sort((a, b) => b.won - a.won);
+    if (winners.length === 0) return;
+    const results = winners
+      .map((p) => {
+        const hand = e.showdown && p.revealed && p.handDesc ? ` (${t(p.handDesc.key, p.handDesc.params)})` : '';
+        return t('chat.sys.handWinner', { nick: p.name, amount: p.won }) + hand;
+      })
+      .join(', ');
+    const board = e.board.length > 0 ? ' ' + t('chat.sys.handBoard', { cards: e.board.join(' ') }) : '';
+    const runs = e.record.runs > 1 ? ' ' + t('chat.sys.handRuns', { n: e.record.runs }) : '';
+    await chat.system(channelId, t('chat.sys.handResult', { n: e.record.handNumber, results }) + board + runs);
+  };
   const sayAllIn = (tableId: string, e: AnnounceTableEvent, tournamentId?: string) => {
     if (e.type !== 'action') return;
     const seat = tablesRef.current?.actors.get(tableId)?.viewFor(null).seats.find((s) => s.playerId === e.userId);
@@ -408,22 +424,7 @@ export async function buildServer(opts: ServerOptions = {}) {
         return;
       }
       if (e.type === 'handEnd') {
-        // Výsledek handy zůstane v chatu u stolu, i když zmizí z obrazovky: kdo vyhrál kolik, s jakou kombinací a jaký byl board.
-        void (async () => {
-          const channelId = await chat.channelIdByKey('table:' + tableId);
-          if (!channelId) return;
-          const winners = e.record.players.filter((p) => p.won > 0).sort((a, b) => b.won - a.won);
-          if (winners.length === 0) return;
-          const results = winners
-            .map((p) => {
-              const hand = e.showdown && p.revealed && p.handDesc ? ` (${t(p.handDesc.key, p.handDesc.params)})` : '';
-              return t('chat.sys.handWinner', { nick: p.name, amount: p.won }) + hand;
-            })
-            .join(', ');
-          const board = e.board.length > 0 ? ' ' + t('chat.sys.handBoard', { cards: e.board.join(' ') }) : '';
-          const runs = e.record.runs > 1 ? ' ' + t('chat.sys.handRuns', { n: e.record.runs }) : '';
-          await chat.system(channelId, t('chat.sys.handResult', { n: e.record.handNumber, results }) + board + runs);
-        })().catch(() => undefined);
+        void postHandResult('table:' + tableId, e).catch(() => undefined);
         return;
       }
       if (e.type === 'jackpot') {
@@ -511,6 +512,7 @@ export async function buildServer(opts: ServerOptions = {}) {
       sayAllIn(tableId, e, id);
       jingleBigPot(tableId, e, ts);
       outHand(e, ts);
+      if (e.type === 'handEnd') void postHandResult('table:' + id, e).catch(() => undefined);
       stats.onTableEvent({ tableId, kind: 'tournament', tournamentId: id, settings: ts, chipsPerUnit: 1 }, e);
     },
     seatWanted: (tournamentId, userId) => bountiesRef?.wantedSync(tournamentId, userId) ?? 0,

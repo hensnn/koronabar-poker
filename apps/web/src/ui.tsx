@@ -80,7 +80,7 @@ export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?
 }
 
 /** Dialog s ovládáním klávesnicí (Esc zavře) a návratem zaměření. */
-export function Modal({ title, onClose, children, dirty = false }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean }) {
+export function Modal({ title, onClose, children, dirty = false, wide = false }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -104,7 +104,7 @@ export function Modal({ title, onClose, children, dirty = false }: { title: stri
   }, []);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="max-h-full w-full max-w-lg overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg">
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={`max-h-full w-full ${wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg`}>
         <h2 className="mb-3 font-heading text-lg font-bold">{title}</h2>
         {children}
       </div>

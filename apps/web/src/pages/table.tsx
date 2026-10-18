@@ -21,6 +21,7 @@ import { SoundMenu } from '../sound-menu';
 import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
+import { TournamentResultDialog } from './tournament-result';
 
 /** Turnaj na více stolech: když hráče přesadí k jinému stolu, stránka ho tam sama přesměruje. */
 function useFollowMyTable(tournamentId: string, tableId: string, enabled: boolean): void {
@@ -249,6 +250,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           />
         )}
         {isTournament && <DealPanel id={tournamentId} onlyOpen />}
+        {isTournament && <TournamentResultDialog tournamentId={tournamentId} />}
         <TableScreen
           tableId={tableId}
           inBb={inBb}

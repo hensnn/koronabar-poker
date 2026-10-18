@@ -355,3 +355,13 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     expect(wallets + second.server.ledger.balance(accounts.house())).toBe(3 * 10_000);
   });
 });
+
+describe('resultSummary (přehled po konci turnaje)', () => {
+  it('spočítá vstupy, rebuy, add-ony, zaplaceno a zisk; vrácené platby nepočítá', async () => {
+    const { resultSummary } = await import('./tournaments.js');
+    const pay = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon', cost: number, fee = 0, refunded = false) => ({ userId: 'a', kind, cost, fee, key: `${kind}-${cost}-${refunded}`, refunded });
+    const st = { payments: [pay('turnaj_buyin', 100, 10), pay('turnaj_rebuy', 100, 10), pay('turnaj_rebuy', 100, 10, true), pay('turnaj_addon', 50), { ...pay('turnaj_buyin', 100, 10), userId: 'b' }], players: [] };
+    expect(resultSummary(st, { userId: 'a', name: 'A', place: 1, payout: 300, bounty: 40 })).toEqual({ userId: 'a', name: 'A', place: 1, entries: 1, rebuys: 1, addons: 1, spent: 270, payout: 300, bounty: 40, profit: 70 });
+    expect(resultSummary(st, { userId: 'b', name: 'B', place: 2, payout: 0 }).profit).toBe(-110);
+  });
+});

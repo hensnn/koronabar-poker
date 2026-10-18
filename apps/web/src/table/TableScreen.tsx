@@ -95,7 +95,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
   return (
     <div className="tk-screen flex flex-col gap-2">
-      <div className="tk-room" {...myLook}>
+      <div className="tk-room relative" {...myLook}>
         <div className="tk-table relative mx-auto w-full">
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
@@ -184,6 +184,46 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             );
           })}
         </div>
+        {/* Hlasování a rozhodnutí o ukázání karet leží přes stůl, aby byly vidět i na celé obrazovce a na telefonu. */}
+        <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 p-2">
+      {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && (
+        <div role="dialog" aria-label={t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })} className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
+          <strong>{t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })}</strong>
+          <p>{t('table.runIt.text', { times: String((view.vote.payload as { times: number }).times) })}</p>
+          <p className="text-sm text-muted">
+            {t('table.runIt.votes', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={net.clockOffset} />
+          </p>
+          {view.vote.canVote && (
+            <div className="flex gap-2">
+              <button className={btnPrimary} disabled={view.vote.myVote === true} onClick={() => void run(table.vote(tableId, true))}>
+                {t('table.runIt.agree', { times: String((view.vote.payload as { times: number }).times) })}
+              </button>
+              <button className={btn} disabled={view.vote.myVote === false} onClick={() => void run(table.vote(tableId, false))}>
+                {t('table.runIt.disagree')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {mine && view.showdownChoice && (
+        <div role="dialog" aria-label={t('table.showdown.title')} className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
+          <strong>{t('table.showdown.title')}</strong>
+          <p className="text-sm text-muted">
+            {t('table.showdown.hint', { s: String(Math.max(0, Math.ceil((view.showdownChoice.deadline - Date.now() - net.clockOffset) / 1000))) })} · <Countdown deadline={view.showdownChoice.deadline} offset={net.clockOffset} />
+          </p>
+          <div className="flex gap-2">
+            <button className={btnPrimary} onClick={() => void run(table.showdown(tableId, 'show'))}>
+              {t('table.showdown.show')}
+            </button>
+            <button className={btn} onClick={() => void run(table.showdown(tableId, 'muck'))}>
+              {t('table.showdown.muck')}
+            </button>
+          </div>
+        </div>
+      )}
+
+        </div>
       </div>
 
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
@@ -204,43 +244,6 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       )}
       {!myTurn && !acting && <p className="text-center text-sm text-muted">{view.paused ? `⏸ ${t('table.paused')}` : view.handId && view.winners === null && view.street !== null ? t('table.handRunning') : t('table.waitingPlayers')}</p>}
       </div>
-
-      {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && (
-        <div role="dialog" aria-label={t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })} className="mx-auto flex max-w-md flex-col gap-2 rounded-md border border-primary bg-surface p-3">
-          <strong>{t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })}</strong>
-          <p>{t('table.runIt.text', { times: String((view.vote.payload as { times: number }).times) })}</p>
-          <p className="text-sm text-muted">
-            {t('table.runIt.votes', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={net.clockOffset} />
-          </p>
-          {view.vote.canVote && (
-            <div className="flex gap-2">
-              <button className={btnPrimary} disabled={view.vote.myVote === true} onClick={() => void run(table.vote(tableId, true))}>
-                {t('table.runIt.agree', { times: String((view.vote.payload as { times: number }).times) })}
-              </button>
-              <button className={btn} disabled={view.vote.myVote === false} onClick={() => void run(table.vote(tableId, false))}>
-                {t('table.runIt.disagree')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {mine && view.showdownChoice && (
-        <div role="dialog" aria-label={t('table.showdown.title')} className="mx-auto flex max-w-md flex-col gap-2 rounded-md border border-primary bg-surface p-3">
-          <strong>{t('table.showdown.title')}</strong>
-          <p className="text-sm text-muted">
-            {t('table.showdown.hint', { s: String(Math.max(0, Math.ceil((view.showdownChoice.deadline - Date.now() - net.clockOffset) / 1000))) })} · <Countdown deadline={view.showdownChoice.deadline} offset={net.clockOffset} />
-          </p>
-          <div className="flex gap-2">
-            <button className={btnPrimary} onClick={() => void run(table.showdown(tableId, 'show'))}>
-              {t('table.showdown.show')}
-            </button>
-            <button className={btn} onClick={() => void run(table.showdown(tableId, 'muck'))}>
-              {t('table.showdown.muck')}
-            </button>
-          </div>
-        </div>
-      )}
 
       {mine && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
