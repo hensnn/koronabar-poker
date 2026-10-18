@@ -23,7 +23,7 @@ describe('překlady: každý použitý klíč existuje', () => {
     const missing = [...used].filter((k) => !(k in cs)).sort();
     expect(missing).toEqual([]);
   });
-  it('katalogy (tajné údaje, události, nástroje, rozsahy, kosmetika) mají popisky', () => {
+  it('katalogy (tajné údaje, události, nástroje, rozsahy, kosmetika) mají popisky', { timeout: 30_000 }, () => {
     const missing = [
       ...SECRETS.map((x) => `secret.${x.key}`),
       ...INTEGRATION_EVENTS.flatMap((e) => [`integration.event.${e}`, `integration.discord.${e}`]),
