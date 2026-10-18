@@ -665,7 +665,6 @@ const ui: SettingDef[] = [
   choice('ui.mobileLayout', { category: 'ui', mutability: A, scopes: USER }, 'auto', ['auto', 'on', 'off']),
   int('ui.tablePanelWidth', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 272, 160, 640),
   int('ui.tablePanelHeight', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 3000),
-  int('ui.tableChatWidth', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 1600),
   int('ui.tableChatHeight', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 128, 64, 1200),
   bool('ui.tableChatMinimized', { category: 'ui', mutability: A, scopes: USER }, false),
   bool('ui.autoJoinTournament', { category: 'ui', mutability: A, scopes: USER }, true),

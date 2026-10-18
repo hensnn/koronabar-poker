@@ -471,3 +471,4 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 - Živý cash je schovaný z nabídky (globální nastavení `liveCash.enabled`, výchozí vypnuto). Stránka a uložené hry zůstávají, zapnout jde v Nastavení.
 - Mobilní rozložení se z tlačítka u stolu ukládá jen pro dané zařízení (vrstva zařízení přebíjí nastavení účtu); tlačítko je vidět i na počítači.
 - Stránka stolu využije celou šířku okna a po sbalení chatu do miniatury se stůl zvětší (`--tk-table-vh`). Úchyty velikosti panelu a chatu jsou viditelné čárky na okraji.
+- Chat u stolu je na širokém displeji dole v levém panelu (widgety nad ním se posouvají, chat je pevně vidět); místo pod stolem zmizelo. Šířku chatu určuje šířka panelu, výšku seznamu zpráv jde tahat (`ui.tableChatHeight`), sbalit jde do miniatury. Nastavení šířky chatu bylo zrušeno.

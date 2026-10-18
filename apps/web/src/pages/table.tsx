@@ -77,19 +77,17 @@ export function TablePage({ tableId }: { tableId: string }) {
     void loadChannels().catch(() => undefined);
   }, [tableId]);
   const num = (key: string) => Number(settings.values[key] ?? 0);
-  const [size, setSize] = useState({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), cw: num('ui.tableChatWidth'), ch: num('ui.tableChatHeight') });
+  const [size, setSize] = useState({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), ch: num('ui.tableChatHeight') });
   const [dragging, setDragging] = useState(false);
-  const stored = [num('ui.tablePanelWidth'), num('ui.tablePanelHeight'), num('ui.tableChatWidth'), num('ui.tableChatHeight')].join();
+  const stored = [num('ui.tablePanelWidth'), num('ui.tablePanelHeight'), num('ui.tableChatHeight')].join();
   useEffect(() => {
-    if (!dragging) setSize({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), cw: num('ui.tableChatWidth'), ch: num('ui.tableChatHeight') });
+    if (!dragging) setSize({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), ch: num('ui.tableChatHeight') });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored, dragging]);
   const chatMinimized = settings.values['ui.tableChatMinimized'] === true;
   const keep = (key: string, value: number | boolean) => void saveUserSetting(key, value).catch(() => undefined);
-  const chatRight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-tk-layout-chat') === 'right';
-  const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px', ...(size.cw > 0 ? { ['--tk-chat-w' as string]: size.cw + 'px' } : {}) };
-  const panelBodyStyle: CSSProperties | undefined = size.ph > 0 ? { maxHeight: size.ph, overflow: 'auto' } : undefined;
-  const chatBoxStyle: CSSProperties | undefined = size.cw > 0 ? { width: size.cw, maxWidth: '100%' } : undefined;
+  const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px' };
+  const panelBodyStyle: CSSProperties | undefined = size.ph > 0 ? { maxHeight: size.ph } : undefined;
   const view = net.views[tableId];
   const tableInfo = view?.info;
   const isTournament = tableInfo?.tournament === true;
@@ -136,7 +134,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     </>
   );
   return (
-    <div className="tk-tablepage" style={pageStyle} data-chat-min={chatMinimized ? '1' : undefined}>
+    <div className="tk-tablepage" style={pageStyle}>
       <Resizable
         as="aside"
         className="tk-tp-panel"
@@ -157,8 +155,47 @@ export function TablePage({ tableId }: { tableId: string }) {
           keep('ui.tablePanelHeight', 0);
         }}
       >
-        <div className="flex flex-col gap-2" style={panelBodyStyle} aria-label={t('table.panel')}>
-          <TablePanel view={view} tableId={tableId} inBb={inBb} />
+        <div className="tk-tp-scroll flex flex-col gap-2" style={panelBodyStyle} aria-label={t('table.panel')}>
+          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
+            <TablePanel view={view} tableId={tableId} inBb={inBb} />
+          </div>
+          {channel &&
+            (chatMinimized ? (
+              <MiniChat channel={channel} onRestore={() => keep('ui.tableChatMinimized', false)} />
+            ) : (
+              <Resizable
+                className="relative shrink-0"
+                w={0}
+                h={size.ch}
+                resizeW={false}
+                limits={{ minW: 0, maxW: 0, minH: 64, maxH: 1200 }}
+                onChange={(_w, ch, commit) => {
+                  setDragging(!commit);
+                  setSize((x) => ({ ...x, ch }));
+                  if (commit && ch !== num('ui.tableChatHeight')) keep('ui.tableChatHeight', ch);
+                }}
+                onReset={() => {
+                  setSize((x) => ({ ...x, ch: 128 }));
+                  keep('ui.tableChatHeight', 128);
+                }}
+              >
+                <Card
+                  title={t('table.chat')}
+                  actions={
+                    <span className="flex gap-1">
+                      <Button onClick={() => keep('ui.tableChatMinimized', true)} title={t('table.chatMinimize')} aria-label={t('table.chatMinimize')}>
+                        ▁
+                      </Button>
+                      <Button onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
+                        ⛶
+                      </Button>
+                    </span>
+                  }
+                >
+                  <ChatPanel channel={channel} compact listHeight={size.ch} />
+                </Card>
+              </Resizable>
+            ))}
         </div>
       </Resizable>
       <div className="tk-tp-main flex flex-col gap-2">
@@ -213,50 +250,6 @@ export function TablePage({ tableId }: { tableId: string }) {
             ) : undefined
           }
         />
-      </div>
-      <div className="tk-tp-chat">
-        {channel &&
-          (chatMinimized ? (
-            <MiniChat channel={channel} onRestore={() => keep('ui.tableChatMinimized', false)} />
-          ) : (
-            <Resizable
-              className="relative"
-              style={chatBoxStyle}
-              side={chatRight ? 'left' : 'right'}
-              w={size.cw}
-              h={size.ch}
-              limits={{ minW: 220, maxW: 1600, minH: 64, maxH: 1200 }}
-              onChange={(cw, ch, commit) => {
-                setDragging(!commit);
-                setSize((x) => ({ ...x, cw, ch }));
-                if (commit) {
-                  if (cw !== num('ui.tableChatWidth')) keep('ui.tableChatWidth', cw);
-                  if (ch !== num('ui.tableChatHeight')) keep('ui.tableChatHeight', ch);
-                }
-              }}
-              onReset={() => {
-                setSize((x) => ({ ...x, cw: 0, ch: 128 }));
-                keep('ui.tableChatWidth', 0);
-                keep('ui.tableChatHeight', 128);
-              }}
-            >
-              <Card
-                title={t('table.chat')}
-                actions={
-                  <span className="flex gap-1">
-                    <Button onClick={() => keep('ui.tableChatMinimized', true)} title={t('table.chatMinimize')} aria-label={t('table.chatMinimize')}>
-                      ▁
-                    </Button>
-                    <Button onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
-                      ⛶
-                    </Button>
-                  </span>
-                }
-              >
-                <ChatPanel channel={channel} compact listHeight={size.ch} />
-              </Card>
-            </Resizable>
-          ))}
       </div>
       {drawer && (
         <div className="tk-drawer" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : t('table.panel')}>

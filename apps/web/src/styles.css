@@ -257,13 +257,6 @@ h3,
   flex-direction: column;
   gap: calc(var(--spacing) * 3);
 }
-@media (min-width: 64rem) {
-  [data-tk-layout-chat='right'] .tk-tablepage {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 22rem;
-    align-items: start;
-  }
-}
 
 /* ---------- simulace barvosleposti (editor vzhledu) ---------- */
 .tk-cb-protanopia { filter: url(#tk-cb-protanopia); }
@@ -566,21 +559,17 @@ h3,
   flex-direction: column;
   gap: calc(var(--spacing) * 3);
 }
-.tk-tp-panel, .tk-tp-chat { display: none; }
+.tk-tp-panel { display: none; }
+.tk-tp-scroll { max-height: calc(100dvh - var(--spacing) * 4); }
 @media (min-width: 64rem) {
   .tk-tablepage {
     display: grid;
     grid-template-columns: var(--tk-panel-w, 17rem) minmax(0, 1fr);
-    grid-template-areas: 'panel main' 'panel chat';
+    grid-template-areas: 'panel main';
     align-items: start;
   }
   .tk-tp-panel { display: flex; flex-direction: column; gap: calc(var(--spacing) * 2); grid-area: panel; position: sticky; top: calc(var(--spacing) * 2); }
   .tk-tp-main { grid-area: main; min-width: 0; }
-  .tk-tp-chat { display: block; grid-area: chat; min-width: 0; }
-  [data-tk-layout-chat='right'] .tk-tablepage {
-    grid-template-columns: var(--tk-panel-w, 17rem) minmax(0, 1fr) var(--tk-chat-w, 22rem);
-    grid-template-areas: 'panel main chat';
-  }
   .tk-tp-mobile { display: none; }
 }
 /* Pod širokým displejem jsou nástroje stolu schované pod „⋯“. */
@@ -623,8 +612,6 @@ h3,
 /* Na širokém displeji se stůl vejde nad akční lištu i na nižší monitor. */
 @media (min-width: 64rem) {
   .tk-table { width: min(100%, calc(var(--tk-table-vh, 56vh) * var(--tk-table-aspect))); }
-  /* Sbalený chat uvolní místo: stůl se zvětší. */
-  .tk-tablepage[data-chat-min] { --tk-table-vh: 76vh; }
 }
 /* Telefon: vyšší ovál, menší karty, prázdná sedadla jen jako tečka. */
 @media (max-width: 40rem) {
@@ -661,7 +648,7 @@ h3,
     grid-template-columns: 16rem minmax(0, 1fr) 20rem;
     grid-template-areas: 'panel main chat';
   }
-  [data-focus] .tk-tp-panel, [data-focus] .tk-tp-chat { max-height: 100%; overflow: auto; position: static; }
+  [data-focus] .tk-tp-panel { max-height: 100%; overflow: auto; position: static; }
   [data-focus] .tk-tp-main { height: 100%; overflow: hidden; }
   [data-focus] .tk-table { width: min(100%, calc((100vh - 18rem) * var(--tk-table-aspect))); }
 }
