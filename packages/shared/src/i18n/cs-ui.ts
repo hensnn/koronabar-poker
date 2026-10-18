@@ -328,6 +328,10 @@ export const csUi: Record<string, string> = {
 
   // Správa
   'admin.nav': 'Správa',
+  'admin.group.people': 'Lidé',
+  'admin.group.game': 'Hra',
+  'admin.group.money': 'Peníze',
+  'admin.group.system': 'Systém',
   'admin.users': 'Uživatelé',
   'admin.invites': 'Pozvánky',
   'admin.roles': 'Role',
