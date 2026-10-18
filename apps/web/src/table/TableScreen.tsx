@@ -403,7 +403,7 @@ function Seat({
           </span>
         )}
         {(action || sound) && (
-          <span key={action?.key ?? sound?.name} role="status" className={`tk-bubble ${action ? `tk-act-${action.kind} ${BUBBLE_TONE[action.kind]}` : 'tk-act-call bg-surface text-text'}`}>
+          <span key={action?.key ?? sound?.name} role="status" className={`tk-bubble ${action ? `tk-say-${action.kind} ${BUBBLE_TONE[action.kind]}` : 'tk-say-call bg-surface text-text'}`}>
             {action ? action.text : `${sound!.emoji} ${sound!.name}`}
           </span>
         )}

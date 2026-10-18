@@ -435,11 +435,11 @@ h3,
   from { box-shadow: 0 0 0 0 var(--tk-color-turnGlow); }
   to { box-shadow: 0 0 0 calc(var(--spacing) * 4) transparent; }
 }
-.tk-act-call, .tk-act-check { animation: tk-act-slide calc(0.25s / var(--tk-anim-speed)) ease-out both; }
-.tk-act-fold { animation: tk-act-drop calc(0.3s / var(--tk-anim-speed)) ease-in both; }
-.tk-act-bet, .tk-act-raise { animation: tk-act-pop calc(0.35s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.6s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 1; }
-.tk-act-reraise { animation: tk-act-pop calc(0.35s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.55s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 2; }
-.tk-act-allIn { animation: tk-act-pop calc(0.4s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.5s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 3; }
+.tk-say-call, .tk-say-check { animation: tk-act-slide calc(0.25s / var(--tk-anim-speed)) ease-out both; }
+.tk-say-fold { animation: tk-act-drop calc(0.3s / var(--tk-anim-speed)) ease-in both; }
+.tk-say-bet, .tk-say-raise { animation: tk-act-pop calc(0.35s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.6s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 1; }
+.tk-say-reraise { animation: tk-act-pop calc(0.35s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.55s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 2; }
+.tk-say-allIn { animation: tk-act-pop calc(0.4s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.5s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 3; }
 /* Složené karty odlétnou a ztmavnou. */
 @keyframes tk-fold-away {
   to { transform: translateY(calc(var(--spacing) * -2)) scale(0.88) rotate(-5deg); opacity: 0.5; }
