@@ -43,6 +43,7 @@ describe('časové řady hráče', () => {
     for (let i = 1; i < tl.balance.length; i++) expect(tl.balance[i]![0]).toBeGreaterThanOrEqual(tl.balance[i - 1]![0]);
     expect(tl.xp[tl.xp.length - 1]![1]).toBe(120);
     expect(tl.tournaments).toEqual([]);
+    expect(tl.earnings).toEqual([]);
     expect(tl.rating.visible).toBe(true);
     const other = await server.timeline.of(admin!);
     expect(other.xp).toEqual([]);

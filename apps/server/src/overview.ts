@@ -32,12 +32,14 @@ export interface OverviewRow {
   hands: number;
   tournaments: number;
   tournamentNet: number;
+  /** Cash game včetně živého cash (v měně). */
   cashNet: number;
+  /** Výdělek ze všech her celkem (turnaje + cash + živý cash). */
   total: number;
   lastSeenAt: number | null;
 }
 
-export type CompareMetric = 'balance' | 'profit' | 'xp';
+export type CompareMetric = 'profit' | 'balance' | 'xp';
 export const MAX_COMPARE = 8;
 
 /**
@@ -70,17 +72,18 @@ export class OverviewService {
     const cash = new Map(cashRows.map((r) => [r.userId, Number(r.net)]));
     const gr = schema.gameResults;
     const tourRows = await db
-      .select({ userId: gr.userId, n: sql<number>`count(*)::int`, net: sql<string>`coalesce(sum(${gr.payout} + ${gr.bounty} - ${gr.spent}), 0)` })
+      .select({ userId: gr.userId, kind: gr.kind, n: sql<number>`count(*)::int`, net: sql<string>`coalesce(sum(${gr.payout} + ${gr.bounty} - ${gr.spent}), 0)` })
       .from(gr)
-      .where(eq(gr.kind, 'tournament'))
-      .groupBy(gr.userId);
-    const tour = new Map(tourRows.map((r) => [r.userId, { n: Number(r.n), net: Number(r.net) }]));
+      .where(inArray(gr.kind, ['tournament', 'live_cash']))
+      .groupBy(gr.userId, gr.kind);
+    const tour = new Map(tourRows.filter((r) => r.kind === 'tournament').map((r) => [r.userId, { n: Number(r.n), net: Number(r.net) }]));
+    const live = new Map(tourRows.filter((r) => r.kind === 'live_cash').map((r) => [r.userId, Number(r.net)]));
     const rt = new Map((await this.deps.rating('tournament')).map((r) => [r.userId, r.rating]));
     const rc = new Map((await this.deps.rating('cash')).map((r) => [r.userId, r.rating]));
     const rows: OverviewRow[] = users.map((u) => {
       const b = briefs.get(u.id);
       const tn = tour.get(u.id)?.net ?? 0;
-      const cn = cash.get(u.id) ?? 0;
+      const cn = (cash.get(u.id) ?? 0) + (live.get(u.id) ?? 0);
       return {
         userId: u.id,
         nickname: u.nickname,
@@ -102,7 +105,7 @@ export class OverviewService {
     return { rows };
   }
 
-  /** Vývoj vybraných hráčů v čase: zůstatek, zisk (turnaje + cash v měně) nebo XP. */
+  /** Vývoj vybraných hráčů v čase: výdělek ze všech her (turnaje + cash + živý cash v měně), zůstatek nebo XP. */
   async compare(userIds: string[], metric: CompareMetric): Promise<{ series: { userId: string; nickname: string; points: Point[] }[] }> {
     this.visible();
     const ids = [...new Set(userIds)].slice(0, MAX_COMPARE);
@@ -130,7 +133,7 @@ export class OverviewService {
       }
     } else {
       const gr = schema.gameResults;
-      const games = await db.select().from(gr).where(and(inArray(gr.userId, ids), eq(gr.kind, 'tournament'))).orderBy(asc(gr.finishedAt));
+      const games = await db.select().from(gr).where(and(inArray(gr.userId, ids), inArray(gr.kind, ['tournament', 'live_cash']))).orderBy(asc(gr.finishedAt));
       const day = sql<string>`date_trunc('day', ${schema.handPlayers.playedAt})`;
       const cash = await db
         .select({ userId: schema.handPlayers.userId, day, net: sql<string>`coalesce(round(sum((${schema.handPlayers.won} - ${schema.handPlayers.invested})::numeric / ${schema.hands.chipsPerUnit})), 0)` })

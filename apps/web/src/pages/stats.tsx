@@ -72,6 +72,7 @@ function SeasonSelect({ value, onChange, seasons }: { value: string; onChange: (
 
 interface Timeline {
   balance: Pt[];
+  earnings: Pt[];
   tournaments: { at: number; name: string; net: number; place: number; field: number; cumulative: number }[];
   cash: { day: number; net: number; hands: number; cumulative: number }[];
   xp: Pt[];
@@ -112,6 +113,9 @@ function Progress() {
   const bStart = balance[0]?.[1] ?? 0;
   const bEnd = balance[balance.length - 1]?.[1] ?? tl.balance[tl.balance.length - 1]?.[1] ?? 0;
   const tours = within(tl.tournaments, (x) => x.at);
+  const earn = within(tl.earnings, (p) => p[0]);
+  const earnTotal = earn.reduce((n, p) => n + p[1], 0);
+  const earnCum = cumulate(earn.map((p) => ({ at: p[0], v: p[1] })));
   const tourNet = tours.reduce((n, x) => n + x.net, 0);
   const tourCum = cumulate(tours.map((x) => ({ at: x.at, v: x.net })));
   const cash = within(tl.cash, (x) => x.day);
@@ -142,17 +146,21 @@ function Progress() {
       </div>
       {empty && <Notice>{t('charts.empty')}</Notice>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {card(t('charts.balanceNow'), String(bEnd))}
-        {card(t('charts.balanceChange'), signed(bEnd - bStart), tone(bEnd - bStart))}
+        {card(t('charts.earnTotal'), signed(earnTotal), tone(earnTotal))}
         {card(t('charts.tourNet'), signed(tourNet), tone(tourNet))}
         {card(t('charts.cashNet'), signed(cashNet), tone(cashNet))}
+        {card(t('charts.balanceNow'), String(bEnd))}
         {card(t('charts.tourPlayed'), String(tours.length))}
         {card(t('charts.handsPlayed'), String(hands))}
         {card(t('charts.bestTour'), best ? `${signed(best.net)} (${best.place}./${best.field})` : '–', best ? tone(best.net) : 'muted')}
         {card(t('charts.xpGained'), signed((xp[xp.length - 1]?.[1] ?? 0) - (xp[0]?.[1] ?? 0)))}
       </div>
+      <Card title={t('charts.earn')}>
+        <LineChart points={earnCum} label={t('charts.earnHelp')} className="text-success" signed />
+      </Card>
       <Card title={t('charts.balance')}>
         <LineChart points={balance} label={t('charts.balanceHelp')} />
+        <p className="text-xs text-muted">{t('charts.balanceNote')}</p>
       </Card>
       <div className="grid gap-3 lg:grid-cols-2">
         <Card title={t('charts.tourProfit')}>
@@ -257,7 +265,7 @@ function PlayersOverview({ meId }: { meId: string }) {
   const [error, setError] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'total', dir: -1 });
   const [picked, setPicked] = useState<string[] | null>(null);
-  const [metric, setMetric] = useState<'balance' | 'profit' | 'xp'>('balance');
+  const [metric, setMetric] = useState<'profit' | 'balance' | 'xp'>('profit');
   const [series, setSeries] = useState<Series[]>([]);
   const [range, setRange] = useState<'30' | '90' | '365' | 'all'>('all');
   useEffect(() => {
@@ -298,7 +306,7 @@ function PlayersOverview({ meId }: { meId: string }) {
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div role="tablist" className="flex flex-wrap gap-1">
-              {(['balance', 'profit', 'xp'] as const).map((m) => (
+              {(['profit', 'balance', 'xp'] as const).map((m) => (
                 <button key={m} role="tab" aria-selected={metric === m} onClick={() => setMetric(m)} className={`rounded-md border border-line px-2 py-0.5 text-sm ${metric === m ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
                   {t(`overview.metric.${m}`)}
                 </button>
@@ -316,7 +324,7 @@ function PlayersOverview({ meId }: { meId: string }) {
           <p className="text-xs text-muted">{t('overview.pickHint')}</p>
         </div>
       </Card>
-      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('balance', t('overview.balance')), head('total', t('stats.total')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('stats.cashNet')), head('level', t('overview.level')), head('ratingTournament', t('overview.ratingT')), head('ratingCash', t('overview.ratingC')), head('hands', t('stats.hands')), head('tournaments', t('stats.games'))]}>
+      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('total', t('overview.earn')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('overview.cashNet')), head('balance', t('overview.balance')), head('level', t('overview.level')), head('ratingTournament', t('overview.ratingT')), head('ratingCash', t('overview.ratingC')), head('hands', t('stats.hands')), head('tournaments', t('stats.games'))]}>
         {sorted.map((r) => (
           <tr key={r.userId} className={r.userId === meId ? 'bg-raised' : ''}>
             <Td>
@@ -325,12 +333,12 @@ function PlayersOverview({ meId }: { meId: string }) {
             <Td>
               <strong>{r.nickname}</strong> {r.userId === meId && <Badge tone="primary">{t('overview.me')}</Badge>}
             </Td>
-            <Td className="font-mono">{r.balance}</Td>
             <Td>
               <Badge tone={tone(r.total)}>{signed(r.total)}</Badge>
             </Td>
             <Td className="font-mono">{signed(r.tournamentNet)}</Td>
             <Td className="font-mono">{signed(r.cashNet)}</Td>
+            <Td className="font-mono text-muted">{r.balance}</Td>
             <Td className="text-sm">
               <span className="font-mono">{r.level}</span> {r.rank.name}
             </Td>
