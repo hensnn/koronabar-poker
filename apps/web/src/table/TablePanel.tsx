@@ -110,9 +110,9 @@ export function PlanBar({ view }: { view: TableView }) {
   const plan = usePlan();
   const opts: Plan[] = ['fold', 'checkFold', 'check', 'call'];
   return (
-    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('table.widget.plan')}>
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('table.widget.plan')} title={t('table.plan.help')}>
       {opts.map((p) => (
-        <button key={p} className={`rounded-md border px-2 py-1 text-sm ${plan === p ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface'}`} aria-pressed={plan === p} onClick={() => setPlan(plan === p ? null : p, view.handId)}>
+        <button key={p} className={`rounded-md border px-1.5 py-0.5 text-xs ${plan === p ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface'}`} aria-pressed={plan === p} onClick={() => setPlan(plan === p ? null : p, view.handId)}>
           {t(`table.plan.${p}`)}
         </button>
       ))}
@@ -120,28 +120,28 @@ export function PlanBar({ view }: { view: TableView }) {
   );
 }
 
-/** Co dělat s kartami na showdownu (poražené) a po výhře bez showdownu; osobní nastavení, platí u všech stolů. */
+/** Co dělat s kartami: Win = výherní bez showdownu, Lose = poražené na showdownu. Osobní nastavení, platí u všech stolů. */
 function ShowdownPrefs() {
   const settings = useSettings();
-  const rows: { key: string; label: string; options: string[]; def: string }[] = [
-    { key: 'ui.showdownLosing', label: t('table.plan.showLosing'), options: ['show', 'ask', 'muck'], def: 'show' },
-    { key: 'ui.showdownWinning', label: t('table.plan.showWinning'), options: ['never', 'ask', 'always'], def: 'never' },
+  const rows: { key: string; label: string; title: string; options: [string, string][]; def: string }[] = [
+    { key: 'ui.showdownWinning', label: t('table.plan.win'), title: t('table.plan.showWinning'), options: [['never', 'muck'], ['ask', 'ask'], ['always', 'show']], def: 'never' },
+    { key: 'ui.showdownLosing', label: t('table.plan.lose'), title: t('table.plan.showLosing'), options: [['show', 'show'], ['ask', 'ask'], ['muck', 'muck']], def: 'show' },
   ];
   return (
-    <div className="flex flex-col gap-1">
+    <>
       {rows.map((r) => (
-        <label key={r.key} className="flex items-center justify-between gap-2 text-xs">
+        <label key={r.key} className="flex items-center gap-1 text-xs" title={r.title}>
           <span className="text-muted">{r.label}</span>
-          <select className="rounded-md border border-line bg-surface px-1 py-0.5 text-xs" value={String(settings.values[r.key] ?? r.def)} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
-            {r.options.map((o) => (
-              <option key={o} value={o}>
-                {t(`settings.${r.key}.option.${o}`)}
+          <select className="rounded-md border border-line bg-surface px-0.5 py-0 text-xs" value={String(settings.values[r.key] ?? r.def)} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
+            {r.options.map(([value, word]) => (
+              <option key={value} value={value}>
+                {t(`table.plan.opt.${word}`)}
               </option>
             ))}
           </select>
         </label>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -243,35 +243,34 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
     plan: {
       show: !!mine && !!view,
       body: view && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           <PlanBar view={view} />
-          <p className="text-xs text-muted">{t('table.plan.help')}</p>
-          <ShowdownPrefs />
-          {mine && (
-            <label className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1" title={t('table.sitOutHelp')}>
-              <span className="text-sm font-medium">{(mine.sitOut ?? mine.status === 'sittingOut') ? t('table.sittingOut') : t('table.sitOutToggle')}</span>
-              <input
-                type="checkbox"
-                role="switch"
-                aria-label={t('table.sitOutToggle')}
-                checked={mine.sitOut ?? mine.status === 'sittingOut'}
-                onChange={(e) => void (e.target.checked ? tableApi.sitOut(tableId) : tableApi.sitIn(tableId))}
-              />
-            </label>
-          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {mine && (
+              <label className="flex items-center gap-1 text-xs" title={t('table.sitOutHelp')}>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  aria-label={t('table.sitOutToggle')}
+                  checked={mine.sitOut ?? mine.status === 'sittingOut'}
+                  onChange={(e) => void (e.target.checked ? tableApi.sitOut(tableId) : tableApi.sitIn(tableId))}
+                />
+                {t('table.sittingOut')}
+              </label>
+            )}
+            <ShowdownPrefs />
+          </div>
         </div>
       ),
     },
     table: {
       show: !!info,
       body: info && view && (
-        <dl className="grid grid-cols-2 gap-x-2 gap-y-1">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
           <dt className="text-muted">{t('table.widget.blinds')}</dt>
           <dd className="font-mono">
             {info.smallBlind}/{info.bigBlind}
           </dd>
-          <dt className="text-muted">{t('table.pot')}</dt>
-          <dd className="font-mono">{formatAmount(view.totalPot, info, inBb)}</dd>
           {!info.tournament && (
             <>
               <dt className="text-muted">{t('table.widget.buyIn')}</dt>
@@ -280,10 +279,6 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
               </dd>
             </>
           )}
-          <dt className="text-muted">{t('table.widget.players')}</dt>
-          <dd className="font-mono">
-            {view.seats.length}/{info.seatCount}
-          </dd>
           {info.rake && (
             <>
               <dt className="text-muted">Rake</dt>
@@ -294,7 +289,7 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
       ),
     },
     hand: {
-      show: true,
+      show: !!(mine && mine.hasCards && mine.cards),
       body:
         mine && mine.hasCards && mine.cards ? (
           <div className="flex flex-col items-center gap-2">
@@ -331,24 +326,41 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
     chat: { show: !!chat, body: chat?.body ?? null },
     sounds: { show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
   };
+  const visible = state.order.filter((id) => bodies[id].show && !state.hidden.includes(id));
+  const gear = (
+    <button className="rounded-md px-1 text-sm" aria-label={t('table.panelSettings')} title={t('table.panelSettings')} onClick={() => setOpen(true)}>
+      ⚙
+    </button>
+  );
   return (
     <>
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-muted">{t('table.panel')}</span>
-        <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" aria-label={t('table.panelSettings')} title={t('table.panelSettings')} onClick={() => setOpen(true)}>
-          ⚙
-        </button>
-      </div>
+      {(open || visible.length === 0) && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-muted">{t('table.panel')}</span>
+          {!open && gear}
+        </div>
+      )}
       {open ? (
         <PanelSettings state={state} setState={setState} titles={titles} absent={[...(tournamentId ? [] : (['clock'] as WidgetId[])), ...(chat ? [] : (['chat'] as WidgetId[]))]} onClose={() => setOpen(false)} />
       ) : (
-        state.order
-          .filter((id) => bodies[id].show && !state.hidden.includes(id))
-          .map((id) => (
-            <Widget key={id} id={id} title={titles[id]} state={state} setState={setState} badge={id === 'chat' ? chat?.unread : undefined} actions={id === 'chat' ? chat?.actions : undefined}>
+        visible.map((id) => (
+            <Widget
+              key={id}
+              id={id}
+              title={titles[id]}
+              state={state}
+              setState={setState}
+              badge={id === 'chat' ? chat?.unread : undefined}
+              actions={
+                <>
+                  {id === 'chat' ? chat?.actions : null}
+                  {id === visible[0] ? gear : null}
+                </>
+              }
+            >
               {bodies[id].body}
             </Widget>
-          ))
+        ))
       )}
     </>
   );

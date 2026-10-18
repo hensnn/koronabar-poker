@@ -411,6 +411,53 @@ h3,
   animation: tk-float calc(2s / var(--tk-anim-speed)) ease-out both;
 }
 
+/* ---------- animace provedených akcí (call, check, bet, raise, re-raise, all-in, fold, show, muck) ---------- */
+/* Žetony letí od sedadla ke své sázce. */
+@keyframes tk-chip-fly {
+  from { left: var(--from-left); top: var(--from-top); opacity: 0.3; }
+}
+.tk-chip-fly { animation: tk-chip-fly calc(0.4s / var(--tk-anim-speed)) ease-out both; }
+/* Bublina akce: call a check vjedou, fold spadne, bet a raise vyskočí s vlnou, re-raise a all-in zazní dvakrát a třikrát. */
+@keyframes tk-act-slide {
+  from { opacity: 0; transform: translateX(-50%) translateY(calc(var(--spacing) * 2)); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+@keyframes tk-act-drop {
+  from { opacity: 0; transform: translateX(-50%) translateY(calc(var(--spacing) * -3)); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+@keyframes tk-act-pop {
+  0% { opacity: 0; transform: translateX(-50%) scale(0.5); }
+  60% { opacity: 1; transform: translateX(-50%) scale(1.25); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+@keyframes tk-act-ring {
+  from { box-shadow: 0 0 0 0 var(--tk-color-turnGlow); }
+  to { box-shadow: 0 0 0 calc(var(--spacing) * 4) transparent; }
+}
+.tk-act-call, .tk-act-check { animation: tk-act-slide calc(0.25s / var(--tk-anim-speed)) ease-out both; }
+.tk-act-fold { animation: tk-act-drop calc(0.3s / var(--tk-anim-speed)) ease-in both; }
+.tk-act-bet, .tk-act-raise { animation: tk-act-pop calc(0.35s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.6s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 1; }
+.tk-act-reraise { animation: tk-act-pop calc(0.35s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.55s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 2; }
+.tk-act-allIn { animation: tk-act-pop calc(0.4s / var(--tk-anim-speed)) ease-out both, tk-act-ring calc(0.5s / var(--tk-anim-speed)) calc(0.1s / var(--tk-anim-speed)) ease-out 3; }
+/* Složené karty odlétnou a ztmavnou. */
+@keyframes tk-fold-away {
+  to { transform: translateY(calc(var(--spacing) * -2)) scale(0.88) rotate(-5deg); opacity: 0.5; }
+}
+.tk-fold-away { animation: tk-fold-away calc(0.45s / var(--tk-anim-speed)) ease-in both; }
+/* Show: odhalená karta se otočí. Muck: štítek s odhozenými kartami dopadne. */
+@keyframes tk-flip {
+  0% { transform: perspective(40rem) rotateY(90deg) scale(0.9); opacity: 0.2; }
+  60% { transform: perspective(40rem) rotateY(-12deg) scale(1.06); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.tk-card-flip { animation: tk-flip calc(0.45s / var(--tk-anim-speed)) ease-out both; }
+@keyframes tk-muck {
+  from { opacity: 0; transform: translateY(calc(var(--spacing) * -3)) scale(1.2) rotate(-8deg); }
+  to { opacity: 1; transform: none; }
+}
+.tk-muck-in { animation: tk-muck calc(0.4s / var(--tk-anim-speed)) ease-in both; }
+
 /* ---------- telefon: menší avatary u stolu (poměr k tokenu, ne pevná velikost) ---------- */
 @media (max-width: 40rem) {
   .tk-room .tk-avatar {
@@ -582,7 +629,7 @@ h3,
 }
 .tk-tp-panel { display: none; }
 /* Panel je vysoký jako herní oblast vedle něj (po poslední řádek pod stolem); obsah se posouvá uvnitř. */
-.tk-tp-scroll { position: absolute; inset: 0; overflow-y: auto; display: flex; flex-direction: column; gap: calc(var(--spacing) * 2); padding-right: 2px; }
+.tk-tp-scroll { position: absolute; inset: 0; overflow-y: auto; display: flex; flex-direction: column; gap: calc(var(--spacing) * 1); padding-right: 2px; }
 /* Diskrétní posuvníky v panelu (včetně seznamu zpráv chatu). */
 .tk-tp-panel, .tk-tp-panel * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tk-color-border) 80%, transparent) transparent; }
 .tk-tp-panel ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -615,13 +662,13 @@ h3,
   align-items: center;
   gap: calc(var(--spacing) * 2);
   width: 100%;
-  padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2);
+  padding: calc(var(--spacing) * 0.5) calc(var(--spacing) * 2);
   font-weight: 600;
   text-align: left;
   background: var(--tk-color-surfaceRaised);
   border-radius: var(--tk-shape-radiusMd) var(--tk-shape-radiusMd) 0 0;
 }
-.tk-widget-body { padding: calc(var(--spacing) * 2); font-size: 0.9rem; }
+.tk-widget-body { padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2); font-size: 0.9rem; }
 .tk-drawer {
   position: fixed;
   inset: 0;

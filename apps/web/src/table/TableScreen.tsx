@@ -158,8 +158,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             .filter((s) => s.bet > 0)
             .map((s) => {
               const p = betPosition(s.seat, viewerSeat, info.seatCount, mobile);
+              const from = seatPosition(s.seat, viewerSeat, info.seatCount);
               return (
-                <div key={`bet-${s.seat}-${s.bet}`} className="tk-bet tk-pop absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${p.left}%`, top: `${p.top}%` }}>
+                <div key={`bet-${s.seat}-${s.bet}`} className="tk-bet tk-chip-fly absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${p.left}%`, top: `${p.top}%`, ['--from-left' as string]: `${from.left}%`, ['--from-top' as string]: `${from.top}%` }}>
                   <Amount amount={s.bet} text={formatAmount(s.bet, info, inBb)} />
                 </div>
               );
@@ -321,6 +322,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
 const BUBBLE_TONE: Record<Bubble['kind'], string> = {
   fold: 'bg-act-fold text-on-act',
+  reraise: 'bg-act-raise text-on-act',
   check: 'bg-act-check text-on-act',
   call: 'bg-act-call text-on-act',
   bet: 'bg-act-raise text-on-act',
@@ -370,7 +372,7 @@ function Seat({
     <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''}`}>
       <div className="relative flex justify-center">
         <div
-          className={`tk-seat-cards flex gap-1 ${frame.cls} ${hideMine ? 'cursor-pointer' : ''}`}
+          className={`tk-seat-cards flex gap-1 ${frame.cls} ${hideMine ? 'cursor-pointer' : ''} ${seat.status === 'folded' ? 'tk-fold-away' : ''}`}
           title={hideMine ? t('table.peek') : undefined}
           onMouseEnter={hideMine ? () => setPeek(true) : undefined}
           onMouseLeave={hideMine ? () => setPeek(false) : undefined}
@@ -378,10 +380,10 @@ function Seat({
         >
           {seat.hasCards
             ? seat.reveal === 'muck' && !seat.cards
-              ? <span className="tk-seat-status">{t('table.muck')}</span>
+              ? <span className="tk-seat-status tk-muck-in">{t('table.muck')}</span>
               : seat.cards && !(hideMine && !peek)
-              ? seat.cards.map((c) => <CardView key={c} card={c} small={!mine} />)
-              : [0, 1].map((i) => <CardView key={i} card={seat.exposed?.[i] ?? null} small={!mine} />)
+              ? seat.cards.map((c) => <CardView key={c} card={c} small={!mine} reveal={!mine} />)
+              : [0, 1].map((i) => <CardView key={seat.exposed?.[i] ? `x-${seat.exposed[i]}` : i} card={seat.exposed?.[i] ?? null} small={!mine} reveal={!!seat.exposed?.[i]} />)
             : status && !out && <span className="tk-seat-status">{status}</span>}
         </div>
         {seat.isDealer && (
@@ -401,7 +403,7 @@ function Seat({
           </span>
         )}
         {(action || sound) && (
-          <span key={action?.key ?? sound?.name} role="status" className={`tk-bubble tk-pop ${action ? BUBBLE_TONE[action.kind] : 'bg-surface text-text'}`}>
+          <span key={action?.key ?? sound?.name} role="status" className={`tk-bubble ${action ? `tk-act-${action.kind} ${BUBBLE_TONE[action.kind]}` : 'tk-act-call bg-surface text-text'}`}>
             {action ? action.text : `${sound!.emoji} ${sound!.name}`}
           </span>
         )}

@@ -10,8 +10,8 @@ const SUIT: Record<string, { sym: string; cls: string }> = {
 /** Karta (líc) nebo rub, když je `card` null. Vzhled (styl, barvy barev, rub, zaoblení, stín) určují tokeny motivu. */
 const DELAY = ['', 'tk-delay-1', 'tk-delay-2', 'tk-delay-3', 'tk-delay-4'];
 
-export function CardView({ card, small, delay = 0 }: { card: Card | null; small?: boolean; delay?: number }) {
-  const scale = (small ? '[--card-scale:0.7] ' : '') + (DELAY[delay] ?? '');
+export function CardView({ card, small, delay = 0, reveal }: { card: Card | null; small?: boolean; delay?: number; /** Karta se právě odkrývá (showdown, dobrovolné ukázání): místo rozdání se otočí. */ reveal?: boolean }) {
+  const scale = (small ? '[--card-scale:0.7] ' : '') + (DELAY[delay] ?? '') + (reveal ? ' tk-card-flip' : '');
   if (!card) {
     return <span aria-label="rub karty" className={`tk-card tk-card-back inline-block border border-line ${scale}`} />;
   }

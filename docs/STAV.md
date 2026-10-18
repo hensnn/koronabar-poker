@@ -484,3 +484,7 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 - Výherce bez showdownu: `ui.showdownWinning` = neukazovat / zeptat se (výzva nad tlačítky) / ukázat vždy. Obě volby jsou i ve widgetu Plánovaný tah.
 - U sedadla je štítek „Ukázal karty“, „Ukázal 1 kartu“, „Muck“ nebo „Rozhoduje se…“, v chatu systémová zpráva. Sit out je v horní liště vedle pauzy (můj: tlačítko pro návrat, ostatní: seznam jmen); sedadlo je šedé se značkou ⏸. Úchyty velikosti panelu jsou neviditelné.
 - Simulátor (`scripts/simulate.ts`) dává botům náhodné volby showdownu a hlídá, že se nic nezasekne.
+
+## Animace akcí a kompaktní panel
+- Akce u stolu mají animace (řídí je anim.enabled a rychlost animací z motivu): žetony letí od sedadla k sázce, call a check vjedou, fold spadne a karty odlétnou, bet a raise vyskočí s vlnou, re-raise (třetí a další agrese na ulici) a all-in vlnu zopakují, ukázané karty se otočí, muck štítek dopadne.
+- Widget Plánovaný tah je zkrácený na dva řádky (tlačítka; Sit out, Win, Lose), ozubené kolečko je v hlavičce prvního okna, Můj stůl nemá pot a počet hráčů, Moje handa se ukáže jen s kartami, mezery jsou menší.

@@ -691,6 +691,7 @@ export const cs: Record<string, string> = {
   'table.call': 'Call',
   'table.bet': 'Bet',
   'table.raise': 'Raise',
+  'table.reraise': 'Re-raise',
   'table.allIn': 'All-in',
   'table.amount': 'Částka',
   'table.amountExact': 'Přesná částka',

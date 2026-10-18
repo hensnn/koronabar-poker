@@ -3,7 +3,7 @@ import type { TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { formatAmount } from './format';
 
-export type SeatActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'allIn';
+export type SeatActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'reraise' | 'allIn';
 export interface SeatAction {
   seat: number;
   kind: SeatActionKind;
@@ -39,6 +39,19 @@ export function detectActions(prev: TableView | null, next: TableView): SeatActi
   return out;
 }
 
+/**
+ * Kolikátá agrese (bet/raise) na ulici to je. Preflop se big blind počítá jako první (začíná se jedničkou),
+ * takže raise nad blindem je druhá agrese a další raise už je re-raise; postflop bet je první, raise druhá.
+ */
+export function aggressionStart(street: TableView['street']): number {
+  return street === 'PREFLOP' ? 1 : 0;
+}
+
+/** Třetí a další agrese na ulici je re-raise (3-bet a výš). */
+export function classifyAggression(kind: SeatActionKind, count: number): SeatActionKind {
+  return kind === 'raise' && count >= 3 ? 'reraise' : kind;
+}
+
 export function actionLabel(a: SeatAction, view: TableView, inBb: boolean): string {
   const word = t(`table.${a.kind}`);
   return a.amount > 0 ? `${word} ${formatAmount(a.amount, view.info, inBb)}` : word;
@@ -54,6 +67,7 @@ export interface Bubble {
 export function useActionBubbles(view: TableView | undefined, inBb: boolean, ttlMs = 2600): Record<number, Bubble> {
   const prev = useRef<TableView | null>(null);
   const counter = useRef(0);
+  const aggr = useRef<{ handId: string | null; street: TableView['street']; n: number }>({ handId: null, street: null, n: 0 });
   const [bubbles, setBubbles] = useState<Record<number, Bubble>>({});
   useEffect(() => {
     if (!view) return;
@@ -61,6 +75,13 @@ export function useActionBubbles(view: TableView | undefined, inBb: boolean, ttl
     const roundOver = !!prev.current && (prev.current.street !== view.street || prev.current.handId !== view.handId);
     const actions = detectActions(prev.current, view);
     prev.current = view;
+    if (aggr.current.handId !== view.handId || aggr.current.street !== view.street) aggr.current = { handId: view.handId, street: view.street, n: aggressionStart(view.street) };
+    for (const a of actions) {
+      if (a.kind === 'bet' || a.kind === 'raise') {
+        aggr.current.n += 1;
+        a.kind = classifyAggression(a.kind, aggr.current.n);
+      }
+    }
     if (roundOver) setBubbles({});
     if (actions.length === 0) return;
     const added: Record<number, Bubble> = {};

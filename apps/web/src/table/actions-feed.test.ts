@@ -48,3 +48,19 @@ describe('akce hráčů odvozené ze stavu stolu', () => {
     expect(detectActions(view({ handId: 'h1' }), view({ handId: 'h2', seats: seats(0, 0, 0) }))).toEqual([]);
   });
 });
+
+describe('re-raise', () => {
+  it('první agrese je bet/raise, třetí a další je re-raise; preflop se big blind počítá jako první', async () => {
+    const { aggressionStart, classifyAggression } = await import('./actions-feed');
+    expect(aggressionStart('PREFLOP')).toBe(1);
+    expect(aggressionStart('FLOP')).toBe(0);
+    // preflop: raise nad blindem (2), pak re-raise (3), 4-bet (4)
+    expect(classifyAggression('raise', 2)).toBe('raise');
+    expect(classifyAggression('raise', 3)).toBe('reraise');
+    expect(classifyAggression('raise', 4)).toBe('reraise');
+    // postflop: bet (1), raise (2), re-raise (3)
+    expect(classifyAggression('bet', 1)).toBe('bet');
+    expect(classifyAggression('raise', 2)).toBe('raise');
+    expect(classifyAggression('call', 5)).toBe('call');
+  });
+});
