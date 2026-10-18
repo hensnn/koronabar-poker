@@ -693,6 +693,8 @@ h3,
 @media (max-width: 40rem) {
   .tk-table { aspect-ratio: 1.15; }
   .tk-seat-mine .tk-card { --card-scale: 0.85; }
+  /* Jméno a stack vlastního hráče se jinak na úzkém stole vysunou pod okraj ovalu. */
+  .tk-seat-mine { position: relative; top: calc(var(--spacing) * -6); }
   .tk-seat-empty {
     width: calc(var(--spacing) * 7);
     height: calc(var(--spacing) * 7);
