@@ -459,3 +459,7 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 
 ## Hlavní menu
 - Horní menu má 4 barevné rozbalovací skupiny: Hrát (zelená), Komunita (modrá), Moje (žlutá), Účet a správa (červená/akcent). Barvy jsou design tokeny (success, info, warning, accent). Na telefonu jsou skupiny pod tlačítkem Nabídka a rozbalují se po jedné. Komponenta `apps/web/src/main-menu.tsx`.
+
+## Velikost oken u stolu (počítač)
+- Levý panel jde tahat za pravý a spodní okraj (šířka, výška), chat za pravý/levý a spodní okraj (šířka, výška seznamu zpráv); dvojklik na úchyt vrátí výchozí velikost.
+- Chat jde sbalit do miniatury (pruh s počtem nepřečtených a poslední zprávou). Vše se ukládá jako osobní nastavení (`ui.tablePanelWidth/Height`, `ui.tableChatWidth/Height`, `ui.tableChatMinimized`), komponenta `apps/web/src/table/resizable.tsx`.

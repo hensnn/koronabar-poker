@@ -570,7 +570,7 @@ h3,
 @media (min-width: 64rem) {
   .tk-tablepage {
     display: grid;
-    grid-template-columns: 17rem minmax(0, 1fr);
+    grid-template-columns: var(--tk-panel-w, 17rem) minmax(0, 1fr);
     grid-template-areas: 'panel main' 'panel chat';
     align-items: start;
   }
@@ -578,7 +578,7 @@ h3,
   .tk-tp-main { grid-area: main; min-width: 0; }
   .tk-tp-chat { display: block; grid-area: chat; min-width: 0; }
   [data-tk-layout-chat='right'] .tk-tablepage {
-    grid-template-columns: 17rem minmax(0, 1fr) 22rem;
+    grid-template-columns: var(--tk-panel-w, 17rem) minmax(0, 1fr) var(--tk-chat-w, 22rem);
     grid-template-areas: 'panel main chat';
   }
   .tk-tp-mobile { display: none; }

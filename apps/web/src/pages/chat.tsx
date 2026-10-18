@@ -110,7 +110,7 @@ export function ChatPage() {
 }
 
 /** Panel jednoho kanálu: zprávy a pole pro psaní. Používá ho stránka chatu i okno u stolu. */
-export function ChatPanel({ channel, compact, fill }: { channel: Channel; compact?: boolean; /** Vyplní výšku rodiče (celoobrazovkový chat u stolu). */ fill?: boolean }) {
+export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Channel; compact?: boolean; /** Vyplní výšku rodiče (celoobrazovkový chat u stolu). */ fill?: boolean; /** Pevná výška seznamu zpráv v okně u stolu. */ listHeight?: number }) {
   const store = useChatStore();
   const { me } = useSession();
   const settings = useSettings();
@@ -178,7 +178,7 @@ export function ChatPanel({ channel, compact, fill }: { channel: Channel; compac
           )}
         </div>
       )}
-      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${fill ? 'min-h-0 flex-1 gap-0 p-1 leading-tight' : compact ? 'h-32 min-h-16 resize-y gap-0 p-1 leading-tight' : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')}>
+      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${fill ? 'min-h-0 flex-1 gap-0 p-1 leading-tight' : compact ? `min-h-16 gap-0 p-1 leading-tight ${listHeight ? '' : 'h-32 resize-y'}` : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')} style={!fill && compact && listHeight ? { height: listHeight } : undefined}>
         {messages.length >= 50 && (
           <Button onClick={() => void openChannel(channel.id, messages[0]!.id)}>{t('chat.older')}</Button>
         )}

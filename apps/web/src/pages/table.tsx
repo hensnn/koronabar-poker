@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { TablePolls } from './polls';
 import { PollEditor } from './poll-editor';
 import { navigate } from '../router';
@@ -14,6 +14,7 @@ import { useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { TablePanel } from '../table/TablePanel';
+import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
 import { SoundMenu } from '../sound-menu';
@@ -75,6 +76,20 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => {
     void loadChannels().catch(() => undefined);
   }, [tableId]);
+  const num = (key: string) => Number(settings.values[key] ?? 0);
+  const [size, setSize] = useState({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), cw: num('ui.tableChatWidth'), ch: num('ui.tableChatHeight') });
+  const [dragging, setDragging] = useState(false);
+  const stored = [num('ui.tablePanelWidth'), num('ui.tablePanelHeight'), num('ui.tableChatWidth'), num('ui.tableChatHeight')].join();
+  useEffect(() => {
+    if (!dragging) setSize({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), cw: num('ui.tableChatWidth'), ch: num('ui.tableChatHeight') });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored, dragging]);
+  const chatMinimized = settings.values['ui.tableChatMinimized'] === true;
+  const keep = (key: string, value: number | boolean) => void saveUserSetting(key, value).catch(() => undefined);
+  const chatRight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-tk-layout-chat') === 'right';
+  const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px', ...(size.cw > 0 ? { ['--tk-chat-w' as string]: size.cw + 'px' } : {}) };
+  const panelBodyStyle: CSSProperties | undefined = size.ph > 0 ? { maxHeight: size.ph, overflow: 'auto' } : undefined;
+  const chatBoxStyle: CSSProperties | undefined = size.cw > 0 ? { width: size.cw, maxWidth: '100%' } : undefined;
   const view = net.views[tableId];
   const tableInfo = view?.info;
   const isTournament = tableInfo?.tournament === true;
@@ -118,10 +133,31 @@ export function TablePage({ tableId }: { tableId: string }) {
     </>
   );
   return (
-    <div className="tk-tablepage">
-      <aside className="tk-tp-panel" aria-label={t('table.panel')}>
-        <TablePanel view={view} tableId={tableId} inBb={inBb} />
-      </aside>
+    <div className="tk-tablepage" style={pageStyle}>
+      <Resizable
+        as="aside"
+        className="tk-tp-panel"
+        w={size.pw}
+        h={size.ph}
+        limits={{ minW: 160, maxW: 640, minH: 120, maxH: 3000 }}
+        onChange={(pw, ph, commit) => {
+          setDragging(!commit);
+          setSize((x) => ({ ...x, pw, ph }));
+          if (commit) {
+            if (pw !== num('ui.tablePanelWidth')) keep('ui.tablePanelWidth', pw);
+            if (ph !== num('ui.tablePanelHeight')) keep('ui.tablePanelHeight', ph);
+          }
+        }}
+        onReset={() => {
+          setSize((x) => ({ ...x, pw: 272, ph: 0 }));
+          keep('ui.tablePanelWidth', 272);
+          keep('ui.tablePanelHeight', 0);
+        }}
+      >
+        <div className="flex flex-col gap-2" style={panelBodyStyle} aria-label={t('table.panel')}>
+          <TablePanel view={view} tableId={tableId} inBb={inBb} />
+        </div>
+      </Resizable>
       <div className="tk-tp-main flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Link to={isTournament ? `/turnaj/${tournamentId}` : '/'} className="underline">
@@ -177,18 +213,48 @@ export function TablePage({ tableId }: { tableId: string }) {
         />
       </div>
       <div className="tk-tp-chat">
-        {channel && (
-          <Card
-            title={t('table.chat')}
-            actions={
-              <Button onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
-                ⛶
-              </Button>
-            }
-          >
-            <ChatPanel channel={channel} compact />
-          </Card>
-        )}
+        {channel &&
+          (chatMinimized ? (
+            <MiniChat channel={channel} onRestore={() => keep('ui.tableChatMinimized', false)} />
+          ) : (
+            <Resizable
+              className="relative"
+              style={chatBoxStyle}
+              side={chatRight ? 'left' : 'right'}
+              w={size.cw}
+              h={size.ch}
+              limits={{ minW: 220, maxW: 1600, minH: 64, maxH: 1200 }}
+              onChange={(cw, ch, commit) => {
+                setDragging(!commit);
+                setSize((x) => ({ ...x, cw, ch }));
+                if (commit) {
+                  if (cw !== num('ui.tableChatWidth')) keep('ui.tableChatWidth', cw);
+                  if (ch !== num('ui.tableChatHeight')) keep('ui.tableChatHeight', ch);
+                }
+              }}
+              onReset={() => {
+                setSize((x) => ({ ...x, cw: 0, ch: 128 }));
+                keep('ui.tableChatWidth', 0);
+                keep('ui.tableChatHeight', 128);
+              }}
+            >
+              <Card
+                title={t('table.chat')}
+                actions={
+                  <span className="flex gap-1">
+                    <Button onClick={() => keep('ui.tableChatMinimized', true)} title={t('table.chatMinimize')} aria-label={t('table.chatMinimize')}>
+                      ▁
+                    </Button>
+                    <Button onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
+                      ⛶
+                    </Button>
+                  </span>
+                }
+              >
+                <ChatPanel channel={channel} compact listHeight={size.ch} />
+              </Card>
+            </Resizable>
+          ))}
       </div>
       {drawer && (
         <div className="tk-drawer" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : t('table.panel')}>
@@ -202,6 +268,25 @@ export function TablePage({ tableId }: { tableId: string }) {
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}
       {history && <HandHistory tableId={tableId} onClose={() => setHistory(false)} />}
     </div>
+  );
+}
+
+/** Miniatura chatu: úzký pruh s počtem nepřečtených zpráv a poslední zprávou. */
+function MiniChat({ channel, onRestore }: { channel: { id: string; unread: number }; onRestore: () => void }) {
+  const store = useChatStore();
+  const last = [...(store.messages[channel.id] ?? [])].reverse().find((m) => !m.system && !m.deleted);
+  return (
+    <button type="button" onClick={onRestore} title={t('table.chatRestore')} aria-label={t('table.chatRestore')} className="flex w-full items-center gap-2 rounded-md border border-line bg-surface px-3 py-1 text-left text-sm">
+      <span aria-hidden="true">💬</span>
+      <strong>{t('table.chatMini')}</strong>
+      {channel.unread > 0 && <span className="rounded-full bg-accent px-1.5 text-xs text-on-act">{channel.unread}</span>}
+      {last && (
+        <span className="min-w-0 flex-1 truncate text-muted">
+          {last.nickname}: {last.body}
+        </span>
+      )}
+      <span aria-hidden="true">▴</span>
+    </button>
   );
 }
 
