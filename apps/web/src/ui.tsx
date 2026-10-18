@@ -133,14 +133,14 @@ export function Spinner({ label }: { label: string }) {
 }
 
 /** Jednoduchá tabulka s hlavičkou; buňky dodá volající. */
-export function DataTable({ head, children }: { head: string[]; children: ReactNode }) {
+export function DataTable({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left">
         <thead>
           <tr>
-            {head.map((h) => (
-              <th key={h} className="border-b border-line px-2 py-1 font-medium text-muted">
+            {head.map((h, i) => (
+              <th key={typeof h === 'string' ? `${i}:${h}` : i} className="border-b border-line px-2 py-1 font-medium text-muted">
                 {h}
               </th>
             ))}

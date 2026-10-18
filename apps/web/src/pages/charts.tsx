@@ -179,3 +179,111 @@ export function BarChart({ bars, label }: { bars: { x: number; v: number; tip: s
     </figure>
   );
 }
+
+/** Barvy čar srovnání: třídy z design tokenů (text-*), ať se mění s motivem; čáry se navíc liší tvarem čárkování. */
+export const SERIES_CLASSES = ['text-primary', 'text-accent', 'text-secondary', 'text-success', 'text-danger', 'text-warning', 'text-info', 'text-text'] as const;
+const DASHES = ['', '6 3', '2 3', '10 3 2 3', '', '6 3', '2 3', '10 3 2 3'];
+
+export interface Series {
+  id: string;
+  name: string;
+  points: Pt[];
+}
+
+/** Srovnání více hráčů v jednom grafu: společné osy, legenda (najetím se čára zvýrazní) a hodnoty všech při najetí na čas. */
+export function MultiLineChart({ series, label, signed = false }: { series: Series[]; label: string; signed?: boolean }) {
+  const [boxRef, W] = useWidth();
+  const [focus, setFocus] = useState<string | null>(null);
+  const [hoverX, setHoverX] = useState<number | null>(null);
+  const all = series.flatMap((s) => s.points);
+  const geo = useMemo(() => {
+    if (all.length === 0) return null;
+    const x0 = Math.min(...all.map((p) => p[0]));
+    const x1 = Math.max(...all.map((p) => p[0]));
+    let y0 = Math.min(...all.map((p) => p[1]));
+    let y1 = Math.max(...all.map((p) => p[1]));
+    if (signed) {
+      y0 = Math.min(y0, 0);
+      y1 = Math.max(y1, 0);
+    }
+    const pad = (y1 - y0) * 0.08 || 1;
+    y0 -= pad;
+    y1 += pad;
+    const sx = (x: number) => PAD.l + (x1 === x0 ? (W - PAD.l - PAD.r) / 2 : ((x - x0) / (x1 - x0)) * (W - PAD.l - PAD.r));
+    const sy = (y: number) => PAD.t + (1 - (y - y0) / (y1 - y0)) * (H - PAD.t - PAD.b);
+    return { x0, x1, y0, y1, sx, sy };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [series, signed, W]);
+  if (!geo) return <p className="text-sm text-muted">{t('charts.noData')}</p>;
+  const { sx, sy } = geo;
+  // hodnota řady v čase x: poslední bod, který nastal nejpozději v tom čase (stupňovitá hodnota)
+  const valueAt = (s: Series, x: number): number | null => {
+    let v: number | null = null;
+    for (const p of s.points) {
+      if (p[0] <= x) v = p[1];
+      else break;
+    }
+    return v;
+  };
+  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    const frac = Math.min(1, Math.max(0, (px - PAD.l) / (W - PAD.l - PAD.r)));
+    setHoverX(geo.x0 + frac * (geo.x1 - geo.x0));
+  };
+  return (
+    <figure>
+      <div ref={boxRef} className="w-full">
+        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block max-w-full touch-pan-y" role="img" aria-label={label} onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setHoverX(null)}>
+          {ticks(geo.y0 + (geo.y1 - geo.y0) * 0.08, geo.y1 - (geo.y1 - geo.y0) * 0.08).map((v, i) => (
+            <g key={i} className="text-muted">
+              <line x1={PAD.l} x2={W - PAD.r} y1={sy(v)} y2={sy(v)} stroke="currentColor" strokeOpacity="0.18" />
+              <text x={PAD.l - 6} y={sy(v) + 3} textAnchor="end" fontSize="10" fill="currentColor">
+                {fmtNum(v)}
+              </text>
+            </g>
+          ))}
+          {geo.y0 < 0 && geo.y1 > 0 && <line x1={PAD.l} x2={W - PAD.r} y1={sy(0)} y2={sy(0)} stroke="currentColor" strokeOpacity="0.5" strokeDasharray="4 3" className="text-text" />}
+          {(geo.x0 === geo.x1 ? [geo.x0] : [geo.x0, (geo.x0 + geo.x1) / 2, geo.x1]).map((v, i, arr) => (
+            <text key={i} x={sx(v)} y={H - 6} textAnchor={arr.length === 1 ? 'middle' : i === 0 ? 'start' : i === arr.length - 1 ? 'end' : 'middle'} fontSize="10" fill="currentColor" className="text-muted">
+              {fmtDate(v)}
+            </text>
+          ))}
+          {series.map((s, i) => {
+            if (s.points.length === 0) return null;
+            const dim = focus !== null && focus !== s.id;
+            // stupňovitá čára: hodnota se drží do dalšího pohybu, nakonec až k pravému okraji
+            const pts = s.points.flatMap((p, k) => (k === 0 ? [`${sx(p[0])},${sy(p[1])}`] : [`${sx(p[0])},${sy(s.points[k - 1]![1])}`, `${sx(p[0])},${sy(p[1])}`]));
+            const last = s.points[s.points.length - 1]!;
+            pts.push(`${sx(geo.x1)},${sy(last[1])}`);
+            return (
+              <g key={s.id} className={SERIES_CLASSES[i % SERIES_CLASSES.length]} opacity={dim ? 0.2 : 1}>
+                <polyline points={pts.join(' ')} fill="none" stroke="currentColor" strokeWidth={focus === s.id ? 3 : 2} strokeDasharray={DASHES[i % DASHES.length]} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                <circle cx={sx(geo.x1)} cy={sy(last[1])} r="3" fill="currentColor" />
+              </g>
+            );
+          })}
+          {hoverX !== null && <line x1={sx(hoverX)} x2={sx(hoverX)} y1={PAD.t} y2={H - PAD.b} stroke="currentColor" strokeOpacity="0.4" className="text-text" />}
+        </svg>
+      </div>
+      <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {series.map((s, i) => {
+          const v = hoverX !== null ? valueAt(s, hoverX) : (s.points[s.points.length - 1]?.[1] ?? null);
+          return (
+            <li key={s.id} className={`flex cursor-default items-center gap-1 ${SERIES_CLASSES[i % SERIES_CLASSES.length]}`} onPointerEnter={() => setFocus(s.id)} onPointerLeave={() => setFocus(null)}>
+              <svg width="22" height="8" aria-hidden>
+                <line x1="0" x2="22" y1="4" y2="4" stroke="currentColor" strokeWidth="2" strokeDasharray={DASHES[i % DASHES.length]} />
+              </svg>
+              <span className="text-text">{s.name}</span>
+              <span className="font-mono text-text">{v === null ? '–' : `${signed && v > 0 ? '+' : ''}${Math.round(v)}`}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <figcaption className="text-sm text-muted">
+        {label}
+        {hoverX !== null ? ` · ${fmtFull(hoverX)}` : ''}
+      </figcaption>
+    </figure>
+  );
+}

@@ -1577,6 +1577,8 @@ export const csTournament: Record<string, string> = {
   'settings.stats.recordHands.help': 'Po každé handě se uloží akce a výsledek. Z toho se počítají statistiky a přehrávání. Skryté karty vidí jen jejich majitel, ostatním se ukážou jen karty odkryté na showdownu.',
   'settings.stats.handRetentionDays.label': 'Uchování hand',
   'settings.stats.handRetentionDays.help': 'Po kolika dnech se u starých hand smažou podrobnosti (akce a karty). Součty pro statistiky a žebříček zůstanou. 0 = nemazat.',
+  'settings.stats.publicOverview.label': 'Přehled mezi hráči',
+  'settings.stats.publicOverview.help': 'Zapnuto = každý přihlášený hráč vidí přehled všech hráčů (zůstatky, výsledky, úroveň, rating) a smí srovnávat jejich vývoj v čase. Vypnuto = čísla ostatních jsou skrytá.',
   'settings.stats.leaderboardMinHands.label': 'Minimum hand pro žebříček',
   'settings.stats.leaderboardMinHands.help': 'Hráč s menším počtem odehraných hand se v žebříčku cash her nezobrazí.',
   'settings.stats.publicProfiles.label': 'Statistiky hráčů vidí všichni',

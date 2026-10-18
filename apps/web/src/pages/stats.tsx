@@ -6,7 +6,7 @@ import { CardView } from '../table/CardView';
 import { fmtDate, HandReplayBody, signed, tone, type HandDetail } from './hand-replay';
 import { ShareHandButton } from './hand-share';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Tabs, Td, TextInput } from '../ui';
-import { BarChart, LineChart, type Pt } from './charts';
+import { BarChart, LineChart, MultiLineChart, type Pt, type Series } from './charts';
 
 interface Season {
   id: string;
@@ -232,6 +232,120 @@ function StatsView({ userId, season }: { userId: string; season: string }) {
   );
 }
 
+interface OverviewRow {
+  userId: string;
+  nickname: string;
+  balance: number;
+  xp: number;
+  level: number;
+  rank: { name: string; icon: string; color: string };
+  ratingTournament: number | null;
+  ratingCash: number | null;
+  hands: number;
+  tournaments: number;
+  tournamentNet: number;
+  cashNet: number;
+  total: number;
+  lastSeenAt: number | null;
+}
+
+type SortKey = 'nickname' | 'balance' | 'total' | 'tournamentNet' | 'cashNet' | 'level' | 'ratingTournament' | 'ratingCash' | 'hands' | 'tournaments';
+
+/** Přehled mezi hráči: tabulka všech hráčů (řazení klepnutím na sloupec) a srovnání vývoje vybraných hráčů v čase. */
+function PlayersOverview({ meId }: { meId: string }) {
+  const [rows, setRows] = useState<OverviewRow[] | null>(null);
+  const [error, setError] = useState('');
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'total', dir: -1 });
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const [metric, setMetric] = useState<'balance' | 'profit' | 'xp'>('balance');
+  const [series, setSeries] = useState<Series[]>([]);
+  const [range, setRange] = useState<'30' | '90' | '365' | 'all'>('all');
+  useEffect(() => {
+    get<{ rows: OverviewRow[] }>('/api/stats/overview')
+      .then((d) => setRows(d.rows))
+      .catch((e) => setError(errorText(e)));
+  }, []);
+  // výchozí výběr: já a první tři podle celkového výsledku
+  const selected = useMemo(() => picked ?? (rows ? [meId, ...rows.filter((r) => r.userId !== meId).slice(0, 3).map((r) => r.userId)].slice(0, 4) : []), [picked, rows, meId]);
+  useEffect(() => {
+    if (selected.length === 0) return;
+    get<{ series: { userId: string; nickname: string; points: Pt[] }[] }>(`/api/stats/compare?users=${selected.join(',')}&metric=${metric}`)
+      .then((d) => setSeries(d.series.map((x) => ({ id: x.userId, name: x.nickname, points: x.points }))))
+      .catch((e) => setError(errorText(e)));
+  }, [selected, metric]);
+  const since = useMemo(() => (range === 'all' ? 0 : Date.now() - Number(range) * 86_400_000), [range]);
+  if (error) return <Notice kind="error">{error}</Notice>;
+  if (!rows) return <Spinner label={t('app.loading')} />;
+  const sorted = [...rows].sort((a, b) => {
+    const av = a[sort.key] ?? -Infinity;
+    const bv = b[sort.key] ?? -Infinity;
+    return (typeof av === 'string' ? av.localeCompare(String(bv), 'cs') : Number(av) - Number(bv)) * sort.dir;
+  });
+  const head = (key: SortKey, label: string) => (
+    <button className="underline decoration-dotted" onClick={() => setSort({ key, dir: sort.key === key ? ((-sort.dir) as 1 | -1) : -1 })} aria-label={label}>
+      {label}
+      {sort.key === key ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
+    </button>
+  );
+  const toggle = (id: string) => setPicked((cur) => {
+    const base = cur ?? selected;
+    return base.includes(id) ? base.filter((x) => x !== id) : [...base, id].slice(0, 8);
+  });
+  const shown = series.map((x) => ({ ...x, points: x.points.filter((p) => p[0] >= since) }));
+  return (
+    <div className="flex flex-col gap-3">
+      <Card title={t('overview.compare')}>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div role="tablist" className="flex flex-wrap gap-1">
+              {(['balance', 'profit', 'xp'] as const).map((m) => (
+                <button key={m} role="tab" aria-selected={metric === m} onClick={() => setMetric(m)} className={`rounded-md border border-line px-2 py-0.5 text-sm ${metric === m ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
+                  {t(`overview.metric.${m}`)}
+                </button>
+              ))}
+            </div>
+            <div role="tablist" className="flex gap-1">
+              {(['30', '90', '365', 'all'] as const).map((r) => (
+                <button key={r} role="tab" aria-selected={range === r} onClick={() => setRange(r)} className={`rounded-md border border-line px-2 py-0.5 text-sm ${range === r ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
+                  {t(`charts.range.${r}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <MultiLineChart series={shown} label={t(`overview.metricHelp.${metric}`)} signed={metric === 'profit'} />
+          <p className="text-xs text-muted">{t('overview.pickHint')}</p>
+        </div>
+      </Card>
+      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('balance', t('overview.balance')), head('total', t('stats.total')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('stats.cashNet')), head('level', t('overview.level')), head('ratingTournament', t('overview.ratingT')), head('ratingCash', t('overview.ratingC')), head('hands', t('stats.hands')), head('tournaments', t('stats.games'))]}>
+        {sorted.map((r) => (
+          <tr key={r.userId} className={r.userId === meId ? 'bg-raised' : ''}>
+            <Td>
+              <input type="checkbox" aria-label={t('overview.compareCol')} checked={selected.includes(r.userId)} onChange={() => toggle(r.userId)} />
+            </Td>
+            <Td>
+              <strong>{r.nickname}</strong> {r.userId === meId && <Badge tone="primary">{t('overview.me')}</Badge>}
+            </Td>
+            <Td className="font-mono">{r.balance}</Td>
+            <Td>
+              <Badge tone={tone(r.total)}>{signed(r.total)}</Badge>
+            </Td>
+            <Td className="font-mono">{signed(r.tournamentNet)}</Td>
+            <Td className="font-mono">{signed(r.cashNet)}</Td>
+            <Td className="text-sm">
+              <span className="font-mono">{r.level}</span> {r.rank.name}
+            </Td>
+            <Td className="font-mono">{r.ratingTournament ?? '–'}</Td>
+            <Td className="font-mono">{r.ratingCash ?? '–'}</Td>
+            <Td className="font-mono">{r.hands}</Td>
+            <Td className="font-mono">{r.tournaments}</Td>
+          </tr>
+        ))}
+      </DataTable>
+      <p className="text-sm text-muted">{t('overview.note')}</p>
+    </div>
+  );
+}
+
 function Leaderboard({ season, seasons }: { season: string; seasons: Season[] }) {
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [error, setError] = useState('');
@@ -405,7 +519,7 @@ function SeasonsAdmin({ seasons, reload }: { seasons: Season[]; reload: () => vo
 
 export function StatsPage() {
   const { me } = useSession();
-  const [tab, setTab] = useState<'mine' | 'board' | 'hands' | 'seasons'>('mine');
+  const [tab, setTab] = useState<'mine' | 'players' | 'board' | 'hands' | 'seasons'>('mine');
   const [season, setSeason] = useState('all');
   const [seasons, setSeasons] = useState<Season[]>([]);
   const manage = can(me, 'statistiky.sezony');
@@ -417,6 +531,7 @@ export function StatsPage() {
   useEffect(reload, [reload]);
   const tabs = [
     { id: 'mine' as const, label: t('stats.tabMine') },
+    { id: 'players' as const, label: t('overview.tab') },
     { id: 'board' as const, label: t('stats.tabBoard') },
     { id: 'hands' as const, label: t('stats.tabHands') },
     ...(manage ? [{ id: 'seasons' as const, label: t('stats.tabSeasons') }] : []),
@@ -432,6 +547,7 @@ export function StatsPage() {
           <Progress />
         </>
       )}
+      {tab === 'players' && me && <PlayersOverview meId={me.user.id} />}
       {tab === 'board' && <Leaderboard season={season} seasons={seasons} />}
       {tab === 'hands' && me && <HandsList me={me.user.id} />}
       {tab === 'seasons' && manage && <SeasonsAdmin seasons={seasons} reload={reload} />}

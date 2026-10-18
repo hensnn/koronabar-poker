@@ -214,6 +214,7 @@ const email: SettingDef[] = [
 const stats: SettingDef[] = [
   bool('stats.recordHands', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
   int('stats.handRetentionDays', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'dní' }, 365, 0, 3650),
+  bool('stats.publicOverview', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
   int('stats.leaderboardMinHands', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 30, 0, 100000),
   bool('stats.publicProfiles', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
 ];
