@@ -622,7 +622,9 @@ h3,
 .tk-drawer-body { flex: 1; overflow: auto; padding: calc(var(--spacing) * 3); }
 /* Na širokém displeji se stůl vejde nad akční lištu i na nižší monitor. */
 @media (min-width: 64rem) {
-  .tk-table { width: min(100%, calc(56vh * var(--tk-table-aspect))); }
+  .tk-table { width: min(100%, calc(var(--tk-table-vh, 56vh) * var(--tk-table-aspect))); }
+  /* Sbalený chat uvolní místo: stůl se zvětší. */
+  .tk-tablepage[data-chat-min] { --tk-table-vh: 76vh; }
 }
 /* Telefon: vyšší ovál, menší karty, prázdná sedadla jen jako tečka. */
 @media (max-width: 40rem) {

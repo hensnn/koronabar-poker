@@ -35,6 +35,7 @@ export const csUi: Record<string, string> = {
   'dashboard.noPlayers': 'Zatím tu nejsou žádní hráči.',
   'dashboard.earningsHelp': 'Výdělek = turnaje + cash game + živý cash, v měně hry bez peněžní hodnoty.',
   'unit.px': 'px',
+  'table.mobileDeviceHint': 'Platí jen pro toto zařízení, ostatní zařízení zůstanou beze změny.',
   'table.resizeHint': 'Tažením změníš velikost, dvojklikem se vrátí výchozí.',
   'table.chatMinimize': 'Sbalit chat do miniatury',
   'table.chatRestore': 'Rozbalit chat',

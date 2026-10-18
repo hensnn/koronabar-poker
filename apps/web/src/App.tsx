@@ -154,7 +154,7 @@ function Shell({ me }: { me: Me }) {
   else page = <Redirect to="/" />;
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-3 p-3">
+    <div className={`mx-auto flex min-h-screen flex-col gap-3 p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <Link to="/" className="font-heading text-2xl font-bold">
           {t('app.name')}

@@ -75,7 +75,7 @@ export function Resizable({
     target.addEventListener('pointercancel', up);
   };
 
-  const grip = 'absolute z-10 touch-none bg-transparent hover:bg-primary';
+  const grip = 'absolute z-10 touch-none bg-line opacity-60 hover:bg-primary hover:opacity-100';
   const title = t('table.resizeHint');
   const wEdge = side === 'left' ? 'left-0' : 'right-0';
   const corner = side === 'left' ? 'bottom-0 left-0 cursor-nesw-resize' : 'bottom-0 right-0 cursor-nwse-resize';

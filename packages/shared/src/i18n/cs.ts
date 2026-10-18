@@ -330,7 +330,7 @@ export const cs: Record<string, string> = {
   'settings.ui.quickBetsPreflop.label': 'Rychlé sázky před flopem',
   'settings.ui.quickBetsPreflop.help': 'Násobky big blindu, oddělené čárkou (např. 2.5,3,4).',
   'settings.ui.mobileLayout.label': 'Mobilní rozložení stolu',
-  'settings.ui.mobileLayout.help': 'Stůl na telefonu: vše se vejde do okna bez posouvání, nabídka a patička se schovají. Automaticky = podle šířky displeje.',
+  'settings.ui.mobileLayout.help': 'Stůl na telefonu: vše se vejde do okna bez posouvání, nabídka a patička se schovají. Automaticky = podle šířky displeje. Platí pro všechna zařízení; tlačítko u stolu to přepíše jen pro dané zařízení.',
   'settings.ui.mobileLayout.option.auto': 'Automaticky',
   'settings.ui.mobileLayout.option.on': 'Vždy',
   'settings.ui.mobileLayout.option.off': 'Nikdy',

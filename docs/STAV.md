@@ -469,3 +469,5 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 - Dosavadní seznam cash stolů (zakládání, úprava, zavření) je na `/cash`, v menu Hrát → Cash stoly. Živý cash zůstává samostatný (zápis hry u skutečného stolu), s online stoly se nemíchá.
 - Server: přehled turnajů vrací i `startAt` (plánovaný start).
 - Živý cash je schovaný z nabídky (globální nastavení `liveCash.enabled`, výchozí vypnuto). Stránka a uložené hry zůstávají, zapnout jde v Nastavení.
+- Mobilní rozložení se z tlačítka u stolu ukládá jen pro dané zařízení (vrstva zařízení přebíjí nastavení účtu); tlačítko je vidět i na počítači.
+- Stránka stolu využije celou šířku okna a po sbalení chatu do miniatury se stůl zvětší (`--tk-table-vh`). Úchyty velikosti panelu a chatu jsou viditelné čárky na okraji.

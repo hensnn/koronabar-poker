@@ -124,6 +124,9 @@ export function TablePage({ tableId }: { tableId: string }) {
           {view.paused ? `▶ ${t('table.resume')}` : `⏸ ${t('table.pause')}`}
         </Button>
       )}
+      <Button onClick={() => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on', true).catch(() => undefined)} title={t('table.mobileDeviceHint')}>
+        {mobile ? t('table.mobileOff') : t('table.mobileOn')}
+      </Button>
       <Button onClick={() => setHistory(true)} title={t('table.history')}>
         📜 {t('table.history')}
       </Button>
@@ -133,7 +136,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     </>
   );
   return (
-    <div className="tk-tablepage" style={pageStyle}>
+    <div className="tk-tablepage" style={pageStyle} data-chat-min={chatMinimized ? '1' : undefined}>
       <Resizable
         as="aside"
         className="tk-tp-panel"
@@ -176,7 +179,6 @@ export function TablePage({ tableId }: { tableId: string }) {
             {more && (
               <div role="menu" className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col gap-1 rounded-md border border-line bg-surface p-2 shadow-lg" onClick={() => setMore(false)}>
                 {tools}
-                <Button onClick={() => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on').catch(() => undefined)}>{mobile ? t('table.mobileOff') : t('table.mobileOn')}</Button>
               </div>
             )}
           </span>
