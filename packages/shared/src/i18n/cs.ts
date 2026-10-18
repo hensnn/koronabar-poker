@@ -748,7 +748,7 @@ export const cs: Record<string, string> = {
   'table.widget.nextLevel': 'Další level',
   'table.widget.seats': 'Obsazeno {seated} z {seats}',
   'table.widget.blinds': 'Blindy',
-  'table.widget.buyIn': 'Buy-in',
+  'table.widget.buyIn': 'Nákup žetonů',
   'table.straddleOn': 'Chci straddle',
   'table.straddleOff': 'Zrušit straddle',
   'error.STRADDLE_DISABLED': 'Straddle je u tohoto stolu vypnutý.',

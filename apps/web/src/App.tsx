@@ -20,6 +20,7 @@ import { TablePage } from './pages/table';
 import { WalletPage } from './pages/wallet';
 import { StatsPage } from './pages/stats';
 import { SoundHost } from './pages/sounds';
+import { TournamentResultHost } from './pages/tournament-result';
 import { AssistantLauncher } from './pages/assistant';
 import { OfflineBanner } from './pwa';
 import { AnnouncerHost } from './announcer/host';
@@ -174,6 +175,7 @@ function Shell({ me }: { me: Me }) {
           <NotificationBell />
           <SoundMenu />
           <SoundHost />
+          <TournamentResultHost />
           <AnnouncerHost />
           <LevelUpToast />
           <span className="rounded-md bg-raised px-3 py-1 font-mono" title={t('nav.balance')}>

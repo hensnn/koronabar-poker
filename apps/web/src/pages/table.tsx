@@ -21,7 +21,7 @@ import { SoundMenu } from '../sound-menu';
 import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
-import { TournamentResultDialog } from './tournament-result';
+import { useTournamentResultFallback } from './tournament-result';
 
 /** Turnaj na více stolech: když hráče přesadí k jinému stolu, stránka ho tam sama přesměruje. */
 function useFollowMyTable(tournamentId: string, tableId: string, enabled: boolean): void {
@@ -96,6 +96,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const tournamentId = tableInfo?.tournamentId ?? tableId;
   const channel = store.channels.find((c) => c.key === `table:${tournamentId}`);
   useFollowMyTable(tournamentId, tableId, isTournament);
+  useTournamentResultFallback(isTournament ? tournamentId : '');
   const { me } = useSession();
   const [pollOpen, setPollOpen] = useState(false);
   const inBb = Boolean(settings.values['ui.showInBb']);
@@ -250,7 +251,6 @@ export function TablePage({ tableId }: { tableId: string }) {
           />
         )}
         {isTournament && <DealPanel id={tournamentId} onlyOpen />}
-        {isTournament && <TournamentResultDialog tournamentId={tournamentId} />}
         <TableScreen
           tableId={tableId}
           inBb={inBb}

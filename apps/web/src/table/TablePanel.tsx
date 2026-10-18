@@ -13,7 +13,7 @@ import { formatAmount } from './format';
 import { setPlan, usePlan, type Plan } from './plan';
 
 /** Widgety panelu u stolu; pořadí je výchozí pořadí zobrazení. */
-export const WIDGETS = ['clock', 'plan', 'table', 'hand', 'best', 'players', 'chat', 'sounds'] as const;
+export const WIDGETS = ['table', 'plan', 'hand', 'best', 'players', 'chat', 'sounds'] as const;
 export type WidgetId = (typeof WIDGETS)[number];
 
 interface PanelState {
@@ -22,19 +22,20 @@ interface PanelState {
   order: WidgetId[];
 }
 
-const isIds = (x: unknown): x is WidgetId[] => Array.isArray(x) && x.every((v) => (WIDGETS as readonly string[]).includes(String(v)));
+// Neznámé widgety (z dřívějších verzí, např. samostatné hodiny turnaje) se při načtení tiše zahodí.
+const ids = (x: unknown): WidgetId[] => (Array.isArray(x) ? x.filter((v): v is WidgetId => (WIDGETS as readonly string[]).includes(String(v))) : []);
 
 function parseState(raw: unknown): PanelState {
   try {
     const p = JSON.parse(String(raw || '{}')) as Partial<PanelState>;
-    const order = isIds(p.order) ? [...new Set(p.order)] : [];
+    const order = [...new Set(ids(p.order))];
     // Widget přidaný novou verzí se zařadí na své výchozí místo (za předchozí widget), ne na konec.
     for (const [i, w] of WIDGETS.entries()) {
       if (order.includes(w)) continue;
       const prev = WIDGETS.slice(0, i).reverse().find((x) => order.includes(x));
       order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, w);
     }
-    return { collapsed: isIds(p.collapsed) ? p.collapsed : [], hidden: isIds(p.hidden) ? p.hidden : [], order };
+    return { collapsed: ids(p.collapsed), hidden: ids(p.hidden), order };
   } catch {
     return { collapsed: [], hidden: [], order: [...WIDGETS] };
   }
@@ -243,9 +244,8 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
   const info = view?.info;
   const tournamentId = info?.tournamentId;
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
-  const titles: Record<WidgetId, string> = { clock: t('table.widget.clock'), plan: t('table.widget.plan'), table: t('table.widget.table'), hand: t('table.widget.hand'), best: t('table.widget.best'), players: t('table.widget.players'), chat: t('table.chat'), sounds: t('table.widget.sounds') };
+  const titles: Record<WidgetId, string> = { plan: t('table.widget.plan'), table: tournamentId ? t('table.widget.clock') : t('table.widget.table'), hand: t('table.widget.hand'), best: t('table.widget.best'), players: t('table.widget.players'), chat: t('table.chat'), sounds: t('table.widget.sounds') };
   const bodies: Record<WidgetId, { show: boolean; body: ReactNode }> = {
-    clock: { show: !!tournamentId, body: tournamentId ? <ClockWidget tournamentId={tournamentId} /> : null },
     plan: {
       show: !!mine && !!view,
       body: view && (
@@ -269,10 +269,10 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
         </div>
       ),
     },
-    // V turnaji ukazují blindy hodiny turnaje; widget Můj stůl je jen pro cash game.
+    // Jeden widget o stole: v turnaji hodiny turnaje (level, blindy, čas), v cash game blindy, rozsah nákupu a rake.
     table: {
-      show: !!info && !info.tournament,
-      body: info && view && (
+      show: !!info,
+      body: tournamentId ? <ClockWidget tournamentId={tournamentId} /> : info && view && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
           <dt className="text-muted">{t('table.widget.blinds')}</dt>
           <dd className="font-mono">
@@ -352,7 +352,7 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
         </div>
       )}
       {open ? (
-        <PanelSettings state={state} setState={setState} titles={titles} absent={[...(tournamentId ? [] : (['clock'] as WidgetId[])), ...(chat ? [] : (['chat'] as WidgetId[]))]} onClose={() => setOpen(false)} />
+        <PanelSettings state={state} setState={setState} titles={titles} absent={chat ? [] : (['chat'] as WidgetId[])} onClose={() => setOpen(false)} />
       ) : (
         visible.map((id) => (
             <Widget

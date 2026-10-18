@@ -32,7 +32,7 @@ import { HistoryService } from './history.js';
 import { BlindStructureService } from './structures.js';
 import { TimelineService } from './timeline.js';
 import { OverviewService } from './overview.js';
-import { TournamentManager, tournamentChatText, type TournamentNotice } from './tournaments.js';
+import { TournamentManager, resultSummary, tournamentChatText, type TournamentNotice } from './tournaments.js';
 import { NotificationService } from './notifications.js';
 import { StatsService } from './stats.js';
 import { ProgressService } from './progress.js';
@@ -449,6 +449,7 @@ export async function buildServer(opts: ServerOptions = {}) {
 
   // Turnaje: stůl každého turnaje je v téže mapě jako cash stoly, takže Socket.IO brána funguje beze změn.
   let emitTournamentChanged: (id: string) => void = () => undefined;
+  let emitTournamentResult: (userId: string, payload: { id: string; name: string; summary: ReturnType<typeof resultSummary>[] }) => void = () => undefined;
   const publicUrlNow = () => String(settings.resolve()['system.publicUrl'] ?? '');
   const push = new PushService({ db, secrets, subject: () => (publicUrlNow().startsWith('https://') ? publicUrlNow() : 'mailto:admin@localhost.invalid'), sender: opts.pushSender });
   progress = new ProgressService({
@@ -562,6 +563,11 @@ export async function buildServer(opts: ServerOptions = {}) {
           const rebuys: Record<string, number> = {};
           for (const p of st.payments) if (p.kind === 'turnaj_rebuy' && !p.refunded) rebuys[p.userId] = (rebuys[p.userId] ?? 0) + 1;
           void progress.idle().then(() => stats.idle()).then(() => rating.onTournamentFinished(id, { ...info, live: tournaments.isLive(id), finishedAt: st.finishedAt, results: st.results!, rebuys }));
+        }
+        if (st?.results && st.results.length > 0) {
+          // Každému, kdo se turnaje účastnil, se kdekoli v aplikaci ukáže přehled výsledků (výsledky všech hráčů jsou veřejné).
+          const summary = st.results.map((r) => resultSummary(st, r));
+          for (const r of st.results) emitTournamentResult(r.userId, { id, name: tournaments.nameOf(id) ?? '', summary });
         }
         if (st?.results && st.results.length > 0) {
           const results = st.results.slice(0, 3).map((r) => `${r.place}. ${r.name}${r.payout > 0 ? ` (+${r.payout})` : ''}`).join(', ');
@@ -941,6 +947,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   notifications.attach(io);
   if (opts.scheduler !== false) scheduler.start();
   emitTournamentChanged = (id) => void io.emit('tournament:changed', { id });
+  emitTournamentResult = (userId, payload) => void io.to(`user:${userId}`).emit('tournament:result', payload);
   const sweepTimer = setInterval(() => tournaments.sweep(3600_000), 600_000);
   sweepTimer.unref?.();
   setupChatEvents(io, chat);

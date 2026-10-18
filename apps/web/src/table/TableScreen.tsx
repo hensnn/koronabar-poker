@@ -33,6 +33,12 @@ interface Props {
 const btn = 'rounded-md border border-line bg-surface px-3 py-1';
 const btnPrimary = 'rounded-md border border-primary bg-primary px-3 py-1 text-on-primary';
 
+/** Run it: karty dalšího běhu se rozdávají postupně; výherce se ukáže až po nich. */
+const RUN_FIRST_MS = 250;
+const RUN_STEP_MS = 450;
+const runCardDelay = (index: number) => RUN_FIRST_MS + index * RUN_STEP_MS;
+const runDelayStyle = (fresh: number) => ({ animationDelay: `${fresh === 0 ? 0 : runCardDelay(fresh)}ms` });
+
 /** Sázka hráče leží mezi jeho sedadlem a středem stolu; na telefonu blíž ke středu, aby ji nezakrývaly karty. */
 function betPosition(seat: number, viewerSeat: number | null, count: number, mobile: boolean) {
   const p = seatPosition(seat, viewerSeat, count);
@@ -100,21 +106,27 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
-            {view.runs && view.runs.length > 1 ? (
+            {view.runs && view.runs.length >= 1 ? (
               <div className="flex flex-col gap-1">
-                {view.runs.map((r, n) => (
-                  <div key={n} className="flex items-center gap-2">
-                    <span className="w-12 text-xs text-felt-text">{t('table.run', { n: n + 1 })}</span>
-                    <div className="flex gap-1">
-                      {r.board.map((c, i) => (
-                        <CardView key={i} card={c} small />
-                      ))}
+                {view.runs.map((r, n) => {
+                  // Karty, které s prvním během sdílí (už ležely na stole), se nerozdávají znovu; nové se rozdávají jedna po druhé.
+                  const shared = n === 0 ? r.board.length : r.board.findIndex((c, i) => c !== view.runs![0]!.board[i]);
+                  const sharedCount = shared < 0 ? r.board.length : shared;
+                  const fresh = r.board.length - sharedCount;
+                  return (
+                    <div key={n} className={`flex items-center gap-2 ${n > 0 ? 'tk-run-in' : ''}`}>
+                      <span className="w-12 text-xs text-felt-text">{t('table.run', { n: n + 1 })}</span>
+                      <div className="flex gap-1">
+                        {r.board.map((c, i) => (
+                          <CardView key={`${n}-${i}-${c}`} card={c} small still={i < sharedCount} delayMs={i < sharedCount ? 0 : runCardDelay(i - sharedCount)} />
+                        ))}
+                      </div>
+                      <span className="tk-run-won text-xs text-felt-text" style={runDelayStyle(n === 0 ? 0 : fresh)}>
+                        {r.winners.map((w) => t('table.runWon', { nick: view.seats.find((s) => s.seat === w.seat)?.name ?? '', amount: formatAmount(w.amount, info, inBb) })).join(' · ')}
+                      </span>
                     </div>
-                    <span className="text-xs text-felt-text">
-                      {r.winners.map((w) => t('table.runWon', { nick: view.seats.find((s) => s.seat === w.seat)?.name ?? '', amount: formatAmount(w.amount, info, inBb) })).join(' · ')}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex gap-1">

@@ -406,6 +406,16 @@ h3,
 .tk-delay-2 { animation-delay: calc(0.16s / var(--tk-anim-speed)); }
 .tk-delay-3 { animation-delay: calc(0.24s / var(--tk-anim-speed)); }
 .tk-delay-4 { animation-delay: calc(0.32s / var(--tk-anim-speed)); }
+.tk-card-still { animation: none; }
+/* Run it: nový běh vjede, jeho karty se rozdávají jedna po druhé a výherce se ukáže až po nich. */
+@keyframes tk-run-in {
+  from { opacity: 0; transform: translateX(calc(var(--spacing) * -6)); }
+}
+@keyframes tk-run-won {
+  from { opacity: 0; transform: scale(0.8); }
+}
+.tk-run-in { animation: tk-run-in calc(0.35s / var(--tk-anim-speed)) ease-out both; }
+.tk-run-won { animation: tk-run-won calc(0.3s / var(--tk-anim-speed)) ease-out both; font-weight: 700; }
 .tk-pop {
   animation: tk-pop calc(0.25s / var(--tk-anim-speed)) ease-out both;
 }
