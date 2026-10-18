@@ -96,6 +96,7 @@ export const table = {
   vote: (tableId: string, yes: boolean) => send('table:vote', { tableId, yes }),
   show: (tableId: string, which: 'both' | 0 | 1) => send('table:show', { tableId, which }),
   rabbit: (tableId: string) => send('table:rabbit', { tableId }),
+  showdown: (tableId: string, choice: 'show' | 'muck') => send('table:showdown', { tableId, choice }),
   act: (tableId: string, action: PlayerAction) => send('table:act', { tableId, action }),
 };
 

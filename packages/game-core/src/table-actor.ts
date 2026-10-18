@@ -68,7 +68,8 @@ export type TableEvent =
   | { type: 'clockCalled'; by: string; target: string }
   | { type: 'bonus'; kind: 'sevenTwo'; userId: string; amount: number }
   | { type: 'bombPot'; handId: string }
-  | { type: 'shown'; userId: string }
+  | { type: 'shown'; userId: string; which: 'both' | 'one' }
+  | { type: 'mucked'; userId: string }
   | { type: 'rabbit'; cards: Card[] }
   | { type: 'rake'; handId: string; total: number; jackpot: number }
   | { type: 'jackpot'; handId: string; kind: 'royalFlush' | 'badBeat' | 'highHand'; payouts: { userId: string; amount: number }[] }
@@ -99,6 +100,8 @@ export interface TableOptions {
   tournamentId?: string;
   /** Předěl mezi handami u turnajového stolu: turnaj může přesadit hráče, zrušit stůl nebo stůl zadržet (hand-for-hand). */
   onBoundary?: () => void;
+  /** Osobní nastavení hráče (např. jak naložit s kartami na showdownu); undefined = výchozí hodnota. */
+  userPref?: (userId: string, key: string) => string | number | boolean | undefined;
 }
 
 type Phase = 'idle' | 'hand' | 'runout' | 'pause' | 'stopped';
@@ -144,6 +147,11 @@ export class TableActor {
   private highHand: { userId: string; score: number } | null = null;
   private highHandTimer = false;
   private startStacks = new Map<string, number>();
+  /** Showdown: odhozené karty (muck), čekání na rozhodnutí hráčů a poslední agresor na ulici. */
+  private mucked = new Set<number>();
+  private choice: { token: number; seats: Set<number>; deadline: number; emitEnd: () => void; afterMs: number } | null = null;
+  private choiceSeq = 0;
+  private lastAggressor: { street: string; seat: number } | null = null;
 
   constructor(private opt: TableOptions) {
     this.handSettings = opt.settings();
@@ -465,6 +473,9 @@ export class TableActor {
       bounties: this.opt.seatBounty ? new Map([...this.seats.values()].map((e) => [e.userId, this.opt.seatBounty!(e.userId) ?? null])) : undefined,
       wanted: this.opt.seatWanted ? new Map([...this.seats.values()].map((e) => [e.userId, this.opt.seatWanted!(e.userId)])) : undefined,
       reveal: this.reveal,
+      mucked: this.mucked,
+      deciding: this.choice?.seats,
+      choiceDeadline: this.choice?.deadline ?? null,
       legal,
       odds: showOdds ? this.oddsCache : null,
       extraSeats: this.extraSeats(h),
@@ -786,6 +797,9 @@ export class TableActor {
       if (e) e.fresh = false;
     }
     this.shown = new Map();
+    this.mucked = new Set();
+    this.choice = null;
+    this.lastAggressor = null;
     this.rabbit = null;
     this.refillBanks();
     this.startStacks = new Map(h.players.map((p) => [p.playerId, p.stack + p.invested + p.dead]));
@@ -877,6 +891,7 @@ export class TableActor {
       e.timeouts = 0;
     }
     this.adapter.act(userId, action);
+    if (action.type === 'bet' || action.type === 'raise' || (action.type === 'allIn' && (legal?.maxRaiseTo ?? 0) > before.currentBet)) this.lastAggressor = { street: before.street, seat: before.actingSeat ?? -1 };
     this.opt.onEvent?.({
       type: 'action',
       handId: before.handId,
@@ -1095,7 +1110,7 @@ export class TableActor {
       const cur = this.shown.get(p.seat) ?? [null, null];
       const next: (Card | null)[] = [which === 'both' || which === 0 ? p.hole[0] : cur[0]!, which === 'both' || which === 1 ? p.hole[1] : cur[1]!];
       this.shown.set(p.seat, next);
-      this.opt.onEvent?.({ type: 'shown', userId });
+      this.opt.onEvent?.({ type: 'shown', userId, which: next[0] && next[1] ? 'both' : 'one' });
       this.changed();
     });
   }
@@ -1208,31 +1223,43 @@ export class TableActor {
     const remaining = h.board.length - this.revealedBoard;
     const step = (ms: number) => this.scaled(ms);
     this.lastEquity = this.allInEquity(h, showdown, showdown && remaining > 0 && this.lastState !== null && this.wasRunout(this.lastState));
-    this.opt.onEvent?.({
-      type: 'handEnd',
-      handId: h.handId,
-      board: h.board,
-      winners: (h.winners ?? []).map(({ seat, amount, handName }) => ({ seat, amount, handName })),
-      showdown,
-      record: {
-        handNumber: h.handNumber,
-        buttonSeat: h.buttonSeat,
-        runs: multi ? multi.length : 1,
-        allInEquity: this.lastEquity,
-        players: h.players.map((p) => ({
-          seat: p.seat,
-          userId: p.playerId,
-          name: p.name,
-          startStack: this.startStacks.get(p.playerId) ?? p.stack + p.invested + p.dead,
-          invested: p.invested + p.dead,
-          won: (h.winners ?? []).filter((w) => w.seat === p.seat).reduce((n, w) => n + w.amount, 0),
-          status: p.status,
-          hole: p.hole,
-          revealed: showdown && p.status !== 'folded' && p.status !== 'sittingOut' && !!p.hole,
-          ...this.strength(p, h, showdown),
-        })),
-      },
-    });
+    // Showdown podle pravidel: výherci a první, kdo ukazuje, ukázat musí; ostatní smějí odhodit karty (muck) podle svého nastavení.
+    const runoutEarly = showdown && remaining > 0 && this.lastState !== null && this.wasRunout(this.lastState);
+    this.mucked = new Set();
+    this.choice = null;
+    const plan = showdown && !runoutEarly ? this.planShowdown(h, s) : null;
+    if (plan) this.mucked = plan.mucked;
+    const emitEnd = (): void => {
+      this.opt.onEvent?.({
+        type: 'handEnd',
+        handId: h.handId,
+        board: h.board,
+        winners: (h.winners ?? []).map(({ seat, amount, handName }) => ({ seat, amount, handName })),
+        showdown,
+        record: {
+          handNumber: h.handNumber,
+          buttonSeat: h.buttonSeat,
+          runs: multi ? multi.length : 1,
+          allInEquity: this.lastEquity,
+          players: h.players.map((p) => ({
+            seat: p.seat,
+            userId: p.playerId,
+            name: p.name,
+            startStack: this.startStacks.get(p.playerId) ?? p.stack + p.invested + p.dead,
+            invested: p.invested + p.dead,
+            won: (h.winners ?? []).filter((w) => w.seat === p.seat).reduce((n, w) => n + w.amount, 0),
+            status: p.status,
+            hole: p.hole,
+            revealed: showdown && p.status !== 'folded' && p.status !== 'sittingOut' && !!p.hole && !this.mucked.has(p.seat),
+            ...this.strength(p, h, showdown),
+          })),
+        },
+      });
+    };
+    if (!plan || plan.deciding.size === 0) {
+      emitEnd();
+      this.announceMucks(h);
+    }
     if (showdown) this.pipeline.run('onShowdown', this.moduleCtx(), h);
     this.pipeline.run('afterPotAwarded', this.moduleCtx(), h);
     const pre = this.lastState;
@@ -1295,8 +1322,89 @@ export class TableActor {
     } else {
       this.reveal = { boardCards: h.board.length, holeCards: showdown, winners: true };
       this.oddsCache = null;
+      if (plan && plan.deciding.size > 0) {
+        this.startChoice(plan.deciding, emitEnd, h, step(num(s, 'time.showdownMs')), num(s, 'time.showdownChoiceMs'));
+        return;
+      }
+      if (!showdown) this.autoShowWinners(h, s);
       this.changed();
       at(showdown ? step(num(s, 'time.showdownMs')) : 0, () => this.finishHand());
+    }
+  }
+
+  /** Kdo na showdownu musí ukázat a kdo smí odhodit karty; podle osobního nastavení se hned odhodí, nebo se hráč bude ptát. */
+  private planShowdown(h: HandState, s: SettingValues): { mucked: Set<number>; deciding: Set<number> } {
+    const mucked = new Set<number>();
+    const deciding = new Set<number>();
+    if (!s['special.muckAllowed']) return { mucked, deciding };
+    const live = h.players.filter((p) => p.status !== 'folded' && p.status !== 'sittingOut' && !!p.hole);
+    const winners = new Set((h.winners ?? []).filter((w) => w.amount > 0).map((w) => w.seat));
+    const first = this.firstToShow(h, live.map((p) => p.seat));
+    for (const p of live) {
+      if (winners.has(p.seat) || p.seat === first || p.status === 'allIn') continue;
+      const pref = String(this.opt.userPref?.(p.playerId, 'ui.showdownLosing') ?? 'show');
+      if (pref === 'muck') mucked.add(p.seat);
+      else if (pref === 'ask') deciding.add(p.seat);
+    }
+    return { mucked, deciding };
+  }
+
+  /** První na showdownu: poslední agresor na riveru, jinak první živý hráč po buttonu. */
+  private firstToShow(h: HandState, liveSeats: number[]): number | null {
+    const a = this.lastAggressor;
+    if (a && a.street === 'RIVER' && liveSeats.includes(a.seat)) return a.seat;
+    const sorted = [...liveSeats].sort((x, y) => x - y);
+    const b = h.buttonSeat ?? -1;
+    return sorted.find((x) => x > b) ?? sorted[0] ?? null;
+  }
+
+  private announceMucks(h: HandState): void {
+    for (const p of h.players) if (this.mucked.has(p.seat)) this.opt.onEvent?.({ type: 'mucked', userId: p.playerId });
+  }
+
+  /** Čekání na rozhodnutí hráčů (ukázat / muck); po čase nebo po posledním rozhodnutí se handa dokončí. */
+  private startChoice(seats: Set<number>, emitEnd: () => void, h: HandState, afterMs: number, ms: number): void {
+    const token = ++this.choiceSeq;
+    this.choice = { token, seats: new Set(seats), deadline: this.opt.clock.now() + ms, emitEnd: () => { emitEnd(); this.announceMucks(this.handState()); }, afterMs };
+    this.changed();
+    this.later(ms, () => {
+      if (this.choice?.token === token) this.resolveChoice();
+    });
+  }
+
+  private resolveChoice(): void {
+    const c = this.choice;
+    if (!c) return;
+    this.choice = null;
+    for (const seat of c.seats) this.mucked.add(seat);
+    c.emitEnd();
+    this.changed();
+    this.later(c.afterMs, () => this.finishHand());
+  }
+
+  /** Hráč na showdownu rozhodne, zda ukáže karty, nebo je odhodí (muck). */
+  showdownChoice(userId: string, choice: 'show' | 'muck'): void {
+    this.guard(() => {
+      const c = this.choice;
+      if (!c) throw new GameError('NOT_ALLOWED');
+      const p = this.handState().players.find((x) => x.playerId === userId);
+      if (!p || !c.seats.has(p.seat)) throw new GameError('NOT_ALLOWED');
+      c.seats.delete(p.seat);
+      if (choice === 'muck') this.mucked.add(p.seat);
+      if (c.seats.size === 0) this.resolveChoice();
+      else this.changed();
+    });
+  }
+
+  /** Výherce bez showdownu: kdo má v nastavení „ukazovat výherní karty vždy“, ukáže je sám. */
+  private autoShowWinners(h: HandState, s: SettingValues): void {
+    if (!s['special.showCards']) return;
+    for (const p of h.players) {
+      if (p.status === 'folded' || p.status === 'sittingOut' || !p.hole) continue;
+      if (!(h.winners ?? []).some((w) => w.seat === p.seat && w.amount > 0)) continue;
+      if (String(this.opt.userPref?.(p.playerId, 'ui.showdownWinning') ?? 'never') !== 'always') continue;
+      this.shown.set(p.seat, [p.hole[0], p.hole[1]]);
+      this.opt.onEvent?.({ type: 'shown', userId: p.playerId, which: 'both' });
     }
   }
 

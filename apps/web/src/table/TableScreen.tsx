@@ -52,6 +52,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const myLook = useMyTableLook();
   const actionBubbles = useActionBubbles(view, inBb);
   const rotate = useSettings().values['ui.rotateToMe'] !== false;
+  const winnerPref = String(useSettings().values['ui.showdownWinning'] ?? 'never');
   const mobile = useMobileLayout();
   usePlanExecutor(view, tableId);
   const [error, setError] = useState('');
@@ -222,6 +223,23 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
         </div>
       )}
 
+      {mine && view.showdownChoice && (
+        <div role="dialog" aria-label={t('table.showdown.title')} className="mx-auto flex max-w-md flex-col gap-2 rounded-md border border-primary bg-surface p-3">
+          <strong>{t('table.showdown.title')}</strong>
+          <p className="text-sm text-muted">
+            {t('table.showdown.hint', { s: String(Math.max(0, Math.ceil((view.showdownChoice.deadline - Date.now() - net.clockOffset) / 1000))) })} · <Countdown deadline={view.showdownChoice.deadline} offset={net.clockOffset} />
+          </p>
+          <div className="flex gap-2">
+            <button className={btnPrimary} onClick={() => void run(table.showdown(tableId, 'show'))}>
+              {t('table.showdown.show')}
+            </button>
+            <button className={btn} onClick={() => void run(table.showdown(tableId, 'muck'))}>
+              {t('table.showdown.muck')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {mine && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
       {mine && (
@@ -229,6 +247,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           {extra}
           {view.winners && mine.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards) && (
             <>
+              {winnerPref === 'ask' && view.winners.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
               <button className={btn} onClick={() => void run(table.show(tableId, 'both'))}>
                 {t('table.showCards')}
               </button>
@@ -343,6 +362,9 @@ function Seat({
   const out = seat.status === 'sittingOut' || seat.sitOut === true;
   const dim = seat.status === 'folded' || seat.status === 'sittingOut' || seat.status === 'waiting';
   const pct = oddsPct ? `${(oddsPct.win * 100).toFixed(1)} %` : null;
+  // Co hráč s kartami udělal: ukázal obě / jednu (po handě bez showdownu), odhodil je (muck), nebo se ještě rozhoduje.
+  const shownCount = seat.exposed ? seat.exposed.filter((c) => c !== null).length : 0;
+  const revealLabel = seat.reveal === 'deciding' ? t('table.deciding') : seat.reveal === 'muck' ? (seat.cards ? t('table.muck') : null) : shownCount === 2 ? t('table.shownBoth') : shownCount === 1 ? t('table.shownOne') : null;
   const status = seat.status === 'allIn' ? t('table.allIn') : seat.status === 'folded' ? t('table.fold') : seat.status === 'sittingOut' ? t('table.sittingOut') : seat.status === 'waiting' ? t('table.waiting') : null;
   return (
     <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''}`}>
@@ -355,7 +377,9 @@ function Seat({
           onPointerDown={hideMine ? (e) => e.pointerType === 'touch' && setPeek((v) => !v) : undefined}
         >
           {seat.hasCards
-            ? seat.cards && !(hideMine && !peek)
+            ? seat.reveal === 'muck' && !seat.cards
+              ? <span className="tk-seat-status">{t('table.muck')}</span>
+              : seat.cards && !(hideMine && !peek)
               ? seat.cards.map((c) => <CardView key={c} card={c} small={!mine} />)
               : [0, 1].map((i) => <CardView key={i} card={seat.exposed?.[i] ?? null} small={!mine} />)
             : status && !out && <span className="tk-seat-status">{status}</span>}
@@ -366,6 +390,11 @@ function Seat({
           </span>
         )}
         {view.straddleSeat === seat.seat && <span className="tk-straddle">S</span>}
+        {revealLabel && (
+          <span className="tk-seat-reveal" role="status">
+            {revealLabel}
+          </span>
+        )}
         {frame.sparkle && (
           <span aria-hidden className="absolute -right-2 -top-2 text-xs">
             ✨
@@ -382,12 +411,8 @@ function Seat({
           </span>
         )}
       </div>
-      {out && (
-        <span className="tk-seat-out-badge" role="status">
-          ⏸ {seat.status === 'sittingOut' ? t('table.sittingOut') : t('table.sitOutPending')}
-        </span>
-      )}
-      <div className="tk-seat-name">
+      <div className="tk-seat-name" title={out ? (seat.status === 'sittingOut' ? t('table.sittingOut') : t('table.sitOutPending')) : undefined}>
+        {out && <span aria-hidden="true">⏸</span>}
         {showRank && <RankBadge userId={seat.playerId} />}
         <LookName userId={seat.playerId}>{seat.name}</LookName>
         {!mine && <NoteDot userId={seat.playerId} onOpen={() => setNoteOpen(true)} />}

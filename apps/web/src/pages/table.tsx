@@ -7,7 +7,7 @@ import { ShareToChat } from './chat-extras';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { loadChannels, useChatStore } from '../chat-store';
-import { onSocket, useNet } from '../net';
+import { onSocket, table as tableApi, useNet } from '../net';
 import { Link } from '../router';
 import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { useMobileAttribute, useMobileLayout } from '../table/mobile';
@@ -111,12 +111,26 @@ export function TablePage({ tableId }: { tableId: string }) {
       setToolError(errorText(e));
     }
   };
+  // Sit out: můj stav je tlačítko s návratem do hry, ostatní jen krátká informace (místo značek přes celý řádek u sedadel).
+  const sitters = (view?.seats ?? []).filter((x) => x.status === 'sittingOut' || x.sitOut === true);
+  const meSitting = sitters.some((x) => x.playerId === me?.user.id);
+  const othersSitting = sitters.filter((x) => x.playerId !== me?.user.id).map((x) => x.name);
   // Nástroje stolu: na širokém displeji v liště, na telefonu pod tlačítkem „⋯“.
   const tools = (
     <>
       {!isTournament && <ShareToChat kind="stul" id={tableId} />}
       {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
       {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+      {meSitting && (
+        <Button onClick={() => void tableApi.sitIn(tableId).catch(() => undefined)} title={t('table.sitIn')}>
+          ⏸ {t('table.sittingOut')} · {t('table.sitIn')}
+        </Button>
+      )}
+      {othersSitting.length > 0 && (
+        <span className="rounded-md border border-warning px-2 py-1 text-sm" title={othersSitting.join(', ')}>
+          ⏸ {t('table.sitOutOthers', { names: othersSitting.join(', ') })}
+        </span>
+      )}
       {canPause && view && (
         <Button onClick={() => void togglePause()} aria-pressed={!!view.paused}>
           {view.paused ? `▶ ${t('table.resume')}` : `⏸ ${t('table.pause')}`}

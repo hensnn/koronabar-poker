@@ -100,6 +100,8 @@ export interface SeatView {
   exposed?: (Card | null)[];
   /** Hráč je v sit outu podle registru stolu (platí i během rozehrané handy, kde `status` ještě ukazuje stav v handě). */
   sitOut?: boolean;
+  /** Showdown: hráč odhodil karty (muck), nebo se ještě rozhoduje, zda je ukáže. */
+  reveal?: 'muck' | 'deciding';
 }
 
 /** Pohled na stůl pro konkrétního hráče nebo diváka. Sestavuje se výhradně whitelistem polí. */
@@ -168,6 +170,8 @@ export interface TableView {
   runs: { board: Card[]; winners: { seat: number; amount: number; hand: HandDescription | null }[] }[] | null;
   /** Akce pro sedadlo viewera, pokud je na tahu. */
   legal: LegalActions | null;
+  /** Showdown: viewer smí rozhodnout, zda ukáže karty, nebo je odhodí (do `deadline`, jinak muck). */
+  showdownChoice?: { deadline: number } | null;
   viewerSeat: number | null;
   /** Diváka/hráče: má vyžádaný dobrovolný straddle. */
   myStraddle: boolean;

@@ -185,6 +185,7 @@ export function setupGateway(deps: GatewayDeps) {
     handle('table:straddle', 'stul.hrat', ({ want }, table) => table!.setStraddle(user.userId, want));
     handle('table:callClock', 'stul.hrat', (_m, table) => table!.callClock(user.userId));
     handle('table:show', 'stul.hrat', ({ which }, table) => table!.showCards(user.userId, which));
+    handle('table:showdown', 'stul.hrat', ({ choice }, table) => table!.showdownChoice(user.userId, choice));
     handle('table:rabbit', 'stul.hrat', (_m, table) => table!.rabbitHunt(user.userId));
     handle('table:vote', 'stul.hrat', ({ yes }, table) => table!.voteRunIt(user.userId, yes));
     handle('table:act', 'stul.hrat', ({ action }, table) => table!.act(user.userId, action as PlayerAction));

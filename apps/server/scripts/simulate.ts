@@ -69,6 +69,10 @@ async function makeBot(n: number): Promise<Bot> {
   const inv = await server.accounts.createInvite(admin!, { maxUses: 1 });
   const { userId } = await server.accounts.register({ inviteCode: inv, nickname: nick, email: `${nick.toLowerCase()}@example.cz`, password: 'heslo-hrace-123', acceptTerms: true });
   const { token } = await server.accounts.login(nick, 'heslo-hrace-123');
+  // různé osobní volby pro showdown: ukázat / zeptat se / muck, a výherní karty bez showdownu
+  const pick = <T,>(a: T[]): T => a[Math.floor(rnd() * a.length)]!;
+  await server.settings.set(userId, 'user', userId, 'ui.showdownLosing', pick(['show', 'ask', 'muck']));
+  await server.settings.set(userId, 'user', userId, 'ui.showdownWinning', pick(['never', 'ask', 'always']));
   const bot: Bot = { n, id: userId, nick, cookie: `kb_session=${token}`, socket: undefined as never, tables: new Set(), views: new Map(), paused: false, acted: new Set(), pending: new Set() };
   await connect(bot);
   return bot;
@@ -131,6 +135,20 @@ function dumpEngine(tableId: string) {
 
 /** Bot na tahu zahraje náhodnou legální akci; občas pošle záměrně špatnou. */
 function play(bot: Bot, tableId: string, v: TableView) {
+  if (v.showdownChoice) {
+    const key = `${tableId}:${v.handId}:choice`;
+    if (!bot.acted.has(key)) {
+      bot.acted.add(key);
+      const delay = rnd() < 0.3 ? 7000 : 20 + Math.floor(rnd() * 400); // občas bez odpovědi (vyprší čas)
+      setTimeout(() => {
+        const cur = bot.views.get(tableId);
+        if (!cur || cur.handId !== v.handId || !cur.showdownChoice) return;
+        void emit(bot, 'table:showdown', { tableId, choice: rnd() < 0.5 ? 'show' : 'muck' }).then((r) => {
+          if (!r.ok && !['NOT_ALLOWED', 'OFFLINE', 'TIMEOUT'].includes(r.code ?? '')) problem(`${bot.nick}: showdown → ${r.code}`);
+        });
+      }, delay);
+    }
+  }
   if (!v.legal || v.viewerSeat === null || v.viewerSeat !== v.actingSeat) return;
   const handId = v.handId;
   // jedna akce na jeden stav stolu (stejný stav může přijít víckrát)

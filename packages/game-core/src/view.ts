@@ -50,6 +50,10 @@ export interface ViewContext {
   /** Hráči v sit outu podle registru (příznak `sitOut` u sedadla). */
   sitOuts?: Set<string>;
   paused?: boolean;
+  /** Showdown: sedadla, která odhodila karty (muck), a ta, která se ještě rozhodují (jejich karty zatím nikdo nevidí). */
+  mucked?: Set<number>;
+  deciding?: Set<number>;
+  choiceDeadline?: number | null;
 }
 
 /** Zda handa skončila showdownem (ne tím, že všichni ostatní složili). */
@@ -102,7 +106,8 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
   const seats: SeatView[] = h.players.map((p) => {
     const own = viewer?.seat === p.seat;
     const inHand = p.status !== 'folded' && p.status !== 'sittingOut';
-    const revealedToAll = ctx.reveal.holeCards && inHand && (showdown || allInRunout(h)) && !!p.hole;
+    const hidden = !!ctx.mucked?.has(p.seat) || !!ctx.deciding?.has(p.seat);
+    const revealedToAll = ctx.reveal.holeCards && inHand && (showdown || allInRunout(h)) && !!p.hole && !hidden;
     const showCards = (own || revealedToAll) && p.hole ? p.hole : null;
     // Před odhalením výherců se stack zobrazuje bez právě vyhraného potu.
     const stack = h.finished ? p.stack - (engineWon.get(p.seat) ?? 0) + (winnersVisible ? (won.get(p.seat) ?? 0) : 0) : p.stack;
@@ -121,6 +126,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       ...((ctx.wanted?.get(p.playerId) ?? 0) > 0 ? { wanted: ctx.wanted!.get(p.playerId)! } : {}),
       ...(h.finished && ctx.exposed?.has(p.seat) ? { exposed: ctx.exposed.get(p.seat)! } : {}),
       ...(ctx.sitOuts?.has(p.playerId) ? { sitOut: true } : {}),
+      ...(h.finished && showdown && ctx.mucked?.has(p.seat) ? { reveal: 'muck' as const } : h.finished && showdown && ctx.deciding?.has(p.seat) ? { reveal: 'deciding' as const } : {}),
     };
   });
   for (const x of ctx.extraSeats ?? []) if (!seats.some((s) => s.seat === x.seat)) seats.push(x);
@@ -156,6 +162,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
         ? h.winners.map(({ seat, amount, cards }) => ({ seat, amount, hand: showdown && cards ? describeHand(cards) : null }))
         : null,
     legal: viewer && ctx.legal ? ctx.legal : null,
+    showdownChoice: viewer && ctx.deciding?.has(viewer.seat) && ctx.choiceDeadline ? { deadline: ctx.choiceDeadline } : null,
     viewerSeat: viewer?.seat ?? (ctx.extraSeats ?? []).find((x) => x.playerId === ctx.viewerId)?.seat ?? null,
     myStraddle: ctx.myStraddle ?? false,
     odds: ctx.odds,

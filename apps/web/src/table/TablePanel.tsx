@@ -120,6 +120,31 @@ export function PlanBar({ view }: { view: TableView }) {
   );
 }
 
+/** Co dělat s kartami na showdownu (poražené) a po výhře bez showdownu; osobní nastavení, platí u všech stolů. */
+function ShowdownPrefs() {
+  const settings = useSettings();
+  const rows: { key: string; label: string; options: string[]; def: string }[] = [
+    { key: 'ui.showdownLosing', label: t('table.plan.showLosing'), options: ['show', 'ask', 'muck'], def: 'show' },
+    { key: 'ui.showdownWinning', label: t('table.plan.showWinning'), options: ['never', 'ask', 'always'], def: 'never' },
+  ];
+  return (
+    <div className="flex flex-col gap-1">
+      {rows.map((r) => (
+        <label key={r.key} className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-muted">{r.label}</span>
+          <select className="rounded-md border border-line bg-surface px-1 py-0.5 text-xs" value={String(settings.values[r.key] ?? r.def)} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
+            {r.options.map((o) => (
+              <option key={o} value={o}>
+                {t(`settings.${r.key}.option.${o}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function Widget({ id, title, state, setState, badge, actions, children }: { id: WidgetId; title: string; state: PanelState; setState: (s: PanelState) => void; badge?: number; actions?: ReactNode; children: ReactNode }) {
   const collapsed = state.collapsed.includes(id);
   return (
@@ -221,6 +246,7 @@ export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | un
         <div className="flex flex-col gap-2">
           <PlanBar view={view} />
           <p className="text-xs text-muted">{t('table.plan.help')}</p>
+          <ShowdownPrefs />
           {mine && (
             <label className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1" title={t('table.sitOutHelp')}>
               <span className="text-sm font-medium">{(mine.sitOut ?? mine.status === 'sittingOut') ? t('table.sittingOut') : t('table.sitOutToggle')}</span>

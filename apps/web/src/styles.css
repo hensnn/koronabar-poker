@@ -446,21 +446,27 @@ h3,
   transition: opacity calc(200ms / var(--tk-anim-speed));
 }
 .tk-seat-dim { opacity: 0.55; }
-/* Hráč v sit outu: šedé sedadlo a výrazný odznak (odznak zůstává plně čitelný). */
-.tk-seat-out { opacity: 1; }
-.tk-seat-out > :not(.tk-seat-out-badge) { opacity: 0.5; filter: grayscale(0.85); }
-.tk-seat-out-badge {
-  display: inline-block;
-  padding: calc(var(--spacing) * 0.5) calc(var(--spacing) * 2);
-  border: 2px solid var(--color-warning);
+/* Co hráč udělal s kartami po handě (ukázal / muck / rozhoduje se): štítek přes spodní okraj karet. */
+.tk-seat-reveal {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--spacing) * -1.5);
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 0 calc(var(--spacing) * 2);
+  border: 1px solid var(--tk-color-turnGlow);
   border-radius: var(--tk-shape-radiusMd);
   background: var(--tk-color-vignette);
-  color: var(--color-warning);
-  font-size: 0.8rem;
+  color: var(--tk-color-feltText);
+  font-size: 0.7rem;
   font-weight: 700;
-  text-shadow: none;
   white-space: nowrap;
+  text-shadow: none;
 }
+/* Hráč v sit outu: šedé sedadlo a výrazný odznak (odznak zůstává plně čitelný). */
+.tk-seat-out { opacity: 1; }
+.tk-seat-out > * { opacity: 0.5; filter: grayscale(0.85); }
+
 .tk-seat-cards {
   border-radius: var(--tk-shape-cardRadius);
   padding: 2px;

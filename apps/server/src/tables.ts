@@ -107,6 +107,7 @@ export class TableManager {
       chipsPerCurrencyUnit: Number(settings()['cash.chipsPerCurrencyUnit']),
       persist: (snap) => this.deps.journal.push(`table:${row.id}`, tableStateOp(row.id, snap)),
       onChange: () => this.deps.onChange(row.id),
+      userPref: (userId, key) => this.deps.settings.layer('user', userId)[key] as string | number | boolean | undefined,
       onEvent: (e) => {
         if (e.type === 'handEnd') void this.applyPending(row.id);
         this.deps.onEvent?.(row.id, e);

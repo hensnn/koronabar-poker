@@ -478,3 +478,9 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 - Sit out je u stolu vidět na první pohled: šedé sedadlo, výrazný oranžový odznak (u mě i u ostatních, i „Sit out po handě“) a značka ⏸ v seznamu hráčů.
 - Oprava: uložená hodnota zrušeného (už neexistujícího) nastavení blokovala každé další uložení osobních nastavení hláškou „Hodnota nastavení není platná“. Server takové klíče při načtení a při kontrole ignoruje (test v `http.test.ts`). Pozor při rušení definice nastavení: starý klíč zůstane v DB, ale nic neblokuje.
 - Levý panel je vysoký jako herní oblast vedle něj (po poslední řádek pod stolem), obsah se posouvá uvnitř a posuvníky jsou tenké a nenápadné.
+
+## Showdown: ukázání karet a muck
+- Na showdownu musí ukázat výherci, ten, kdo ukazuje první (poslední agresor na riveru, jinak první po buttonu), a hráči v all-inu. Ostatní (poražení) mají osobní volbu `ui.showdownLosing`: ukázat (výchozí) / zeptat se / odhodit (muck). Při „zeptat se“ dostane hráč dialog s odpočtem (`time.showdownChoiceMs`, výchozí 6 s), bez odpovědi se karty odhodí. Mucknuté karty se nezveřejní ani v historii handy. Stůl může muck zakázat (`special.muckAllowed`).
+- Výherce bez showdownu: `ui.showdownWinning` = neukazovat / zeptat se (výzva nad tlačítky) / ukázat vždy. Obě volby jsou i ve widgetu Plánovaný tah.
+- U sedadla je štítek „Ukázal karty“, „Ukázal 1 kartu“, „Muck“ nebo „Rozhoduje se…“, v chatu systémová zpráva. Sit out je v horní liště vedle pauzy (můj: tlačítko pro návrat, ostatní: seznam jmen); sedadlo je šedé se značkou ⏸. Úchyty velikosti panelu jsou neviditelné.
+- Simulátor (`scripts/simulate.ts`) dává botům náhodné volby showdownu a hlídá, že se nic nezasekne.

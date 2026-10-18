@@ -395,12 +395,14 @@ export async function buildServer(opts: ServerOptions = {}) {
       if (e.type === 'handStart') void eveningRef?.cashActivity(tableId).catch(() => undefined);
       const ts = tables.settingsOf(tableId);
       if (ts) stats.onTableEvent({ tableId, kind: 'cash', settings: ts, chipsPerUnit: Number(ts['cash.chipsPerCurrencyUnit']) || 1 }, e);
-      if (e.type === 'bonus' || e.type === 'bombPot' || e.type === 'rabbit') {
+      if (e.type === 'bonus' || e.type === 'bombPot' || e.type === 'rabbit' || e.type === 'shown' || e.type === 'mucked') {
         void (async () => {
           const channelId = await chat.channelIdByKey('table:' + tableId);
           if (!channelId) return;
           if (e.type === 'bonus') await chat.system(channelId, t('chat.sys.sevenTwo', { nick: await nickOf(e.userId), amount: e.amount }));
           else if (e.type === 'bombPot') await chat.system(channelId, t('chat.sys.bombPot'));
+          else if (e.type === 'shown') await chat.system(channelId, t(e.which === 'both' ? 'chat.sys.shown' : 'chat.sys.shownOne', { nick: await nickOf(e.userId) }));
+          else if (e.type === 'mucked') await chat.system(channelId, t('chat.sys.mucked', { nick: await nickOf(e.userId) }));
           else await chat.system(channelId, t('chat.sys.rabbit', { cards: e.cards.join(' ') }));
         })().catch(() => undefined);
         return;

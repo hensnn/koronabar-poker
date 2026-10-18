@@ -241,6 +241,7 @@ export class TournamentManager {
           seatWanted: (userId) => this.deps.seatWanted?.(row.id, userId) ?? 0,
           persist: (snap) => this.deps.journal.push(`table:${tableId}`, tableStateOp(tableId, snap)),
           onChange: () => this.deps.onTableChange(tableId),
+          userPref: (userId, key) => this.deps.settings.layer('user', userId)[key] as string | number | boolean | undefined,
           onEvent: (e: TableEvent) => {
             tour.onTableEvent(e, { lead: set.isLead(tableId) });
             this.deps.onTableEvent?.(row.id, tableId, e, tour.tableSettings());
