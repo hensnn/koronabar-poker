@@ -69,7 +69,7 @@ export function AdminRouter() {
   const current = visible.find((s) => path === s.path);
   if (!current) return <Redirect to={visible[0]!.path} />;
   // Skupina bez oprávněných položek zmizí.
-  const menu: MenuGroup[] = GROUPS.map((g) => ({ id: g.id, tone: g.tone, label: t('admin.group.' + g.id), items: visible.filter((s) => s.group === g.id).map((s) => ({ to: s.path, label: t(s.label) })) })).filter((g) => g.items.length > 0);
+  const menu: MenuGroup[] = GROUPS.map((g) => ({ id: g.id, tone: g.tone, label: t(`admin.group.${g.id}`), items: visible.filter((s) => s.group === g.id).map((s) => ({ to: s.path, label: t(s.label) })) })).filter((g) => g.items.length > 0);
   return (
     <div className="flex flex-col gap-3">
       <nav aria-label={t('admin.nav')}>

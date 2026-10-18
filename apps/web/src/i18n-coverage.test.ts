@@ -37,6 +37,7 @@ describe('překlady: každý použitý klíč existuje', () => {
   it('dynamické klíče mají překlad pro všechny hodnoty', () => {
     const groups: Record<string, string[]> = {
       'lobby.straddle.': ['mandatory', 'optional'],
+      'admin.group.': ['people', 'game', 'money', 'system'],
       'request.status.': ['pending', 'approved', 'rejected', 'cancelled'],
       'ledger.kind.': ['mint', 'cash_buyin', 'cash_topup', 'cash_cashout', 'cash_return', 'rake', 'manual_adjustment'],
       'scope.': ['global', 'table', 'channel', 'tournament', 'series'],
