@@ -804,3 +804,7 @@ h3,
 [data-mobile][data-landscape] .tk-act { padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2); }
 [data-mobile][data-landscape] .tk-seat-mine .tk-card { --card-scale: 0.7; }
 [data-mobile][data-landscape] .tk-seat:not(.tk-seat-mine) .tk-card { --card-scale: 0.5; }
+
+/* Nativní prvky prohlížeče (posuvníky, rozbalovací seznamy, výběr data) sledují zvolený světlý/tmavý režim. */
+:root[data-mode='dark'] { color-scheme: dark; }
+:root[data-mode='light'] { color-scheme: light; }

@@ -1419,8 +1419,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.get('/api/rating/duel', guard(async (req, reply) => {
     const u = need(req);
     if (!ratingOn(reply)) return;
-    const q = req.query as { a?: string; b?: string };
-    reply.send(await svc.rating().duel(q.a === 'me' || !q.a ? u.id : q.a, String(q.b ?? '')));
+    const q = z.object({ a: z.union([z.literal('me'), z.string().uuid()]).optional(), b: z.string().uuid() }).parse(req.query);
+    reply.send(await svc.rating().duel(q.a === 'me' || !q.a ? u.id : q.a, q.b));
   }));
   app.get('/api/rating/flags', guard(async (req, reply) => {
     try {

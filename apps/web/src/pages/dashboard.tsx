@@ -93,6 +93,7 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      <h1 className="sr-only">{t('nav.lobby')}</h1>
       <PollsPanel />
       <div className="grid gap-3 sm:grid-cols-2">
         <Card title={t('dashboard.account')}>

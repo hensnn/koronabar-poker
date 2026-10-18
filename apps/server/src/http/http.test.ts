@@ -213,6 +213,13 @@ describe('HTTP API: správa', () => {
     expect((await a.c.call('GET', '/api/me/settings')).json.user['chat.showPlayersAtTable']).toBe(false);
   });
 
+  it('hodnocení souboje s chybějícím nebo neplatným id hráče vrátí 400, ne 500', async () => {
+    const { mk } = await seeded();
+    const a = await mk('Alice');
+    expect((await a.c.call('GET', '/api/rating/duel')).status).toBeLessThan(500);
+    expect((await a.c.call('GET', '/api/rating/duel?b=neni-uuid')).status).toBeLessThan(500);
+  });
+
   it('globální nastavení smí měnit jen oprávněný a změna jde do audit logu', async () => {
     const { admin, mk } = await seeded();
     const hrac = await mk('Hrac');

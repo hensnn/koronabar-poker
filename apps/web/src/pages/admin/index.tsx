@@ -66,6 +66,7 @@ export function AdminRouter() {
           </Link>
         ))}
       </nav>
+      <h1 className="sr-only">{t(current.label)}</h1>
       {current.render()}
     </div>
   );

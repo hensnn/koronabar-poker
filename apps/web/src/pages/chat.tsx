@@ -64,7 +64,7 @@ export function ChatPage() {
   ];
 
   return (
-    <div className="grid gap-3 md:grid-cols-[16rem_1fr]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[16rem_minmax(0,1fr)]">
       <aside className="flex flex-col gap-3">
         {groups.map((g) => (
           <Card key={g.title} title={g.title}>

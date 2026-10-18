@@ -492,7 +492,7 @@ export function TournamentPage({ id }: { id: string }) {
             <dd className="font-mono">{view.fee}</dd>
             <dt className="text-muted">{t('tournament.startingStack')}</dt>
             <dd className="font-mono">
-              {view.startingStack} {t('table.chipsShort')}
+              {view.startingStack}
             </dd>
             <dt className="text-muted">{t('tournament.playersLabel')}</dt>
             <dd className="font-mono">{running ? `${view.alive}/${view.players}` : `${view.players}/${view.seats}`}</dd>

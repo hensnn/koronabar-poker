@@ -27,6 +27,11 @@ export const CONTRAST_PAIRS: { fg: string; bg: string; min: number }[] = [
   { fg: 'color.text', bg: 'color.surface', min: 4.5 },
   { fg: 'color.textMuted', bg: 'color.surface', min: 4.5 },
   { fg: 'color.onPrimary', bg: 'color.primary', min: 4.5 },
+  // Odznaky a tlačítka s barvou stavu používají stejný text jako primární.
+  { fg: 'color.onPrimary', bg: 'color.danger', min: 4.5 },
+  { fg: 'color.onPrimary', bg: 'color.success', min: 4.5 },
+  { fg: 'color.onPrimary', bg: 'color.warning', min: 4.5 },
+  { fg: 'color.onPrimary', bg: 'color.accent', min: 4.5 },
   { fg: 'color.onAction', bg: 'color.actionFold', min: 4.5 },
   { fg: 'color.onAction', bg: 'color.actionCheck', min: 4.5 },
   { fg: 'color.onAction', bg: 'color.actionCall', min: 4.5 },

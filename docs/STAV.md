@@ -488,3 +488,8 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 ## Animace akcí a kompaktní panel
 - Akce u stolu mají animace (řídí je anim.enabled a rychlost animací z motivu): žetony letí od sedadla k sázce, call a check vjedou, fold spadne a karty odlétnou, bet a raise vyskočí s vlnou, re-raise (třetí a další agrese na ulici) a all-in vlnu zopakují, ukázané karty se otočí, muck štítek dopadne.
 - Widget Plánovaný tah je zkrácený na dva řádky (tlačítka; Sit out, Win, Lose), ozubené kolečko je v hlavičce prvního okna, Můj stůl nemá pot a počet hráčů, Moje handa se ukáže jen s kartami, mezery jsou menší.
+
+## Testování 2 (simulace, průchod stránkami, vzhled)
+- Simulace (cash 3 běhy, turnaje 2 běhy s dlouhým limitem) bez chyb serveru. Turnaje s hráči, kteří mají volbu „zeptat se“ na showdownu, jsou pomalejší (až 6 s na showdown).
+- Průchod všemi stránkami v oknech 1400, 1024, 768, 812×375 a 375 px: opraven přetékající chat na telefonu. Kontrola kontrastu v světlém i tmavém režimu: opraveny odznaky a červená tlačítka v tmavém Červeném salonu (kontrolní dvojice onPrimary vůči danger, success, warning a accent jsou nově v testech motivů). Nativní posuvníky a ovládací prvky sledují světlý/tmavý režim (`color-scheme`).
+- Server: `/api/rating/duel` s neplatným id už nevrací 500. Doplněny české názvy 5 šablon e-mailů, skryté nadpisy h1 na přehledu a ve správě.
