@@ -6,10 +6,9 @@ import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { useSession } from '../session';
 import { Modal } from '../ui';
-import { useMobileLayout } from './mobile';
 import { formatAmount } from './format';
 
-interface TournamentInfo {
+export interface TournamentInfo {
   status: string;
   prizePool: number;
   players: number;
@@ -25,17 +24,9 @@ interface TournamentInfo {
 
 const chip = 'rounded-md border border-line bg-surface px-1.5 py-0.5 text-xs';
 
-/**
- * Přehled hry vedle stolu: kolik je v banku, kolik je míst, bounty a jaké speciální varianty se hrají.
- * U turnaje navíc prize pool, kolik hráčů zbývá, placená místa a tlačítko pro návrh dohody.
- */
-export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; tournamentId: string | null; inBb: boolean }) {
-  const info = view.info;
+/** Údaje o turnaji pro boční panel; obnovují se po změně turnaje a jednou za chvíli. */
+export function useTournamentInfo(tournamentId: string | null): TournamentInfo | null {
   const [tour, setTour] = useState<TournamentInfo | null>(null);
-  const [dealOpen, setDealOpen] = useState(false);
-  const mobile = useMobileLayout();
-  const [expanded, setExpanded] = useState(false);
-  const { me } = useSession();
   const load = useCallback(() => {
     if (!tournamentId) return;
     get<TournamentInfo>(`/api/tournaments/${tournamentId}`)
@@ -52,7 +43,24 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
       clearInterval(poll);
     };
   }, [tournamentId, load]);
+  return tournamentId ? tour : null;
+}
 
+/** Moje pozice v turnaji: místo mezi zbývajícími a kolik hráčů zbývá vyřadit do peněz (bubliny). */
+export function positionText(tour: TournamentInfo | null, userId: string | undefined): string | null {
+  if (!tour || tour.status !== 'running') return null;
+  const mine = tour.standings.find((p) => p.userId === userId);
+  if (!mine) return null;
+  if (mine.status === 'out') return t('table.info.positionOut', { place: mine.place });
+  const alive = tour.standings.filter((p) => p.status === 'playing' || p.status === 'deciding').length;
+  const paid = tour.payouts.length;
+  return t('table.info.position', { place: mine.place, total: alive }) + (paid > 0 ? ' · ' + (alive > paid ? t('table.info.toMoney', { n: alive - paid }) : t('table.info.inMoney')) : '');
+}
+
+/** Základní údaje o hře: místa, prize pool, hráči, placená místa, bounty a speciální varianty. */
+export function InfoBody({ view, tour, tournamentId, inBb }: { view: TableView; tour: TournamentInfo | null; tournamentId: string | null; inBb: boolean }) {
+  const info = view.info;
+  const { me } = useSession();
   const seated = view.seats.length;
   const money = (n: number) => `${n.toLocaleString('cs-CZ')} ${info.currencySymbol}`;
   const bountyLine = tour
@@ -68,15 +76,7 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
   const alive = tour?.standings.filter((p) => p.status === 'playing' || p.status === 'deciding') ?? [];
   const chipsKnown = alive.length > 0 && alive.every((p) => p.chips !== null);
   const avgStack = chipsKnown ? Math.round(alive.reduce((n, p) => n + (p.chips ?? 0), 0) / alive.length) : null;
-
-  // Moje pozice v turnaji: místo mezi zbývajícími a kolik hráčů zbývá vyřadit do peněz (bubliny).
-  const mine = tour?.standings.find((p) => p.userId === me?.user.id);
-  const paid = tour?.payouts.length ?? 0;
-  const position = tour && mine && running
-    ? mine.status === 'out'
-      ? t('table.info.positionOut', { place: mine.place })
-      : t('table.info.position', { place: mine.place, total: alive.length }) + (paid > 0 ? ' · ' + (alive.length > paid ? t('table.info.toMoney', { n: alive.length - paid }) : t('table.info.inMoney')) : '')
-    : null;
+  const position = positionText(tour, me?.user.id);
 
   const tags: string[] = [];
   if (info.bettingLimit === 'potLimit') tags.push(t('table.info.limitPot'));
@@ -95,13 +95,10 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
   if (tour?.addon.enabled) tags.push(t('table.info.addon'));
   if (tour?.reentry.enabled) tags.push(t('table.info.reentry'));
 
-  const card = (
-    <section className="flex flex-col gap-1.5 rounded-md border border-line bg-surface p-2 text-sm" aria-label={t('table.info.title')}>
-      {!mobile && <h3 className="font-semibold">{t('table.info.title')}</h3>}
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
       {position && <p className="rounded-md bg-raised px-2 py-1 text-xs font-semibold">{position}</p>}
       <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
-        <dt className="text-muted">{t('table.info.pot')}</dt>
-        <dd className="text-right font-mono">{formatAmount(view.totalPot, info, inBb)}</dd>
         {!tournamentId && (
           <>
             <dt className="text-muted">{t('table.info.seats')}</dt>
@@ -149,34 +146,52 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
           ))}
         </div>
       )}
-      {tournamentId && tour?.deal.enabled && running && !tour.deal.done && (
-        <button className="rounded-md border border-primary bg-primary px-2 py-1 text-on-primary" onClick={() => setDealOpen(true)}>
-          {tour.deal.open ? t('table.info.dealOpen') : t('deal.propose')}
-        </button>
-      )}
-      {dealOpen && tournamentId && (
-        <Modal title={t('deal.title')} onClose={() => setDealOpen(false)} wide>
+    </div>
+  );
+}
+
+/** Odměny na hlavu: kdo je „hledaný“ a kolik za něj někdo vypsal. */
+export function wantedList(view: TableView): { seat: number; name: string; amount: number }[] {
+  return view.seats
+    .filter((s) => (s.wanted ?? 0) > 0)
+    .map((s) => ({ seat: s.seat, name: s.name, amount: s.wanted ?? 0 }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+export function BountiesBody({ view }: { view: TableView }) {
+  const list = wantedList(view);
+  const { me } = useSession();
+  if (list.length === 0) return <p className="text-sm text-muted">{t('table.info.noRewards')}</p>;
+  const mineId = view.seats.find((s) => s.playerId === me?.user.id)?.seat;
+  return (
+    <ul className="flex flex-col gap-1 text-sm">
+      {list.map((w) => (
+        <li key={w.seat} className="flex items-center justify-between gap-2">
+          <span className="truncate" title={t('tournament.wanted')}>
+            ⚑ {w.name}
+            {w.seat === mineId ? ` (${t('table.info.you')})` : ''}
+          </span>
+          <span className="font-mono font-semibold">{w.amount}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Tlačítko pro návrh dohody (turnaj, který běží, má dohodu povolenou a žádná ještě neproběhla); otevře okno s dohodou. */
+export function DealButton({ tour, tournamentId }: { tour: TournamentInfo | null; tournamentId: string | null }) {
+  const [open, setOpen] = useState(false);
+  if (!tournamentId || !tour || !tour.deal.enabled || tour.status !== 'running' || tour.deal.done) return null;
+  return (
+    <>
+      <button className="w-full rounded-md border border-primary bg-primary px-2 py-1 text-on-primary" onClick={() => setOpen(true)}>
+        {tour.deal.open ? t('table.info.dealOpen') : t('deal.propose')}
+      </button>
+      {open && (
+        <Modal title={t('deal.title')} onClose={() => setOpen(false)} wide>
           <DealPanel id={tournamentId} />
         </Modal>
       )}
-    </section>
+    </>
   );
-  // Na telefonu je karta sbalená do jednoho řádku (bank, místa, moje pozice); celá se otevře v okně, aby nevytlačila akční lištu.
-  if (mobile) {
-    const summary = [`${t('table.info.pot')} ${formatAmount(view.totalPot, info, inBb)}`, tournamentId && tour ? `${tour.alive}/${tour.players}` : `${seated}/${info.seatCount}`, position].filter(Boolean).join(' · ');
-    return (
-      <>
-        <button className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs" aria-haspopup="dialog" onClick={() => setExpanded(true)}>
-          <span className="font-semibold">{t('table.info.title')}</span>
-          <span className="truncate font-mono">{summary}</span>
-        </button>
-        {expanded && (
-          <Modal title={t('table.info.title')} onClose={() => setExpanded(false)}>
-            {card}
-          </Modal>
-        )}
-      </>
-    );
-  }
-  return card;
 }

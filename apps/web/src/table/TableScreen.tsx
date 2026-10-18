@@ -11,7 +11,7 @@ import { useSession } from '../session';
 import { ActionBar } from './ActionBar';
 import { CardView } from './CardView';
 import { formatAmount, seatPosition } from './format';
-import { TableInfoCard } from './InfoCard';
+import { SidePanel } from './SidePanel';
 import { Amount } from './Chips';
 import { Countdown, TimerBar } from './TimerRing';
 import { useThemeToken } from '../theme/ThemeProvider';
@@ -105,7 +105,6 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const viewerSeat = rotate ? (view.viewerSeat ?? mine?.seat ?? 0) : 0;
   const odds = view.odds;
   const mainOdds = odds?.[0];
-  const infoCard = <TableInfoCard view={view} tournamentId={info.tournament ? (info.tournamentId ?? tableId) : null} inBb={inBb} />;
   const acting = view.actingSeat !== null ? view.seats.find((s) => s.seat === view.actingSeat) : undefined;
 
   return (
@@ -268,10 +267,16 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
       {mine && <ActionBar view={view} legal={view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
-      {mine && (
-        <div className="tk-extra flex flex-wrap items-center gap-2">
-          {infoCard}
-          {extra}
+      {/* Pravý sloupec: widgety o hře (přizpůsobitelné ozubeným kolečkem) a akce hráče. */}
+      <div className="tk-extra flex flex-col gap-2">
+        <SidePanel
+          view={view}
+          tournamentId={info.tournament ? (info.tournamentId ?? tableId) : null}
+          inBb={inBb}
+          tools={
+            mine ? (
+              <div className="tk-tools flex flex-wrap items-center gap-2">
+                {extra}
           {view.winners && mine.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards) && (
             <>
               {winnerPref === 'ask' && view.winners.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
@@ -320,14 +325,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
               {t('table.leave')}
             </button>
           )}
-        </div>
-      )}
-      {!mine && (
-        <div className="tk-extra flex flex-wrap items-center gap-2">
-          {infoCard}
-          {extra}
-        </div>
-      )}
+              </div>
+            ) : extra ? (
+              <div className="tk-tools flex flex-wrap items-center gap-2">{extra}</div>
+            ) : null
+          }
+        />
+      </div>
 
       {error && (
         <p role="alert" className="text-danger">

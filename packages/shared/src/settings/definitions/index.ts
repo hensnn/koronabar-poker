@@ -654,6 +654,7 @@ const ui: SettingDef[] = [
   ]),
   text('ui.themeId', { category: 'ui', mutability: A, scopes: USER }, 'classic-green', 60),
   text('ui.tablePanel', { category: 'ui', mutability: A, scopes: USER }, '', 400),
+  text('ui.tableSide', { category: 'ui', mutability: A, scopes: USER }, '', 400),
   bool('ui.showSymbolAtTable', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.rotateToMe', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.hideMyCards', { category: 'ui', mutability: A, scopes: USER }, false),

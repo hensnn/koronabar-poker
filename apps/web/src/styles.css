@@ -753,7 +753,8 @@ h3,
   html:not([data-mobile]) .tk-screen > .tk-turn-row { grid-area: turn; }
   html:not([data-mobile]) .tk-screen > .tk-actionbar { grid-area: action; }
   html:not([data-mobile]) .tk-screen > :not(.tk-room):not(.tk-extra):not(.tk-turn-row):not(.tk-actionbar) { grid-column: 1 / -1; }
-  html:not([data-mobile]) .tk-screen > .tk-extra { grid-area: extra; flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 11rem; }
+  html:not([data-mobile]) .tk-screen > .tk-extra { grid-area: extra; width: 12rem; }
+  html:not([data-mobile]) .tk-extra .tk-tools { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
 }
 /* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */
 .tk-turn-row { min-height: 2.75rem; display: flex; align-items: center; justify-content: center; }
