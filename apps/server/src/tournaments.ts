@@ -831,6 +831,7 @@ export class TournamentManager {
           fee: Number(s['tournament.fee']),
           startingStack: Number(s['tournament.startingStack']),
           live: !!s['tournament.live'],
+          startAt: this.rows.get(r.id)?.sched?.startAt ?? null,
           createdAt: r.createdAt.getTime(),
         };
       })
@@ -1079,6 +1080,8 @@ export interface TournamentSummary {
   fee: number;
   startingStack: number;
   live: boolean;
+  /** Plánovaný start (epoch ms) u turnaje s plánem, jinak null. */
+  startAt: number | null;
   createdAt: number;
 }
 

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PollsPanel } from './polls';
 import { RulesDialog } from './rules';
 import { decideChange, resolveSettings, scopeAllowed, t, validateValues, type SettingValue, type SettingValues } from '@kb/shared';
 import { del, errorText, get, patch, post } from '../api';
@@ -66,7 +65,6 @@ export function LobbyPage() {
   if (!data) return error ? <Notice kind="error">{error}</Notice> : <Spinner label={t('app.loading')} />;
   return (
     <div className="flex flex-col gap-3">
-      <PollsPanel />
       <div className="flex flex-wrap items-end gap-3">
         <h1 className="font-heading text-2xl font-bold">{t('lobby.title')}</h1>
         <div className="ml-auto flex flex-wrap items-end gap-3">

@@ -160,7 +160,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       </Resizable>
       <div className="tk-tp-main flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={isTournament ? `/turnaj/${tournamentId}` : '/'} className="underline">
+          <Link to={isTournament ? `/turnaj/${tournamentId}` : '/cash'} className="underline">
             {isTournament ? t('tournament.backToTournament') : t('table.backToLobby')}
           </Link>
           <span className="tk-tp-mobile relative ml-auto flex gap-2">

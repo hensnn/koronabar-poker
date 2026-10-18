@@ -32,6 +32,7 @@ import { TvPage } from './pages/tv';
 import { EveningPage, EveningsPage } from './pages/evenings';
 import { NotificationBell } from './notifications';
 import { SoundMenu } from './sound-menu';
+import { DashboardPage } from './pages/dashboard';
 import { MainMenu, type MenuGroup, type MenuItem, type MenuTone } from './main-menu';
 import { useTournamentAutoJoin } from './tournament-autojoin';
 import { useMySeat } from './my-seat';
@@ -105,7 +106,7 @@ function Shell({ me }: { me: Me }) {
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live'), item('/vecery', 'nav.evenings')] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live'), item('/vecery', 'nav.evenings')] },
       { id: 'community', label: t('nav.group.community'), tone: 'info', items: [item('/chat', 'nav.chat', can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit')), item('/ankety', 'nav.polls')] },
       { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress'), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.settings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
@@ -135,7 +136,8 @@ function Shell({ me }: { me: Me }) {
   else if (path === '/vecery') page = <EveningsPage />;
   else if (zivyCash) page = <LiveCashPage id={zivyCash.id!} />;
   else if (path === '/zivy-cash') page = <LiveCashListPage />;
-  else if (path === '/') page = <LobbyPage />;
+  else if (path === '/') page = <DashboardPage />;
+  else if (path === '/cash') page = <LobbyPage />;
   else if (path === '/chat') page = <ChatPage />;
   else if (path === '/penezenka') page = <WalletPage />;
   else if (path === '/statistiky') page = <StatsPage />;

@@ -463,3 +463,8 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 ## Velikost oken u stolu (počítač)
 - Levý panel jde tahat za pravý a spodní okraj (šířka, výška), chat za pravý/levý a spodní okraj (šířka, výška seznamu zpráv); dvojklik na úchyt vrátí výchozí velikost.
 - Chat jde sbalit do miniatury (pruh s počtem nepřečtených a poslední zprávou). Vše se ukládá jako osobní nastavení (`ui.tablePanelWidth/Height`, `ui.tableChatWidth/Height`, `ui.tableChatMinimized`), komponenta `apps/web/src/table/resizable.tsx`.
+
+## Lobby jako přehled a stránka Cash stoly
+- `/` je nově přehled (`apps/web/src/pages/dashboard.tsx`): moje konto (zůstatek, výdělek ze všech her, místo v žebříčku), kde právě hraju, otevřené cash stoly, plánované turnaje (se startem) a žebříček hráčů podle výdělku. Žebříček se řídí nastavením `stats.publicOverview`.
+- Dosavadní seznam cash stolů (zakládání, úprava, zavření) je na `/cash`, v menu Hrát → Cash stoly. Živý cash zůstává samostatný (zápis hry u skutečného stolu), s online stoly se nemíchá.
+- Server: přehled turnajů vrací i `startAt` (plánovaný start).
