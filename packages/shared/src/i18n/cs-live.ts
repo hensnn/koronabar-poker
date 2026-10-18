@@ -1,6 +1,8 @@
 /** Texty režimu živé hry (skutečné karty u stolu). */
 export const csLive: Record<string, string> = {
   'nav.live': 'Živý cash',
+  'settings.liveCash.enabled.label': 'Živý cash v nabídce',
+  'settings.liveCash.enabled.help': 'Zapíná záložku Živý cash (zápis cash hry u skutečného stolu). Vypnutím se jen schová z nabídky, uložené hry zůstanou.',
 
   'rating.seasonTab': 'Sezóna',
   'rating.allTimeTab': 'Celkově',

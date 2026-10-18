@@ -103,10 +103,12 @@ function Shell({ me }: { me: Me }) {
   const blocked = me.user.status === 'blocked';
   // Vypnutý obchod (cosmetics.enabled) zmizí i z nabídky.
   const shopOn = settings.values['cosmetics.enabled'] !== false;
+  // Živý cash je ve výchozím stavu schovaný (liveCash.enabled); stránka zůstává dostupná, jen není v nabídce.
+  const liveOn = settings.values['liveCash.enabled'] === true;
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live'), item('/vecery', 'nav.evenings')] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings')] },
       { id: 'community', label: t('nav.group.community'), tone: 'info', items: [item('/chat', 'nav.chat', can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit')), item('/ankety', 'nav.polls')] },
       { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress'), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.settings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },

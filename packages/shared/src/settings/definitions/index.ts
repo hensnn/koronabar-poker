@@ -300,6 +300,7 @@ const themeSettings: SettingDef[] = [
   int('headBounty.maxPerPoster', { category: 'bets', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 100),
   choice('headBounty.noKiller', { category: 'bets', mutability: ADM, scopes: GLOBAL }, 'return', ['return', 'house', 'winner']),
   choice('headBounty.survived', { category: 'bets', mutability: ADM, scopes: GLOBAL }, 'return', ['return', 'house', 'winner']),
+  bool('liveCash.enabled', { category: 'system', mutability: ADM, scopes: GLOBAL }, false),
   bool('evening.enabled', { category: 'evening', mutability: ADM, scopes: GLOBAL }, true),
   bool('evening.autoCreate', { category: 'evening', mutability: ADM, scopes: GLOBAL }, true),
   bool('evening.autoClose', { category: 'evening', mutability: ADM, scopes: GLOBAL }, true),

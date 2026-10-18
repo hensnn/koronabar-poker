@@ -468,3 +468,4 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 - `/` je nově přehled (`apps/web/src/pages/dashboard.tsx`): moje konto (zůstatek, výdělek ze všech her, místo v žebříčku), kde právě hraju, otevřené cash stoly, plánované turnaje (se startem) a žebříček hráčů podle výdělku. Žebříček se řídí nastavením `stats.publicOverview`.
 - Dosavadní seznam cash stolů (zakládání, úprava, zavření) je na `/cash`, v menu Hrát → Cash stoly. Živý cash zůstává samostatný (zápis hry u skutečného stolu), s online stoly se nemíchá.
 - Server: přehled turnajů vrací i `startAt` (plánovaný start).
+- Živý cash je schovaný z nabídky (globální nastavení `liveCash.enabled`, výchozí vypnuto). Stránka a uložené hry zůstávají, zapnout jde v Nastavení.
