@@ -63,6 +63,8 @@ export class SettingsStore {
     const rows = await this.db.select().from(schema.settingsValues);
     this.layers = new Map();
     for (const r of rows) {
+      // Hodnota parametru, který už neexistuje (zrušená definice), se ignoruje; jinak by blokovala každé další uložení.
+      if (!this.registry.get(r.key)) continue;
       const key = this.k(r.scopeType as Scope, r.scopeId);
       const layer = this.layers.get(key) ?? {};
       layer[r.key] = coerce(this.registry.get(r.key), r.value);
@@ -103,7 +105,8 @@ export class SettingsStore {
     if (!def) throw new SettingsError('UNKNOWN_KEY');
     if (!scopeAllowed(def.scopes, scope)) throw new SettingsError('SCOPE_NOT_ALLOWED');
     this.authorize(actorId, scope, scopeId, key);
-    const issues = validateValues(this.registry, { ...this.layer(scope, scopeId), [key]: value });
+    const known = Object.fromEntries(Object.entries(this.layer(scope, scopeId)).filter(([k]) => this.registry.get(k)));
+    const issues = validateValues(this.registry, { ...known, [key]: value });
     // Kontrola konzistence se týká složených hodnot (výchozí + vrstva); chyby u jiných klíčů se nehlásí.
     const mine = issues.filter((i) => i.keys.includes(key) || i.messageKey.startsWith('validation.'));
     if (mine.length) throw new SettingsError('INVALID', mine);

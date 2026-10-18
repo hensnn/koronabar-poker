@@ -205,6 +205,14 @@ describe('HTTP API: správa', () => {
     expect((await a.c.call('GET', '/api/me/settings')).json.user).toEqual({});
   });
 
+  it('zrušený (už neexistující) klíč v uložených nastaveních neblokuje další ukládání', async () => {
+    const { server, mk } = await seeded();
+    const a = await mk('Alice');
+    server.settings.preset('user', a.id, { 'ui.dávno.zrušené': 5 } as never);
+    expect((await a.c.call('PUT', '/api/me/settings', { key: 'chat.showPlayersAtTable', value: false })).status).toBe(200);
+    expect((await a.c.call('GET', '/api/me/settings')).json.user['chat.showPlayersAtTable']).toBe(false);
+  });
+
   it('globální nastavení smí měnit jen oprávněný a změna jde do audit logu', async () => {
     const { admin, mk } = await seeded();
     const hrac = await mk('Hrac');

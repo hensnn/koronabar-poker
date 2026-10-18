@@ -86,7 +86,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [stored, dragging]);
   const keep = (key: string, value: number | boolean) => void saveUserSetting(key, value).catch(() => undefined);
   const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px' };
-  const panelBodyStyle: CSSProperties | undefined = size.ph > 0 ? { maxHeight: size.ph } : undefined;
+  // Výška panelu je výchozí podle herní oblasti; ruční výška (tažení za spodní okraj) ji přepíše.
+  const panelStyle: CSSProperties | undefined = size.ph > 0 ? { height: size.ph, alignSelf: 'start' } : undefined;
   const view = net.views[tableId];
   const tableInfo = view?.info;
   const isTournament = tableInfo?.tournament === true;
@@ -137,6 +138,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       <Resizable
         as="aside"
         className="tk-tp-panel"
+        style={panelStyle}
         w={size.pw}
         h={size.ph}
         limits={{ minW: 160, maxW: 640, minH: 120, maxH: 3000 }}
@@ -154,7 +156,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           keep('ui.tablePanelHeight', defaultOf('ui.tablePanelHeight'));
         }}
       >
-        <div className="tk-tp-scroll flex flex-col gap-2" style={panelBodyStyle} aria-label={t('table.panel')}>
+        <div className="tk-tp-scroll" aria-label={t('table.panel')}>
           <TablePanel
             view={view}
             tableId={tableId}
