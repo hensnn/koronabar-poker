@@ -433,7 +433,7 @@ export function TournamentPage({ id }: { id: string }) {
             {t('tournament.start')}
           </Button>
         )}
-        {running && !view.paused && m.status === 'playing' && (
+        {features.polls && running && !view.paused && m.status === 'playing' && (
           <Button title={t('tournament.pauseVoteHelp')} disabled={busy} onClick={() => void startPauseVote()}>
             {t('tournament.pauseVote')}
           </Button>

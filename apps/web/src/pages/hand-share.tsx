@@ -168,9 +168,11 @@ export function ShareHandButton({ handId }: { handId: string }) {
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} /> {t('hand.shareReveal')}
             </label>
+            {features.polls && (
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={poll} onChange={(e) => setPoll(e.target.checked)} /> {t('hand.sharePoll')}
             </label>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="primary"

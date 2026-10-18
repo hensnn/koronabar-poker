@@ -214,3 +214,33 @@ describe('odehrané scénáře: cash stoly', { timeout: 600_000 }, () => {
     expect(problems).toEqual([]);
   });
 });
+
+describe('odehrané scénáře: dohoda v turnaji', { timeout: 300_000 }, () => {
+  for (const bounty of ['none', 'pko'] as const) {
+    it(`dohoda ICM (${bounty}): turnaj skončí, přehled souhlasí s peněženkami, bounty účet je prázdný`, async () => {
+      const s = await start();
+      const org = await s.user('organizator');
+      const players = [await s.user(), await s.user(), await s.user()];
+      const before = new Map(players.map((p) => [p, s.server.ledger.balance(accounts.wallet(p))]));
+      const { id } = await s.server.tournaments.create(org, {
+        name: 'Dohoda',
+        templateId: 'tour-turbo',
+        settings: { ...BASE, 'tournament.dealEnabled': true, 'tournament.dealMaxPlayers': 3, 'tournament.dealVoteSeconds': 300, 'tournament.payoutPreset': 'top3', 'tournament.bountyType': bounty, ...(bounty === 'pko' ? { 'tournament.bountyPercent': 40 } : {}) },
+      });
+      for (const p of players) await s.server.tournaments.register(p, id);
+      if (s.server.tournaments.get(id)!.state().status === 'registering') await s.server.tournaments.start(org, id);
+      expect(s.server.tournaments.get(id)!.state().status).toBe('running');
+      await s.server.tournaments.proposeDeal(players[0]!, id, { method: 'icm' });
+      for (const p of players) await s.server.tournaments.voteDeal(p, id, true);
+      await Promise.resolve();
+      const view = await s.server.tournaments.view(id, players[0]!);
+      expect(view.status).toBe('finished');
+      expect(view.deal.done).not.toBeNull();
+      expect(s.server.ledger.balance(accounts.tournament(id))).toBe(0);
+      expect(s.server.ledger.balance(accounts.bounty(id))).toBe(0);
+      expect(s.server.ledger.totalIsZero(ids(s.everyone, [accounts.tournament(id), accounts.bounty(id)]))).toBe(true);
+      expect(view.summary).not.toBeNull();
+      for (const row of view.summary!) expect(s.server.ledger.balance(accounts.wallet(row.userId)) - before.get(row.userId)!, s.names.get(row.userId)).toBe(row.profit);
+    });
+  }
+});
