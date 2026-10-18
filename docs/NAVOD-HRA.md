@@ -81,5 +81,6 @@ Odpojený hráč (zavřená aplikace, výpadek) dostane jen **prodlevu pro odpoj
 | Kdo co smí | Správa → Role |
 | Peníze hráčům | Správa → Pokladna |
 | Co se stalo | Správa → Audit log, Finance |
+| Jak se mi daří (grafy zůstatku, výsledků, XP, ratingu) | Statistiky → Moje statistiky → Jak se mi daří |
 
 Tip: pro první večer stačí jeden cash stůl ze šablony Klasika a jeden turnaj Freezeout s výplatou *top3*. Zbytek dolaď, až uvidíš, jak se hraje.

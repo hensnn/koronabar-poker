@@ -21,6 +21,7 @@ import type { TemplateService } from '../templates.js';
 import type { MaintenanceService } from '../maintenance.js';
 import type { HistoryService, HistoryKind } from '../history.js';
 import type { BlindStructureService } from '../structures.js';
+import type { TimelineService } from '../timeline.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -72,6 +73,7 @@ export interface Services {
   maintenance: () => MaintenanceService;
   history: () => HistoryService;
   structures: () => BlindStructureService;
+  timeline: () => TimelineService;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
   push: () => PushService;
@@ -1661,6 +1663,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       statsErr(e, reply);
     }
   }));
+  /** Vývoj hráče v čase (zůstatek, výsledky, XP, rating, aktivita): jen vlastní data. */
+  app.get('/api/stats/timeline', guard(async (req, reply) => reply.send(await svc.timeline().of(need(req).id))));
   app.get('/api/stats/hands', guard(async (req, reply) => {
     const q = req.query as { limit?: string; before?: string; tableId?: string };
     reply.send({ hands: await svc.stats().myHands(need(req).id, { limit: q.limit ? Number(q.limit) : undefined, before: q.before ? Number(q.before) : undefined, tableId: q.tableId?.slice(0, 80) || undefined }) });

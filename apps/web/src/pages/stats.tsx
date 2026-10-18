@@ -6,6 +6,7 @@ import { CardView } from '../table/CardView';
 import { fmtDate, HandReplayBody, signed, tone, type HandDetail } from './hand-replay';
 import { ShareHandButton } from './hand-share';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Tabs, Td, TextInput } from '../ui';
+import { BarChart, LineChart, type Pt } from './charts';
 
 interface Season {
   id: string;
@@ -69,29 +70,118 @@ function SeasonSelect({ value, onChange, seasons }: { value: string; onChange: (
   );
 }
 
-/** Průběh zůstatku: součet pohybů v peněžence v čase, jako jednoduchý graf (barva z tokenů přes currentColor). */
-function BalanceChart() {
-  const [points, setPoints] = useState<number[]>([]);
+interface Timeline {
+  balance: Pt[];
+  tournaments: { at: number; name: string; net: number; place: number; field: number; cumulative: number }[];
+  cash: { day: number; net: number; hands: number; cumulative: number }[];
+  xp: Pt[];
+  rating: { tournament: Pt[]; cash: Pt[]; visible: boolean };
+  activity: { day: number; hands: number }[];
+}
+
+const RANGES = [
+  { id: '30', days: 30 },
+  { id: '90', days: 90 },
+  { id: '365', days: 365 },
+  { id: 'all', days: 0 },
+] as const;
+
+const cumulate = (rows: { at: number; v: number }[]): Pt[] => {
+  let c = 0;
+  return rows.map((r) => [r.at, (c += r.v)] as Pt);
+};
+
+/** Jak se mi daří: zůstatek, výsledky turnajů a cash, XP, rating a aktivita v čase (za zvolené období). */
+function Progress() {
+  const [tl, setTl] = useState<Timeline | null>(null);
+  const [range, setRange] = useState<(typeof RANGES)[number]['id']>('90');
+  const [error, setError] = useState('');
   useEffect(() => {
-    get<{ amount: number }[]>('/api/wallet/history')
-      .then((rows) => {
-        let sum = 0;
-        setPoints([0, ...[...rows].reverse().map((r) => (sum += r.amount))]);
-      })
-      .catch(() => undefined);
+    get<Timeline>('/api/stats/timeline')
+      .then(setTl)
+      .catch((e) => setError(errorText(e)));
   }, []);
-  if (points.length < 3) return null;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const span = max - min || 1;
-  const path = points.map((p, i) => `${(i / (points.length - 1)) * 300},${58 - ((p - min) / span) * 56}`).join(' ');
+  const since = useMemo(() => {
+    const r = RANGES.find((x) => x.id === range)!;
+    return r.days > 0 ? Date.now() - r.days * 86_400_000 : 0;
+  }, [range]);
+  if (error) return <Notice kind="error">{error}</Notice>;
+  if (!tl) return <Spinner label={t('app.loading')} />;
+  const within = <T,>(rows: T[], at: (r: T) => number): T[] => rows.filter((r) => at(r) >= since);
+  const balance = within(tl.balance, (p) => p[0]);
+  const bStart = balance[0]?.[1] ?? 0;
+  const bEnd = balance[balance.length - 1]?.[1] ?? tl.balance[tl.balance.length - 1]?.[1] ?? 0;
+  const tours = within(tl.tournaments, (x) => x.at);
+  const tourNet = tours.reduce((n, x) => n + x.net, 0);
+  const tourCum = cumulate(tours.map((x) => ({ at: x.at, v: x.net })));
+  const cash = within(tl.cash, (x) => x.day);
+  const cashNet = cash.reduce((n, x) => n + x.net, 0);
+  const cashCum = cumulate(cash.map((x) => ({ at: x.day, v: x.net })));
+  const xp = within(tl.xp, (p) => p[0]);
+  const days = within(tl.activity, (x) => x.day);
+  const hands = days.reduce((n, x) => n + x.hands, 0);
+  const best = tours.length ? tours.reduce((m, x) => (x.net > m.net ? x : m)) : null;
+  const card = (label: string, value: string, tn?: 'success' | 'danger' | 'muted') => (
+    <div className="rounded-md border border-line bg-surface p-2">
+      <div className="text-xs text-muted">{label}</div>
+      <div className={`font-mono text-lg ${tn === 'success' ? 'text-success' : tn === 'danger' ? 'text-danger' : ''}`}>{value}</div>
+    </div>
+  );
+  const empty = tl.balance.length === 0 && tl.tournaments.length === 0 && tl.cash.length === 0;
   return (
-    <figure className="text-primary">
-      <svg viewBox="0 0 300 60" className="h-24 w-full" role="img" aria-label={t('stats.balanceChart')}>
-        <polyline points={path} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <figcaption className="text-sm text-muted">{t('stats.balanceChart')}</figcaption>
-    </figure>
+    <section className="flex flex-col gap-3" aria-label={t('charts.title')}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-heading text-lg font-bold">{t('charts.title')}</h2>
+        <div role="tablist" className="flex gap-1">
+          {RANGES.map((r) => (
+            <button key={r.id} role="tab" aria-selected={range === r.id} onClick={() => setRange(r.id)} className={`rounded-md border border-line px-2 py-0.5 text-sm ${range === r.id ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
+              {t(`charts.range.${r.id}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {empty && <Notice>{t('charts.empty')}</Notice>}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {card(t('charts.balanceNow'), String(bEnd))}
+        {card(t('charts.balanceChange'), signed(bEnd - bStart), tone(bEnd - bStart))}
+        {card(t('charts.tourNet'), signed(tourNet), tone(tourNet))}
+        {card(t('charts.cashNet'), signed(cashNet), tone(cashNet))}
+        {card(t('charts.tourPlayed'), String(tours.length))}
+        {card(t('charts.handsPlayed'), String(hands))}
+        {card(t('charts.bestTour'), best ? `${signed(best.net)} (${best.place}./${best.field})` : '–', best ? tone(best.net) : 'muted')}
+        {card(t('charts.xpGained'), signed((xp[xp.length - 1]?.[1] ?? 0) - (xp[0]?.[1] ?? 0)))}
+      </div>
+      <Card title={t('charts.balance')}>
+        <LineChart points={balance} label={t('charts.balanceHelp')} />
+      </Card>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card title={t('charts.tourProfit')}>
+          <LineChart points={tourCum} label={t('charts.tourProfitHelp')} className="text-success" signed />
+          <BarChart bars={tours.map((x) => ({ x: x.at, v: x.net, tip: `${x.name}: ${signed(x.net)} (${x.place}./${x.field})` }))} label={t('charts.perTournament')} />
+        </Card>
+        <Card title={t('charts.cashProfit')}>
+          <LineChart points={cashCum} label={t('charts.cashProfitHelp')} className="text-accent" signed />
+          <BarChart bars={cash.map((x) => ({ x: x.day, v: x.net, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${signed(x.net)} (${x.hands} ${t('charts.hands')})` }))} label={t('charts.perDay')} />
+        </Card>
+        <Card title={t('charts.xp')}>
+          <LineChart points={xp} label={t('charts.xpHelp')} className="text-secondary" />
+        </Card>
+        <Card title={t('charts.rating')}>
+          {tl.rating.visible ? (
+            <div className="flex flex-col gap-2">
+              <LineChart points={within(tl.rating.tournament, (p) => p[0])} label={t('charts.ratingTournament')} className="text-primary" />
+              <LineChart points={within(tl.rating.cash, (p) => p[0])} label={t('charts.ratingCash')} className="text-accent" />
+            </div>
+          ) : (
+            <p className="text-sm text-muted">{t('charts.ratingHidden')}</p>
+          )}
+        </Card>
+      </div>
+      <Card title={t('charts.activity')}>
+        <BarChart bars={days.map((x) => ({ x: x.day, v: x.hands, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${x.hands} ${t('charts.hands')}` }))} label={t('charts.activityHelp')} />
+      </Card>
+      <p className="text-xs text-muted">{t('charts.note')}</p>
+    </section>
   );
 }
 
@@ -339,7 +429,7 @@ export function StatsPage() {
       {tab === 'mine' && me && (
         <>
           <StatsView userId={me.user.id} season={season} />
-          <BalanceChart />
+          <Progress />
         </>
       )}
       {tab === 'board' && <Leaderboard season={season} seasons={seasons} />}
