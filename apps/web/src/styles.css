@@ -446,6 +446,21 @@ h3,
   transition: opacity calc(200ms / var(--tk-anim-speed));
 }
 .tk-seat-dim { opacity: 0.55; }
+/* Hráč v sit outu: šedé sedadlo a výrazný odznak (odznak zůstává plně čitelný). */
+.tk-seat-out { opacity: 1; }
+.tk-seat-out > :not(.tk-seat-out-badge) { opacity: 0.5; filter: grayscale(0.85); }
+.tk-seat-out-badge {
+  display: inline-block;
+  padding: calc(var(--spacing) * 0.5) calc(var(--spacing) * 2);
+  border: 2px solid var(--color-warning);
+  border-radius: var(--tk-shape-radiusMd);
+  background: var(--tk-color-vignette);
+  color: var(--color-warning);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-shadow: none;
+  white-space: nowrap;
+}
 .tk-seat-cards {
   border-radius: var(--tk-shape-cardRadius);
   padding: 2px;
@@ -560,7 +575,7 @@ h3,
   gap: calc(var(--spacing) * 3);
 }
 .tk-tp-panel { display: none; }
-.tk-tp-scroll { max-height: calc(100dvh - var(--spacing) * 4); }
+.tk-tp-scroll { overflow-y: auto; max-height: calc(100dvh - var(--spacing) * 4); }
 @media (min-width: 64rem) {
   .tk-tablepage {
     display: grid;

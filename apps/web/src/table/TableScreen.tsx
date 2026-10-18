@@ -339,11 +339,13 @@ function Seat({
   const frame = avatarClasses(look, '');
   const won = view.winners?.find((w) => w.seat === seat.seat);
   const acting = view.actingSeat === seat.seat;
+  // Sit out (i ten, který začne po dohrání handy) musí být u stolu na první pohled vidět: šedé sedadlo a výrazný odznak.
+  const out = seat.status === 'sittingOut' || seat.sitOut === true;
   const dim = seat.status === 'folded' || seat.status === 'sittingOut' || seat.status === 'waiting';
   const pct = oddsPct ? `${(oddsPct.win * 100).toFixed(1)} %` : null;
   const status = seat.status === 'allIn' ? t('table.allIn') : seat.status === 'folded' ? t('table.fold') : seat.status === 'sittingOut' ? t('table.sittingOut') : seat.status === 'waiting' ? t('table.waiting') : null;
   return (
-    <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''}`}>
+    <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''}`}>
       <div className="relative flex justify-center">
         <div
           className={`tk-seat-cards flex gap-1 ${frame.cls} ${hideMine ? 'cursor-pointer' : ''}`}
@@ -356,7 +358,7 @@ function Seat({
             ? seat.cards && !(hideMine && !peek)
               ? seat.cards.map((c) => <CardView key={c} card={c} small={!mine} />)
               : [0, 1].map((i) => <CardView key={i} card={seat.exposed?.[i] ?? null} small={!mine} />)
-            : status && <span className="tk-seat-status">{status}</span>}
+            : status && !out && <span className="tk-seat-status">{status}</span>}
         </div>
         {seat.isDealer && (
           <span className="tk-dealer" title={t('table.dealer')}>
@@ -380,6 +382,11 @@ function Seat({
           </span>
         )}
       </div>
+      {out && (
+        <span className="tk-seat-out-badge" role="status">
+          ⏸ {seat.status === 'sittingOut' ? t('table.sittingOut') : t('table.sitOutPending')}
+        </span>
+      )}
       <div className="tk-seat-name">
         {showRank && <RankBadge userId={seat.playerId} />}
         <LookName userId={seat.playerId}>{seat.name}</LookName>

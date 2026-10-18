@@ -9,7 +9,7 @@ import { errorText, get, post } from '../api';
 import { loadChannels, useChatStore } from '../chat-store';
 import { onSocket, useNet } from '../net';
 import { Link } from '../router';
-import { saveUserSetting, useSettings } from '../settings';
+import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
@@ -84,7 +84,6 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (!dragging) setSize({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), ch: num('ui.tableChatHeight') });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored, dragging]);
-  const chatMinimized = settings.values['ui.tableChatMinimized'] === true;
   const keep = (key: string, value: number | boolean) => void saveUserSetting(key, value).catch(() => undefined);
   const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px' };
   const panelBodyStyle: CSSProperties | undefined = size.ph > 0 ? { maxHeight: size.ph } : undefined;
@@ -150,52 +149,49 @@ export function TablePage({ tableId }: { tableId: string }) {
           }
         }}
         onReset={() => {
-          setSize((x) => ({ ...x, pw: 272, ph: 0 }));
-          keep('ui.tablePanelWidth', 272);
-          keep('ui.tablePanelHeight', 0);
+          setSize((x) => ({ ...x, pw: defaultOf('ui.tablePanelWidth'), ph: defaultOf('ui.tablePanelHeight') }));
+          keep('ui.tablePanelWidth', defaultOf('ui.tablePanelWidth'));
+          keep('ui.tablePanelHeight', defaultOf('ui.tablePanelHeight'));
         }}
       >
         <div className="tk-tp-scroll flex flex-col gap-2" style={panelBodyStyle} aria-label={t('table.panel')}>
-          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
-            <TablePanel view={view} tableId={tableId} inBb={inBb} />
-          </div>
-          {channel &&
-            (chatMinimized ? (
-              <MiniChat channel={channel} onRestore={() => keep('ui.tableChatMinimized', false)} />
-            ) : (
-              <Resizable
-                className="relative shrink-0"
-                w={0}
-                h={size.ch}
-                resizeW={false}
-                limits={{ minW: 0, maxW: 0, minH: 64, maxH: 1200 }}
-                onChange={(_w, ch, commit) => {
-                  setDragging(!commit);
-                  setSize((x) => ({ ...x, ch }));
-                  if (commit && ch !== num('ui.tableChatHeight')) keep('ui.tableChatHeight', ch);
-                }}
-                onReset={() => {
-                  setSize((x) => ({ ...x, ch: 128 }));
-                  keep('ui.tableChatHeight', 128);
-                }}
-              >
-                <Card
-                  title={t('table.chat')}
-                  actions={
-                    <span className="flex gap-1">
-                      <Button onClick={() => keep('ui.tableChatMinimized', true)} title={t('table.chatMinimize')} aria-label={t('table.chatMinimize')}>
-                        ▁
-                      </Button>
-                      <Button onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
+          <TablePanel
+            view={view}
+            tableId={tableId}
+            inBb={inBb}
+            chat={
+              channel
+                ? {
+                    unread: channel.unread,
+                    actions: (
+                      <button className="px-1" onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
                         ⛶
-                      </Button>
-                    </span>
+                      </button>
+                    ),
+                    body: (
+                      <Resizable
+                        className="relative pb-2"
+                        w={0}
+                        h={size.ch}
+                        resizeW={false}
+                        limits={{ minW: 0, maxW: 0, minH: 64, maxH: 1200 }}
+                        onChange={(_w, ch, commit) => {
+                          setDragging(!commit);
+                          setSize((x) => ({ ...x, ch }));
+                          if (commit && ch !== num('ui.tableChatHeight')) keep('ui.tableChatHeight', ch);
+                        }}
+                        onReset={() => {
+                          setSize((x) => ({ ...x, ch: defaultOf('ui.tableChatHeight') }));
+                          keep('ui.tableChatHeight', defaultOf('ui.tableChatHeight'));
+                        }}
+                      >
+                        <ChatPanel channel={channel} compact listHeight={size.ch} />
+                      </Resizable>
+                    ),
                   }
-                >
-                  <ChatPanel channel={channel} compact listHeight={size.ch} />
-                </Card>
-              </Resizable>
-            ))}
+                : undefined
+            }
+          />
         </div>
       </Resizable>
       <div className="tk-tp-main flex flex-col gap-2">
@@ -263,25 +259,6 @@ export function TablePage({ tableId }: { tableId: string }) {
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}
       {history && <HandHistory tableId={tableId} onClose={() => setHistory(false)} />}
     </div>
-  );
-}
-
-/** Miniatura chatu: úzký pruh s počtem nepřečtených zpráv a poslední zprávou. */
-function MiniChat({ channel, onRestore }: { channel: { id: string; unread: number }; onRestore: () => void }) {
-  const store = useChatStore();
-  const last = [...(store.messages[channel.id] ?? [])].reverse().find((m) => !m.system && !m.deleted);
-  return (
-    <button type="button" onClick={onRestore} title={t('table.chatRestore')} aria-label={t('table.chatRestore')} className="flex w-full items-center gap-2 rounded-md border border-line bg-surface px-3 py-1 text-left text-sm">
-      <span aria-hidden="true">💬</span>
-      <strong>{t('table.chatMini')}</strong>
-      {channel.unread > 0 && <span className="rounded-full bg-accent px-1.5 text-xs text-on-act">{channel.unread}</span>}
-      {last && (
-        <span className="min-w-0 flex-1 truncate text-muted">
-          {last.nickname}: {last.body}
-        </span>
-      )}
-      <span aria-hidden="true">▴</span>
-    </button>
   );
 }
 

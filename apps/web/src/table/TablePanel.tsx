@@ -4,7 +4,7 @@ import { t } from '@kb/shared';
 import { get } from '../api';
 import { onSocket } from '../net';
 import { useSession } from '../session';
-import { saveUserSetting, useSettings } from '../settings';
+import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { table as tableApi } from '../net';
 import { SoundPalette } from '../pages/sounds';
 import { Button } from '../ui';
@@ -13,7 +13,7 @@ import { formatAmount } from './format';
 import { setPlan, usePlan, type Plan } from './plan';
 
 /** Widgety panelu u stolu; pořadí je výchozí pořadí zobrazení. */
-export const WIDGETS = ['clock', 'plan', 'table', 'hand', 'players', 'sounds'] as const;
+export const WIDGETS = ['clock', 'plan', 'table', 'hand', 'players', 'chat', 'sounds'] as const;
 export type WidgetId = (typeof WIDGETS)[number];
 
 interface PanelState {
@@ -120,26 +120,31 @@ export function PlanBar({ view }: { view: TableView }) {
   );
 }
 
-function Widget({ id, title, state, setState, children }: { id: WidgetId; title: string; state: PanelState; setState: (s: PanelState) => void; children: ReactNode }) {
+function Widget({ id, title, state, setState, badge, actions, children }: { id: WidgetId; title: string; state: PanelState; setState: (s: PanelState) => void; badge?: number; actions?: ReactNode; children: ReactNode }) {
   const collapsed = state.collapsed.includes(id);
   return (
     <section className="tk-widget">
-      <button className="tk-widget-head" aria-expanded={!collapsed} onClick={() => setState({ ...state, collapsed: collapsed ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id] })}>
-        <span aria-hidden>{collapsed ? '▸' : '▾'}</span>
-        <span className="flex-1">{title}</span>
-      </button>
+      <div className="tk-widget-head">
+        <button className="flex flex-1 items-center gap-2 text-left font-semibold" aria-expanded={!collapsed} onClick={() => setState({ ...state, collapsed: collapsed ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id] })}>
+          <span aria-hidden>{collapsed ? '▸' : '▾'}</span>
+          <span className="flex-1">{title}</span>
+          {badge ? <span className="rounded-full bg-accent px-1.5 text-xs text-on-act">{badge}</span> : null}
+        </button>
+        {actions}
+      </div>
       {!collapsed && <div className="tk-widget-body">{children}</div>}
     </section>
   );
 }
 
 /** Ozubené kolečko: které widgety a v jakém pořadí, plus volby zobrazení u stolu. */
-function PanelSettings({ state, setState, titles, onClose }: { state: PanelState; setState: (s: PanelState) => void; titles: Record<WidgetId, string>; onClose: () => void }) {
+function PanelSettings({ state, setState, titles, absent, onClose }: { state: PanelState; setState: (s: PanelState) => void; titles: Record<WidgetId, string>; /** Okna, která u tohoto stolu nejsou k dispozici (hodiny u cash stolu, chat v okně na telefonu). */ absent: WidgetId[]; onClose: () => void }) {
   const settings = useSettings();
   const move = (id: WidgetId, dir: -1 | 1) => {
     const order = [...state.order];
     const i = order.indexOf(id);
-    const j = i + dir;
+    let j = i + dir;
+    while (j >= 0 && j < order.length && absent.includes(order[j]!)) j += dir;
     if (i < 0 || j < 0 || j >= order.length) return;
     [order[i], order[j]] = [order[j]!, order[i]!];
     setState({ ...state, order });
@@ -158,7 +163,7 @@ function PanelSettings({ state, setState, titles, onClose }: { state: PanelState
       <div className="tk-widget-body flex flex-col gap-3">
         <h3 className="font-bold">{t('table.panelWidgets')}</h3>
         <ul className="flex flex-col gap-1">
-          {state.order.map((id, i) => (
+          {state.order.filter((id) => !absent.includes(id)).map((id, i, list) => (
             <li key={id} className="flex items-center gap-2">
               <label className="flex flex-1 items-center gap-2">
                 <input type="checkbox" checked={!state.hidden.includes(id)} onChange={(e) => setState({ ...state, hidden: e.target.checked ? state.hidden.filter((x) => x !== id) : [...state.hidden, id] })} />
@@ -167,7 +172,7 @@ function PanelSettings({ state, setState, titles, onClose }: { state: PanelState
               <Button aria-label={t('table.moveUp')} disabled={i === 0} onClick={() => move(id, -1)}>
                 ↑
               </Button>
-              <Button aria-label={t('table.moveDown')} disabled={i === state.order.length - 1} onClick={() => move(id, 1)}>
+              <Button aria-label={t('table.moveDown')} disabled={i === list.length - 1} onClick={() => move(id, 1)}>
                 ↓
               </Button>
             </li>
@@ -181,7 +186,14 @@ function PanelSettings({ state, setState, titles, onClose }: { state: PanelState
           </label>
         ))}
         <div className="flex gap-2">
-          <Button onClick={() => setState({ collapsed: [], hidden: [], order: [...WIDGETS] })}>{t('table.widget.reset')}</Button>
+          <Button
+            onClick={() => {
+              setState({ collapsed: [], hidden: [], order: [...WIDGETS] });
+              for (const k of ['ui.tablePanelWidth', 'ui.tablePanelHeight', 'ui.tableChatHeight']) void saveUserSetting(k, defaultOf(k)).catch(() => undefined);
+            }}
+          >
+            {t('table.widget.reset')}
+          </Button>
           <Button variant="primary" onClick={onClose}>
             {t('table.close')}
           </Button>
@@ -192,7 +204,7 @@ function PanelSettings({ state, setState, titles, onClose }: { state: PanelState
 }
 
 /** Levý panel s widgety (hodiny, plánovaný tah, stůl, moje handa, hráči, zvuky). Nastavení pod ozubeným kolečkem. */
-export function TablePanel({ view, tableId, inBb }: { view: TableView | undefined; tableId: string; inBb: boolean }) {
+export function TablePanel({ view, tableId, inBb, chat }: { view: TableView | undefined; tableId: string; inBb: boolean; /** Chat jako okno panelu (jen v levém panelu na širokém displeji). */ chat?: { body: ReactNode; unread: number; actions: ReactNode } }) {
   const [state, setState] = usePanelState();
   const [open, setOpen] = useState(false);
   const { me } = useSession();
@@ -200,7 +212,7 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
   const info = view?.info;
   const tournamentId = info?.tournamentId;
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
-  const titles: Record<WidgetId, string> = { clock: t('table.widget.clock'), plan: t('table.widget.plan'), table: t('table.widget.table'), hand: t('table.widget.hand'), players: t('table.widget.players'), sounds: t('table.widget.sounds') };
+  const titles: Record<WidgetId, string> = { clock: t('table.widget.clock'), plan: t('table.widget.plan'), table: t('table.widget.table'), hand: t('table.widget.hand'), players: t('table.widget.players'), chat: t('table.chat'), sounds: t('table.widget.sounds') };
   const bodies: Record<WidgetId, { show: boolean; body: ReactNode }> = {
     clock: { show: !!tournamentId, body: tournamentId ? <ClockWidget tournamentId={tournamentId} /> : null },
     plan: {
@@ -281,6 +293,7 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
               <li key={s.seat} className={`flex justify-between gap-2 ${s.seat === view.actingSeat ? 'font-bold' : ''} ${s.status === 'folded' || s.status === 'sittingOut' ? 'text-muted' : ''}`}>
                 <span className="truncate">
                   {s.isDealer ? 'Ⓓ ' : ''}
+                  {(s.status === 'sittingOut' || s.sitOut === true) && <span title={t('table.sittingOut')}>⏸ </span>}
                   {s.name}
                 </span>
                 <span className="font-mono">{formatAmount(s.stack, view.info, inBb)}</span>
@@ -289,6 +302,7 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
         </ul>
       ),
     },
+    chat: { show: !!chat, body: chat?.body ?? null },
     sounds: { show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
   };
   return (
@@ -300,12 +314,12 @@ export function TablePanel({ view, tableId, inBb }: { view: TableView | undefine
         </button>
       </div>
       {open ? (
-        <PanelSettings state={state} setState={setState} titles={titles} onClose={() => setOpen(false)} />
+        <PanelSettings state={state} setState={setState} titles={titles} absent={[...(tournamentId ? [] : (['clock'] as WidgetId[])), ...(chat ? [] : (['chat'] as WidgetId[]))]} onClose={() => setOpen(false)} />
       ) : (
         state.order
           .filter((id) => bodies[id].show && !state.hidden.includes(id))
           .map((id) => (
-            <Widget key={id} id={id} title={titles[id]} state={state} setState={setState}>
+            <Widget key={id} id={id} title={titles[id]} state={state} setState={setState} badge={id === 'chat' ? chat?.unread : undefined} actions={id === 'chat' ? chat?.actions : undefined}>
               {bodies[id].body}
             </Widget>
           ))

@@ -178,3 +178,8 @@ onSocket<{ scope: string; device: string | null; key: string; value: SettingValu
 });
 
 export type { SettingValues };
+
+/** Výchozí hodnota osobního nastavení z registru (pro tlačítka „výchozí velikost“). */
+export function defaultOf(key: string): number {
+  return Number(registry.defaults()[key] ?? 0);
+}
