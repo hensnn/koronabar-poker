@@ -4,7 +4,9 @@ import type { TableView } from '@kb/game-core';
 import { get } from '../api';
 import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
+import { useSession } from '../session';
 import { Modal } from '../ui';
+import { useMobileLayout } from './mobile';
 import { formatAmount } from './format';
 
 interface TournamentInfo {
@@ -17,7 +19,7 @@ interface TournamentInfo {
   rebuy: { enabled: boolean };
   addon: { enabled: boolean };
   reentry: { enabled: boolean };
-  standings: { chips: number | null; status: string }[];
+  standings: { userId: string; place: number; chips: number | null; status: string }[];
   deal: { enabled: boolean; open: boolean; done: unknown | null };
 }
 
@@ -31,6 +33,9 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
   const info = view.info;
   const [tour, setTour] = useState<TournamentInfo | null>(null);
   const [dealOpen, setDealOpen] = useState(false);
+  const mobile = useMobileLayout();
+  const [expanded, setExpanded] = useState(false);
+  const { me } = useSession();
   const load = useCallback(() => {
     if (!tournamentId) return;
     get<TournamentInfo>(`/api/tournaments/${tournamentId}`)
@@ -64,6 +69,15 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
   const chipsKnown = alive.length > 0 && alive.every((p) => p.chips !== null);
   const avgStack = chipsKnown ? Math.round(alive.reduce((n, p) => n + (p.chips ?? 0), 0) / alive.length) : null;
 
+  // Moje pozice v turnaji: místo mezi zbývajícími a kolik hráčů zbývá vyřadit do peněz (bubliny).
+  const mine = tour?.standings.find((p) => p.userId === me?.user.id);
+  const paid = tour?.payouts.length ?? 0;
+  const position = tour && mine && running
+    ? mine.status === 'out'
+      ? t('table.info.positionOut', { place: mine.place })
+      : t('table.info.position', { place: mine.place, total: alive.length }) + (paid > 0 ? ' · ' + (alive.length > paid ? t('table.info.toMoney', { n: alive.length - paid }) : t('table.info.inMoney')) : '')
+    : null;
+
   const tags: string[] = [];
   if (info.bettingLimit === 'potLimit') tags.push(t('table.info.limitPot'));
   if (info.bettingLimit === 'fixedLimit') tags.push(t('table.info.limitFixed'));
@@ -81,9 +95,10 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
   if (tour?.addon.enabled) tags.push(t('table.info.addon'));
   if (tour?.reentry.enabled) tags.push(t('table.info.reentry'));
 
-  return (
+  const card = (
     <section className="flex flex-col gap-1.5 rounded-md border border-line bg-surface p-2 text-sm" aria-label={t('table.info.title')}>
-      <h3 className="font-semibold">{t('table.info.title')}</h3>
+      {!mobile && <h3 className="font-semibold">{t('table.info.title')}</h3>}
+      {position && <p className="rounded-md bg-raised px-2 py-1 text-xs font-semibold">{position}</p>}
       <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
         <dt className="text-muted">{t('table.info.pot')}</dt>
         <dd className="text-right font-mono">{formatAmount(view.totalPot, info, inBb)}</dd>
@@ -146,4 +161,22 @@ export function TableInfoCard({ view, tournamentId, inBb }: { view: TableView; t
       )}
     </section>
   );
+  // Na telefonu je karta sbalená do jednoho řádku (bank, místa, moje pozice); celá se otevře v okně, aby nevytlačila akční lištu.
+  if (mobile) {
+    const summary = [`${t('table.info.pot')} ${formatAmount(view.totalPot, info, inBb)}`, tournamentId && tour ? `${tour.alive}/${tour.players}` : `${seated}/${info.seatCount}`, position].filter(Boolean).join(' · ');
+    return (
+      <>
+        <button className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs" aria-haspopup="dialog" onClick={() => setExpanded(true)}>
+          <span className="font-semibold">{t('table.info.title')}</span>
+          <span className="truncate font-mono">{summary}</span>
+        </button>
+        {expanded && (
+          <Modal title={t('table.info.title')} onClose={() => setExpanded(false)}>
+            {card}
+          </Modal>
+        )}
+      </>
+    );
+  }
+  return card;
 }
