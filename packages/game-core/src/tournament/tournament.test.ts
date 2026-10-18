@@ -330,6 +330,10 @@ describe('turnaj: matice nastavení (simulace s boty)', { timeout: 300_000 }, ()
     { name: 'Fischer hodiny a zavolání času', over: { 'time.bankMode': 'fischer', 'time.timeBankSeconds': 20, 'time.incrementSeconds': 3, 'time.callClockEnabled': true }, players: 6 },
     { name: 'časové žetony a doplňování', over: { 'time.bankMode': 'chips', 'time.timeChips': 2, 'time.timeChipSeconds': 4, 'time.bankRefillEveryHands': 3 }, players: 6 },
     { name: 'rebuy, add-on, re-entry a pozdní registrace s přestávkami', over: { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 3, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyMax': 2, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 3, 'tournament.addonUntilLevel': 4, 'tournament.addonCost': 50, 'tournament.addonChips': 1000, 'tournament.reentryEnabled': true, 'tournament.reentryMax': 1, 'tournament.lateRegLevels': 3, 'tournament.breakEveryLevels': 2, 'tournament.breakMinutes': 1, 'tournament.houseCutPercent': 5 }, players: 7, chaos: true },
+    { name: 'run it třikrát, bomb pot a ante', over: { 'special.runItTwice': true, 'special.runItTimes': 3, 'special.runItVoteSeconds': 3, 'special.bombPot': true, 'special.bombPotEveryHands': 3, 'special.bombPotAnteBb': 1, 'special.rabbitHunt': true, 'special.showCards': true, 'table.ante': 5 }, players: 6 },
+    { name: 'pot limit', over: { 'table.bettingLimit': 'potLimit' }, players: 6 },
+    { name: 'fixed limit', over: { 'table.bettingLimit': 'fixedLimit', 'table.limitMaxBets': 3 }, players: 5 },
+    { name: 'run it dvakrát na plném stole s rebuy', over: { 'table.seats': 9, 'special.runItTwice': true, 'special.runItVoteSeconds': 3, 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 3, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyMax': 2 }, players: 9, chaos: true },
   ];
   for (const [i, c] of cases.entries()) {
     it(`${c.name}: dohraje se, pool je nulový, součty sedí`, async () => {

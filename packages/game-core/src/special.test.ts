@@ -157,6 +157,15 @@ describe('settleRuns (čistý výpočet)', () => {
     expect(out.runs[1]!.winners[0]).toMatchObject({ seat: 1, amount: 100 });
   });
 
+  it('složený hráč nad úrovní krátkého all-inu: jeho vklad patří vedlejšímu potu jediného zbývajícího (regrese: chyběly žetony)', () => {
+    // c (330) all-in, a a b vložili po 436, b složil, a je all-in; vedlejší pot 212 patří a, hlavní pot 990 vyhraje c
+    const h = hand([player(0, 'a', 436, ['7h', '2c'] as [Card, Card]), player(1, 'b', 436, ['2h', '4d'] as [Card, Card], 'folded'), player(2, 'c', 330, ['Ks', '4h'] as [Card, Card])], ['Qs', '3s', '8h', 'Qc', '5d'] as Card[]);
+    const out = settleRuns(h, [h.board, ['Qs', '3s', '8h', 'Qc', '5d'] as Card[], ['Qs', '3s', '8h', 'Qc', '5d'] as Card[]]);
+    const total = [...out.winnings.values()].reduce((n, x) => n + x, 0);
+    expect(total).toBe(436 + 436 + 330);
+    expect(out.winnings.get(0)).toBe(212);
+  });
+
   it('extraBoards: zachová společný prefix a bere karty ze zbytku balíčku', () => {
     const first = ['2c', '7d', '9h', '4s', '3c'] as Card[];
     const deck = ['Ah', 'Ad', 'Kc', 'Ks', 'Qc', 'Qs'] as Card[];
