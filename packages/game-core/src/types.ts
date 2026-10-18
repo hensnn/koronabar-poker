@@ -136,6 +136,13 @@ export interface TableInfo {
   rake?: { percent: number; capChips: number; noFlopNoDrop: boolean };
   /** Stav jackpotového fondu v měně, pokud je u stolu nějaký jackpot zapnutý. */
   jackpot?: number;
+  /** Ante (v žetonech; 0 = bez ante) a zda ho platí jen big blind. */
+  ante?: number;
+  bbAnte?: boolean;
+  /** Speciální varianty: kolikrát se dokládá board při run it (0 = vypnuto), bomb pot každou N-tou handu (0 = vypnuto), 7-2 bonus v bb (0 = vypnuto). */
+  runIt?: number;
+  bombPotEvery?: number;
+  sevenTwoBb?: number;
 }
 
 export interface TableView {

@@ -11,6 +11,7 @@ import { useSession } from '../session';
 import { ActionBar } from './ActionBar';
 import { CardView } from './CardView';
 import { formatAmount, seatPosition } from './format';
+import { TableInfoCard } from './InfoCard';
 import { Amount } from './Chips';
 import { Countdown, TimerBar } from './TimerRing';
 import { useThemeToken } from '../theme/ThemeProvider';
@@ -104,6 +105,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const viewerSeat = rotate ? (view.viewerSeat ?? mine?.seat ?? 0) : 0;
   const odds = view.odds;
   const mainOdds = odds?.[0];
+  const infoCard = <TableInfoCard view={view} tournamentId={info.tournament ? (info.tournamentId ?? tableId) : null} inBb={inBb} />;
   const acting = view.actingSeat !== null ? view.seats.find((s) => s.seat === view.actingSeat) : undefined;
 
   return (
@@ -268,6 +270,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
       {mine && (
         <div className="tk-extra flex flex-wrap items-center gap-2">
+          {infoCard}
           {extra}
           {view.winners && mine.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards) && (
             <>
@@ -319,7 +322,12 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           )}
         </div>
       )}
-      {!mine && extra && <div className="tk-extra flex flex-wrap items-center gap-2">{extra}</div>}
+      {!mine && (
+        <div className="tk-extra flex flex-wrap items-center gap-2">
+          {infoCard}
+          {extra}
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="text-danger">
