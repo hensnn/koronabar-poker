@@ -456,3 +456,6 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 - Spuštění: `cd apps/server && pnpm exec tsx scripts/simulate.ts [cash|tournament|all] [sekundy] [seed]`.
 - 6 botů přes Socket.IO hraje cash (chaos: sit out, doplnění, odchody, odpojení, call clock, pauzy) a turnaje (freezeout, rebuy + add-on, bounty, 2 stoly). Hlídá nulový součet knihy, shodu žetonů u stolu s knihou, zaseknutí a chyby serveru.
 - Výsledek (cash seedy 13, 31, 32, 33; turnaje seedy 1–3): žádné chyby serveru. Nalezena jediná vada: chyběly české texty pro chybové kódy pokerového enginu (doplněno + test).
+
+## Hlavní menu
+- Horní menu má 4 barevné rozbalovací skupiny: Hrát (zelená), Komunita (modrá), Moje (žlutá), Účet a správa (červená/akcent). Barvy jsou design tokeny (success, info, warning, accent). Na telefonu jsou skupiny pod tlačítkem Nabídka a rozbalují se po jedné. Komponenta `apps/web/src/main-menu.tsx`.

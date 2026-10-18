@@ -32,6 +32,7 @@ import { TvPage } from './pages/tv';
 import { EveningPage, EveningsPage } from './pages/evenings';
 import { NotificationBell } from './notifications';
 import { SoundMenu } from './sound-menu';
+import { MainMenu, type MenuGroup, type MenuItem, type MenuTone } from './main-menu';
 import { useTournamentAutoJoin } from './tournament-autojoin';
 import { useMySeat } from './my-seat';
 
@@ -101,21 +102,17 @@ function Shell({ me }: { me: Me }) {
   const blocked = me.user.status === 'blocked';
   // Vypnutý obchod (cosmetics.enabled) zmizí i z nabídky.
   const shopOn = settings.values['cosmetics.enabled'] !== false;
-  const nav: { to: string; label: string; show: boolean }[] = [
-    { to: '/', label: t('nav.lobby'), show: true },
-    { to: '/turnaje', label: t('nav.tournaments'), show: true },
-    { to: '/zivy-cash', label: t('nav.live'), show: true },
-    { to: '/vecery', label: t('nav.evenings'), show: true },
-    { to: '/chat', label: t('nav.chat'), show: can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit') },
-    { to: '/penezenka', label: t('nav.wallet'), show: true },
-    { to: '/statistiky', label: t('nav.stats'), show: true },
-    { to: '/ankety', label: t('nav.polls'), show: true },
-    { to: '/postup', label: t('nav.progress'), show: true },
-    { to: '/obchod', label: t('nav.shop'), show: shopOn },
-    { to: '/admin', label: t('nav.admin'), show: isAdmin(me) },
-    { to: '/nastaveni', label: t('nav.settings'), show: true },
-    { to: '/profil', label: t('nav.profile'), show: true },
-  ];
+  const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
+  const groups: MenuGroup[] = (
+    [
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live'), item('/vecery', 'nav.evenings')] },
+      { id: 'community', label: t('nav.group.community'), tone: 'info', items: [item('/chat', 'nav.chat', can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit')), item('/ankety', 'nav.polls')] },
+      { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress'), item('/obchod', 'nav.shop', shopOn)] },
+      { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.settings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
+    ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
+  )
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.show).map(({ to, label }) => ({ to, label })) }))
+    .filter((g) => g.items.length > 0);
   // Na telefonu je hlavní nabídka sbalená pod tlačítkem; po přechodu na jinou stránku se zavře.
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [path]);
@@ -163,13 +160,7 @@ function Shell({ me }: { me: Me }) {
             ☰ {t('nav.menu')}
           </button>
           <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} w-full flex-wrap gap-2 md:order-first md:flex md:w-auto`}>
-            {nav
-              .filter((n) => n.show)
-              .map((n) => (
-                <Link key={n.to} to={n.to} aria-current={isActive(n.to) ? 'page' : undefined} className={`rounded-md border border-line px-3 py-1 ${isActive(n.to) ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
-                  {n.label}
-                </Link>
-              ))}
+            <MainMenu groups={groups} isActive={isActive} path={path} />
           </div>
           {mySeat && path !== `/stul/${mySeat.tableId}` && (
             <Link to={`/stul/${mySeat.tableId}`} className="rounded-md border border-primary bg-primary px-3 py-1 text-on-primary" title={mySeat.name}>
