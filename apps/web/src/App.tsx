@@ -20,6 +20,7 @@ import { TablePage } from './pages/table';
 import { WalletPage } from './pages/wallet';
 import { StatsPage } from './pages/stats';
 import { SoundHost } from './pages/sounds';
+import { useFeatures } from './features';
 import { TournamentResultHost } from './pages/tournament-result';
 import { AssistantLauncher } from './pages/assistant';
 import { OfflineBanner } from './pwa';
@@ -103,15 +104,16 @@ function Shell({ me }: { me: Me }) {
   const settings = useSettings();
   const blocked = me.user.status === 'blocked';
   // Vypnutý obchod (cosmetics.enabled) zmizí i z nabídky.
-  const shopOn = settings.values['cosmetics.enabled'] !== false;
+  const features = useFeatures();
+  const shopOn = features.shop;
   // Živý cash je ve výchozím stavu schovaný (liveCash.enabled); stránka zůstává dostupná, jen není v nabídce.
-  const liveOn = settings.values['liveCash.enabled'] === true;
+  const liveOn = features.liveCash;
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings')] },
-      { id: 'community', label: t('nav.group.community'), tone: 'info', items: [item('/chat', 'nav.chat', can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit')), item('/ankety', 'nav.polls')] },
-      { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress'), item('/obchod', 'nav.shop', shopOn)] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings)] },
+      { id: 'community', label: t('nav.group.community'), tone: 'info', items: [item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls)] },
+      { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.settings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
     ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
   )
@@ -153,6 +155,9 @@ function Shell({ me }: { me: Me }) {
   else if (path === '/profil') page = <ProfilePage />;
   else if (path.startsWith('/admin')) page = <AdminRouter />;
   else page = <Redirect to="/" />;
+  // Vypnutá funkce nemá mít přístupnou ani adresu.
+  const off = (prefix: string, on: boolean) => !on && (path === prefix || path.startsWith(prefix + '/'));
+  if (off('/ankety', features.polls) || off('/chat', features.chat) || off('/vecery', features.evenings) || off('/postup', features.xp) || off('/obchod', features.shop)) page = <Redirect to="/" />;
 
   return (
     <div className={`mx-auto flex min-h-screen flex-col gap-3 p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
@@ -184,12 +189,12 @@ function Shell({ me }: { me: Me }) {
       </header>
       {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}
       <TournamentResultHost />
-      <LevelUpToast />
+      {features.xp && <LevelUpToast />}
       <OfflineBanner />
       {!me.user.emailVerified && !blocked && <VerifyBanner />}
       <main className="flex-1">{page}</main>
       <footer className="border-t border-line pt-3 text-sm text-muted">{t('footer.virtualCurrency')}</footer>
-      {!blocked && <AssistantLauncher />}
+      {!blocked && features.assistant && <AssistantLauncher />}
     </div>
   );
 }

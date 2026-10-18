@@ -8,13 +8,25 @@ const SUIT: Record<string, { sym: string; cls: string }> = {
 };
 
 /** Karta (líc) nebo rub, když je `card` null. Vzhled (styl, barvy barev, rub, zaoblení, stín) určují tokeny motivu. */
+/** Styl rozdání: vlastní zpoždění a odkud karta letí (počítá se mimo JSX, styl nemá obsahovat pevné hodnoty). */
+function cardStyle(delayMs?: number, fly?: { dx: number; dy: number }): Record<string, string> | undefined {
+  if (!delayMs && !fly) return undefined;
+  const style: Record<string, string> = {};
+  if (delayMs) style.animationDelay = `${delayMs}ms`;
+  if (fly) {
+    style['--deal-dx'] = `${fly.dx}cqw`;
+    style['--deal-dy'] = `calc(${fly.dy}cqw / var(--tk-table-aspect))`;
+  }
+  return style;
+}
+
 const DELAY = ['', 'tk-delay-1', 'tk-delay-2', 'tk-delay-3', 'tk-delay-4'];
 
-export function CardView({ card, small, delay = 0, delayMs, still, reveal }: { card: Card | null; small?: boolean; delay?: number; /** Vlastní zpoždění rozdání v ms (postupné rozdávání více běhů). */ delayMs?: number; /** Karta už na stole byla: bez animace rozdání. */ still?: boolean; /** Karta se právě odkrývá (showdown, dobrovolné ukázání): místo rozdání se otočí. */ reveal?: boolean }) {
-  const scale = (small ? '[--card-scale:0.7] ' : '') + (DELAY[delay] ?? '') + (reveal ? ' tk-card-flip' : '') + (still ? ' tk-card-still' : '');
-  const style = delayMs ? { animationDelay: `${delayMs}ms` } : undefined;
+export function CardView({ card, small, delay = 0, delayMs, still, fly, reveal }: { card: Card | null; small?: boolean; delay?: number; /** Vlastní zpoždění rozdání v ms (postupné rozdávání více běhů). */ delayMs?: number; /** Karta už na stole byla: bez animace rozdání. */ still?: boolean; /** Karta doletí od rozdávajícího (posun v % šířky stolu). */ fly?: { dx: number; dy: number }; /** Karta se právě odkrývá (showdown, dobrovolné ukázání): místo rozdání se otočí. */ reveal?: boolean }) {
+  const scale = (small ? '[--card-scale:0.7] ' : '') + (DELAY[delay] ?? '') + (reveal ? ' tk-card-flip' : '') + (still ? ' tk-card-still' : '') + (fly ? ' tk-card-fly' : '');
+  const style = cardStyle(delayMs, fly);
   if (!card) {
-    return <span aria-label="rub karty" className={`tk-card tk-card-back inline-block border border-line ${scale}`} />;
+    return <span aria-label="rub karty" style={style} className={`tk-card tk-card-back inline-block border border-line ${scale}`} />;
   }
   const rank = card[0] === 'T' ? '10' : card[0];
   const suit = SUIT[card[1] ?? ''] ?? { sym: '?', cls: 'tk-suit-s' };

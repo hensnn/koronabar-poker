@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { t } from '@kb/shared';
 import { get } from './api';
 import { onSocket } from './net';
+import { useFeatures } from './features';
 
 export interface Brief {
   userId: string;
@@ -72,7 +73,8 @@ export const rankColorClass = (c: string) => COLOR[c] ?? 'text-muted';
 /** Ikona hodnosti s popiskem (název hodnosti a level). */
 export function RankBadge({ userId }: { userId: string | null | undefined }) {
   const b = useBrief(userId);
-  if (!b) return null;
+  const xp = useFeatures().xp;
+  if (!b || !xp) return null;
   return (
     <span className={rankColorClass(b.rank.color)} title={`${b.rank.name}, ${t('xp.level', { n: b.level })}`} aria-label={`${b.rank.name}, ${t('xp.level', { n: b.level })}`}>
       {b.rank.icon}

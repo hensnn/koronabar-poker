@@ -14,6 +14,7 @@ import { RulesDialog } from './rules';
 import { LiveDirectorPanel } from './live';
 import { useAnnounceRoom } from '../announcer/host';
 import { BetsPanel } from './bets';
+import { useFeatures } from '../features';
 
 interface Summary {
   id: string;
@@ -304,6 +305,7 @@ function PayoutEditor({ values, set }: { values: SettingValues; set: (k: string,
 
 export function TournamentPage({ id }: { id: string }) {
   const { me } = useSession();
+  const features = useFeatures();
   useAnnounceRoom(id);
   const [view, setView] = useState<View | null>(null);
   const [fetchedAt, setFetchedAt] = useState(Date.now());
@@ -671,7 +673,7 @@ export function TournamentPage({ id }: { id: string }) {
         </Card>
       </div>
 
-      <BetsPanel tournamentId={view.id} />
+      {features.bets && <BetsPanel tournamentId={view.id} />}
 
       <Card title={t('tournament.structure')}>
         <details>

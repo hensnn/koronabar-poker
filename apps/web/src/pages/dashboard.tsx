@@ -7,6 +7,7 @@ import { useSettings } from '../settings';
 import { useMySeat } from '../my-seat';
 import { Badge, Button, Card, Notice } from '../ui';
 import { PollsPanel } from './polls';
+import { useFeatures } from '../features';
 
 interface CashTable {
   id: string;
@@ -42,6 +43,7 @@ const TOP = 8;
 
 /** Hlavní stránka: kde hraju, můj zůstatek, otevřené cash stoly, plánované turnaje a žebříček hráčů. */
 export function DashboardPage() {
+  const features = useFeatures();
   const { me } = useSession();
   const settings = useSettings();
   const seat = useMySeat();
@@ -94,7 +96,7 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-3">
       <h1 className="sr-only">{t('nav.lobby')}</h1>
-      <PollsPanel />
+      {features.polls && <PollsPanel />}
       <div className="grid gap-3 sm:grid-cols-2">
         <Card title={t('dashboard.account')}>
           <div className="flex flex-col gap-2">

@@ -6,7 +6,7 @@ import { useSettings } from '../settings';
  * Zvuky hry u stolu (rozdání, žetony, tah, upozornění na čas, výhra). Jsou syntetizované v prohlížeči, takže
  * nepotřebují žádné soubory, a každý jde zvlášť vypnout v osobním nastavení.
  */
-export type Sfx = 'newHand' | 'flip' | 'chip' | 'check' | 'fold' | 'allIn' | 'turn' | 'timeBank' | 'win' | 'winMe';
+export type Sfx = 'newHand' | 'dealCard' | 'flip' | 'chip' | 'check' | 'fold' | 'allIn' | 'turn' | 'timeBank' | 'win' | 'winMe';
 
 /** Které zvuky vzniknou přechodem mezi dvěma pohledy na stůl (čistá funkce, jde testovat). */
 export function detectSfx(prev: TableView | null, next: TableView): Sfx[] {
@@ -40,8 +40,12 @@ export function warningMarks(warnSeconds: number): number[] {
 type Tone = { f: number; to?: number; at: number; len: number; gain: number; type?: OscillatorType };
 
 /** Popis zvuků: tóny (frekvence, začátek a délka v sekundách) a šum (kliknutí, šustění). */
-const DEF: Record<Sfx | 'warning', { tones?: Tone[]; noise?: { at: number; len: number; gain: number; freq: number } }> = {
-  newHand: { noise: { at: 0, len: 0.18, gain: 0.25, freq: 1800 } },
+type Noise = { at: number; len: number; gain: number; freq: number };
+const DEF: Record<Sfx | 'warning', { tones?: Tone[]; noise?: Noise; noises?: Noise[] }> = {
+  // Zamíchání balíčku: rychlé šustění, které se zvedá (riffle), před rozdáním.
+  newHand: { noises: Array.from({ length: 9 }, (_, i) => ({ at: i * 0.06, len: 0.07, gain: 0.22 + i * 0.01, freq: 1500 + i * 220 })) },
+  // Jedna rozdaná karta: krátké sklouznutí po plátně.
+  dealCard: { noise: { at: 0, len: 0.09, gain: 0.3, freq: 2200 } },
   flip: { noise: { at: 0, len: 0.07, gain: 0.3, freq: 2600 } },
   chip: { tones: [{ f: 2400, at: 0, len: 0.05, gain: 0.25, type: 'triangle' }, { f: 3100, at: 0.045, len: 0.05, gain: 0.2, type: 'triangle' }], noise: { at: 0, len: 0.03, gain: 0.2, freq: 4000 } },
   check: { tones: [{ f: 180, to: 110, at: 0, len: 0.09, gain: 0.5, type: 'sine' }] },
@@ -90,8 +94,7 @@ export function playSfx(name: Sfx | 'warning', volume: number): void {
     osc.start(t0 + tone.at);
     osc.stop(t0 + tone.at + tone.len + 0.02);
   }
-  if (def.noise) {
-    const n = def.noise;
+  for (const n of def.noises ?? (def.noise ? [def.noise] : [])) {
     const buf = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * n.len)), c.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -110,6 +113,7 @@ export function playSfx(name: Sfx | 'warning', volume: number): void {
 
 const SETTING: Record<Sfx | 'warning', string> = {
   newHand: 'ui.sfxDeal',
+  dealCard: 'ui.sfxDeal',
   flip: 'ui.sfxDeal',
   chip: 'ui.sfxChip',
   check: 'ui.sfxAction',

@@ -10,6 +10,7 @@ import { exportUserSettings, deviceId, importUserSettings, registry, resetUserSe
 import { SettingsForm } from '../settings/SettingsForm';
 import { Button, Card, Notice, Tabs, TextArea, TextInput } from '../ui';
 import { LimitsSection } from './limits';
+import { useFeatures } from '../features';
 import { NotesSection } from './notes';
 import { TokensSection } from './tokens';
 import { InstallCard } from '../pwa';
@@ -17,6 +18,7 @@ import { LookTitle, Trophies } from '../cosmetics-client';
 
 export function ProfilePage() {
   const { me } = useSession();
+  const features = useFeatures();
   const [pw, setPw] = useState({ current: '', next: '' });
   const [mail, setMail] = useState({ password: '', email: '' });
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string; where: 'pw' | 'mail' } | null>(null);
@@ -30,7 +32,7 @@ export function ProfilePage() {
         </p>
         <p className="text-sm text-muted">{me.user.emailVerified ? t('profile.verified') : t('profile.unverified')}</p>
       </Card>
-      <LimitsSection />
+      {features.limits && <LimitsSection />}
       <NotesSection />
       <Card title={t('pwa.install')}>
         <InstallCard />

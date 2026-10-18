@@ -21,6 +21,7 @@ import { SoundMenu } from '../sound-menu';
 import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
+import { useFeatures } from '../features';
 import { useTournamentResultFallback } from './tournament-result';
 
 /** Turnaj na více stolech: když hráče přesadí k jinému stolu, stránka ho tam sama přesměruje. */
@@ -47,6 +48,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const settings = useSettings();
   const store = useChatStore();
   const net = useNet();
+  const features = useFeatures();
   const [showSettlement, setShowSettlement] = useState(false);
   const [drawer, setDrawer] = useState<'chat' | 'panel' | null>(null);
   const [focus, setFocus] = useState(false);
@@ -94,7 +96,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const isTournament = tableInfo?.tournament === true;
   // U turnaje na více stolech patří chat, dohoda a hlasování celému turnaji.
   const tournamentId = tableInfo?.tournamentId ?? tableId;
-  const channel = store.channels.find((c) => c.key === `table:${tournamentId}`);
+  const channel = features.chat ? store.channels.find((c) => c.key === `table:${tournamentId}`) : undefined;
   useFollowMyTable(tournamentId, tableId, isTournament);
   useTournamentResultFallback(isTournament ? tournamentId : '');
   const { me } = useSession();
@@ -120,9 +122,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Nástroje stolu: na širokém displeji v liště, na telefonu pod tlačítkem „⋯“.
   const tools = (
     <>
-      {!isTournament && <ShareToChat kind="stul" id={tableId} />}
+      {!isTournament && features.chat && <ShareToChat kind="stul" id={tableId} />}
       {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
-      {can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
+      {features.polls && can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
       {meSitting && (
         <Button onClick={() => void tableApi.sitIn(tableId).catch(() => undefined)} title={t('table.sitIn')}>
           ⏸ {t('table.sittingOut')} · {t('table.sitIn')}
@@ -239,7 +241,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </span>
         </div>
         {toolError && <Notice kind="error">{toolError}</Notice>}
-        <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />
+        {features.polls && <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />}
         {pollOpen && (
           <PollEditor
             table={{ id: tableId }}

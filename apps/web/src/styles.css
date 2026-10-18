@@ -407,6 +407,13 @@ h3,
 .tk-delay-3 { animation-delay: calc(0.24s / var(--tk-anim-speed)); }
 .tk-delay-4 { animation-delay: calc(0.32s / var(--tk-anim-speed)); }
 .tk-card-still { animation: none; }
+/* Rozdávání: karta doletí od rozdávajícího (hodnoty --deal-dx/dy v jednotkách šířky stolu). */
+@keyframes tk-deal-fly {
+  from { opacity: 0; transform: translate(var(--deal-dx), var(--deal-dy)) scale(0.55) rotate(-25deg); }
+  35% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}
+.tk-card-fly { animation: tk-deal-fly calc(0.5s / var(--tk-anim-speed)) cubic-bezier(0.2, 0.8, 0.25, 1) both; }
 /* Run it: nový běh vjede, jeho karty se rozdávají jedna po druhé a výherce se ukáže až po nich. */
 @keyframes tk-run-in {
   from { opacity: 0; transform: translateX(calc(var(--spacing) * -6)); }

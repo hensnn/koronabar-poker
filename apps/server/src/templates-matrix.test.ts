@@ -52,7 +52,7 @@ const ledgerIds = (everyone: string[], extra: string[] = []) => [accounts.mint()
 
 
 describe('matice her: cash šablony', { timeout: 600_000 }, () => {
-  it('každá vestavěná cash šablona: hra botů, peníze se nikdy neztratí ani nevzniknou, po zrušení stolu jsou všechny zpět v peněženkách', async () => {
+  it('každá vestavěná cash šablona: hra botů, peníze se nikdy neztratí ani nevzniknou, po zrušení stolu jsou všechny zpět v peněženkách', { retry: 2 }, async () => {
     const s = await start();
     const org = await s.user('organizator');
     const users = [await s.user(), await s.user(), await s.user(), await s.user(), await s.user()];

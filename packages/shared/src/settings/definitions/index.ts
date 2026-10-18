@@ -683,6 +683,8 @@ const ui: SettingDef[] = [
   bool('ui.sfxEnabled', { category: 'ui', mutability: A, scopes: USER }, true),
   int('ui.sfxVolumePercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 60, 0, 100),
   bool('ui.sfxDeal', { category: 'ui', mutability: A, scopes: USER }, true),
+  bool('ui.dealAnimation', { category: 'ui', mutability: A, scopes: USER }, true),
+  int('ui.dealCardMs', { category: 'ui', mutability: A, unit: 'ms', scopes: USER }, 280, 80, 800),
   bool('ui.sfxChip', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.sfxAction', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.sfxTurn', { category: 'ui', mutability: A, scopes: USER }, true),

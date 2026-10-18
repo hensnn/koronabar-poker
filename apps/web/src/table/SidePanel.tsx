@@ -5,6 +5,7 @@ import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { Button, Modal } from '../ui';
 import { BountiesBody, DealButton, InfoBody, positionText, useTournamentInfo, wantedList } from './InfoCard';
+import { useFeatures } from '../features';
 import { useMobileLayout } from './mobile';
 
 /** Widgety pravého panelu u stolu; pořadí je výchozí pořadí zobrazení. */
@@ -111,6 +112,7 @@ export function SidePanel({ view, tournamentId, inBb, tools }: { view: TableView
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const mobile = useMobileLayout();
+  const features = useFeatures();
   const { me } = useSession();
   const tour = useTournamentInfo(tournamentId);
   const info = view.info;
@@ -121,7 +123,7 @@ export function SidePanel({ view, tournamentId, inBb, tools }: { view: TableView
   const available: Record<SideId, boolean> = {
     info: true,
     // Odměny na hlavu jsou věc turnaje (nebo cokoli, co je u stolu právě vypsané)
-    bounties: !!tournamentId || wanted.length > 0,
+    bounties: features.headBounty && (!!tournamentId || wanted.length > 0),
     deal: hasDeal,
     tools: tools !== null,
   };

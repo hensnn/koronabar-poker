@@ -138,6 +138,8 @@ export function HandCard({ id }: { id: string }) {
 }
 
 /** Tlačítko „Sdílet v chatu“ u přehrané handy: volitelně odkryje vlastní karty a založí anketu. */
+import { useFeatures } from '../features';
+
 export function ShareHandButton({ handId }: { handId: string }) {
   const [open, setOpen] = useState(false);
   const [reveal, setReveal] = useState(false);
@@ -147,6 +149,9 @@ export function ShareHandButton({ handId }: { handId: string }) {
   const { channels } = useChatStore();
   void channels;
   void sendMessage;
+  const features = useFeatures();
+  // Sdílení handy jde do chatu: bez zapnutého sdílení nebo chatu se tlačítko neukazuje.
+  if (!features.shareHands || !features.chat) return null;
   return (
     <>
       <Button onClick={() => setOpen(true)}>{t('hand.share')}</Button>

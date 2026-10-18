@@ -6,6 +6,7 @@ import { rankColorClass } from '../progress-client';
 import { Card, DataTable, Notice, Spinner, Td } from '../ui';
 import { AchievementAdmin, AchievementShowcase } from './achievements';
 import { RatingSection } from './rating';
+import { useFeatures } from '../features';
 import { RatingAdmin } from './rating-admin';
 
 interface Me {
@@ -24,6 +25,7 @@ interface LevelRow {
 }
 
 export function ProgressPage() {
+  const features = useFeatures();
   const [me, setMe] = useState<Me | null>(null);
   const [levels, setLevels] = useState<LevelRow[]>([]);
   const [error, setError] = useState('');
@@ -57,7 +59,7 @@ export function ProgressPage() {
           </div>
         </div>
       </Card>
-      <RatingSection />
+      {features.rating && <RatingSection />}
       <AchievementShowcase />
       <Card title={t('xp.recent')}>
         {me.recent.length === 0 ? (

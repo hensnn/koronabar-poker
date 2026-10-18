@@ -185,6 +185,7 @@ function PanelSettings({ state, setState, titles, absent, onClose }: { state: Pa
   const flags: { key: string; label: string; def: boolean }[] = [
     { key: 'ui.rotateToMe', label: t('settings.ui.rotateToMe.label'), def: true },
     { key: 'ui.hideMyCards', label: t('settings.ui.hideMyCards.label'), def: false },
+    { key: 'ui.dealAnimation', label: t('settings.ui.dealAnimation.label'), def: true },
     { key: 'ui.showInBb', label: t('settings.ui.showInBb.label'), def: false },
     { key: 'ui.showSymbolAtTable', label: t('settings.ui.showSymbolAtTable.label'), def: true },
     { key: 'xp.showAtTable', label: t('settings.xp.showAtTable.label'), def: true },

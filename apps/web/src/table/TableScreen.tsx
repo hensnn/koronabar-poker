@@ -12,6 +12,7 @@ import { ActionBar } from './ActionBar';
 import { CardView } from './CardView';
 import { formatAmount, seatPosition } from './format';
 import { SidePanel } from './SidePanel';
+import { flyOffset, useDealAnimation, type DealState } from './deal';
 import { Amount } from './Chips';
 import { Countdown, TimerBar } from './TimerRing';
 import { useThemeToken } from '../theme/ThemeProvider';
@@ -57,6 +58,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const view = net.views[tableId];
   useTableSfx(view, net.clockOffset);
   const myLook = useMyTableLook();
+  const deal = useDealAnimation(view);
   const actionBubbles = useActionBubbles(view, inBb);
   const rotate = useSettings().values['ui.rotateToMe'] !== false;
   const winnerPref = String(useSettings().values['ui.showdownWinning'] ?? 'never');
@@ -194,7 +196,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
               // Sedadlo s bublinou nebo štítkem musí ležet nad sousedními sedadly i nad sázkami (každé sedadlo je vlastní vrstva).
               <div key={n} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
                 {seat ? (
-                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} />
+                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} />
                 ) : info.tournament ? null : (
                   <button className="tk-seat-empty" disabled={seated} onClick={() => setDialog({ kind: 'join', seat: n })}>
                     {t('table.sit')}
@@ -375,6 +377,9 @@ function Seat({
   oddsPct,
   sound,
   action,
+  deal,
+  dealFrom,
+  dealTo,
   bubbleSide,
 }: {
   seat: SeatView;
@@ -385,6 +390,10 @@ function Seat({
   oddsPct?: { win: number; tie: number };
   sound?: { emoji: string; name: string };
   action?: Bubble;
+  /** Rozdávání nové handy: zpoždění karet a odkud (od tlačítka) letí. */
+  deal?: DealState;
+  dealFrom?: { left: number; top: number };
+  dealTo?: { left: number; top: number };
   /** Sedadla v dolní části stolu mají bublinu vedle karet, aby se nepřekrývala se sázkou, která leží nad nimi. */
   bubbleSide?: 'left' | 'right';
 }) {
@@ -405,6 +414,9 @@ function Seat({
   // Co hráč s kartami udělal: ukázal obě / jednu (po handě bez showdownu), odhodil je (muck), nebo se ještě rozhoduje.
   const shownCount = seat.exposed ? seat.exposed.filter((c) => c !== null).length : 0;
   const revealLabel = seat.reveal === 'deciding' ? t('table.deciding') : seat.reveal === 'muck' ? (seat.cards ? t('table.muck') : null) : shownCount === 2 ? t('table.shownBoth') : shownCount === 1 ? t('table.shownOne') : null;
+  // Rozdávání: karta se objeví ve svém „kroku“ a doletí od tlačítka; mimo rozdávání se nic nenastavuje.
+  const dealDelay = (i: number) => deal?.delayMs(seat.seat, i);
+  const dealFly = deal?.active && dealFrom && dealTo ? flyOffset(dealFrom, dealTo) : undefined;
   const status = seat.status === 'allIn' ? t('table.allIn') : seat.status === 'folded' ? t('table.fold') : seat.status === 'sittingOut' ? t('table.sittingOut') : seat.status === 'waiting' ? t('table.waiting') : null;
   return (
     <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''}`}>
@@ -420,8 +432,8 @@ function Seat({
             ? seat.reveal === 'muck' && !seat.cards
               ? <span className="tk-seat-status tk-muck-in">{t('table.muck')}</span>
               : seat.cards && !(hideMine && !peek)
-              ? seat.cards.map((c) => <CardView key={c} card={c} small={!mine} reveal={!mine} />)
-              : [0, 1].map((i) => <CardView key={seat.exposed?.[i] ? `x-${seat.exposed[i]}` : i} card={seat.exposed?.[i] ?? null} small={!mine} reveal={!!seat.exposed?.[i]} />)
+              ? seat.cards.map((c, i) => <CardView key={c} card={c} small={!mine} reveal={!mine} delayMs={dealDelay(i)} fly={dealFly} />)
+              : [0, 1].map((i) => <CardView key={seat.exposed?.[i] ? `x-${seat.exposed[i]}` : `${view.handId}-${i}`} card={seat.exposed?.[i] ?? null} small={!mine} reveal={!!seat.exposed?.[i]} delayMs={dealDelay(i)} fly={dealFly} />)
             : status && !out && <span className="tk-seat-status">{status}</span>}
         </div>
         {seat.isDealer && (
