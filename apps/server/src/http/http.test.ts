@@ -143,6 +143,15 @@ describe('HTTP API: správa', () => {
     return { ...s, admin, mk };
   }
 
+  it('nepřihlášený nevidí seznam stolů ani struktury blindů (401), přihlášený ano', async () => {
+    const { server, admin } = await seeded();
+    const anon = http(server);
+    for (const url of ['/api/tables', '/api/structures']) {
+      expect((await anon.call('GET', url)).status, url).toBe(401);
+      expect((await admin.call('GET', url)).status, url).toBe(200);
+    }
+  });
+
   it('běžný hráč nemá přístup ke správě (403), administrátor ano', async () => {
     const { admin, mk } = await seeded();
     const hrac = await mk('Hrac');

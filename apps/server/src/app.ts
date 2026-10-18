@@ -598,7 +598,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     });
   }
 
-  app.get('/api/tables', async () => tables.list().map((t) => ({ id: t.id, name: t.name, kind: t.kind })));
+  app.get('/api/tables', async (req, reply) => (!req.user ? reply.status(401).send({ code: 'INVALID_CREDENTIALS' }) : tables.list().map((t) => ({ id: t.id, name: t.name, kind: t.kind }))));
 
   await app.ready();
   const io = new Server(app.server, { cors: { origin: false } });
