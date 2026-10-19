@@ -6,6 +6,7 @@ import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { useSession } from '../session';
 import { Button, Modal } from '../ui';
+import { actionTone } from './buttons';
 import { formatAmount } from './format';
 
 export interface TournamentInfo {
@@ -220,7 +221,7 @@ export function EntryActions({ tour, tournamentId }: { tour: TournamentInfo | nu
       {list.map((a) => (
         <button
           key={a.kind}
-          className="rounded-md border border-primary bg-primary px-2 py-1 text-on-primary"
+          className={`w-full ${a.kind === 'reenter' ? actionTone.special : actionTone.add}`}
           disabled={busy}
           onClick={async () => {
             if (!confirm(a.confirm)) return;

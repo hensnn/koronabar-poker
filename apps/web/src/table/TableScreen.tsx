@@ -26,6 +26,7 @@ import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-c
 import { Modal } from '../ui';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
+import { actionTone } from './buttons';
 
 interface Props {
   tableId: string;
@@ -289,48 +290,48 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           {view.winners && mine.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards) && (
             <>
               {winnerPref === 'ask' && view.winners.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
-              <button className={btn} onClick={() => void run(table.show(tableId, 'both'))}>
+              <button className={actionTone.show} onClick={() => void run(table.show(tableId, 'both'))}>
                 {t('table.showCards')}
               </button>
-              <button className={btn} onClick={() => void run(table.show(tableId, 0))}>
+              <button className={actionTone.show} onClick={() => void run(table.show(tableId, 0))}>
                 {t('table.showCard1')}
               </button>
-              <button className={btn} onClick={() => void run(table.show(tableId, 1))}>
+              <button className={actionTone.show} onClick={() => void run(table.show(tableId, 1))}>
                 {t('table.showCard2')}
               </button>
             </>
           )}
           {view.winners && mine.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit && (
-            <button className={btn} onClick={() => void run(table.rabbit(tableId))}>
+            <button className={actionTone.special} onClick={() => void run(table.rabbit(tableId))}>
               {t('table.rabbit')}
             </button>
           )}
           {info.callClock && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled && (
-            <button className={btn} onClick={() => void run(table.callClock(tableId))}>
+            <button className={actionTone.special} onClick={() => void run(table.callClock(tableId))}>
               {t('table.callClock')}
             </button>
           )}
           {(mine.sitOut ?? mine.status === 'sittingOut') ? (
-            <button className={btn} onClick={() => void run(table.sitIn(tableId))}>
+            <button className={actionTone.add} onClick={() => void run(table.sitIn(tableId))}>
               {t('table.sitIn')}
             </button>
           ) : (
-            <button className={btn} onClick={() => void run(table.sitOut(tableId))}>
+            <button className={actionTone.pause} onClick={() => void run(table.sitOut(tableId))}>
               {t('table.sitOut')}
             </button>
           )}
           {info.straddle === 'optional' && (
-            <button className={btn} aria-pressed={view.myStraddle} onClick={() => void run(table.straddle(tableId, !view.myStraddle))}>
+            <button className={actionTone.special} aria-pressed={view.myStraddle} onClick={() => void run(table.straddle(tableId, !view.myStraddle))}>
               {view.myStraddle ? t('table.straddleOff') : t('table.straddleOn')}
             </button>
           )}
           {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
-            <button className={btn} onClick={() => setDialog({ kind: 'topUp' })}>
+            <button className={actionTone.add} onClick={() => setDialog({ kind: 'topUp' })}>
               {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}
             </button>
           )}
           {!info.tournament && (
-            <button className={btn} onClick={() => void run(table.leave(tableId))}>
+            <button className={actionTone.leave} onClick={() => void run(table.leave(tableId))}>
               {t('table.leave')}
             </button>
           )}

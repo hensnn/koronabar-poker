@@ -6,6 +6,7 @@ import { table as tableApi } from '../net';
 import { SoundPalette } from '../pages/sounds';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
+import { actionToneSm } from './buttons';
 import { CardView } from './CardView';
 import { AddonOfferDialog, BountiesBody, DealButton, EntryActions, InfoBody, entryActions, useTournamentInfo, wantedList } from './InfoCard';
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
@@ -145,16 +146,16 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       show: !!mine && !!info,
       body: mine && info && (
         <div className="flex flex-wrap gap-1.5">
-          <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" onClick={() => void (mine.sitOut ?? mine.status === 'sittingOut' ? tableApi.sitIn(tableId) : tableApi.sitOut(tableId))}>
+          <button className={mine.sitOut ?? mine.status === 'sittingOut' ? actionToneSm.add : actionToneSm.pause} onClick={() => void (mine.sitOut ?? mine.status === 'sittingOut' ? tableApi.sitIn(tableId) : tableApi.sitOut(tableId))}>
             {mine.sitOut ?? mine.status === 'sittingOut' ? t('table.sitIn') : t('table.sitOut')}
           </button>
           {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
-            <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" onClick={() => window.dispatchEvent(new Event('kb:topup'))}>
+            <button className={actionToneSm.add} onClick={() => window.dispatchEvent(new Event('kb:topup'))}>
               {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}
             </button>
           )}
           {!info.tournament && (
-            <button className="rounded-md border border-line bg-surface px-2 py-0.5 text-sm" onClick={() => void tableApi.leave(tableId)}>
+            <button className={actionToneSm.leave} onClick={() => void tableApi.leave(tableId)}>
               {t('table.leave')}
             </button>
           )}
