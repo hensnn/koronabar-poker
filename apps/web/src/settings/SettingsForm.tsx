@@ -35,6 +35,16 @@ interface Props {
 const field =
   'rounded-sm border border-line bg-surface px-2 py-1 text-text';
 
+/** Barva skupiny nastavení: každá kategorie má svůj odstín, aby se jednotlivé skupiny (Stůl, Časovač tahu, Turnaj…) neslévaly. Třídy jsou zapsané celé kvůli Tailwindu. */
+const TONES = [
+  { dot: 'bg-success', tab: 'border-l-success', box: 'border-success', row: 'border-l-success', head: 'text-success' },
+  { dot: 'bg-info', tab: 'border-l-info', box: 'border-info', row: 'border-l-info', head: 'text-info' },
+  { dot: 'bg-warning', tab: 'border-l-warning', box: 'border-warning', row: 'border-l-warning', head: 'text-warning' },
+  { dot: 'bg-accent', tab: 'border-l-accent', box: 'border-accent', row: 'border-l-accent', head: 'text-accent' },
+  { dot: 'bg-secondary', tab: 'border-l-secondary', box: 'border-secondary', row: 'border-l-secondary', head: 'text-secondary' },
+  { dot: 'bg-danger', tab: 'border-l-danger', box: 'border-danger', row: 'border-l-danger', head: 'text-danger' },
+] as const;
+
 /** Malá písmena bez diakritiky, aby „sazka“ našlo i „sázka“. */
 const fold = (s: string) =>
   s
@@ -53,6 +63,8 @@ export function SettingsForm(p: Props) {
   const [active, setActive] = useState(cats[0] ?? '');
   const current = cats.includes(active) ? active : cats[0];
   const q = fold(query);
+  const allCats = useMemo(() => p.registry.categories(), [p.registry]);
+  const tone = (c: string) => TONES[Math.max(0, allCats.indexOf(c)) % TONES.length]!;
 
   // Fulltext: všechna slova dotazu se musí najít v názvu, nápovědě, klíči, kategorii nebo názvech možností.
   const words = q.split(/\s+/).filter(Boolean);
@@ -84,20 +96,32 @@ export function SettingsForm(p: Props) {
               role="tab"
               aria-selected={c === current}
               onClick={() => setActive(c)}
-              className={`rounded-md border border-line px-3 py-1 ${
-                c === current ? 'bg-primary text-on-primary' : 'bg-surface text-text'
+              className={`flex items-center gap-2 rounded-md border px-3 py-1 border-l-4 ${tone(c).tab} ${
+                c === current ? `${tone(c).box} bg-raised font-semibold text-text` : 'border-line bg-surface text-text'
               }`}
             >
+              <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(c).dot}`} />
               {t(categoryKey(c))}
             </button>
           ))}
         </div>
       )}
-      <div className="flex flex-col gap-3">
+      <div className={`flex flex-col gap-3 rounded-md border-2 p-3 ${q ? 'border-line' : tone(current ?? '').box}`}>
+        {!q && current && (
+          <h3 className={`flex items-center gap-2 text-lg font-bold ${tone(current).head}`}>
+            <span aria-hidden="true" className={`inline-block h-3 w-3 rounded-full ${tone(current).dot}`} />
+            {t(categoryKey(current))}
+          </h3>
+        )}
         {defs.map((d, i) => (
           <div key={d.key} className="flex flex-col gap-1">
-            {q && (i === 0 || defs[i - 1]!.category !== d.category) && <h3 className="mt-2 text-sm font-bold text-muted">{t(categoryKey(d.category))}</h3>}
-            <Row def={d} {...p} />
+            {q && (i === 0 || defs[i - 1]!.category !== d.category) && (
+              <h3 className={`mt-2 flex items-center gap-2 text-sm font-bold ${tone(d.category).head}`}>
+                <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(d.category).dot}`} />
+                {t(categoryKey(d.category))}
+              </h3>
+            )}
+            <Row def={d} {...p} rowClass={`border-l-4 ${tone(d.category).row}`} />
           </div>
         ))}
         {defs.length === 0 && <p className="text-muted">{q ? t('settings.searchNone') : t('settings.nothing')}</p>}
@@ -106,7 +130,7 @@ export function SettingsForm(p: Props) {
   );
 }
 
-function Row({ def, values, origins, editScope, onChange, onReset, issues, pendingKeys }: Props & { def: SettingDef }) {
+function Row({ def, values, origins, editScope, onChange, onReset, issues, pendingKeys, rowClass = '' }: Props & { def: SettingDef; rowClass?: string }) {
   const value = values[def.key] as SettingValue;
   const unsaved = pendingKeys?.includes(def.key) ?? false;
   const origin = origins[def.key] ?? 'default';
@@ -114,7 +138,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
   const errs = issues.filter((i) => i.keys.includes(def.key));
   const id = `s-${def.key}`;
   return (
-    <div className="rounded-md border border-line bg-surface p-3">
+    <div className={`rounded-md border border-line bg-surface p-3 ${rowClass}`}>
       <div className="flex items-baseline justify-between gap-2">
         <label htmlFor={id} className="font-medium">
           {t(labelKey(def.key))}
