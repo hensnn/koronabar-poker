@@ -606,6 +606,7 @@ const tournament: SettingDef[] = [
   int('tournament.rebuyChips', { category: 'tournamentRebuy', mutability: S, unit: 'chips', appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, 5000, 1, 1_000_000_000),
   int('tournament.rebuyMax', { category: 'tournamentRebuy', mutability: S, unit: 'x', appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, 3, 1, 99),
   choice('tournament.rebuyWhen', { category: 'tournamentRebuy', mutability: S, appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, 'belowStart', ['busted', 'belowStart']),
+  int('tournament.rebuyBelowChips', { category: 'tournamentRebuy', mutability: S, unit: 'chips', appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyWhen', equals: 'belowStart' } }, 0, 0, 1_000_000_000),
   int('tournament.rebuyDecisionSeconds', { category: 'tournamentRebuy', mutability: H, unit: 's', appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, 60, 5, 600),
   bool('tournament.addonEnabled', { category: 'tournamentRebuy', mutability: S, appliesTo: 'tournament' }, false),
   int('tournament.addonFromLevel', { category: 'tournamentRebuy', mutability: H, unit: 'x', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 5, 1, 50),

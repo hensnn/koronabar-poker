@@ -813,7 +813,7 @@ export class Tournament {
     if (busted || p.status === 'deciding') return true;
     if (s['tournament.rebuyWhen'] === 'busted') return false;
     const chips = this.table?.chipsOf(p.userId) ?? 0;
-    return chips <= num(s, 'tournament.startingStack');
+    return chips <= (num(s, 'tournament.rebuyBelowChips') || num(s, 'tournament.startingStack'));
   }
 
   canRebuy(userId: string): boolean {

@@ -207,6 +207,19 @@ describe('turnaj: registrace a peníze', () => {
       expect(() => h.tour.declineAddon('u2')).toThrow(TournamentError);
       expect(h.tour.addonOffered('u3')).toBe(true);
     });
+
+  it('rebuy při stacku do konkrétní hranice (rebuyBelowChips), 0 = startovní stack', () => {
+    const h = harness({ 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'belowStart', 'tournament.rebuyUntilLevel': 5, 'tournament.rebuyBelowChips': 1000 });
+    registerAll(h);
+    h.tour.start();
+    // všichni mají startovní stack 1500: nad hranicí 1000 rebuy nejde
+    expect(h.tour.canRebuy('u1')).toBe(false);
+    const h2 = harness({ 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'belowStart', 'tournament.rebuyUntilLevel': 5 });
+    registerAll(h2);
+    h2.tour.start();
+    // hranice 0 = startovní stack, a ten mají všichni právě teď
+    expect(h2.tour.canRebuy('u1')).toBe(true);
+  });
   });
   it('zrušení vrátí všem všechny platby včetně rebuy a add-onu', async () => {
     const h = harness({ 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'belowStart', 'tournament.rebuyUntilLevel': 5, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 3 });
