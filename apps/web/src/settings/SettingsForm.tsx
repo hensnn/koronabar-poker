@@ -42,8 +42,9 @@ const TONES = [
   { dot: 'bg-warning', tab: 'border-l-warning', box: 'border-warning', row: 'border-l-warning', head: 'text-warning' },
   { dot: 'bg-accent', tab: 'border-l-accent', box: 'border-accent', row: 'border-l-accent', head: 'text-accent' },
   { dot: 'bg-secondary', tab: 'border-l-secondary', box: 'border-secondary', row: 'border-l-secondary', head: 'text-secondary' },
-  { dot: 'bg-danger', tab: 'border-l-danger', box: 'border-danger', row: 'border-l-danger', head: 'text-danger' },
 ] as const;
+/** Odstín všech turnajových skupin. */
+const TOURNAMENT_TONE = 3;
 
 /** Malá písmena bez diakritiky, aby „sazka“ našlo i „sázka“. */
 const fold = (s: string) =>
@@ -64,7 +65,13 @@ export function SettingsForm(p: Props) {
   const current = cats.includes(active) ? active : cats[0];
   const q = fold(query);
   const allCats = useMemo(() => p.registry.categories(), [p.registry]);
-  const tone = (c: string) => TONES[Math.max(0, allCats.indexOf(c)) % TONES.length]!;
+  // Příbuzné skupiny (všechny „Turnaj: …“) mají stejný odstín, ostatní se střídají.
+  const tone = (c: string) => {
+    if (c.startsWith('tournament')) return TONES[TOURNAMENT_TONE]!;
+    const others = allCats.filter((x) => !x.startsWith('tournament'));
+    const free = TONES.filter((_, i) => i !== TOURNAMENT_TONE);
+    return free[Math.max(0, others.indexOf(c)) % free.length]!;
+  };
 
   // Fulltext: všechna slova dotazu se musí najít v názvu, nápovědě, klíči, kategorii nebo názvech možností.
   const words = q.split(/\s+/).filter(Boolean);
