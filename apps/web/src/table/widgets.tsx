@@ -154,9 +154,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       show: !!mine && !!info,
       body: mine && info && (
         <div className="flex flex-wrap gap-1.5">
-          <button className={mine.sitOut ?? mine.status === 'sittingOut' ? actionToneSm.add : actionToneSm.pause} onClick={() => void (mine.sitOut ?? mine.status === 'sittingOut' ? tableApi.sitIn(tableId) : tableApi.sitOut(tableId))}>
-            {mine.sitOut ?? mine.status === 'sittingOut' ? t('table.sitIn') : t('table.sitOut')}
-          </button>
           {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
             <button className={actionToneSm.add} onClick={() => window.dispatchEvent(new Event('kb:topup'))}>
               {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}

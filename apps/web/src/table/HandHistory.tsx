@@ -62,9 +62,9 @@ export function HandHistory({ tableId, onClose }: { tableId: string; onClose: ()
   const total = useMemo(() => (rows ?? []).reduce((n, r) => n + unit(r.net, r.chipsPerUnit), 0), [rows]);
   const index = rows?.findIndex((r) => r.id === openId) ?? -1;
   return (
-    <Modal title={t('table.history')} onClose={onClose}>
+    <Modal title={t('table.history')} wide onClose={onClose}>
       {/* Pevná velikost: seznam i detail se uvnitř posouvají, okno se nezvětšuje ani nezmenšuje. */}
-      <div className="flex h-[70vh] w-[min(40rem,85vw)] flex-col gap-3">
+      <div className="flex h-[75vh] w-full flex-col gap-3">
         {error && <Notice kind="error">{error}</Notice>}
         {rows && rows.length === 0 && <p className="text-muted">{t('table.historyEmpty')}</p>}
         {!openId && rows && rows.length > 0 && (

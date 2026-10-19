@@ -342,15 +342,6 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
               {t('table.callClock')}
             </button>
           )}
-          {(mine.sitOut ?? mine.status === 'sittingOut') ? (
-            <button className={actionTone.add} onClick={() => void run(table.sitIn(tableId))}>
-              {t('table.sitIn')}
-            </button>
-          ) : (
-            <button className={actionTone.pause} onClick={() => void run(table.sitOut(tableId))}>
-              {t('table.sitOut')}
-            </button>
-          )}
           {info.straddle === 'optional' && (
             <button className={actionTone.special} aria-pressed={view.myStraddle} onClick={() => void run(table.straddle(tableId, !view.myStraddle))}>
               {view.myStraddle ? t('table.straddleOff') : t('table.straddleOn')}
