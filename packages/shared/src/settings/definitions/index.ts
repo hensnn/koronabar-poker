@@ -610,6 +610,8 @@ const tournament: SettingDef[] = [
   int('tournament.rebuyBelowChips', { category: 'tournamentRebuy', mutability: S, unit: 'chips', appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyWhen', equals: 'belowStart' } }, 0, 0, 1_000_000_000),
   int('tournament.rebuyDecisionSeconds', { category: 'tournamentRebuy', mutability: H, unit: 's', appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, 60, 5, 600),
   bool('tournament.rebuyHoldsGame', { category: 'tournamentRebuy', mutability: H, appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, false),
+  bool('tournament.rebuyWaitsForOffline', { category: 'tournamentRebuy', mutability: H, appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, false),
+  int('tournament.rebuyOfflineMaxSeconds', { category: 'tournamentRebuy', mutability: H, unit: 's', appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyWaitsForOffline', truthy: true } }, 300, 30, 3600),
   bool('tournament.rebuyTimerStops', { category: 'tournamentRebuy', mutability: H, appliesTo: 'tournament', dependsOn: { key: 'tournament.rebuyEnabled', truthy: true } }, false),
   bool('tournament.addonEnabled', { category: 'tournamentRebuy', mutability: S, appliesTo: 'tournament' }, false),
   int('tournament.addonFromLevel', { category: 'tournamentRebuy', mutability: H, unit: 'x', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 5, 1, 50),

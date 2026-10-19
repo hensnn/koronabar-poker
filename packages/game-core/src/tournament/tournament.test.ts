@@ -221,6 +221,66 @@ describe('turnaj: registrace a peníze', () => {
     expect(h2.tour.canRebuy('u1')).toBe(true);
   });
 
+
+  describe('rebuy: odpojený hráč', () => {
+    const base = { 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'busted', 'tournament.rebuyUntilLevel': 9, 'tournament.rebuyDecisionSeconds': 60, 'tournament.rebuyOfflineMaxSeconds': 300, 'tournament.rebuyWaitsForOffline': true };
+    const bust = (h: Harness, u: string) => h.tour.onTableEvent({ type: 'bust', players: [{ userId: u, startStack: 100 }], hand: [] } as never);
+    const conn = (h: Harness, u: string, on: boolean) => {
+      h.table.setConnected(u, on);
+    };
+    const status = (h: Harness, u: string) => h.tour.state().players.find((p) => p.userId === u)!.status;
+
+    it('odpojenému hráči odpočet stojí a po připojení pokračuje', () => {
+      const h = harness({ ...base });
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      h.clock.advance(20_000);
+      conn(h, 'u1', false);
+      h.clock.advance(200_000);
+      expect(status(h, 'u1')).toBe('deciding');
+      conn(h, 'u1', true);
+      h.clock.advance(39_000);
+      expect(status(h, 'u1')).toBe('deciding');
+      h.clock.advance(2_000);
+      expect(status(h, 'u1')).toBe('out');
+    });
+
+    it('hráč odpojený už při vypadnutí dostane čas až po připojení; rebuy pak projde', () => {
+      const h = harness({ ...base });
+      registerAll(h);
+      h.tour.start();
+      conn(h, 'u2', false);
+      bust(h, 'u2');
+      h.clock.advance(100_000);
+      expect(status(h, 'u2')).toBe('deciding');
+      conn(h, 'u2', true);
+      h.tour.rebuy('u2');
+      expect(status(h, 'u2')).toBe('playing');
+    });
+
+    it('nejdéle se čeká nastavenou dobu, pak je hráč vyřazen', () => {
+      const h = harness({ ...base });
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      conn(h, 'u1', false);
+      h.clock.advance(299_000);
+      expect(status(h, 'u1')).toBe('deciding');
+      h.clock.advance(2_000);
+      expect(status(h, 'u1')).toBe('out');
+    });
+
+    it('bez volby odpojení odpočet nezastaví', () => {
+      const h = harness({ ...base, 'tournament.rebuyWaitsForOffline': false });
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      conn(h, 'u1', false);
+      h.clock.advance(61_000);
+      expect(status(h, 'u1')).toBe('out');
+    });
+  });
   describe('rebuy: čekání hry a odpočet rozhodování', () => {
     const base = { 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'busted', 'tournament.rebuyUntilLevel': 9, 'tournament.rebuyDecisionSeconds': 60 };
     const bust = (h: Harness, u: string) => h.tour.onTableEvent({ type: 'bust', players: [{ userId: u, startStack: 100 }], hand: [] } as never);

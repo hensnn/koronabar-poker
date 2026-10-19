@@ -7,6 +7,7 @@ export interface SetTable {
   addTournamentChips(userId: string, chips: number): void;
   removeTournamentPlayer(userId: string): void;
   chipsOf(userId: string): number | null;
+  isConnected?(userId: string): boolean | null;
   hold(): void;
   release(): void;
   playersSeated(): { userId: string; name: string; seat: number; chips: number; pendingChips: number; mode: string }[];
@@ -186,6 +187,10 @@ export class TournamentTableSet implements TournamentTable {
     t.table.removeTournamentPlayer(userId);
     // Po vyřazení může stolům, které zrovna nehrají, začít chybět hráči: tady se to vyřeší hned.
     this.afterRemoval();
+  }
+
+  isConnected(userId: string): boolean | null {
+    return this.find(userId)?.table.isConnected?.(userId) ?? null;
   }
 
   chipsOf(userId: string): number | null {

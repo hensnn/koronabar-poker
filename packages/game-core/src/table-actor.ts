@@ -54,6 +54,7 @@ export interface HandRecordData {
 }
 
 export type TableEvent =
+  | { type: 'connection'; userId: string; connected: boolean }
   | { type: 'handStart'; handId: string; handNumber: number; buttonSeat: number | null; players: { seat: number; userId: string; stack: number }[] }
   | { type: 'action'; handId: string; userId: string; seat: number; street: string; action: PlayerAction['type'] | 'timeout'; amount: number; auto: boolean; /** Nejvyšší sázka na ulici před akcí. */ facing: number }
   | {
@@ -390,11 +391,18 @@ export class TableActor {
     });
   }
 
+  /** Je hráč právě připojený? (null = u tohoto stolu nesedí) */
+  isConnected(userId: string): boolean | null {
+    return this.seats.get(userId)?.connected ?? null;
+  }
+
   setConnected(userId: string, connected: boolean): void {
     const e = this.seats.get(userId);
     if (!e) return;
+    const was = e.connected;
     e.connected = connected;
     if (!connected && this.actingUser === userId) this.startTurnTimer();
+    if (was !== connected) this.opt.onEvent?.({ type: 'connection', userId, connected });
     this.changed();
   }
 
