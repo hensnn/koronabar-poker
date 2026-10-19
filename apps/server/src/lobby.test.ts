@@ -217,3 +217,26 @@ describe('lobby: úprava a zrušení stolu', () => {
     expect(await err(s.server.tables.closeTable(s.admin, id))).toBe('OK');
   });
 });
+
+describe('kde sedím: více stolů naráz', () => {
+  it('/api/me/seat vrací všechny stoly, u kterých hráč sedí', async () => {
+    const { server, admin, user } = await start();
+    const org = await user('organizator');
+    const player = await user();
+    const t1 = await server.tables.createTable(org, { name: 'Stůl A', templateId: 'cash-klasika' });
+    const t2 = await server.tables.createTable(org, { name: 'Stůl B', templateId: 'cash-klasika' });
+    const login = await server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: 'Admin', password: 'admin-heslo-123' }, headers: { origin: 'http://localhost' } });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+    const seats = async () => (await server.app.inject({ method: 'GET', url: '/api/me/seat', headers: { cookie } })).json() as { seat: { tableId: string } | null; seats: { tableId: string; name: string }[] };
+    expect((await seats()).seats).toEqual([]);
+    for (const [i, id] of [t1.id, t2.id].entries()) {
+      const a = server.tables.actors.get(id)!;
+      const info = a.viewFor(null).info;
+      a.join(admin, 'Admin', i, Math.ceil(info.minBuyIn / info.chipsPerCurrencyUnit));
+    }
+    void player;
+    const r = await seats();
+    expect(r.seats.map((s) => s.name).sort()).toEqual(['Stůl A', 'Stůl B']);
+    expect(r.seat?.tableId).toBe(r.seats[0]!.tableId);
+  });
+});

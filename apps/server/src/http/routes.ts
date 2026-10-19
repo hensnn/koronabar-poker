@@ -480,13 +480,15 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   // ===== 6. kde sedím (tlačítko „Ke stolu“ v nabídce) =====
   app.get('/api/me/seat', guard(async (req, reply) => {
     const u = need(req);
+    // Hráč může sedět u více stolů naráz: vrací se všechny (`seat` je první kvůli starším klientům).
+    const seats: { tableId: string; name: string; tournamentId: string | null }[] = [];
     for (const [tableId, actor] of svc.tables().actors) {
       if (!actor.playersSeated().some((s) => s.userId === u.id)) continue;
       const info = actor.viewFor(null).info;
       const name = svc.tables().row(tableId)?.name ?? (info.tournamentId ? svc.tournaments().nameOf(info.tournamentId) : undefined) ?? tableId;
-      return reply.send({ seat: { tableId, name, tournamentId: info.tournamentId ?? null } });
+      seats.push({ tableId, name, tournamentId: info.tournamentId ?? null });
     }
-    return reply.send({ seat: null });
+    return reply.send({ seat: seats[0] ?? null, seats });
   }));
   app.delete('/api/lobby/tables/:id', guard(async (req, reply) => {
     await svc.tables().closeTable(need(req).id, (req.params as { id: string }).id, meta(req));

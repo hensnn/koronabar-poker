@@ -37,7 +37,7 @@ import { SoundMenu } from './sound-menu';
 import { DashboardPage } from './pages/dashboard';
 import { MainMenu, type MenuGroup, type MenuItem, type MenuTone } from './main-menu';
 import { useTournamentAutoJoin } from './tournament-autojoin';
-import { useMySeat } from './my-seat';
+import { MyTableButton } from './my-table-button';
 
 const PUBLIC = ['/prihlaseni', '/registrace', '/zapomenute-heslo', '/obnova-hesla', '/overit-email', '/potvrdit-email'];
 
@@ -123,7 +123,6 @@ function Shell({ me }: { me: Me }) {
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [path]);
   useTournamentAutoJoin();
-  const mySeat = useMySeat();
   const stul = matchPath('/stul/:id', path);
   const turnaj = matchPath('/turnaj/:id', path);
   const anketa = matchPath('/ankety/:id', path);
@@ -172,11 +171,7 @@ function Shell({ me }: { me: Me }) {
           <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} w-full flex-wrap gap-2 md:order-first md:flex md:w-auto`}>
             <MainMenu groups={groups} isActive={isActive} path={path} />
           </div>
-          {mySeat && path !== `/stul/${mySeat.tableId}` && (
-            <Link to={`/stul/${mySeat.tableId}`} className="rounded-md border border-primary bg-primary px-3 py-1 text-on-primary" title={mySeat.name}>
-              🪑 {t('nav.myTable')}
-            </Link>
-          )}
+          <MyTableButton path={path} />
           <NotificationBell />
           <SoundMenu />
           <SoundHost />

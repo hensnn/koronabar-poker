@@ -4,7 +4,7 @@ import { get } from '../api';
 import { Link, navigate } from '../router';
 import { useSession } from '../session';
 import { useSettings } from '../settings';
-import { useMySeat } from '../my-seat';
+import { useMySeats } from '../my-seat';
 import { Badge, Button, Card, Notice } from '../ui';
 import { PollsPanel } from './polls';
 import { useFeatures } from '../features';
@@ -46,7 +46,7 @@ export function DashboardPage() {
   const features = useFeatures();
   const { me } = useSession();
   const settings = useSettings();
-  const seat = useMySeat();
+  const seats = useMySeats();
   const [tables, setTables] = useState<CashTable[] | null>(null);
   const [tours, setTours] = useState<Tour[] | null>(null);
   const [rows, setRows] = useState<Row[] | null | 'hidden'>(null);
@@ -121,13 +121,17 @@ export function DashboardPage() {
           </div>
         </Card>
         <Card title={t('dashboard.playingNow')}>
-          {seat ? (
-            <div className="flex flex-col gap-2">
-              <p>{seat.name}</p>
-              <Button variant="primary" onClick={() => navigate(`/stul/${seat.tableId}`)}>
-                {t('nav.myTable')}
-              </Button>
-            </div>
+          {seats.length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {seats.map((seat) => (
+                <li key={seat.tableId} className="flex items-center justify-between gap-2">
+                  <span className="truncate">{seat.name}</span>
+                  <Button variant="primary" onClick={() => navigate(`/stul/${seat.tableId}`)}>
+                    {t('nav.myTable')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="text-muted">{t('dashboard.notSeated')}</p>
           )}

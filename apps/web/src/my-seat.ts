@@ -8,14 +8,14 @@ export interface MySeat {
   tournamentId: string | null;
 }
 
-/** Kde právě sedím (cash stůl nebo turnajový stůl): pro tlačítko „Ke stolu“ v nabídce. Obnovuje se po připojení a každých 20 s. */
-export function useMySeat(): MySeat | null {
-  const [seat, setSeat] = useState<MySeat | null>(null);
+/** Kde právě sedím (všechny cash i turnajové stoly): pro tlačítko „Ke stolu“ v nabídce. Obnovuje se po připojení a každých 20 s. */
+export function useMySeats(): MySeat[] {
+  const [seats, setSeats] = useState<MySeat[]>([]);
   useEffect(() => {
     let alive = true;
     const load = () =>
-      get<{ seat: MySeat | null }>('/api/me/seat')
-        .then((d) => alive && setSeat(d.seat))
+      get<{ seat: MySeat | null; seats?: MySeat[] }>('/api/me/seat')
+        .then((d) => alive && setSeats(d.seats ?? (d.seat ? [d.seat] : [])))
         .catch(() => undefined);
     void load();
     const off = onSocket('hello', load);
@@ -26,5 +26,10 @@ export function useMySeat(): MySeat | null {
       clearInterval(timer);
     };
   }, []);
-  return seat;
+  return seats;
+}
+
+/** První stůl, u kterého sedím (pro místa, kde se ukazuje jen jeden). */
+export function useMySeat(): MySeat | null {
+  return useMySeats()[0] ?? null;
 }
