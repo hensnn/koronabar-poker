@@ -524,13 +524,17 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   const templateDto = (t: SettingsTemplate) => ({ id: t.id, kind: t.kind, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, overridden: svc.templates().isOverridden(t.id), values: t.values });
   app.get('/api/admin/templates', guard(async (req, reply) => {
     if (!svc.perms.can(need(req).id, 'nastaveni.globalni').allowed) throw new AccountError('FORBIDDEN');
-    return reply.send({ templates: svc.templates().list().map(templateDto) });
+    return reply.send({ templates: svc.templates().list().map(templateDto), deleted: svc.templates().deletedBuiltin().map((x) => ({ id: x.id, kind: x.kind, name: x.name })) });
   }));
   app.post('/api/admin/templates', guard(async (req, reply) => reply.send(templateDto(await svc.templates().create(need(req).id, templateBody.parse(req.body), meta(req))))));
   app.put('/api/admin/templates/:id', guard(async (req, reply) => reply.send(templateDto(await svc.templates().update(need(req).id, (req.params as { id: string }).id, templateBody.parse(req.body), meta(req))))));
   app.put('/api/admin/templates/order', guard(async (req, reply) => {
     const b = z.object({ kind: z.enum(['cash', 'tournament', 'live']), ids: z.array(z.string().max(100)).max(200) }).parse(req.body);
     await svc.templates().reorder(need(req).id, b.kind, b.ids);
+    return reply.send({ ok: true });
+  }));
+  app.post('/api/admin/templates/:id/restore', guard(async (req, reply) => {
+    await svc.templates().restore(need(req).id, (req.params as { id: string }).id, meta(req));
     return reply.send({ ok: true });
   }));
   app.delete('/api/admin/templates/:id', guard(async (req, reply) => {

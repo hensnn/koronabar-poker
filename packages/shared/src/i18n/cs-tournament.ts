@@ -1696,6 +1696,8 @@ export const csTournament: Record<string, string> = {
   'settings.tournament.payoutRemainder.option.house': 'Připadne herně',
   'settings.tournament.payoutRemainder.option.spread': 'Rozdělí se po jednotkách od 1. místa',
 
+  'template.tour-vlastni.name': 'Turnaj: vlastní nastavení',
+  'template.tour-vlastni.description': 'Prázdný základ s výchozími hodnotami. Celý turnaj si nastavíte v podrobném nastavení.',
   'template.tour-freezeout.name': 'Turnaj: klasický freezeout',
   'template.tour-freezeout.description': 'Jeden vstup bez rebuy, levely 15 minut, zhruba dvě a půl hodiny.',
   'template.tour-rebuy.name': 'Turnaj: domácí rebuy s add-onem',

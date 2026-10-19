@@ -26,11 +26,15 @@ const templateScoped = (d: { scopes?: readonly string[] }) => scopeAllowed(d.sco
 export function TemplatesPage() {
   const [rows, setRows] = useState<Template[]>([]);
   const [error, setError] = useState('');
+  const [deleted, setDeleted] = useState<{ id: string; kind: Template['kind']; name: string }[]>([]);
   const [editor, setEditor] = useState<{ base: Template | null; kind: Template['kind']; copy?: boolean } | null>(null);
   const reload = useCallback(() => {
-    get<{ templates: Template[] }>('/api/admin/templates')
+    get<{ templates: Template[]; deleted?: { id: string; kind: Template['kind']; name: string }[] }>('/api/admin/templates')
       // Ve správě jsou šablony seskupené podle druhu (turnaje, cash, živé); uvnitř druhu platí pořadí z nabídky.
-      .then((d) => setRows([...d.templates].sort((x, y) => KIND_RANK[x.kind] - KIND_RANK[y.kind])))
+      .then((d) => {
+        setRows([...d.templates].sort((x, y) => KIND_RANK[x.kind] - KIND_RANK[y.kind]));
+        setDeleted(d.deleted ?? []);
+      })
       .catch((e) => setError(errorText(e)));
   }, []);
   useEffect(reload, [reload]);
@@ -82,9 +86,9 @@ export function TemplatesPage() {
                 {x.overridden && (
                   <Button
                     onClick={async () => {
-                      if (!confirm(t('templates.restoreConfirm', { name: x.name }))) return;
+                      if (!confirm(t('templates.restoreConfirm', { name: label(x) }))) return;
                       try {
-                        await del(`/api/admin/templates/${x.id}`);
+                        await post(`/api/admin/templates/${x.id}/restore`);
                         reload();
                       } catch (e) {
                         setError(errorText(e));
@@ -94,11 +98,11 @@ export function TemplatesPage() {
                     {t('templates.restore')}
                   </Button>
                 )}
-                {!x.builtin && !x.overridden && (
+                {(
                   <Button
                     variant="danger"
                     onClick={async () => {
-                      if (!confirm(t('templates.deleteConfirm', { name: x.name }))) return;
+                      if (!confirm(t(x.builtin || x.overridden ? 'templates.deleteBuiltinConfirm' : 'templates.deleteConfirm', { name: label(x) }))) return;
                       try {
                         await del(`/api/admin/templates/${x.id}`);
                         reload();
@@ -115,6 +119,30 @@ export function TemplatesPage() {
           </tr>
         ))}
       </DataTable>
+      {deleted.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <h3 className="font-bold">{t('templates.deletedTitle')}</h3>
+          <ul className="flex flex-col gap-1">
+            {deleted.map((d) => (
+              <li key={d.id} className="flex items-center gap-2">
+                <span className="flex-1">{t(d.name)}</span>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await post(`/api/admin/templates/${d.id}/restore`);
+                      reload();
+                    } catch (e) {
+                      setError(errorText(e));
+                    }
+                  }}
+                >
+                  {t('templates.restore')}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {editor && (
         <TemplateEditor
           base={editor.base}

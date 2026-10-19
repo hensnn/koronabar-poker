@@ -83,7 +83,7 @@ export class TableManager {
 
   /** Vrstva „šablona“: snímek uložený u stolu, jinak aktuální šablona podle id. */
   private templateValues(row: TableRow): Record<string, SettingValue> | undefined {
-    return (row.templateValues as Record<string, SettingValue> | null | undefined) ?? (this.deps.templates.get(row.templateId)?.values as Record<string, SettingValue> | undefined);
+    return (row.templateValues as Record<string, SettingValue> | null | undefined) ?? (this.deps.templates.getAny(row.templateId)?.values as Record<string, SettingValue> | undefined);
   }
 
   /** Zda některý otevřený stůl vznikl z dané šablony (šablona se pak nedá smazat). */

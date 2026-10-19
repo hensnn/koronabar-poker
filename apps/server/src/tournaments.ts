@@ -159,7 +159,7 @@ export class TournamentManager {
   }
 
   private resolve(row: Row): SettingValues {
-    const values = (row.templateValues as Record<string, SettingValue> | null | undefined) ?? this.deps.templates.get(row.templateId)?.values;
+    const values = (row.templateValues as Record<string, SettingValue> | null | undefined) ?? this.deps.templates.getAny(row.templateId)?.values;
     return this.deps.settings.resolve([
       ...(values ? [{ scope: 'template' as const, values }] : []),
       { scope: 'table', values: row.settings as Record<string, SettingValue> },

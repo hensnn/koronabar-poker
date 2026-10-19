@@ -101,6 +101,16 @@ export function builtinTemplates(reg: SettingsRegistry): SettingsTemplate[] {
         'odds.enabled': false,
       },
     }),
+    // Prázdný základ: všechny hodnoty jsou výchozí, turnaj se celý dolaďuje v podrobném nastavení.
+    fillTemplate(reg, {
+      ...base,
+      id: 'tour-vlastni',
+      name: 'template.tour-vlastni.name',
+      description: 'template.tour-vlastni.description',
+      kind: 'tournament',
+      tags: ['tournament', 'custom'],
+      values: {},
+    }),
     fillTemplate(reg, {
       ...base,
       id: 'tour-freezeout',
