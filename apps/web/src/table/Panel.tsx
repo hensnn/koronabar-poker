@@ -27,10 +27,14 @@ function Frame({ id, def, layout, setLayout, extra }: { id: WidgetId; def: Widge
   );
 }
 
-/** Ozubené kolečko: které widgety, v kterém panelu a v jakém pořadí, plus volby zobrazení u stolu. Stejné z obou panelů. */
-function LayoutSettings({ onClose }: { onClose: () => void }) {
+/**
+ * Ozubené kolečko panelu: nastavení právě toho panelu (levého nebo pravého). Vlevo jsou widgety, které v panelu jsou
+ * (zobrazit, pořadí, přesun do druhého panelu), vpravo vše, co se do panelu dá přidat. Volby zobrazení u stolu jsou pod tím.
+ */
+function LayoutSettings({ side, onClose }: { side: Side; onClose: () => void }) {
   const { layout, setLayout, defs } = useTableWidgets();
   const settings = useSettings();
+  const other: Side = side === 'left' ? 'right' : 'left';
   const present = (id: WidgetId) => id !== 'chat' || defs.chat.body !== null;
   const toggle = (key: string, value: boolean) => void saveUserSetting(key, value).catch(() => undefined);
   const flags: { key: string; label: string; def: boolean }[] = [
@@ -42,62 +46,79 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
     { key: 'xp.showAtTable', label: t('settings.xp.showAtTable.label'), def: true },
   ];
   const skip = (id: WidgetId) => !present(id);
-  const sides: Side[] = ['left', 'right'];
+  const mine = layout[side].filter(present);
+  const addable = layout[other].filter(present);
+  const sideName = side === 'left' ? t('table.panelLeft') : t('table.panelRight');
+  const otherName = other === 'left' ? t('table.panelLeft') : t('table.panelRight');
+  const unhide = (l: Layout, id: WidgetId): Layout => (l.hidden.includes(id) ? toggleHidden(l, id) : l);
   return (
-    <section className="tk-widget">
-      <div className="tk-widget-head">{t('table.panelSettings')}</div>
-      <div className="tk-widget-body flex flex-col gap-3">
-        <h3 className="font-bold">{t('table.panelWidgets')}</h3>
-        <p className="text-xs text-muted">{t('table.panelWidgetsHelp')}</p>
-        {sides.map((side) => (
-          <div key={side}>
-            <h4 className="mb-1 text-sm font-semibold text-muted">{side === 'left' ? t('table.panelLeft') : t('table.panelRight')}</h4>
-            <ul className="flex flex-col gap-1">
-              {layout[side].filter(present).map((id, i, list) => (
-                <li key={id} className="flex flex-wrap items-center gap-1">
-                  <label className="flex min-w-0 flex-1 items-center gap-2">
-                    <input type="checkbox" checked={!layout.hidden.includes(id)} onChange={() => setLayout(toggleHidden(layout, id))} />
-                    <span className="truncate">{defs[id].title}</span>
-                  </label>
-                  <Button aria-label={side === 'left' ? t('table.moveRight') : t('table.moveLeft')} title={side === 'left' ? t('table.moveRight') : t('table.moveLeft')} onClick={() => setLayout(moveToSide(layout, id, side === 'left' ? 'right' : 'left'))}>
-                    {side === 'left' ? '→' : '←'}
-                  </Button>
-                  <Button aria-label={t('table.moveUp')} disabled={i === 0} onClick={() => setLayout(reorder(layout, id, -1, skip))}>
-                    ↑
-                  </Button>
-                  <Button aria-label={t('table.moveDown')} disabled={i === list.length - 1} onClick={() => setLayout(reorder(layout, id, 1, skip))}>
-                    ↓
-                  </Button>
-                </li>
-              ))}
-              {layout[side].filter(present).length === 0 && <li className="text-sm text-muted">{t('table.panelEmpty')}</li>}
-            </ul>
-          </div>
-        ))}
-        <h3 className="font-bold">{t('table.panelDisplay')}</h3>
-        {flags.map((f) => (
-          <label key={f.key} className="flex items-center gap-2">
-            <input type="checkbox" checked={Boolean(settings.values[f.key] ?? f.def)} onChange={(e) => toggle(f.key, e.target.checked)} />
-            {f.label}
-          </label>
-        ))}
-        <div className="flex gap-2">
-          <Button
-            onClick={() => {
-              void saveUserSetting('ui.tableLayout', '').catch(() => undefined);
-              void saveUserSetting('ui.tablePanel', '').catch(() => undefined);
-              void saveUserSetting('ui.tableSide', '').catch(() => undefined);
-              for (const k of ['ui.tablePanelWidth', 'ui.tablePanelHeight', 'ui.tableChatHeight', 'ui.tableSideWidth', 'ui.tableSideHeight']) void saveUserSetting(k, defaultOf(k)).catch(() => undefined);
-            }}
-          >
-            {t('table.widget.reset')}
-          </Button>
-          <Button variant="primary" onClick={onClose}>
-            {t('table.close')}
-          </Button>
-        </div>
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <section>
+          <h3 className="mb-1 font-bold">{t('table.panelIn', { panel: sideName })}</h3>
+          <p className="mb-2 text-xs text-muted">{t('table.panelWidgetsHelp')}</p>
+          <ul className="flex flex-col gap-1">
+            {mine.map((id, i) => (
+              <li key={id} className="flex flex-wrap items-center gap-1">
+                <label className="flex min-w-0 flex-1 items-center gap-2">
+                  <input type="checkbox" checked={!layout.hidden.includes(id)} onChange={() => setLayout(toggleHidden(layout, id))} />
+                  <span className="truncate">{defs[id].title}</span>
+                </label>
+                <Button aria-label={t('table.moveUp')} disabled={i === 0} onClick={() => setLayout(reorder(layout, id, -1, skip))}>
+                  ↑
+                </Button>
+                <Button aria-label={t('table.moveDown')} disabled={i === mine.length - 1} onClick={() => setLayout(reorder(layout, id, 1, skip))}>
+                  ↓
+                </Button>
+                <Button title={t('table.moveTo', { panel: otherName })} aria-label={t('table.moveTo', { panel: otherName })} onClick={() => setLayout(moveToSide(layout, id, other))}>
+                  {side === 'left' ? '→' : '←'}
+                </Button>
+              </li>
+            ))}
+            {mine.length === 0 && <li className="text-sm text-muted">{t('table.panelEmpty')}</li>}
+          </ul>
+        </section>
+        <section>
+          <h3 className="mb-1 font-bold">{t('table.panelAdd', { panel: sideName })}</h3>
+          <p className="mb-2 text-xs text-muted">{t('table.panelAddHelp', { panel: otherName })}</p>
+          <ul className="flex flex-col gap-1">
+            {addable.map((id) => (
+              <li key={id} className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">{defs[id].title}</span>
+                <Button onClick={() => setLayout(unhide(moveToSide(layout, id, side), id))}>{t('table.panelAddButton')}</Button>
+              </li>
+            ))}
+            {addable.length === 0 && <li className="text-sm text-muted">{t('table.panelNothingToAdd')}</li>}
+          </ul>
+        </section>
       </div>
-    </section>
+      <section>
+        <h3 className="mb-1 font-bold">{t('table.panelDisplay')}</h3>
+        <div className="grid gap-1 md:grid-cols-2">
+          {flags.map((f) => (
+            <label key={f.key} className="flex items-center gap-2">
+              <input type="checkbox" checked={Boolean(settings.values[f.key] ?? f.def)} onChange={(e) => toggle(f.key, e.target.checked)} />
+              {f.label}
+            </label>
+          ))}
+        </div>
+      </section>
+      <div className="flex gap-2">
+        <Button
+          onClick={() => {
+            void saveUserSetting('ui.tableLayout', '').catch(() => undefined);
+            void saveUserSetting('ui.tablePanel', '').catch(() => undefined);
+            void saveUserSetting('ui.tableSide', '').catch(() => undefined);
+            for (const k of ['ui.tablePanelWidth', 'ui.tablePanelHeight', 'ui.tableChatHeight', 'ui.tableSideWidth', 'ui.tableSideHeight']) void saveUserSetting(k, defaultOf(k)).catch(() => undefined);
+          }}
+        >
+          {t('table.widget.reset')}
+        </Button>
+        <Button variant="primary" onClick={onClose}>
+          {t('table.close')}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -123,7 +144,11 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
   );
   const wanted = useMemo(() => (view ? wantedList(view) : []), [view]);
 
-  if (open) return <LayoutSettings onClose={() => setOpen(false)} />;
+  const settingsModal = open ? (
+    <Modal title={t('table.panelSettingsOf', { panel: side === 'left' ? t('table.panelLeft') : t('table.panelRight') })} wide onClose={() => setOpen(false)}>
+      <LayoutSettings side={side} onClose={() => setOpen(false)} />
+    </Modal>
+  ) : null;
 
   // Telefon, pravý panel: akce hned, ostatní widgety sbalené do jednoho řádku; celé se otevřou v okně.
   if (mobile && side === 'right') {
@@ -132,6 +157,7 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
     const summary = [view ? (tournamentId && tour ? `${tour.alive}/${tour.players}` : `${view.seats.length}/${view.info.seatCount}`) : null, position, wanted.length > 0 ? `⚑ ${wanted.length}` : null].filter(Boolean).join(' · ');
     return (
       <>
+        {settingsModal}
         {visible.includes('tools') && defs.tools.body}
         {visible.includes('reveal') && defs.reveal.body}
         {inWindow.length > 0 && (
@@ -159,6 +185,7 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
 
   return (
     <>
+      {settingsModal}
       {visible.length === 0 && (
         <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-muted">{side === 'left' ? t('table.panel') : t('table.panelRight')}</span>

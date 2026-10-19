@@ -8,7 +8,7 @@ import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { actionToneSm } from './buttons';
 import { CardView } from './CardView';
-import { AddonOfferDialog, RebuyDecisionDialog, BountiesBody, DealButton, EntryActions, InfoBody, entryActions, useTournamentInfo, wantedList } from './InfoCard';
+import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, BountiesBody, DealButton, EntryActions, InfoBody, entryActions, useTournamentInfo, wantedList } from './InfoCard';
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
 import { ClockWidget, PlanBar, ShowdownPrefs } from './TablePanel';
@@ -34,6 +34,8 @@ interface Ctx {
   revealSlot: HTMLElement | null;
   setHasReveal: (v: boolean) => void;
   view: TableView | undefined;
+  /** Údaje o turnaji (null u cash stolu). */
+  tour: TournamentInfo | null;
 }
 
 const WidgetsContext = createContext<Ctx | null>(null);
@@ -208,10 +210,10 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   };
 
   const value = useMemo<Ctx>(
-    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setHasTools, setRevealSlot, revealSlot, setHasReveal, view }),
+    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setHasTools, setRevealSlot, revealSlot, setHasReveal, view, tour }),
     // defs se staví při každém vykreslení; kontext se tedy obnovuje s ním
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, setLayout, defs, toolsSlot, revealSlot, view],
+    [layout, setLayout, defs, toolsSlot, revealSlot, view, tour],
   );
   void WIDGET_IDS;
   return (

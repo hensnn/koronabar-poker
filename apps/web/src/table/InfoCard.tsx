@@ -19,11 +19,12 @@ export interface TournamentInfo {
   buyIn: number;
   fee: number;
   serverTime: number;
-  rebuy: { enabled: boolean; cost: number; chips: number };
+  rebuy: { enabled: boolean; cost: number; chips: number; max?: number; untilLevel?: number };
+  levelNumber?: number;
   addon: { enabled: boolean; cost: number; chips: number };
   me: { status: string | null; decideUntil: number | null; canRebuy: boolean; canAddon: boolean; addonOfferUntil?: number | null; canReenter: boolean };
   reentry: { enabled: boolean };
-  standings: { userId: string; place: number; chips: number | null; status: string }[];
+  standings: { userId: string; place: number; chips: number | null; status: string; entries?: number; rebuys?: number; addon?: boolean; head?: number | null; bounty?: number }[];
   deal: { enabled: boolean; open: boolean; done: unknown | null };
 }
 
