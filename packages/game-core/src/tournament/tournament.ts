@@ -55,6 +55,8 @@ export interface PlayerRecord {
   addon: boolean;
   /** Konec času na rozhodnutí o rebuy (ms hodin), když je status „deciding“. */
   decideUntil: number | null;
+  /** Zbývající čas na rozhodnutí, když je odpočet zastavený pauzou nebo přestávkou. */
+  decideLeftMs?: number;
   /** Hlava: bounty, kterou získá ten, kdo hráče vyřadí (fixní a progresivní bounty). */
   head?: number;
   /** Kolik bounty hráč celkem získal. */
@@ -663,7 +665,8 @@ export class Tournament {
       this.st.onBreak = false;
       this.deps.onEvent?.({ type: 'breakEnd' });
       this.advanceLevel();
-      if (!this.st.paused) this.table?.release();
+      this.thawDecisions();
+      if (!this.st.paused) this.releaseTable();
     } else {
       this.levelDone();
     }
@@ -683,6 +686,7 @@ export class Tournament {
       const minutes = num(s, 'tournament.breakMinutes');
       this.st.clock = { kind: 'break', remainingMs: minutes * 60_000 };
       this.table?.hold();
+      this.freezeDecisions();
       this.deps.onEvent?.({ type: 'break', minutes });
       this.runClock();
       return;
@@ -759,7 +763,48 @@ export class Tournament {
     }
   }
 
+  /** Má hra u stolu čekat, než se hráči po vypadnutí vyjádří o rebuy (volba správce)? */
+  private holdForDecision(): boolean {
+    return !!this.deps.settings()['tournament.rebuyHoldsGame'] && this.st.players.some((p) => p.status === 'deciding');
+  }
+
+  /** Uvolní stůl, ale jen když nic jiného (pauza, přestávka, čekající rozhodnutí) hru stále drží. */
+  private releaseTable(): void {
+    if (this.st.paused || this.st.onBreak || this.holdForDecision()) return;
+    this.table?.release();
+  }
+
+  /** Pauza nebo přestávka zastaví odpočet rozhodování (volba správce); zbývající čas se uloží. */
+  private freezeDecisions(): void {
+    if (!this.deps.settings()['tournament.rebuyTimerStops']) return;
+    const now = this.deps.clock.now();
+    for (const p of this.st.players) {
+      if (p.status !== 'deciding' || p.decideUntil === null || p.decideLeftMs !== undefined) continue;
+      p.decideLeftMs = Math.max(0, p.decideUntil - now);
+      this.decideTimers.get(p.userId)?.();
+      this.decideTimers.delete(p.userId);
+    }
+  }
+
+  private thawDecisions(): void {
+    if (this.st.paused || this.st.onBreak) return;
+    const now = this.deps.clock.now();
+    for (const p of this.st.players) {
+      if (p.status !== 'deciding' || p.decideLeftMs === undefined) continue;
+      p.decideUntil = now + p.decideLeftMs;
+      delete p.decideLeftMs;
+      this.armDecision(p);
+    }
+  }
+
+  /** Hráč se vyjádřil nebo vypadl: když hru držela volba „čekat na rebuy“, stůl se uvolní. */
+  private releaseAfterDecision(): void {
+    if (this.deps.settings()['tournament.rebuyHoldsGame']) this.releaseTable();
+  }
+
   private armDecision(p: PlayerRecord): void {
+    if (p.decideLeftMs !== undefined) return;
+    if (this.holdForDecision()) this.table?.hold();
     this.decideTimers.get(p.userId)?.();
     const s = this.deps.settings();
     const now = this.deps.clock.now();
@@ -783,6 +828,7 @@ export class Tournament {
     this.decideTimers.delete(p.userId);
     p.status = 'out';
     p.decideUntil = null;
+    delete p.decideLeftMs;
     this.st.eliminations.push(p.userId);
     // Změnil se okruh hráčů: rozjednané hlasování o dohodě už neplatí.
     this.voting.cancelAll('deal');
@@ -794,6 +840,7 @@ export class Tournament {
     const remaining = this.alive().length;
     this.deps.onEvent?.({ type: 'eliminated', userId: p.userId, name: p.name, remaining, by: p.lastKillers ?? [] });
     if (this.isBubble()) this.deps.onEvent?.({ type: 'bubble' });
+    this.releaseAfterDecision();
   }
 
   private checkFinish(): void {
@@ -843,6 +890,8 @@ export class Tournament {
       this.decideTimers.delete(userId);
       p.status = 'playing';
       p.decideUntil = null;
+      delete p.decideLeftMs;
+      this.releaseAfterDecision();
     }
     this.save();
   }
@@ -936,6 +985,8 @@ export class Tournament {
       this.table?.addTournamentChips(userId, num(s, 'tournament.startingStack'));
       p.status = 'playing';
       p.decideUntil = null;
+      delete p.decideLeftMs;
+      this.releaseAfterDecision();
     } else {
       this.seat(p, num(s, 'tournament.startingStack'));
     }
@@ -948,6 +999,7 @@ export class Tournament {
     if (this.st.status !== 'running' || this.st.paused) throw new TournamentError('STATE');
     this.freezeClock();
     this.st.paused = true;
+    this.freezeDecisions();
     this.table?.hold();
     this.deps.onEvent?.({ type: 'paused' });
     this.save();
@@ -957,7 +1009,8 @@ export class Tournament {
     if (this.st.status !== 'running' || !this.st.paused) throw new TournamentError('STATE');
     this.st.paused = false;
     this.runClock();
-    if (!this.st.onBreak) this.table?.release();
+    this.thawDecisions();
+    if (!this.st.onBreak) this.releaseTable();
     this.deps.onEvent?.({ type: 'resumed' });
     this.save();
   }

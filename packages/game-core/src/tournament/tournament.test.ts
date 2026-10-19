@@ -220,6 +220,66 @@ describe('turnaj: registrace a peníze', () => {
     // hranice 0 = startovní stack, a ten mají všichni právě teď
     expect(h2.tour.canRebuy('u1')).toBe(true);
   });
+
+  describe('rebuy: čekání hry a odpočet rozhodování', () => {
+    const base = { 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'busted', 'tournament.rebuyUntilLevel': 9, 'tournament.rebuyDecisionSeconds': 60 };
+    const bust = (h: Harness, u: string) => h.tour.onTableEvent({ type: 'bust', players: [{ userId: u, startStack: 100 }], hand: [] } as never);
+
+    it('hra čeká, dokud se hráč nevyjádří, a po rebuy se uvolní', () => {
+      const h = harness({ ...base, 'tournament.rebuyHoldsGame': true });
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      expect(h.tour.state().players.find((p) => p.userId === 'u1')!.status).toBe('deciding');
+      expect(h.table.isHeld()).toBe(true);
+      h.tour.rebuy('u1');
+      expect(h.table.isHeld()).toBe(false);
+    });
+
+    it('hra se uvolní i po vypršení času a drží se, dokud rozhoduje kdokoli', () => {
+      const h = harness({ ...base, 'tournament.rebuyHoldsGame': true });
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      h.clock.advance(30_000);
+      bust(h, 'u2');
+      h.clock.advance(31_000);
+      expect(h.tour.state().players.find((p) => p.userId === 'u1')!.status).toBe('out');
+      expect(h.table.isHeld()).toBe(true);
+      h.clock.advance(30_000);
+      expect(h.tour.state().players.find((p) => p.userId === 'u2')!.status).toBe('out');
+      expect(h.table.isHeld()).toBe(false);
+    });
+
+    it('bez volby hra běží dál', () => {
+      const h = harness({ ...base });
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      expect(h.table.isHeld()).toBe(false);
+    });
+
+    it('pauza zastaví odpočet rozhodování jen s volbou', () => {
+      for (const stops of [true, false]) {
+        const h = harness({ ...base, 'tournament.rebuyTimerStops': stops });
+        registerAll(h);
+        h.tour.start();
+        bust(h, 'u1');
+        h.clock.advance(20_000);
+        h.tour.pause();
+        h.clock.advance(120_000);
+        const status = () => h.tour.state().players.find((p) => p.userId === 'u1')!.status;
+        expect(status()).toBe(stops ? 'deciding' : 'out');
+        if (stops) {
+          h.tour.resume();
+          h.clock.advance(39_000);
+          expect(status()).toBe('deciding');
+          h.clock.advance(2_000);
+          expect(status()).toBe('out');
+        }
+      }
+    });
+  });
   });
   it('zrušení vrátí všem všechny platby včetně rebuy a add-onu', async () => {
     const h = harness({ 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'belowStart', 'tournament.rebuyUntilLevel': 5, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 3 });
