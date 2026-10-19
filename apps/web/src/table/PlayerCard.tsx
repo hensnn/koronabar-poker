@@ -27,11 +27,11 @@ export function playerFacts(seat: SeatView, view: TableView, tour: TournamentInf
   return rows;
 }
 
-/** Karta s informacemi o hráči v rohu u stolu (využívá volné místo mimo ovál); nepřekáží myši. */
-export function PlayerCard({ seat, view, tour, inBb, corner }: { seat: SeatView; view: TableView; tour: TournamentInfo | null; inBb: boolean; corner: 'left' | 'right' }) {
+/** Karta s informacemi o hráči vždy v levém horním rohu u stolu (využívá volné místo mimo ovál); nepřekáží myši. */
+export function PlayerCard({ seat, view, tour, inBb }: { seat: SeatView; view: TableView; tour: TournamentInfo | null; inBb: boolean }) {
   const rows = playerFacts(seat, view, tour, inBb);
   return (
-    <div role="status" className={`pointer-events-none absolute top-1 z-20 max-w-[45%] rounded-md border border-line bg-surface p-2 text-sm shadow-lg ${corner === 'left' ? 'left-1' : 'right-1'}`}>
+    <div role="status" className="pointer-events-none absolute left-1 top-1 z-20 max-w-[45%] rounded-md border border-line bg-surface p-2 text-sm shadow-lg">
       <strong className="block truncate">{seat.name}</strong>
       <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
         {rows.map((r) => (

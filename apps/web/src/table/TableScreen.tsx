@@ -100,6 +100,16 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const { tour } = useTableWidgets();
   // Hráč, na kterého ukazuje myš: karta s informacemi v rohu u stolu.
   const [hoverSeat, setHoverSeat] = useState<number | null>(null);
+  // Klepnutí (dotyk) na hráče kartu připne; zavře se klepnutím mimo hráče nebo znovu na něj.
+  const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
+  useEffect(() => {
+    if (pinnedSeat === null) return;
+    const away = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest('[data-seat-wrap]')) setPinnedSeat(null);
+    };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [pinnedSeat]);
 
   if (!view) return <p className="text-muted">{t('table.loading')}</p>;
   const info = view.info;
@@ -126,7 +136,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const odds = view.odds;
   const mainOdds = odds?.[0];
   const acting = view.actingSeat !== null ? view.seats.find((s) => s.seat === view.actingSeat) : undefined;
-  const hovered = hoverSeat !== null ? view.seats.find((s) => s.seat === hoverSeat) : undefined;
+  const shownSeat = hoverSeat ?? pinnedSeat;
+  const hovered = shownSeat !== null ? view.seats.find((s) => s.seat === shownSeat) : undefined;
   // Co lze po handě ukázat (widget „Ukázat karty“ se ukazuje jen, když je co).
   const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards));
   const canRabbit = !!(view.winners && mine?.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit);
@@ -134,7 +145,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   return (
     <div className="tk-screen flex flex-col gap-2">
       <div className="tk-room relative" {...myLook}>
-        {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} corner={seatPosition(hovered.seat, viewerSeat, info.seatCount).left < 50 ? 'right' : 'left'} />}
+        {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
         <div className="tk-table relative mx-auto w-full">
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
@@ -215,7 +226,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             const pos = seatPosition(n, viewerSeat, info.seatCount);
             return (
               // Sedadlo s bublinou nebo štítkem musí ležet nad sousedními sedadly i nad sázkami (každé sedadlo je vlastní vrstva).
-              <div key={n} className="absolute -translate-x-1/2 -translate-y-1/2" onMouseEnter={seat ? () => setHoverSeat(n) : undefined} onMouseLeave={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} onFocus={seat ? () => setHoverSeat(n) : undefined} onBlur={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
+              <div key={n} data-seat-wrap className="absolute -translate-x-1/2 -translate-y-1/2" onClick={seat ? () => setPinnedSeat((p) => (p === n ? null : n)) : undefined} onMouseEnter={seat ? () => setHoverSeat(n) : undefined} onMouseLeave={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} onFocus={seat ? () => setHoverSeat(n) : undefined} onBlur={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
                 {seat ? (
                   <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} />
                 ) : info.tournament ? null : (
