@@ -752,7 +752,7 @@ h3,
   html:not([data-mobile]) .tk-screen {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: 'room extra' 'turn turn' 'action action';
+    grid-template-areas: 'room extra' 'turn extra' 'action extra';
     column-gap: calc(var(--spacing) * 2);
     align-items: start;
   }
@@ -760,7 +760,8 @@ h3,
   html:not([data-mobile]) .tk-screen > .tk-turn-row { grid-area: turn; }
   html:not([data-mobile]) .tk-screen > .tk-actionbar { grid-area: action; }
   html:not([data-mobile]) .tk-screen > :not(.tk-room):not(.tk-extra):not(.tk-turn-row):not(.tk-actionbar) { grid-column: 1 / -1; }
-  html:not([data-mobile]) .tk-screen > .tk-extra { grid-area: extra; width: var(--tk-side-w, 12rem); height: var(--tk-side-h, auto); overflow-y: auto; }
+  /* Pravý sloupec sahá i vedle stavového řádku a lišty se sázkami (ty jsou odsazené od pravého okraje stejně jako vlevo), takže je v něm víc místa na widgety. Bez zadané výšky se roztáhne na výšku stolu a lišty a nerozšiřuje řádky. */
+  html:not([data-mobile]) .tk-screen > .tk-extra { grid-area: extra; width: var(--tk-side-w, 12rem); height: var(--tk-side-h, auto); align-self: stretch; contain: size; overflow-y: auto; }
   html:not([data-mobile]) .tk-extra .tk-tools { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
 }
 /* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */
