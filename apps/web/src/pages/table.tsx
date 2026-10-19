@@ -274,7 +274,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <strong>{drawer === 'chat' ? t('table.chat') : t('table.panel')}</strong>
             <Button onClick={() => setDrawer(null)}>{t('table.close')}</Button>
           </div>
-          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact fill /> : <Panel side="left" />}</div>
+          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact fill /> : <Panel side="left" hide={['chat']} />}</div>
         </div>
       )}
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}

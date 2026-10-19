@@ -105,7 +105,7 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
  * Jeden panel u stolu (levý nebo pravý). Oba panely čerpají ze stejné sady widgetů a rozložení, takže se widgety
  * dají přesouvat mezi nimi. Na telefonu je pravý panel sbalený do jednoho řádku (moje pozice, počet hráčů, odměny).
  */
-export function Panel({ side }: { side: Side }) {
+export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se v tomto výskytu panelu nezobrazí (chat v zásuvce na telefonu má vlastní tlačítko). */ hide?: WidgetId[] }) {
   const { layout: stored, setLayout, defs, view } = useTableWidgets();
   const mobile = useMobileLayout();
   const layout = mobile ? forMobile(stored) : stored;
@@ -114,7 +114,7 @@ export function Panel({ side }: { side: Side }) {
   const { me } = useSession();
   const tournamentId = view?.info.tournament ? (view.info.tournamentId ?? null) : null;
   const tour = useTournamentInfo(tournamentId);
-  const shown = (id: WidgetId) => defs[id].show && !layout.hidden.includes(id);
+  const shown = (id: WidgetId) => defs[id].show && !layout.hidden.includes(id) && !hide.includes(id);
   const visible = layout[side].filter(shown);
   const gear = (
     <button className="rounded-md px-1 text-sm" aria-label={t('table.panelSettings')} title={t('table.panelSettings')} onClick={() => setOpen(true)}>
