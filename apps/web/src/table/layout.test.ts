@@ -39,7 +39,7 @@ describe('rozložení widgetů: načtení', () => {
     const l = parseLayout('', left, right);
     expect(l.left.indexOf('players')).toBeLessThan(l.left.indexOf('plan'));
     expect(l.left).not.toContain('clock' as never);
-    expect(l.right.slice(0, 2)).toEqual(['tools', 'info']);
+    expect(l.right.slice(0, 3)).toEqual(['tools', 'reveal', 'info']);
     expect([...l.hidden].sort()).toEqual(['deal', 'sounds']);
     expect([...l.collapsed].sort()).toEqual(['hand', 'info']);
     expect(all(l)).toEqual([...WIDGET_IDS].sort());
@@ -72,5 +72,21 @@ describe('rozložení widgetů: změny', () => {
     expect(forMobile(l).right[0]).toBe('tools');
     expect(forMobile(l).left).not.toContain('tools');
     expect(forMobile(defaultLayout())).toEqual(defaultLayout());
+  });
+});
+
+describe('widget „Ukázat karty“', () => {
+  it('je ve výchozím rozložení pod akcemi, takže akce nepřeskakují', () => {
+    const l = defaultLayout();
+    expect(l.right.indexOf('reveal')).toBe(l.right.indexOf('tools') + 1);
+  });
+  it('na telefonu je hned pod akcemi, i když ho má hráč v levém panelu', () => {
+    const l = moveToSide(moveToSide(defaultLayout(), 'tools', 'left'), 'reveal', 'left');
+    const m = forMobile(l);
+    expect(m.right.slice(0, 2)).toEqual(['tools', 'reveal']);
+  });
+  it('starší uložené rozložení dostane widget za akce', () => {
+    const l = parseLayout(JSON.stringify({ left: ['table'], right: ['info', 'tools'] }));
+    expect(l.right.indexOf('reveal')).toBe(l.right.indexOf('tools') + 1);
   });
 });

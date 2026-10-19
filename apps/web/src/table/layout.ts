@@ -4,7 +4,7 @@
  */
 
 export const LEFT_DEFAULT = ['table', 'plan', 'hand', 'best', 'actions', 'players', 'chat', 'sounds'] as const;
-export const RIGHT_DEFAULT = ['info', 'bounties', 'deal', 'tools'] as const;
+export const RIGHT_DEFAULT = ['info', 'bounties', 'deal', 'tools', 'reveal'] as const;
 export const WIDGET_IDS = [...LEFT_DEFAULT, ...RIGHT_DEFAULT] as const;
 export type WidgetId = (typeof WIDGET_IDS)[number];
 export type Side = 'left' | 'right';
@@ -94,5 +94,8 @@ export const toggleCollapsed = (layout: Layout, id: WidgetId): Layout => ({ ...l
 
 /** Na telefonu musí být akce hry vždy po ruce vedle stolu, i kdyby je hráč přesunul do levého panelu (ten je tam schovaný v zásuvce). */
 export function forMobile(layout: Layout): Layout {
-  return layout.left.includes('tools') ? moveToSide(layout, 'tools', 'right', 0) : layout;
+  let l = layout.left.includes('tools') ? moveToSide(layout, 'tools', 'right', 0) : layout;
+  // Ukázání karet má omezený čas, proto je hned pod akcemi.
+  if (l.left.includes('reveal')) l = moveToSide(l, 'reveal', 'right', 1);
+  return l;
 }

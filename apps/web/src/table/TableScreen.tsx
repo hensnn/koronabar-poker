@@ -121,6 +121,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const odds = view.odds;
   const mainOdds = odds?.[0];
   const acting = view.actingSeat !== null ? view.seats.find((s) => s.seat === view.actingSeat) : undefined;
+  // Co lze po handě ukázat (widget „Ukázat karty“ se ukazuje jen, když je co).
+  const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards));
+  const canRabbit = !!(view.winners && mine?.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit);
 
   return (
     <div className="tk-screen flex flex-col gap-2">
@@ -282,30 +285,38 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
       {/* Pravý sloupec: widgety o hře (přizpůsobitelné ozubeným kolečkem) a akce hráče. */}
       <RightColumn>
+        <RevealPortal
+          node={
+            mine && (canShowCards || canRabbit) ? (
+              <>
+              {canShowCards && (
+                <>
+                  {winnerPref === 'ask' && view.winners?.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
+                  <button className={actionTone.show} onClick={() => void run(table.show(tableId, 'both'))}>
+                    {t('table.showCards')}
+                  </button>
+                  <button className={actionTone.show} onClick={() => void run(table.show(tableId, 0))}>
+                    {t('table.showCard1')}
+                  </button>
+                  <button className={actionTone.show} onClick={() => void run(table.show(tableId, 1))}>
+                    {t('table.showCard2')}
+                  </button>
+                </>
+              )}
+              {canRabbit && (
+                <button className={actionTone.special} onClick={() => void run(table.rabbit(tableId))}>
+                  {t('table.rabbit')}
+                </button>
+              )}
+              </>
+            ) : null
+          }
+        />
         <ToolsPortal
           node={
             mine ? (
               <div className="tk-tools flex flex-wrap items-center gap-2">
                 {extra}
-          {view.winners && mine.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards) && (
-            <>
-              {winnerPref === 'ask' && view.winners.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
-              <button className={actionTone.show} onClick={() => void run(table.show(tableId, 'both'))}>
-                {t('table.showCards')}
-              </button>
-              <button className={actionTone.show} onClick={() => void run(table.show(tableId, 0))}>
-                {t('table.showCard1')}
-              </button>
-              <button className={actionTone.show} onClick={() => void run(table.show(tableId, 1))}>
-                {t('table.showCard2')}
-              </button>
-            </>
-          )}
-          {view.winners && mine.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit && (
-            <button className={actionTone.special} onClick={() => void run(table.rabbit(tableId))}>
-              {t('table.rabbit')}
-            </button>
-          )}
           {info.callClock && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled && (
             <button className={actionTone.special} onClick={() => void run(table.callClock(tableId))}>
               {t('table.callClock')}
@@ -533,6 +544,14 @@ function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string;
 }
 
 /** Akce hráče (Sit out, Dokoupit, Odejít, ukázání karet…) se vykreslí do místa, kde je právě widget „Akce u stolu“ (v levém nebo pravém panelu). */
+/** Tlačítka pro ukázání karet po handě: vlastní widget, aby nesdílela místo s jinými akcemi. */
+function RevealPortal({ node }: { node: ReactNode | null }) {
+  const { revealSlot, setHasReveal } = useTableWidgets();
+  const has = node !== null;
+  useEffect(() => setHasReveal(has), [has, setHasReveal]);
+  return node !== null && revealSlot ? createPortal(node, revealSlot) : null;
+}
+
 function ToolsPortal({ node }: { node: ReactNode | null }) {
   const { toolsSlot, setHasTools } = useTableWidgets();
   const has = node !== null;

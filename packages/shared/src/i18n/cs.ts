@@ -759,6 +759,7 @@ export const cs: Record<string, string> = {
   'table.widget.hand': 'Moje handa',
   'table.widget.actions': 'Akce',
   'table.widget.tools': 'Akce u stolu',
+  'table.widget.reveal': 'Ukázat karty',
   'table.panelWidgetsHelp': 'Každý widget může být v levém i pravém panelu. Šipkou → nebo ← ho přesunete do druhého panelu, ↑ a ↓ mění pořadí.',
   'table.panelLeft': 'Levý panel',
   'table.panelRight': 'Pravý panel',

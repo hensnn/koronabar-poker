@@ -360,6 +360,7 @@ try {
     await tournamentPhase('freezeout', {}, per);
     await tournamentPhase('rebuy+addon', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 2, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 2, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonCost': 100, 'tournament.addonChips': 300 }, per);
     await tournamentPhase('bounty', { 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30 }, per);
+    await tournamentPhase('rebuy: čekání hry + odpojení + nabídka add-onu', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 3, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 3, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyTimerStops': true, 'tournament.rebuyWaitsForOffline': true, 'tournament.rebuyOfflineMaxSeconds': 30, 'tournament.rebuyDecisionSeconds': 10, 'tournament.addonEnabled': true, 'tournament.addonMode': 'both', 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonOfferSeconds': 10, 'tournament.addonCost': 100, 'tournament.addonChips': 300 }, per);
   }
 } catch (e) {
   const issues = JSON.stringify((e as { issues?: unknown }).issues ?? '');

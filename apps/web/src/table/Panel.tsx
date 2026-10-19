@@ -127,12 +127,13 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
 
   // Telefon, pravý panel: akce hned, ostatní widgety sbalené do jednoho řádku; celé se otevřou v okně.
   if (mobile && side === 'right') {
-    const inWindow = visible.filter((id) => id !== 'tools');
+    const inWindow = visible.filter((id) => id !== 'tools' && id !== 'reveal');
     const position = positionText(tour, me?.user.id);
     const summary = [view ? (tournamentId && tour ? `${tour.alive}/${tour.players}` : `${view.seats.length}/${view.info.seatCount}`) : null, position, wanted.length > 0 ? `⚑ ${wanted.length}` : null].filter(Boolean).join(' · ');
     return (
       <>
         {visible.includes('tools') && defs.tools.body}
+        {visible.includes('reveal') && defs.reveal.body}
         {inWindow.length > 0 && (
           <button className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs" aria-haspopup="dialog" onClick={() => setExpanded(true)}>
             <span className="shrink-0 whitespace-nowrap font-semibold">{t('table.info.title')}</span>

@@ -30,6 +30,9 @@ interface Ctx {
   setToolsSlot: (el: HTMLElement | null) => void;
   toolsSlot: HTMLElement | null;
   setHasTools: (v: boolean) => void;
+  setRevealSlot: (el: HTMLElement | null) => void;
+  revealSlot: HTMLElement | null;
+  setHasReveal: (v: boolean) => void;
   view: TableView | undefined;
 }
 
@@ -56,6 +59,8 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const [layout, setLayout] = useLayoutState();
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
   const [hasTools, setHasTools] = useState(false);
+  const [revealSlot, setRevealSlot] = useState<HTMLElement | null>(null);
+  const [hasReveal, setHasReveal] = useState(false);
   const { me } = useSession();
   const features = useFeatures();
   const info = view?.info;
@@ -187,6 +192,8 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     info: { title: t('table.info.title'), show: !!view, body: view && <InfoBody view={view} tour={tour} tournamentId={tournamentId} inBb={inBb} /> },
     bounties: { title: t('table.info.rewards'), show: !!view && features.headBounty && (!!tournamentId || wanted.length > 0), body: view && <BountiesBody view={view} /> },
     deal: { title: t('table.info.deal'), show: hasDeal, body: <DealButton tour={tour} tournamentId={tournamentId} /> },
+    // Ukázání karet a rabbit hunt po handě mají vlastní widget: tlačítka mizí, takže nesmí sdílet místo s ostatními akcemi (např. odchod od stolu).
+    reveal: { title: t('table.widget.reveal'), show: hasReveal, body: <div ref={setRevealSlot} className="flex flex-wrap items-center gap-2" /> },
     // Akce hry; samotná tlačítka vykresluje stůl do tohoto místa (portálem), aby se panel mohl libovolně přesouvat.
     tools: {
       title: t('table.widget.tools'),
@@ -201,10 +208,10 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   };
 
   const value = useMemo<Ctx>(
-    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setHasTools, view }),
+    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setHasTools, setRevealSlot, revealSlot, setHasReveal, view }),
     // defs se staví při každém vykreslení; kontext se tedy obnovuje s ním
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, setLayout, defs, toolsSlot, view],
+    [layout, setLayout, defs, toolsSlot, revealSlot, view],
   );
   void WIDGET_IDS;
   return (
