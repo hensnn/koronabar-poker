@@ -705,6 +705,13 @@ export class TableActor {
   }
 
   /** `force`: po skončené handě se vždy provede předěl (zapsání výsledků do registru), i když se nebude hrát dál. */
+  /** Skončila handa bez showdownu, u které smí hráč dobrovolně ukázat karty? */
+  private showCardsOpen(): boolean {
+    if (!this.opt.settings()['special.showCards'] || !this.hasHand()) return false;
+    const h = this.adapter.state();
+    return h.finished && !wentToShowdown(h);
+  }
+
   private scheduleNextHand(force = false): void {
     if (this.phase !== 'idle' && this.phase !== 'pause') return;
     if (this.pendingStart) return;
@@ -717,7 +724,8 @@ export class TableActor {
       this.phase = 'idle';
       return;
     }
-    const delay = this.scaled(num(this.opt.settings(), 'time.betweenHandsMs'));
+    let delay = this.scaled(num(this.opt.settings(), 'time.betweenHandsMs'));
+    if (this.phase === 'pause' && this.showCardsOpen()) delay = Math.max(delay, this.scaled(num(this.opt.settings(), 'time.showCardsMs')));
     const cancel = this.opt.clock.setTimeout(() => {
       this.pendingStart = null;
       if (this.phase === 'stopped') return;

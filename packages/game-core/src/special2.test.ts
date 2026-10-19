@@ -11,7 +11,7 @@ function make(over: Record<string, number | boolean | string> = {}, players = ['
   const clock = new FakeClock();
   const ledger = new Ledger();
   const cash = new CashService(ledger);
-  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'cash.maxBuyInBb': 500, 'time.betweenHandsMs': 100, 'time.showdownMs': 100, 'time.potToWinnerMs': 100, 'time.allInRunoutDelayMs': 50, 'time.allInRiverDramaMs': 50, 'odds.enabled': false, ...over } as SettingValues;
+  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'cash.maxBuyInBb': 500, 'time.betweenHandsMs': 100, 'time.showdownMs': 100, 'time.potToWinnerMs': 100, 'time.allInRunoutDelayMs': 50, 'time.allInRiverDramaMs': 50, 'odds.enabled': false, 'time.showCardsMs': 0, ...over } as SettingValues;
   const events: TableEvent[] = [];
   let n = seed;
   const rnd = () => ((n = (n * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
@@ -39,6 +39,29 @@ const foldOut = (m: M) => {
 };
 
 describe('ukázání karet a rabbit hunt', () => {
+
+  it('doba na ukázání karet prodlouží pauzu po handě bez showdownu, ne po showdownu', () => {
+    const m = make({ 'special.showCards': true, 'time.betweenHandsMs': 1000, 'time.showCardsMs': 5000, 'time.dealMs': 0 });
+    m.clock.advance(1000);
+    foldOut(m);
+    m.untilPause();
+    const hand = m.actor.viewFor(null).handNumber;
+    m.clock.advance(3000);
+    expect(m.actor.viewFor(null).handNumber).toBe(hand);
+    expect(m.actor.currentPhase()).toBe('pause');
+    m.clock.advance(3000);
+    expect(m.actor.viewFor(null).handNumber).toBe(hand + 1);
+  });
+
+  it('s nulovou dobou platí jen běžná pauza', () => {
+    const m = make({ 'special.showCards': true, 'time.betweenHandsMs': 1000, 'time.showCardsMs': 0, 'time.dealMs': 0 });
+    m.clock.advance(1000);
+    foldOut(m);
+    m.untilPause();
+    const hand = m.actor.viewFor(null).handNumber;
+    m.clock.advance(1500);
+    expect(m.actor.viewFor(null).handNumber).toBe(hand + 1);
+  });
   it('po foldu smí hráč ukázat obě nebo jednu kartu; ostatní je pak vidí, před tím ne', () => {
     const m = make({ 'special.showCards': true });
     const folder = foldOut(m);

@@ -439,8 +439,8 @@ function Seat({
             ? seat.reveal === 'muck' && !seat.cards
               ? <span className="tk-seat-status tk-muck-in">{t('table.muck')}</span>
               : seat.cards && !(hideMine && !peek)
-              ? seat.cards.map((c, i) => <CardView key={c} card={c} small={!mine} reveal={!mine} delayMs={dealDelay(i)} fly={dealFly} />)
-              : [0, 1].map((i) => <CardView key={seat.exposed?.[i] ? `x-${seat.exposed[i]}` : `${view.handId}-${i}`} card={seat.exposed?.[i] ?? null} small={!mine} reveal={!!seat.exposed?.[i]} delayMs={dealDelay(i)} fly={dealFly} />)
+              ? seat.cards.map((c, i) => <CardView key={seat.exposed?.[i] ? `${c}-shown` : c} card={c} small={!mine} reveal={!mine} shown={seat.exposed?.[i] ? (mine ? 'self' : 'other') : undefined} delayMs={dealDelay(i)} fly={dealFly} />)
+              : [0, 1].map((i) => <CardView key={seat.exposed?.[i] ? `x-${seat.exposed[i]}` : `${view.handId}-${i}`} card={seat.exposed?.[i] ?? null} small={!mine} reveal={!!seat.exposed?.[i]} shown={seat.exposed?.[i] ? 'other' : undefined} delayMs={dealDelay(i)} fly={dealFly} />)
             : status && !out && <span className="tk-seat-status">{status}</span>}
         </div>
         {seat.isDealer && (

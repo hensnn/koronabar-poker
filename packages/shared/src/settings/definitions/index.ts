@@ -121,6 +121,7 @@ const time: SettingDef[] = [
   int('time.disconnectGraceSeconds', { category: 'time', mutability: A, unit: 's' }, 30, 0, 600),
   int('time.dealMs', { category: 'timing', mutability: A, unit: 'ms' }, 1500, 0, 10000, 100),
   int('time.betweenHandsMs', { category: 'timing', mutability: A, unit: 'ms' }, 3000, 0, 60000, 100),
+  int('time.showCardsMs', { category: 'timing', mutability: A, unit: 'ms', dependsOn: { key: 'special.showCards', truthy: true } }, 5000, 0, 60000, 100),
   int('time.dealCardMs', { category: 'timing', mutability: A, unit: 'ms' }, 150, 0, 5000),
   int('time.flopRevealMs', { category: 'timing', mutability: A, unit: 'ms' }, 300, 0, 5000),
   int('time.turnRevealDelayMs', { category: 'timing', mutability: A, unit: 'ms' }, 600, 0, 10000),

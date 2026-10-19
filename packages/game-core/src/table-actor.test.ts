@@ -11,7 +11,7 @@ function make(over: Record<string, number | boolean | string> = {}, tableId = 't
   const clock = new FakeClock();
   const ledger = new Ledger();
   const cash = new CashService(ledger);
-  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'time.dealMs': 0, ...over } as SettingValues;
+  const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'time.dealMs': 0, 'time.showCardsMs': 0, ...over } as SettingValues;
   const events: TableEvent[] = [];
   let changes = 0;
   const actor = new TableActor({ tableId, settings: () => settings, clock, cash, onChange: () => changes++, onEvent: (e) => events.push(e) });

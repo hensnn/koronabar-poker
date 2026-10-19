@@ -859,3 +859,16 @@ h3,
 /* Nativní prvky prohlížeče (posuvníky, rozbalovací seznamy, výběr data) sledují zvolený světlý/tmavý režim. */
 :root[data-mode='dark'] { color-scheme: dark; }
 :root[data-mode='light'] { color-scheme: light; }
+
+/* Dobrovolné ukázání karet: ukazující je zvedne a zazáří, soupeř vidí odkrytou kartu otočit se se zářivým prstencem. */
+@keyframes tk-show-self {
+  0% { transform: none; box-shadow: 0 0 0 0 var(--tk-color-turnGlow); }
+  35% { transform: translateY(calc(var(--spacing) * -3)) scale(1.12); box-shadow: 0 0 0 calc(var(--spacing) * 2) var(--tk-color-turnGlow); }
+  100% { transform: none; box-shadow: 0 0 0 calc(var(--spacing) * 4) transparent; }
+}
+@keyframes tk-show-ring {
+  0% { box-shadow: 0 0 0 0 var(--tk-color-turnGlow); }
+  100% { box-shadow: 0 0 0 calc(var(--spacing) * 4) transparent; }
+}
+.tk-card-shown-self { animation: tk-show-self calc(0.9s / var(--tk-anim-speed)) ease-out both; }
+.tk-card-shown-other { animation: tk-flip calc(0.45s / var(--tk-anim-speed)) ease-out both, tk-show-ring calc(0.9s / var(--tk-anim-speed)) calc(0.35s / var(--tk-anim-speed)) ease-out both; }
