@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { TablePolls } from './polls';
 import { PollEditor } from './poll-editor';
 import { navigate } from '../router';
@@ -13,7 +13,8 @@ import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
-import { TablePanel } from '../table/TablePanel';
+import { Panel } from '../table/Panel';
+import { TableWidgetsProvider } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
@@ -82,6 +83,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const num = (key: string) => Number(settings.values[key] ?? 0);
   const [size, setSize] = useState({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), ch: num('ui.tableChatHeight') });
   const [dragging, setDragging] = useState(false);
+  const panelHeights = useRef(new Set<number>());
   const stored = [num('ui.tablePanelWidth'), num('ui.tablePanelHeight'), num('ui.tableChatHeight')].join();
   useEffect(() => {
     if (!dragging) setSize({ pw: num('ui.tablePanelWidth'), ph: num('ui.tablePanelHeight'), ch: num('ui.tableChatHeight') });
@@ -119,6 +121,36 @@ export function TablePage({ tableId }: { tableId: string }) {
   const sitters = (view?.seats ?? []).filter((x) => x.status === 'sittingOut' || x.sitOut === true);
   const meSitting = sitters.some((x) => x.playerId === me?.user.id);
   const othersSitting = sitters.filter((x) => x.playerId !== me?.user.id).map((x) => x.name);
+  const chatWidget = channel
+    ? {
+          unread: channel.unread,
+          actions: (
+            <button className="px-1" onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
+              ⛶
+            </button>
+          ),
+          body: (
+            <Resizable
+              className="relative pb-2"
+              w={0}
+              h={size.ch}
+              resizeW={false}
+              limits={{ minW: 0, maxW: 0, minH: 64, maxH: 1200 }}
+              onChange={(_w, ch, commit) => {
+                setDragging(!commit);
+                setSize((x) => ({ ...x, ch }));
+                if (commit && ch !== num('ui.tableChatHeight')) keep('ui.tableChatHeight', ch);
+              }}
+              onReset={() => {
+                setSize((x) => ({ ...x, ch: defaultOf('ui.tableChatHeight') }));
+                keep('ui.tableChatHeight', defaultOf('ui.tableChatHeight'));
+              }}
+            >
+              <ChatPanel channel={channel} compact listHeight={size.ch} />
+            </Resizable>
+          ),
+        }
+      : undefined;
   // Nástroje stolu: na širokém displeji v liště, na telefonu pod tlačítkem „⋯“.
   const tools = (
     <>
@@ -152,6 +184,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     </>
   );
   return (
+    <TableWidgetsProvider view={view} tableId={tableId} inBb={inBb} chat={chatWidget}>
     <div className="tk-tablepage" style={pageStyle}>
       <Resizable
         as="aside"
@@ -162,10 +195,14 @@ export function TablePage({ tableId }: { tableId: string }) {
         limits={{ minW: 160, maxW: 640, minH: 120, maxH: 3000 }}
         onChange={(pw, ph, commit) => {
           setDragging(!commit);
-          setSize((x) => ({ ...x, pw, ph }));
+          panelHeights.current.add(ph);
+          const heightDragged = panelHeights.current.size > 1 || num('ui.tablePanelHeight') > 0;
+          setSize((x) => ({ ...x, pw, ph: heightDragged ? ph : x.ph }));
           if (commit) {
             if (pw !== num('ui.tablePanelWidth')) keep('ui.tablePanelWidth', pw);
-            if (ph !== num('ui.tablePanelHeight')) keep('ui.tablePanelHeight', ph);
+            // výška se uloží jen po skutečném tažení; tažení za šířku ji nesmí zafixovat
+            if (panelHeights.current.size > 1 && ph !== num('ui.tablePanelHeight')) keep('ui.tablePanelHeight', ph);
+            panelHeights.current = new Set();
           }
         }}
         onReset={() => {
@@ -175,43 +212,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         }}
       >
         <div className="tk-tp-scroll" aria-label={t('table.panel')}>
-          <TablePanel
-            view={view}
-            tableId={tableId}
-            inBb={inBb}
-            chat={
-              channel
-                ? {
-                    unread: channel.unread,
-                    actions: (
-                      <button className="px-1" onClick={() => setDrawer('chat')} title={t('table.chatFull')} aria-label={t('table.chatFull')}>
-                        ⛶
-                      </button>
-                    ),
-                    body: (
-                      <Resizable
-                        className="relative pb-2"
-                        w={0}
-                        h={size.ch}
-                        resizeW={false}
-                        limits={{ minW: 0, maxW: 0, minH: 64, maxH: 1200 }}
-                        onChange={(_w, ch, commit) => {
-                          setDragging(!commit);
-                          setSize((x) => ({ ...x, ch }));
-                          if (commit && ch !== num('ui.tableChatHeight')) keep('ui.tableChatHeight', ch);
-                        }}
-                        onReset={() => {
-                          setSize((x) => ({ ...x, ch: defaultOf('ui.tableChatHeight') }));
-                          keep('ui.tableChatHeight', defaultOf('ui.tableChatHeight'));
-                        }}
-                      >
-                        <ChatPanel channel={channel} compact listHeight={size.ch} />
-                      </Resizable>
-                    ),
-                  }
-                : undefined
-            }
-          />
+          <Panel side="left" />
         </div>
       </Resizable>
       <div className="tk-tp-main flex flex-col gap-2">
@@ -273,12 +274,13 @@ export function TablePage({ tableId }: { tableId: string }) {
             <strong>{drawer === 'chat' ? t('table.chat') : t('table.panel')}</strong>
             <Button onClick={() => setDrawer(null)}>{t('table.close')}</Button>
           </div>
-          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact fill /> : <TablePanel view={view} tableId={tableId} inBb={inBb} />}</div>
+          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact fill /> : <Panel side="left" />}</div>
         </div>
       )}
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}
       {history && <HandHistory tableId={tableId} onClose={() => setHistory(false)} />}
     </div>
+    </TableWidgetsProvider>
   );
 }
 

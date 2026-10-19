@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { onSocket } from '../net';
 import { RankBadge } from '../progress-client';
 import { useSettings } from '../settings';
@@ -11,7 +12,10 @@ import { useSession } from '../session';
 import { ActionBar } from './ActionBar';
 import { CardView } from './CardView';
 import { formatAmount, seatPosition } from './format';
-import { SidePanel } from './SidePanel';
+import { Panel } from './Panel';
+import { Resizable } from './resizable';
+import { useTableWidgets } from './widgets';
+import { defaultOf, saveUserSetting } from '../settings';
 import { flyOffset, useDealAnimation, type DealState } from './deal';
 import { Amount } from './Chips';
 import { Countdown, TimerBar } from './TimerRing';
@@ -276,12 +280,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       {mine && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
       {/* Pravý sloupec: widgety o hře (přizpůsobitelné ozubeným kolečkem) a akce hráče. */}
-      <div className="tk-extra flex flex-col gap-2">
-        <SidePanel
-          view={view}
-          tournamentId={info.tournament ? (info.tournamentId ?? tableId) : null}
-          inBb={inBb}
-          tools={
+      <RightColumn>
+        <ToolsPortal
+          node={
             mine ? (
               <div className="tk-tools flex flex-wrap items-center gap-2">
                 {extra}
@@ -339,7 +340,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             ) : null
           }
         />
-      </div>
+      </RightColumn>
 
       {error && (
         <p role="alert" className="text-danger">
@@ -527,5 +528,64 @@ function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string;
         </button>
       </div>
     </Modal>
+  );
+}
+
+/** Akce hráče (Sit out, Dokoupit, Odejít, ukázání karet…) se vykreslí do místa, kde je právě widget „Akce u stolu“ (v levém nebo pravém panelu). */
+function ToolsPortal({ node }: { node: ReactNode | null }) {
+  const { toolsSlot, setHasTools } = useTableWidgets();
+  const has = node !== null;
+  useEffect(() => setHasTools(has), [has, setHasTools]);
+  return node !== null && toolsSlot ? createPortal(node, toolsSlot) : null;
+}
+
+/** Rozměry pravého sloupce se přenášejí do CSS proměnných (mimo JSX, styl nemá obsahovat pevné hodnoty). */
+function sideStyle(w: number, h: number): CSSProperties {
+  const style: Record<string, string> = {};
+  if (w > 0) style['--tk-side-w'] = w + 'px';
+  if (h > 0) style['--tk-side-h'] = h + 'px';
+  return style as CSSProperties;
+}
+
+/** Pravý sloupec vedle stolu se stejně nastavitelnou velikostí jako levý panel (tažení za okraj, dvojklik = výchozí). */
+function RightColumn({ children }: { children: ReactNode }) {
+  const values = useSettings().values;
+  const stored = { w: Number(values['ui.tableSideWidth'] ?? 0), h: Number(values['ui.tableSideHeight'] ?? 0) };
+  const [size, setSize] = useState(stored);
+  const [dragging, setDragging] = useState(false);
+  // Výška se uloží jen tehdy, když ji hráč skutečně tahal (tažení za šířku ji jinak zafixuje na aktuální hodnotu).
+  const heights = useRef(new Set<number>());
+  useEffect(() => {
+    if (!dragging) setSize({ w: Number(values['ui.tableSideWidth'] ?? 0), h: Number(values['ui.tableSideHeight'] ?? 0) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored.w, stored.h, dragging]);
+  const keep = (key: string, value: number) => void saveUserSetting(key, value).catch(() => undefined);
+  return (
+    <Resizable
+      className="tk-extra tk-side relative flex flex-col gap-2"
+      style={sideStyle(size.w, size.h)}
+      side="left"
+      w={size.w}
+      h={size.h}
+      limits={{ minW: 120, maxW: 560, minH: 120, maxH: 3000 }}
+      onChange={(w, h, commit) => {
+        setDragging(!commit);
+        heights.current.add(h);
+        setSize({ w, h: heights.current.size > 1 || stored.h > 0 ? h : stored.h });
+        if (commit) {
+          if (w !== stored.w) keep('ui.tableSideWidth', w);
+          if (heights.current.size > 1 && h !== stored.h) keep('ui.tableSideHeight', h);
+          heights.current = new Set();
+        }
+      }}
+      onReset={() => {
+        setSize({ w: defaultOf('ui.tableSideWidth'), h: defaultOf('ui.tableSideHeight') });
+        keep('ui.tableSideWidth', defaultOf('ui.tableSideWidth'));
+        keep('ui.tableSideHeight', defaultOf('ui.tableSideHeight'));
+      }}
+    >
+      <Panel side="right" />
+      {children}
+    </Resizable>
   );
 }

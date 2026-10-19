@@ -12,10 +12,10 @@ export function NoteDialog({ userId, nickname, onClose }: { userId: string; nick
   const [labelId, setLabelId] = useState(cur?.note.labelId ?? '');
   const [error, setError] = useState('');
   return (
-    <Modal title={t('notes.dialogTitle', { nick: nickname })} onClose={onClose}>
-      <div className="flex flex-col gap-3">
+    <Modal title={t('notes.dialogTitle', { nick: nickname })} onClose={onClose} sizeKey="ui.noteWindow">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         {error && <Notice kind="error">{error}</Notice>}
-        <TextArea label={t('notes.note')} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} autoFocus />
+        <TextArea label={t('notes.note')} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} autoFocus fill />
         <Select label={t('notes.label')} value={labelId} onChange={(e) => setLabelId(e.target.value)}>
           <option value="">{t('notes.noLabel')}</option>
           {st.labels.map((l) => (

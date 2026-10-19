@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { TableView } from '@kb/game-core';
-import { parseState as parseLeft, WIDGETS } from './TablePanel';
-import { parseState as parseRight, SIDE_WIDGETS } from './SidePanel';
 import { entryActions, positionText, wantedList, type TournamentInfo } from './InfoCard';
 
 
@@ -29,39 +27,6 @@ const tour = (over: Partial<TournamentInfo> = {}): TournamentInfo => ({
   ],
   deal: { enabled: false, open: false, done: null },
   ...over,
-});
-
-describe('levý panel: uložený stav', () => {
-  it('prázdné nastavení dá všechny widgety ve výchozím pořadí', () => {
-    expect(parseLeft('').order).toEqual([...WIDGETS]);
-  });
-  it('neznámé widgety z dřívějších verzí (např. samostatné hodiny) se zahodí, nové se zařadí na své místo', () => {
-    const s = parseLeft(JSON.stringify({ order: ['clock', 'plan', 'players'], hidden: ['clock', 'sounds'], collapsed: ['hand', 'nic'] }));
-    expect(s.order).not.toContain('clock' as never);
-    expect(s.hidden).toEqual(['sounds']);
-    expect(s.collapsed).toEqual(['hand']);
-    expect([...s.order].sort()).toEqual([...WIDGETS].sort());
-    expect(s.order.indexOf('table')).toBeLessThan(s.order.indexOf('plan') + 1);
-  });
-  it('rozbitý JSON nespadne', () => {
-    expect(parseLeft('{nesmysl').order).toEqual([...WIDGETS]);
-  });
-});
-
-describe('pravý panel: uložený stav', () => {
-  it('výchozí pořadí: o hře, odměny, dohoda, akce', () => {
-    expect(parseRight('').order).toEqual(['info', 'bounties', 'deal', 'tools']);
-    expect([...SIDE_WIDGETS]).toEqual(['info', 'bounties', 'deal', 'tools']);
-  });
-  it('uložené pořadí a skryté widgety se zachovají, chybějící se doplní', () => {
-    const s = parseRight(JSON.stringify({ order: ['tools', 'info'], hidden: ['deal'], collapsed: ['info'] }));
-    expect(s.order).toEqual(['tools', 'info', 'bounties', 'deal']);
-    expect(s.hidden).toEqual(['deal']);
-    expect(s.collapsed).toEqual(['info']);
-  });
-  it('rozbitý JSON nespadne', () => {
-    expect(parseRight('[').order).toEqual([...SIDE_WIDGETS]);
-  });
 });
 
 describe('moje pozice v turnaji', () => {

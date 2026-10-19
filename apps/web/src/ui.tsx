@@ -1,5 +1,7 @@
 import { t } from '@kb/shared';
-import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { saveUserSetting, useSettings } from './settings';
+import { createPortal } from 'react-dom';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -17,11 +19,11 @@ export function Button({ variant = 'secondary', className = '', ...p }: ButtonHT
 export const inputClass = 'w-full rounded-sm border border-line bg-surface px-2 py-1 text-text';
 
 /** Popisek + pole + chyba. Pole je propojené s popiskem a chybou kvůli čtečkám. */
-export function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: (id: string, describedBy: string | undefined) => ReactNode }) {
+export function Field({ label, error, hint, fill, children }: { label: string; error?: string; hint?: string; /** Pole vyplní zbytek výšky okna (okno s nastavitelnou velikostí). */ fill?: boolean; children: (id: string, describedBy: string | undefined) => ReactNode }) {
   const id = useId();
   const msgId = error || hint ? `${id}-msg` : undefined;
   return (
-    <div className="flex flex-col gap-1">
+    <div className={`flex flex-col gap-1 ${fill ? 'min-h-0 flex-1' : ''}`}>
       <label htmlFor={id} className="font-medium">
         {label}
       </label>
@@ -43,8 +45,8 @@ export function TextInput({ label, error, hint, ...p }: InputHTMLAttributes<HTML
   return <Field label={label} error={error} hint={hint}>{(id, d) => <input id={id} aria-describedby={d} aria-invalid={!!error} className={inputClass} {...p} />}</Field>;
 }
 
-export function TextArea({ label, error, hint, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string; hint?: string }) {
-  return <Field label={label} error={error} hint={hint}>{(id, d) => <textarea id={id} aria-describedby={d} className={`${inputClass} min-h-24`} {...p} />}</Field>;
+export function TextArea({ label, error, hint, fill, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string; hint?: string; fill?: boolean }) {
+  return <Field label={label} error={error} hint={hint} fill={fill}>{(id, d) => <textarea id={id} aria-describedby={d} className={`${inputClass} min-h-24 ${fill ? 'flex-1 resize-none' : ''}`} {...p} />}</Field>;
 }
 
 export function Select({ label, error, children, ...p }: SelectHTMLAttributes<HTMLSelectElement> & { label: string; error?: string }) {
@@ -80,8 +82,26 @@ export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?
 }
 
 /** Dialog s ovládáním klávesnicí (Esc zavře) a návratem zaměření. */
-export function Modal({ title, onClose, children, dirty = false, wide = false }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean }) {
+/** Rozměry okna z osobního nastavení (mimo JSX, styl nemá obsahovat pevné hodnoty). */
+function sizeStyle(w: number, h: number): CSSProperties | undefined {
+  if (!(w > 0) && !(h > 0)) return undefined;
+  const style: CSSProperties = {};
+  if (w > 0) {
+    style.width = w + 'px';
+    style.maxWidth = '100%';
+  }
+  if (h > 0) {
+    style.height = h + 'px';
+    style.maxHeight = '100%';
+  }
+  return style;
+}
+
+export function Modal({ title, onClose, children, dirty = false, wide = false, sizeKey }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean; /** Okno má nastavitelnou velikost (tažení za pravý dolní roh); rozměry se pamatují v osobním nastavení `<klíč>Width` a `<klíč>Height`. */ sizeKey?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const values = useSettings().values;
+  const storedW = sizeKey ? Number(values[`${sizeKey}Width`] ?? 0) : 0;
+  const storedH = sizeKey ? Number(values[`${sizeKey}Height`] ?? 0) : 0;
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const dirtyRef = useRef(dirty);
@@ -102,13 +122,56 @@ export function Modal({ title, onClose, children, dirty = false, wide = false }:
       prev?.focus?.();
     };
   }, []);
-  return (
+  // Změna velikosti tažením za roh: po puštění myši se nové rozměry uloží, ale jen když se okno od stisknutí opravdu změnilo
+  // (obyčejné klepnutí do okna nic neukládá). U dotyku to pozná pozorovatel velikosti po chvíli klidu.
+  const down = useRef<{ w: number; h: number } | null>(null);
+  const saveSize = () => {
+    const el = ref.current;
+    if (!sizeKey || !el) return;
+    const w = Math.round(el.offsetWidth);
+    const h = Math.round(el.offsetHeight);
+    void saveUserSetting(`${sizeKey}Width`, w).catch(() => undefined);
+    void saveUserSetting(`${sizeKey}Height`, h).catch(() => undefined);
+  };
+  const changedSince = (from: { w: number; h: number } | null) => {
+    const el = ref.current;
+    return !!from && !!el && (Math.abs(el.offsetWidth - from.w) > 3 || Math.abs(el.offsetHeight - from.h) > 3);
+  };
+  useEffect(() => {
+    const el = ref.current;
+    if (!sizeKey || !el || typeof ResizeObserver === 'undefined') return;
+    let first = true;
+    let timer = 0;
+    let base: { w: number; h: number } | null = null;
+    const ro = new ResizeObserver(() => {
+      if (first) {
+        first = false;
+        base = { w: el.offsetWidth, h: el.offsetHeight };
+        return;
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (changedSince(base)) {
+          base = { w: el.offsetWidth, h: el.offsetHeight };
+          saveSize();
+        }
+      }, 600);
+    });
+    ro.observe(el);
+    return () => {
+      window.clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, [sizeKey]);
+  // Okno se vykresluje přímo do <body>: uvnitř stolu (kontejner s containment) by `position: fixed` platilo jen vůči stolu a okno by se smrštilo.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={`max-h-full w-full ${wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg`}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onMouseDown={() => (down.current = ref.current ? { w: ref.current.offsetWidth, h: ref.current.offsetHeight } : null)} onMouseUp={() => changedSince(down.current) && saveSize()} style={sizeKey ? sizeStyle(storedW, storedH) : undefined} className={`max-h-full ${sizeKey ? 'w-[32rem] max-w-full' : `w-full ${wide ? 'max-w-4xl' : 'max-w-lg'}`} overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg ${sizeKey ? 'flex min-h-48 min-w-64 resize flex-col' : ''}`}>
         <h2 className="mb-3 font-heading text-lg font-bold">{title}</h2>
-        {children}
+        {sizeKey ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
