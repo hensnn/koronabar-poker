@@ -158,6 +158,56 @@ describe('turnaj: registrace a peníze', () => {
     expect(() => h.tour.register('u4', 'u4')).toThrow(TournamentError);
   });
 
+
+  describe('add-on: režim nabídky', () => {
+    const base = { 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 2, 'tournament.addonCost': 100, 'tournament.addonChips': 500, 'tournament.addonOfferSeconds': 30, 'tournament.levelMinutes': 1, 'tournament.breakEveryLevels': 0 };
+    const toEndOfLevel = (h: Harness, level: number) => {
+      // hodiny turnaje běží i bez hraní; level končí podle času
+      for (let i = 0; i < 400 && h.tour.levelNumber() <= level; i++) h.clock.advance(1000);
+    };
+
+    it('režim „window“: tlačítko jen v okně, žádná nabídka', () => {
+      const h = harness({ ...base, 'tournament.addonMode': 'window' });
+      registerAll(h);
+      h.tour.start();
+      expect(h.tour.canAddon('u1')).toBe(true);
+      toEndOfLevel(h, 2);
+      expect(h.tour.addonOfferUntil()).toBeNull();
+      expect(h.tour.canAddon('u1')).toBe(false);
+    });
+
+    it('režim „offer“: dřív nelze, po levelu se nabídne a vyprší', () => {
+      const h = harness({ ...base, 'tournament.addonMode': 'offer' });
+      registerAll(h);
+      h.tour.start();
+      expect(h.tour.canAddon('u1')).toBe(false);
+      expect(() => h.tour.addon('u1')).toThrow(TournamentError);
+      for (let i = 0; i < 400 && h.tour.addonOfferUntil() === null; i++) h.clock.advance(1000);
+      expect(h.tour.addonOffered('u1')).toBe(true);
+      expect(h.tour.canAddon('u1')).toBe(true);
+      h.tour.addon('u1');
+      expect(h.tour.canAddon('u1')).toBe(false);
+      expect(h.tour.addonOffered('u1')).toBe(false);
+      h.clock.advance(31_000);
+      expect(h.tour.addonOfferUntil()).toBeNull();
+      expect(h.tour.canAddon('u2')).toBe(false);
+    });
+
+    it('režim „both“: odmítnutí nabídku skryje, koupě dřív se na konec neptá', () => {
+      const h = harness({ ...base, 'tournament.addonMode': 'both' });
+      registerAll(h);
+      h.tour.start();
+      h.tour.addon('u1');
+      for (let i = 0; i < 400 && h.tour.addonOfferUntil() === null; i++) h.clock.advance(1000);
+      expect(h.tour.addonOffered('u1')).toBe(false);
+      expect(h.tour.addonOffered('u2')).toBe(true);
+      h.tour.declineAddon('u2');
+      expect(h.tour.addonOffered('u2')).toBe(false);
+      expect(h.tour.canAddon('u2')).toBe(false);
+      expect(() => h.tour.declineAddon('u2')).toThrow(TournamentError);
+      expect(h.tour.addonOffered('u3')).toBe(true);
+    });
+  });
   it('zrušení vrátí všem všechny platby včetně rebuy a add-onu', async () => {
     const h = harness({ 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'belowStart', 'tournament.rebuyUntilLevel': 5, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 3 });
     registerAll(h);

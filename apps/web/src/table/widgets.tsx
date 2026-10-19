@@ -7,7 +7,7 @@ import { SoundPalette } from '../pages/sounds';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { CardView } from './CardView';
-import { BountiesBody, DealButton, EntryActions, InfoBody, entryActions, useTournamentInfo, wantedList } from './InfoCard';
+import { AddonOfferDialog, BountiesBody, DealButton, EntryActions, InfoBody, entryActions, useTournamentInfo, wantedList } from './InfoCard';
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
 import { ClockWidget, PlanBar, ShowdownPrefs } from './TablePanel';
@@ -206,5 +206,10 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     [layout, setLayout, defs, toolsSlot, view],
   );
   void WIDGET_IDS;
-  return <WidgetsContext.Provider value={value}>{children}</WidgetsContext.Provider>;
+  return (
+    <WidgetsContext.Provider value={value}>
+      {children}
+      <AddonOfferDialog tour={tour} tournamentId={tournamentId} />
+    </WidgetsContext.Provider>
+  );
 }

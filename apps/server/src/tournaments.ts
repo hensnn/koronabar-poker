@@ -650,6 +650,11 @@ export class TournamentManager {
     this.deps.onWallet?.(userId);
   }
 
+  async declineAddon(userId: string, id: string): Promise<void> {
+    const { tour } = await this.actAs(userId, id, 'turnaj.hrat');
+    tour.declineAddon(userId);
+  }
+
   async reenter(userId: string, id: string): Promise<void> {
     const { tour } = await this.actAs(userId, id, 'turnaj.hrat');
     tour.reenter(userId);
@@ -925,6 +930,7 @@ export class TournamentManager {
         canUnregister: st.status === 'registering' && !!me,
         canRebuy: live.canRebuy(userId) && this.can(userId, 'turnaj.hrat').allowed,
         canAddon: live.canAddon(userId) && this.can(userId, 'turnaj.hrat').allowed,
+        addonOfferUntil: live.addonOffered(userId) ? live.addonOfferUntil() : null,
         canReenter: (live.canReenter(userId) || live.canReenterNowPublic(userId)) && this.can(userId, 'turnaj.hrat').allowed,
       },
       can: {
@@ -988,7 +994,7 @@ export class TournamentManager {
       summary: st?.results ? st.results.map((r) => resultSummary(st, r)) : null,
       live: null,
       pending: {},
-      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, canReenter: false },
+      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, addonOfferUntil: null, canReenter: false },
       can: { manage: false, start: false, pause: false, cancel: false },
     };
   }
@@ -1157,6 +1163,7 @@ export interface TournamentView {
     canUnregister: boolean;
     canRebuy: boolean;
     canAddon: boolean;
+    addonOfferUntil: number | null;
     canReenter: boolean;
   };
   can: { manage: boolean; start: boolean; pause: boolean; cancel: boolean };

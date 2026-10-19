@@ -114,6 +114,8 @@ export interface TournamentState {
   tableIds?: string[];
   /** Kolik doplnila garance (rozdíl mezi garancí a vybraným prize poolem). */
   overlay?: number;
+  /** Jednorázová nabídka add-onu po skončení posledního levelu s add-onem: do kdy platí a kdo ji odmítl. */
+  addonOffer?: { until: number; declined: string[] };
 }
 
 export type TournamentEvent =
@@ -672,6 +674,7 @@ export class Tournament {
   /** Level skončil: přestávka (pokud je na řadě), jinak další level od příští handy. */
   private levelDone(): void {
     const s = this.deps.settings();
+    this.openAddonOffer();
     const every = num(s, 'tournament.breakEveryLevels');
     // Přestávka po každých N levelech, nebo jen jednou (po N-tém levelu), když je opakování vypnuté.
     const due = every > 0 && (s['tournament.breakRepeat'] === false ? this.levelNumber() === every : this.levelNumber() % every === 0);
@@ -844,10 +847,40 @@ export class Tournament {
     this.save();
   }
 
+  /** Po skončení posledního levelu s add-onem se hráčům jednorázově nabídne (režim „nabídka“ nebo „obojí“). */
+  private openAddonOffer(): void {
+    const s = this.deps.settings();
+    const mode = String(s['tournament.addonMode'] ?? 'both');
+    if (!s['tournament.addonEnabled'] || mode === 'window' || this.levelNumber() !== num(s, 'tournament.addonUntilLevel')) return;
+    this.st.addonOffer = { until: this.deps.clock.now() + num(s, 'tournament.addonOfferSeconds') * 1000, declined: [] };
+  }
+
+  /** Do kdy platí jednorázová nabídka add-onu (ms hodin), nebo null, když neběží. */
+  addonOfferUntil(): number | null {
+    const o = this.st.addonOffer;
+    if (!o || this.st.status !== 'running' || this.deps.clock.now() >= o.until) return null;
+    return o.until;
+  }
+
+  /** Hráči se právě nabízí add-on dialogem (nabídka běží, ještě ji neodmítl ani nekoupil). */
+  addonOffered(userId: string): boolean {
+    const p = this.rec(userId);
+    return this.addonOfferUntil() !== null && !!p && p.status === 'playing' && !p.addon && !this.st.addonOffer!.declined.includes(userId);
+  }
+
+  /** Hráč jednorázovou nabídku odmítl. */
+  declineAddon(userId: string): void {
+    if (!this.addonOffered(userId)) throw new TournamentError('ADDON_NOT_ALLOWED');
+    this.st.addonOffer!.declined.push(userId);
+    this.save();
+  }
+
   canAddon(userId: string): boolean {
     const p = this.rec(userId);
     const s = this.deps.settings();
     if (!p || this.st.status !== 'running' || !s['tournament.addonEnabled'] || p.addon || p.status !== 'playing') return false;
+    if (this.addonOffered(userId)) return true;
+    if (String(s['tournament.addonMode'] ?? 'both') === 'offer') return false;
     const lv = this.levelNumber();
     return lv >= num(s, 'tournament.addonFromLevel') && lv <= num(s, 'tournament.addonUntilLevel');
   }

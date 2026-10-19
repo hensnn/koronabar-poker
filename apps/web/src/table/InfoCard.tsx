@@ -5,7 +5,7 @@ import { errorText, get, post } from '../api';
 import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { useSession } from '../session';
-import { Modal } from '../ui';
+import { Button, Modal } from '../ui';
 import { formatAmount } from './format';
 
 export interface TournamentInfo {
@@ -20,7 +20,7 @@ export interface TournamentInfo {
   serverTime: number;
   rebuy: { enabled: boolean; cost: number; chips: number };
   addon: { enabled: boolean; cost: number; chips: number };
-  me: { status: string | null; decideUntil: number | null; canRebuy: boolean; canAddon: boolean; canReenter: boolean };
+  me: { status: string | null; decideUntil: number | null; canRebuy: boolean; canAddon: boolean; addonOfferUntil?: number | null; canReenter: boolean };
   reentry: { enabled: boolean };
   standings: { userId: string; place: number; chips: number | null; status: string }[];
   deal: { enabled: boolean; open: boolean; done: unknown | null };
@@ -244,5 +244,58 @@ export function EntryActions({ tour, tournamentId }: { tour: TournamentInfo | nu
         </p>
       )}
     </div>
+  );
+}
+
+/** Jednorázová nabídka add-onu po skončení levelu: okno ano/ne s odpočtem. Zavře se odpovědí, vypršením času nebo křížkem (tlačítko u stolu zůstane). */
+export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo | null; tournamentId: string | null }) {
+  const until = tour?.me.addonOfferUntil ?? null;
+  const [hidden, setHidden] = useState<number | null>(null);
+  const [left, setLeft] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  // Zbývající čas podle hodin serveru, od okamžiku načtení.
+  const base = tour && until ? { ms: until - tour.serverTime, at: Date.now() } : null;
+  const baseMs = base?.ms ?? 0;
+  useEffect(() => {
+    if (!until) return;
+    const at = Date.now();
+    const tick = () => setLeft(Math.max(0, baseMs - (Date.now() - at)));
+    tick();
+    const timer = setInterval(tick, 500);
+    return () => clearInterval(timer);
+  }, [until, baseMs]);
+  if (!tour || !tournamentId || !until || hidden === until || left <= 0 || !tour.me.canAddon) return null;
+  const answer = async (what: 'addon' | 'addon/decline') => {
+    setBusy(true);
+    try {
+      setError('');
+      await post(`/api/tournaments/${tournamentId}/${what}`);
+      setHidden(until);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title={t('tournament.addon')} onClose={() => setHidden(until)}>
+      <div className="flex flex-col gap-3">
+        <p>{t('tournament.addonOfferText', { cost: tour.addon.cost, chips: tour.addon.chips, seconds: Math.ceil(left / 1000) })}</p>
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button disabled={busy} onClick={() => void answer('addon/decline')}>
+            {t('tournament.addonOfferNo')}
+          </Button>
+          <Button variant="primary" disabled={busy} onClick={() => void answer('addon')}>
+            {t('tournament.addonOfferYes')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
