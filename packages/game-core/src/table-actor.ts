@@ -132,6 +132,10 @@ export class TableActor {
   private error: unknown = null;
   private handSettings: SettingValues;
   private pendingStart: (() => void) | null = null;
+  /** Právě běží předěl mezi handami: události z něj (vyřazení hráče…) nesmí naplánovat další předěl. */
+  private inBoundary = false;
+  /** Během předělu někdo žádal o naplánování další handy: vyřídí se po něm, jen když handa nezačala. */
+  private scheduleAfterBoundary = false;
   private showHand = false;
   private pipeline: ModulePipeline;
   private handsPlayed = 0;
@@ -714,6 +718,10 @@ export class TableActor {
 
   private scheduleNextHand(force = false): void {
     if (this.phase !== 'idle' && this.phase !== 'pause') return;
+    if (this.inBoundary) {
+      this.scheduleAfterBoundary = true;
+      return;
+    }
     if (this.pendingStart) return;
     if (this.held && !force) {
       if (this.phase === 'pause') this.phase = 'idle';
@@ -741,6 +749,18 @@ export class TableActor {
 
   /** Předěl mezi handami: odchody, doplnění žetonů, změny blindů, rozsazení do enginu. */
   private boundary(): void {
+    this.inBoundary = true;
+    this.scheduleAfterBoundary = false;
+    try {
+      this.boundaryBody();
+    } finally {
+      this.inBoundary = false;
+    }
+    if (this.scheduleAfterBoundary && (this.phase === 'idle' || this.phase === 'pause')) this.scheduleNextHand();
+    this.scheduleAfterBoundary = false;
+  }
+
+  private boundaryBody(): void {
     const s = this.opt.settings();
     this.handSettings = s;
     const now = this.opt.clock.now();

@@ -112,7 +112,7 @@ async function play(h: Harness, opts: { seed: number; maxSteps?: number; chaos?:
     h.clock.advance(Math.floor(rnd() * 3000));
     await Promise.resolve();
     expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
-    expect(h.table.hasError()).toBeNull();
+    expect(h.table.hasError(), String((h.table.hasError() as Error | null)?.stack)).toBeNull();
     if (h.tour.state().status === 'running') expect(h.table.totalChips()).toBe(granted(h));
     if (h.tour.state().status === 'running') {
       // Zůstatek účtu bounty = hlavy hráčů + nevylosované mystery hodnoty + nevyplacené odměny (+ případná nepřiřazená hodnota)
@@ -811,5 +811,57 @@ describe('turnaj: hodiny a přestávky', () => {
     expect(() => harness({ 'tournament.structure': '50/25' }).tour.validate()).toThrow(/BAD_STRUCTURE/);
     expect(() => harness({ 'tournament.payoutPreset': 'custom', 'tournament.payoutCustom': '50,30' }).tour.validate()).toThrow(/BAD_PAYOUT/);
     expect(() => harness().tour.validate()).not.toThrow();
+  });
+});
+
+describe('turnaj: nové volby rebuy a add-onu (simulace s boty)', { timeout: 300_000 }, () => {
+  const combos: { mode: string; hold: boolean; stops: boolean; below: number }[] = [];
+  for (const mode of ['window', 'offer', 'both']) for (const hold of [false, true]) for (const stops of [false, true]) for (const below of [0, 3000]) combos.push({ mode, hold, stops, below });
+  combos.forEach((c, i) => {
+    it(`add-on ${c.mode}, čekání ${c.hold}, zastavení odpočtu ${c.stops}, rebuy do ${c.below}: dohraje se a součty sedí`, async () => {
+      const seed = 200 + i;
+      const h = harness(
+        {
+          'tournament.rebuyEnabled': true,
+          'tournament.rebuyWhen': 'belowStart',
+          'tournament.rebuyBelowChips': c.below,
+          'tournament.rebuyUntilLevel': 4,
+          'tournament.rebuyMax': 2,
+          'tournament.rebuyDecisionSeconds': 20,
+          'tournament.rebuyHoldsGame': c.hold,
+          'tournament.rebuyTimerStops': c.stops,
+          'tournament.addonEnabled': true,
+          'tournament.addonMode': c.mode,
+          'tournament.addonFromLevel': 3,
+          'tournament.addonUntilLevel': 4,
+          'tournament.addonOfferSeconds': 15,
+          'tournament.addonCost': 50,
+          'tournament.addonChips': 1000,
+          'tournament.payoutPreset': 'top3',
+          'tournament.breakEveryLevels': 3,
+          'tournament.breakMinutes': 1,
+        },
+        6,
+        seed,
+      );
+      registerAll(h);
+      h.tour.start();
+      // náhodná pauza a obnovení, ať se vyzkouší i zastavení odpočtu
+      const rnd = seededRandom(seed);
+      for (let k = 0; k < 40 && h.tour.state().status === 'running'; k++) {
+        await play(h, { seed: seed + k, chaos: true, maxSteps: 150 });
+        if (h.tour.state().status !== 'running') break;
+        if (rnd() < 0.5) {
+          h.tour.pause();
+          h.clock.advance(30_000);
+          h.tour.resume();
+        }
+      }
+      await play(h, { seed, chaos: true });
+      const st = h.tour.state();
+      expect(st.status).toBe('finished');
+      expect(h.money.pool('T')).toBe(0);
+      expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
+    });
   });
 });
