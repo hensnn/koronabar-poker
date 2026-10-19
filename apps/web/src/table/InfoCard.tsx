@@ -300,3 +300,58 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
     </Modal>
   );
 }
+
+/** Vypadl jsem a běží čas na rebuy / nový vstup: okno s odpočtem hned u stolu, aby o šanci nikdo nepřišel, ani když má panely schované. */
+export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentInfo | null; tournamentId: string | null }) {
+  const until = tour?.me.status === 'deciding' ? (tour.me.decideUntil ?? null) : null;
+  const [hidden, setHidden] = useState<number | null>(null);
+  const [left, setLeft] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const baseMs = tour && until ? until - tour.serverTime : 0;
+  useEffect(() => {
+    if (!until) return;
+    const at = Date.now();
+    const tick = () => setLeft(Math.max(0, baseMs - (Date.now() - at)));
+    tick();
+    const timer = setInterval(tick, 500);
+    return () => clearInterval(timer);
+  }, [until, baseMs]);
+  if (!tour || !tournamentId || !until || hidden === until || left <= 0 || !(tour.me.canRebuy || tour.me.canReenter)) return null;
+  const act = async (what: 'rebuy' | 'reenter') => {
+    setBusy(true);
+    try {
+      setError('');
+      await post(`/api/tournaments/${tournamentId}/${what}`);
+      setHidden(until);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title={t('tournament.rebuy')} onClose={() => setHidden(until)}>
+      <div className="flex flex-col gap-3">
+        <p>{t('tournament.decide', { time: `${Math.ceil(left / 1000)} s` })}</p>
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          {tour.me.canReenter && (
+            <button className={actionTone.special} disabled={busy} onClick={() => void act('reenter')}>
+              {t('tournament.reenter')} ({tour.buyIn + tour.fee})
+            </button>
+          )}
+          {tour.me.canRebuy && (
+            <button className={actionTone.add} disabled={busy} onClick={() => void act('rebuy')}>
+              {t('tournament.rebuy')} ({tour.rebuy.cost})
+            </button>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
