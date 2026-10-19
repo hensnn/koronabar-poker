@@ -23,8 +23,9 @@ function cardStyle(delayMs?: number, fly?: { dx: number; dy: number }): Record<s
 const DELAY = ['', 'tk-delay-1', 'tk-delay-2', 'tk-delay-3', 'tk-delay-4'];
 
 export function CardView({ card, small, delay = 0, delayMs, still, fly, reveal, shown }: { card: Card | null; /** Karta se právě dobrovolně ukazuje: ukazující ji zvedne a zazáří, soupeř ji vidí otočit se se záři. */ shown?: 'self' | 'other'; small?: boolean; delay?: number; /** Vlastní zpoždění rozdání v ms (postupné rozdávání více běhů). */ delayMs?: number; /** Karta už na stole byla: bez animace rozdání. */ still?: boolean; /** Karta doletí od rozdávajícího (posun v % šířky stolu). */ fly?: { dx: number; dy: number }; /** Karta se právě odkrývá (showdown, dobrovolné ukázání): místo rozdání se otočí. */ reveal?: boolean }) {
-  const scale = (small ? '[--card-scale:0.7] ' : '') + (DELAY[delay] ?? '') + (shown ? ' tk-card-shown-' + shown : reveal ? ' tk-card-flip' : '') + (still ? ' tk-card-still' : '') + (fly ? ' tk-card-fly' : '');
-  const style = cardStyle(delayMs, fly);
+  const scale = (small ? '[--card-scale:0.7] ' : '') + (shown ? '' : (DELAY[delay] ?? '')) + (shown ? ' tk-card-shown-' + shown : reveal ? ' tk-card-flip' : '') + (still ? ' tk-card-still' : '') + (fly && !shown ? ' tk-card-fly' : '');
+  // Ukázání karty se nesmí zpozdit zbytkem rozdávání.
+  const style = shown ? undefined : cardStyle(delayMs, fly);
   if (!card) {
     return <span aria-label="rub karty" style={style} className={`tk-card tk-card-back inline-block border border-line ${scale}`} />;
   }
