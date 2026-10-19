@@ -26,7 +26,7 @@ import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-c
 import { Modal } from '../ui';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
-import { actionOff, actionTone } from './buttons';
+import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
 
 interface Props {
@@ -312,19 +312,19 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
                 {info.showCards && (
                   <>
                     {winnerPref === 'ask' && canShowCards && view.winners?.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="w-full rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
-                    <button className={canShowCards ? actionTone.show : actionOff} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 'both'))}>
-                      {t('table.showCards')}
+                    <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 'both'))}>
+                      {t('table.showBoth')}
                     </button>
-                    <button className={canShowCards ? actionTone.show : actionOff} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 0))}>
-                      {t('table.showCard1')}
+                    <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 0))}>
+                      {t('table.showFirst')}
                     </button>
-                    <button className={canShowCards ? actionTone.show : actionOff} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 1))}>
-                      {t('table.showCard2')}
+                    <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 1))}>
+                      {t('table.showSecond')}
                     </button>
                   </>
                 )}
                 {info.rabbitHunt && (
-                  <button className={canRabbit ? actionTone.special : actionOff} disabled={!canRabbit} onClick={() => void run(table.rabbit(tableId))}>
+                  <button className={canRabbit ? actionToneSm.special : actionOffSm} disabled={!canRabbit} onClick={() => void run(table.rabbit(tableId))}>
                     {t('table.rabbit')}
                   </button>
                 )}
