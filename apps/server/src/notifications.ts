@@ -75,14 +75,14 @@ export class NotificationService {
       const [u] = await this.deps.db.select({ nickname: schema.users.nickname, email: schema.users.email, verified: schema.users.emailVerifiedAt }).from(schema.users).where(eq(schema.users.id, userId));
       if (!u?.email || !u.verified) return;
       const prefs: SettingValues = this.deps.settings.resolve([{ scope: 'user', scopeId: userId, values: this.deps.settings.layer('user', userId) }]);
-      if (prefs['email.notifyTournament'] === false) return;
+      const optedOut = prefs['email.notifyTournament'] === false;
       await this.deps.email.enqueue('turnaj_upozorneni', u.email, {
         prezdivka: u.nickname,
         turnaj: String(params.name),
         udalost: t(`notice.${kind}.event`),
         text: this.textFor(kind, params),
         odkaz: this.deps.publicUrl() + link,
-      });
+      }, { userOptedOut: optedOut });
     } catch (e) {
       console.error('Odeslání upozornění e-mailem selhalo:', e instanceof Error ? e.message : e);
     }

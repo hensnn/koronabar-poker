@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { SECRETS, SMTP_PRESETS, scopeAllowed, t, validateValues, type SettingValue } from '@kb/shared';
+import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, parseList, scopeAllowed, t, validateValues, type SettingValue } from '@kb/shared';
 import { errorText, get, post, put, del } from '../../api';
 import { can, useSession } from '../../session';
 import { loadSettings, registry, saveGlobalSetting, useSettings } from '../../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
-import { Badge, Button, Card, DataTable, Notice, Tabs, Td, TextArea, TextInput } from '../../ui';
+import { Badge, Button, Card, DataTable, Notice, Select, Tabs, Td, TextArea, TextInput } from '../../ui';
 
 // ---------- globální nastavení ----------
 
@@ -244,13 +244,109 @@ export function EmailPage() {
   const { me } = useSession();
   const tabs = [
     ...(can(me, 'email.sablony') ? [{ id: 'templates' as const, label: t('email.templates') }] : []),
+    ...(can(me, 'email.spravovat_smtp') ? [{ id: 'rules' as const, label: t('email.rules') }] : []),
     ...(can(me, 'email.fronta') ? [{ id: 'queue' as const, label: t('email.queue') }] : []),
   ];
-  const [tab, setTab] = useState<'templates' | 'queue'>(tabs[0]?.id ?? 'templates');
+  const [tab, setTab] = useState<'templates' | 'queue' | 'rules'>(tabs[0]?.id ?? 'templates');
   return (
     <div className="flex flex-col gap-3">
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
-      {tab === 'templates' ? <Templates /> : <Queue />}
+      {tab === 'templates' ? <Templates /> : tab === 'rules' ? <SendingRules /> : <Queue />}
+    </div>
+  );
+}
+
+/** Pravidla odesílání: zda se e-maily posílají, které druhy a komu. Každá změna se uloží hned. */
+export function SendingRules() {
+  const settings = useSettings();
+  const v = settings.values;
+  const [roles, setRoles] = useState<{ key: string; name: string }[]>([]);
+  const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
+  const [lists, setLists] = useState<{ allow: string; block: string } | null>(null);
+  useEffect(() => {
+    void get<{ key: string; name: string }[]>('/api/admin/roles').then(setRoles).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    setLists((l) => l ?? { allow: String(v['email.recipientList'] ?? ''), block: String(v['email.blockList'] ?? '') });
+  }, [v]);
+  const save = async (key: string, value: SettingValue) => {
+    try {
+      await saveGlobalSetting(key, value);
+      setMsg({ kind: 'success', text: t('lobby.saved') });
+    } catch (e) {
+      setMsg({ kind: 'error', text: errorText(e) });
+    }
+  };
+  const disabled = new Set(parseList(v['email.disabledKinds']));
+  const mode = String(v['email.recipientMode'] ?? 'all');
+  const allowedRoles = new Set(parseList(v['email.recipientRoles']));
+  const toggleKind = (key: string, on: boolean) => {
+    const next = new Set(disabled);
+    if (on) next.delete(key);
+    else next.add(key);
+    void save('email.disabledKinds', [...next].join(', '));
+  };
+  const toggleRole = (key: string, on: boolean) => {
+    const next = new Set(allowedRoles);
+    if (on) next.add(key);
+    else next.delete(key);
+    void save('email.recipientRoles', [...next].join(', '));
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      <Card title={t('emailRules.sending')}>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={v['email.enabled'] !== false} onChange={(e) => void save('email.enabled', e.target.checked)} />
+          {t('emailRules.enabled')}
+        </label>
+        <p className="text-sm text-muted">{t('emailRules.enabledHelp')}</p>
+      </Card>
+      <Card title={t('emailRules.kinds')}>
+        <p className="text-sm text-muted">{t('emailRules.kindsHelp')}</p>
+        <ul className="flex flex-col gap-1">
+          {EMAIL_TEMPLATES.map((tpl) => (
+            <li key={tpl.key}>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={tpl.security || !disabled.has(tpl.key)} disabled={tpl.security} onChange={(e) => toggleKind(tpl.key, e.target.checked)} />
+                {t(`email.tpl.${tpl.key}`)}
+                {tpl.security && <Badge tone="muted">{t('emailRules.security')}</Badge>}
+              </label>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Card title={t('emailRules.recipients')}>
+        <Select label={t('settings.email.recipientMode.label')} value={mode} onChange={(e) => void save('email.recipientMode', e.target.value)}>
+          {['all', 'verified', 'roles', 'list'].map((m) => (
+            <option key={m} value={m}>
+              {t(`settings.email.recipientMode.option.${m}`)}
+            </option>
+          ))}
+        </Select>
+        <p className="text-sm text-muted">{t('settings.email.recipientMode.help')}</p>
+        {mode === 'roles' && (
+          <ul className="flex flex-wrap gap-3">
+            {roles.map((r) => (
+              <li key={r.key}>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={allowedRoles.has(r.key.toLowerCase())} onChange={(e) => toggleRole(r.key.toLowerCase(), e.target.checked)} />
+                  {r.name}
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+        {mode === 'list' && lists && (
+          <TextArea label={t('settings.email.recipientList.label')} hint={t('settings.email.recipientList.help')} value={lists.allow} onChange={(e) => setLists({ ...lists, allow: e.target.value })} onBlur={() => void save('email.recipientList', lists.allow)} />
+        )}
+        {lists && <TextArea label={t('settings.email.blockList.label')} hint={t('settings.email.blockList.help')} value={lists.block} onChange={(e) => setLists({ ...lists, block: e.target.value })} onBlur={() => void save('email.blockList', lists.block)} />}
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={v['email.allowUserOptOut'] !== false} onChange={(e) => void save('email.allowUserOptOut', e.target.checked)} />
+          {t('settings.email.allowUserOptOut.label')}
+        </label>
+        <p className="text-sm text-muted">{t('settings.email.allowUserOptOut.help')}</p>
+      </Card>
     </div>
   );
 }
@@ -342,7 +438,7 @@ function Queue() {
   return (
     <div className="flex flex-col gap-3">
       <p>
-        {['pending', 'sent', 'failed'].map((s) => (
+        {['pending', 'sent', 'failed', 'skipped'].map((s) => (
           <span key={s} className="mr-3">
             {t(`email.status.${s}`)}: <strong>{data.stats[s] ?? 0}</strong>
           </span>
@@ -355,7 +451,7 @@ function Queue() {
             <Td>{m.toAddress}</Td>
             <Td>{t(`email.tpl.${m.kind}`)}</Td>
             <Td>
-              <Badge tone={m.status === 'sent' ? 'success' : m.status === 'failed' ? 'danger' : 'muted'}>{t(`email.status.${m.status}`)}</Badge>
+              <Badge tone={m.status === 'sent' ? 'success' : m.status === 'failed' ? 'danger' : m.status === 'skipped' ? 'warning' : 'muted'}>{t(`email.status.${m.status}`)}</Badge>
             </Td>
             <Td>{m.attempts}</Td>
             <Td className="text-sm">{m.lastError ? t(m.lastError.split('|')[0]!) : ''}</Td>

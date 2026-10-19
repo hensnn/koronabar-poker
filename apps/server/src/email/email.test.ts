@@ -199,3 +199,72 @@ describe('testovací e-mail a hlášky chyb', () => {
     expect(translateSmtpError(new Error('???')).key).toBe('email.error.unknown');
   });
 });
+
+describe('pravidla odesílání (správce)', () => {
+  const kinds = async (s: Awaited<ReturnType<typeof setup>>) => {
+    const rows = await s.db.select().from(schema.emailQueue);
+    return rows.map((r) => `${r.kind}:${r.status}:${r.lastError ?? ''}`);
+  };
+  const vars = { prezdivka: 'X', platnost: 1, odkaz: 'https://x.cz', turnaj: 'T', udalost: 'u', text: 't', souhrn: 's', akce: 'a', vysledek: 'v', druh: 'd', poznamka: '', kod: 'k', zvouci: 'z', novy_email: 'n@example.cz' };
+
+  it('vypnuté odesílání nepošle nic, ani bezpečnostní zprávy; zápis zůstane jako přeskočený', async () => {
+    const s = await setup({ 'email.enabled': false });
+    await s.email.enqueue('zmena_hesla', 'a@example.cz', vars);
+    await s.email.enqueue('turnaj_upozorneni', 'a@example.cz', vars);
+    expect(await kinds(s)).toEqual(['zmena_hesla:skipped:email.skip.disabled', 'turnaj_upozorneni:skipped:email.skip.disabled']);
+    await s.email.processQueue();
+    expect(s.sent).toHaveLength(0);
+  });
+
+  it('vypnutý druh zpráv se neposílá, bezpečnostní druh vypnout nejde', async () => {
+    const s = await setup({ 'email.disabledKinds': 'turnaj_upozorneni, zmena_hesla' });
+    await s.email.enqueue('turnaj_upozorneni', 'a@example.cz', vars);
+    await s.email.enqueue('vecer_souhrn', 'a@example.cz', vars);
+    await s.email.enqueue('zmena_hesla', 'a@example.cz', vars);
+    expect(await kinds(s)).toEqual(['turnaj_upozorneni:skipped:email.skip.kind', 'vecer_souhrn:pending:', 'zmena_hesla:pending:']);
+  });
+
+  it('příjemci: jen s ověřeným e-mailem', async () => {
+    const s = await setup({ 'email.recipientMode': 'verified' });
+    await s.db.update(schema.users).set({ email: 'overeny@example.cz', emailVerifiedAt: new Date() }).where(eq(schema.users.id, s.hrac));
+    await s.email.enqueue('vecer_souhrn', 'overeny@example.cz', vars);
+    await s.email.enqueue('vecer_souhrn', 'cizi@example.cz', vars);
+    expect(await kinds(s)).toEqual(['vecer_souhrn:pending:', 'vecer_souhrn:skipped:email.skip.notVerified']);
+  });
+
+  it('příjemci: jen vybrané role', async () => {
+    const s = await setup({ 'email.recipientMode': 'roles', 'email.recipientRoles': 'organizator' });
+    await s.db.update(schema.users).set({ email: 'hrac@example.cz', emailVerifiedAt: new Date() }).where(eq(schema.users.id, s.hrac));
+    await s.email.enqueue('vecer_souhrn', 'hrac@example.cz', vars);
+    expect(await kinds(s)).toEqual(['vecer_souhrn:skipped:email.skip.role']);
+    const s2 = await setup({ 'email.recipientMode': 'roles', 'email.recipientRoles': 'hrac' });
+    await s2.db.update(schema.users).set({ email: 'hrac@example.cz', emailVerifiedAt: new Date() }).where(eq(schema.users.id, s2.hrac));
+    await s2.email.enqueue('vecer_souhrn', 'hrac@example.cz', vars);
+    expect(await kinds(s2)).toEqual(['vecer_souhrn:pending:']);
+  });
+
+  it('příjemci: jen adresy a domény ze seznamu; blokace platí i pro bezpečnostní zprávy', async () => {
+    const s = await setup({ 'email.recipientMode': 'list', 'email.recipientList': 'jan@example.cz; @firma.cz', 'email.blockList': 'spam@firma.cz' });
+    for (const to of ['jan@example.cz', 'eva@firma.cz', 'eva@pobocka.firma.cz', 'nikdo@example.cz', 'spam@firma.cz']) await s.email.enqueue('vecer_souhrn', to, vars);
+    await s.email.enqueue('zmena_hesla', 'spam@firma.cz', vars);
+    await s.email.enqueue('zmena_hesla', 'nikdo@example.cz', vars);
+    expect(await kinds(s)).toEqual([
+      'vecer_souhrn:pending:',
+      'vecer_souhrn:pending:',
+      'vecer_souhrn:pending:',
+      'vecer_souhrn:skipped:email.skip.notListed',
+      'vecer_souhrn:skipped:email.skip.blocked',
+      'zmena_hesla:skipped:email.skip.blocked',
+      'zmena_hesla:pending:',
+    ]);
+  });
+
+  it('osobní vypnutí hráče platí jen, když ho správce dovolil', async () => {
+    const s = await setup();
+    await s.email.enqueue('vecer_souhrn', 'a@example.cz', vars, { userOptedOut: true });
+    const s2 = await setup({ 'email.allowUserOptOut': false });
+    await s2.email.enqueue('vecer_souhrn', 'a@example.cz', vars, { userOptedOut: true });
+    expect(await kinds(s)).toEqual(['vecer_souhrn:skipped:email.skip.userOptOut']);
+    expect(await kinds(s2)).toEqual(['vecer_souhrn:pending:']);
+  });
+});

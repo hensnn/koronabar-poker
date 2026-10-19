@@ -210,6 +210,13 @@ const email: SettingDef[] = [
   text('email.replyTo', { category: 'email', mutability: ADM, scopes: GLOBAL }, '', 200),
   int('email.dailyLimit', { category: 'email', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 400, 1, 100000),
   int('email.maxAttempts', { category: 'email', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 50),
+  // Co a komu se smí posílat (rozhoduje správce; bezpečnostní e-maily jdou vždy, dokud je odesílání zapnuté a adresa není blokovaná).
+  text('email.disabledKinds', { category: 'email', mutability: ADM, scopes: GLOBAL }, '', 500),
+  choice('email.recipientMode', { category: 'email', mutability: ADM, scopes: GLOBAL }, 'all', ['all', 'verified', 'roles', 'list']),
+  text('email.recipientRoles', { category: 'email', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'email.recipientMode', equals: 'roles' } }, '', 500),
+  text('email.recipientList', { category: 'email', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'email.recipientMode', equals: 'list' } }, '', 5000),
+  text('email.blockList', { category: 'email', mutability: ADM, scopes: GLOBAL }, '', 5000),
+  bool('email.allowUserOptOut', { category: 'email', mutability: ADM, scopes: GLOBAL }, true),
 ];
 
 /** Statistiky a historie hand (platí globálně). */

@@ -191,8 +191,8 @@ export async function buildServer(opts: ServerOptions = {}) {
       const [u] = await db.select({ nickname: schema.users.nickname, email: schema.users.email, verified: schema.users.emailVerifiedAt }).from(schema.users).where(eq(schema.users.id, userId));
       if (!u?.email || (!u.verified && settings.resolve()['system.emailVerificationRequired'])) return;
       const prefs = settings.resolve([{ scope: 'user', scopeId: userId, values: settings.layer('user', userId) }]);
-      if (prefs[prefKey] === false) return;
-      await email.enqueue(template, u.email, vars(u.nickname));
+      // Osobní vypnutí platí jen tehdy, když ho správce hráčům dovolil; zamítnutí se zapíše do fronty se stavem „přeskočeno“.
+      await email.enqueue(template, u.email, vars(u.nickname), { userOptedOut: prefs[prefKey] === false });
     } catch (e) {
       console.error('Odeslání upozornění e-mailem selhalo:', e instanceof Error ? e.message : e);
     }

@@ -11,6 +11,7 @@ export * from './permissions.js';
 export * from './messages.js';
 export * from './roles-preset.js';
 export * from './secrets-catalog.js';
+export * from './email-policy.js';
 export * from './announcer.js';
 export * from './bets.js';
 export * from './limits.js';

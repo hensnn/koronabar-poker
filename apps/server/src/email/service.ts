@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import nodemailer from 'nodemailer';
-import { EMAIL_TEMPLATES, emailTemplateDef, type PermissionChecker, type SettingValues } from '@kb/shared';
+import { EMAIL_TEMPLATES, emailDecision, emailTemplateDef, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AccountNotifier } from '../auth/accounts.js';
 import type { AuditService } from '../auth/audit.js';
 import { schema, type Db } from '../db/index.js';
@@ -144,15 +144,36 @@ export class EmailService {
 
   // ---------- fronta ----------
 
-  async enqueue(key: string, to: string, vars: Record<string, string | number>): Promise<number> {
+  /**
+   * Zařadí e-mail do fronty, pokud to pravidla správce dovolí (zda se vůbec posílá, který druh a komu).
+   * Zamítnutá zpráva se uloží se stavem `skipped` a důvodem, aby správce viděl, co se neposlalo a proč.
+   */
+  async enqueue(key: string, to: string, vars: Record<string, string | number>, opts: { userOptedOut?: boolean } = {}): Promise<number> {
     const def = emailTemplateDef(key);
     if (!def) throw new Error(`Neznámá šablona ${key}`);
     const r = await this.render(key, vars);
+    const [u] = await this.deps.db.select({ id: schema.users.id, verified: schema.users.emailVerifiedAt }).from(schema.users).where(eq(schema.users.email, to)).limit(1);
+    const roleKeys = u ? await this.roleKeysOf(u.id) : [];
+    const decision = emailDecision({ settings: this.deps.settings(), security: def.security, key, address: to, verified: u ? !!u.verified : null, roleKeys, userOptedOut: opts.userOptedOut });
     const [row] = await this.deps.db
       .insert(schema.emailQueue)
-      .values({ toAddress: to, kind: key, subject: r.subject, bodyText: r.text, bodyHtml: r.html, priority: def.security ? 'security' : 'normal', nextAttemptAt: this.now() })
+      .values({
+        toAddress: to,
+        kind: key,
+        subject: r.subject,
+        bodyText: r.text,
+        bodyHtml: r.html,
+        priority: def.security ? 'security' : 'normal',
+        nextAttemptAt: this.now(),
+        ...(decision.send ? {} : { status: 'skipped', lastError: `email.skip.${decision.reason}` }),
+      })
       .returning({ id: schema.emailQueue.id });
     return row!.id;
+  }
+
+  private async roleKeysOf(userId: string): Promise<string[]> {
+    const rows = await this.deps.db.select({ key: schema.roles.key }).from(schema.roleAssignments).innerJoin(schema.roles, eq(schema.roles.id, schema.roleAssignments.roleId)).where(eq(schema.roleAssignments.userId, userId));
+    return rows.map((x) => x.key);
   }
 
   async stats() {
