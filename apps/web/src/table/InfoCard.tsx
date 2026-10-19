@@ -6,7 +6,7 @@ import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { useSession } from '../session';
 import { Button, Modal } from '../ui';
-import { actionTone } from './buttons';
+import { actionOff, actionTone } from './buttons';
 import { formatAmount } from './format';
 
 export interface TournamentInfo {
@@ -187,11 +187,13 @@ export function BountiesBody({ view }: { view: TableView }) {
 /** Tlačítko pro návrh dohody (turnaj, který běží, má dohodu povolenou a žádná ještě neproběhla); otevře okno s dohodou. */
 export function DealButton({ tour, tournamentId }: { tour: TournamentInfo | null; tournamentId: string | null }) {
   const [open, setOpen] = useState(false);
-  if (!tournamentId || !tour || !tour.deal.enabled || tour.status !== 'running' || tour.deal.done) return null;
+  if (!tournamentId || !tour || !tour.deal.enabled) return null;
+  // Tlačítko je v turnaji s dohodou stále na místě; jde použít, jen když turnaj běží a dohoda ještě neproběhla.
+  const active = tour.status === 'running' && !tour.deal.done;
   return (
     <>
-      <button className="w-full rounded-md border border-primary bg-primary px-2 py-1 text-on-primary" onClick={() => setOpen(true)}>
-        {tour.deal.open ? t('table.info.dealOpen') : t('deal.propose')}
+      <button className={active ? 'w-full rounded-md border border-primary bg-primary px-2 py-1 text-on-primary' : `w-full ${actionOff}`} disabled={!active} onClick={() => setOpen(true)}>
+        {tour.deal.done ? t('table.info.dealDone') : tour.deal.open ? t('table.info.dealOpen') : t('deal.propose')}
       </button>
       {open && (
         <Modal title={t('deal.title')} onClose={() => setOpen(false)} wide>
@@ -203,12 +205,14 @@ export function DealButton({ tour, tournamentId }: { tour: TournamentInfo | null
 }
 
 /** Rebuy, add-on a re-entry přímo u stolu (vyřazený hráč v rozhodovací době je nemusí hledat na stránce turnaje). */
-export function entryActions(tour: TournamentInfo | null): { kind: 'rebuy' | 'addon' | 'reenter'; label: string; confirm: string }[] {
-  if (!tour || tour.status !== 'running') return [];
-  const out: { kind: 'rebuy' | 'addon' | 'reenter'; label: string; confirm: string }[] = [];
-  if (tour.me.canRebuy) out.push({ kind: 'rebuy', label: `${t('tournament.rebuy')} (${tour.rebuy.cost})`, confirm: t('tournament.confirmRebuy', { cost: tour.rebuy.cost, chips: tour.rebuy.chips }) });
-  if (tour.me.canAddon) out.push({ kind: 'addon', label: `${t('tournament.addon')} (${tour.addon.cost})`, confirm: t('tournament.confirmAddon', { cost: tour.addon.cost, chips: tour.addon.chips }) });
-  if (tour.me.canReenter) out.push({ kind: 'reenter', label: `${t('tournament.reenter')} (${tour.buyIn + tour.fee})`, confirm: t('tournament.confirmRegister', { cost: tour.buyIn, fee: tour.fee }) });
+/** Tlačítka jsou v turnaji, který rebuy / add-on / nový vstup má, vždy na svém místě; `active` říká, jestli je hráč teď smí použít. */
+export function entryActions(tour: TournamentInfo | null): { kind: 'rebuy' | 'addon' | 'reenter'; label: string; confirm: string; active: boolean }[] {
+  if (!tour || tour.me.status === null) return [];
+  const running = tour.status === 'running';
+  const out: { kind: 'rebuy' | 'addon' | 'reenter'; label: string; confirm: string; active: boolean }[] = [];
+  if (tour.rebuy.enabled) out.push({ kind: 'rebuy', label: `${t('tournament.rebuy')} (${tour.rebuy.cost})`, confirm: t('tournament.confirmRebuy', { cost: tour.rebuy.cost, chips: tour.rebuy.chips }), active: running && tour.me.canRebuy });
+  if (tour.addon.enabled) out.push({ kind: 'addon', label: `${t('tournament.addon')} (${tour.addon.cost})`, confirm: t('tournament.confirmAddon', { cost: tour.addon.cost, chips: tour.addon.chips }), active: running && tour.me.canAddon });
+  if (tour.reentry.enabled) out.push({ kind: 'reenter', label: `${t('tournament.reenter')} (${tour.buyIn + tour.fee})`, confirm: t('tournament.confirmRegister', { cost: tour.buyIn, fee: tour.fee }), active: running && tour.me.canReenter });
   return out;
 }
 
@@ -222,8 +226,8 @@ export function EntryActions({ tour, tournamentId }: { tour: TournamentInfo | nu
       {list.map((a) => (
         <button
           key={a.kind}
-          className={`w-full ${a.kind === 'reenter' ? actionTone.special : actionTone.add}`}
-          disabled={busy}
+          className={`w-full ${a.active ? (a.kind === 'reenter' ? actionTone.special : actionTone.add) : actionOff}`}
+          disabled={busy || !a.active}
           onClick={async () => {
             if (!confirm(a.confirm)) return;
             setBusy(true);

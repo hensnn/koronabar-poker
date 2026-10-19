@@ -26,7 +26,7 @@ import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-c
 import { Modal } from '../ui';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
-import { actionTone } from './buttons';
+import { actionOff, actionTone } from './buttons';
 import { PlayerCard } from './PlayerCard';
 
 interface Props {
@@ -140,6 +140,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const hovered = shownSeat !== null ? view.seats.find((s) => s.seat === shownSeat) : undefined;
   // Co lze po handě ukázat (widget „Ukázat karty“ se ukazuje jen, když je co).
   const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards));
+  const canCallClock = !!(mine && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled);
   const canRabbit = !!(view.winners && mine?.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit);
 
   return (
@@ -305,27 +306,28 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       <RightColumn>
         <RevealPortal
           node={
-            mine && (canShowCards || canRabbit) ? (
+            // Widget je u stolu stále (když je ukázání karet nebo rabbit hunt povolené); tlačítka jsou šedá, dokud je nelze použít, pak barevná.
+            mine && (info.showCards || info.rabbitHunt) ? (
               <>
-              {canShowCards && (
-                <>
-                  {winnerPref === 'ask' && view.winners?.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
-                  <button className={actionTone.show} onClick={() => void run(table.show(tableId, 'both'))}>
-                    {t('table.showCards')}
+                {info.showCards && (
+                  <>
+                    {winnerPref === 'ask' && canShowCards && view.winners?.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="w-full rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
+                    <button className={canShowCards ? actionTone.show : actionOff} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 'both'))}>
+                      {t('table.showCards')}
+                    </button>
+                    <button className={canShowCards ? actionTone.show : actionOff} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 0))}>
+                      {t('table.showCard1')}
+                    </button>
+                    <button className={canShowCards ? actionTone.show : actionOff} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 1))}>
+                      {t('table.showCard2')}
+                    </button>
+                  </>
+                )}
+                {info.rabbitHunt && (
+                  <button className={canRabbit ? actionTone.special : actionOff} disabled={!canRabbit} onClick={() => void run(table.rabbit(tableId))}>
+                    {t('table.rabbit')}
                   </button>
-                  <button className={actionTone.show} onClick={() => void run(table.show(tableId, 0))}>
-                    {t('table.showCard1')}
-                  </button>
-                  <button className={actionTone.show} onClick={() => void run(table.show(tableId, 1))}>
-                    {t('table.showCard2')}
-                  </button>
-                </>
-              )}
-              {canRabbit && (
-                <button className={actionTone.special} onClick={() => void run(table.rabbit(tableId))}>
-                  {t('table.rabbit')}
-                </button>
-              )}
+                )}
               </>
             ) : null
           }
@@ -335,8 +337,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             mine ? (
               <div className="tk-tools flex flex-wrap items-center gap-2">
                 {extra}
-          {info.callClock && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled && (
-            <button className={actionTone.special} onClick={() => void run(table.callClock(tableId))}>
+          {info.callClock && (
+            <button className={canCallClock ? actionTone.special : actionOff} disabled={!canCallClock} onClick={() => void run(table.callClock(tableId))}>
               {t('table.callClock')}
             </button>
           )}

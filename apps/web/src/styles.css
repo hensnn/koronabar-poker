@@ -664,12 +664,12 @@ h3,
 /* Panel je vysoký jako herní oblast vedle něj (po poslední řádek pod stolem); obsah se posouvá uvnitř. */
 .tk-tp-scroll { position: absolute; inset: 0; overflow-y: auto; display: flex; flex-direction: column; gap: calc(var(--spacing) * 1); padding-right: 2px; }
 /* Diskrétní posuvníky v panelu (včetně seznamu zpráv chatu). */
-.tk-tp-panel, .tk-tp-panel * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tk-color-border) 80%, transparent) transparent; }
-.tk-tp-panel ::-webkit-scrollbar { width: 5px; height: 5px; }
-.tk-tp-panel ::-webkit-scrollbar-track { background: transparent; }
-.tk-tp-panel ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--tk-color-border) 80%, transparent); border-radius: 999px; }
-.tk-tp-panel ::-webkit-scrollbar-thumb:hover { background: var(--tk-color-border); }
-.tk-tp-panel ::-webkit-scrollbar-button { display: none; }
+.tk-tp-panel, .tk-tp-panel *, .tk-extra, .tk-extra * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--tk-color-border) 80%, transparent) transparent; }
+.tk-tp-panel ::-webkit-scrollbar, .tk-extra::-webkit-scrollbar, .tk-extra ::-webkit-scrollbar { width: 5px; height: 5px; }
+.tk-tp-panel ::-webkit-scrollbar-track, .tk-extra::-webkit-scrollbar-track, .tk-extra ::-webkit-scrollbar-track { background: transparent; }
+.tk-tp-panel ::-webkit-scrollbar-thumb, .tk-extra::-webkit-scrollbar-thumb, .tk-extra ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--tk-color-border) 80%, transparent); border-radius: 999px; }
+.tk-tp-panel ::-webkit-scrollbar-thumb:hover, .tk-extra::-webkit-scrollbar-thumb:hover, .tk-extra ::-webkit-scrollbar-thumb:hover { background: var(--tk-color-border); }
+.tk-tp-panel ::-webkit-scrollbar-button, .tk-extra::-webkit-scrollbar-button, .tk-extra ::-webkit-scrollbar-button { display: none; }
 @media (min-width: 64rem) {
   .tk-tablepage {
     display: grid;

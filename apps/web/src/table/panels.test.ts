@@ -58,16 +58,21 @@ describe('odměny na hlavu', () => {
 });
 
 describe('rebuy, add-on a re-entry u stolu', () => {
-  it('nabídne jen to, co hráč smí, a jen v běžícím turnaji', () => {
-    expect(entryActions(tour())).toEqual([]);
+  const kinds = (x: ReturnType<typeof entryActions>) => x.map((a) => `${a.kind}:${a.active ? 'on' : 'off'}`);
+  it('tlačítka jsou v turnaji s danou funkcí stále na místě; aktivní jsou jen ta, která hráč smí', () => {
+    expect(kinds(entryActions(tour()))).toEqual(['rebuy:off', 'addon:off']);
     const me = { status: 'deciding', decideUntil: 1, canRebuy: true, canAddon: false, canReenter: true };
-    expect(entryActions(tour({ me })).map((a) => a.kind)).toEqual(['rebuy', 'reenter']);
-    expect(entryActions(tour({ me: { ...me, canAddon: true } })).map((a) => a.kind)).toEqual(['rebuy', 'addon', 'reenter']);
-    expect(entryActions(tour({ me, status: 'finished' }))).toEqual([]);
+    expect(kinds(entryActions(tour({ me, reentry: { enabled: true } })))).toEqual(['rebuy:on', 'addon:off', 'reenter:on']);
+    expect(kinds(entryActions(tour({ me: { ...me, canAddon: true }, reentry: { enabled: true } })))).toEqual(['rebuy:on', 'addon:on', 'reenter:on']);
+  });
+  it('po skončení turnaje jsou všechna neaktivní, divák a chybějící turnaj je nemají', () => {
+    const me = { status: 'deciding', decideUntil: 1, canRebuy: true, canAddon: true, canReenter: true };
+    expect(entryActions(tour({ me, status: 'finished', reentry: { enabled: true } })).every((a) => !a.active)).toBe(true);
+    expect(entryActions(tour({ me: { ...me, status: null } }))).toEqual([]);
     expect(entryActions(null)).toEqual([]);
   });
   it('popisky nesou cenu (re-entry buy-in + poplatek)', () => {
     const me = { status: 'deciding', decideUntil: 1, canRebuy: true, canAddon: true, canReenter: true };
-    expect(entryActions(tour({ me })).map((a) => a.label)).toEqual(['Rebuy (100)', 'Add-on (50)', 'Vstoupit znovu (110)']);
+    expect(entryActions(tour({ me, reentry: { enabled: true } })).map((a) => a.label)).toEqual(['Rebuy (100)', 'Add-on (50)', 'Vstoupit znovu (110)']);
   });
 });

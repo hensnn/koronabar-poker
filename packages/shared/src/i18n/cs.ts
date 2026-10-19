@@ -760,6 +760,7 @@ export const cs: Record<string, string> = {
   'table.widget.actions': 'Akce',
   'table.widget.tools': 'Akce u stolu',
   'table.widget.reveal': 'Ukázat karty',
+  'table.info.dealDone': 'Dohoda uzavřena',
   'table.moveTo': 'Přesunout do panelu: {panel}',
   'table.card.stack': 'Žetony',
   'table.card.stackBb': 'V big blindech',

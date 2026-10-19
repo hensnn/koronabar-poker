@@ -12,6 +12,9 @@ export const actionTone = {
   /** Speciální pravidla (straddle, rabbit hunt, hodiny). */
   special: `${base} border-accent bg-accent/15`,
 } as const;
+/** Tlačítko, které teď nejde použít: stále na svém místě, ale šedé. */
+export const actionOff = 'rounded-md px-3 py-1 border border-line bg-surface text-muted opacity-70';
+export const actionOffSm = 'rounded-md px-2 py-0.5 text-sm border border-line bg-surface text-muted opacity-70';
 export type ActionTone = keyof typeof actionTone;
 
 /** Totéž menší (tlačítka ve widgetech panelů). */

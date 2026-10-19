@@ -72,7 +72,8 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
   const wanted = view ? wantedList(view) : [];
   const hasCards = !!(mine && mine.hasCards && mine.cards);
-  const hasDeal = !!tournamentId && !!tour && tour.deal.enabled && tour.status === 'running' && !tour.deal.done;
+  // Widgety jsou trvale na svém místě (nemizí a neobjevují se): neaktivní tlačítka jsou šedá, aktivní barevná.
+  const hasDeal = !!tournamentId && !!tour && tour.deal.enabled;
   const entries = entryActions(tour);
 
   const defs: Record<WidgetId, WidgetDef> = {
@@ -127,7 +128,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     },
     hand: {
       title: t('table.widget.hand'),
-      show: hasCards,
+      show: !!mine,
       body:
         mine && mine.hasCards && mine.cards ? (
           <div className="flex flex-col items-center gap-2">
@@ -144,7 +145,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     },
     best: {
       title: t('table.widget.best'),
-      show: hasCards,
+      show: !!mine,
       body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
     // Důležité akce hry stále po ruce, i když je stůl na celou obrazovku (tlačítka pod stolem se tam nemusí vejít).
@@ -192,14 +193,14 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     chat: { title: t('table.chat'), show: !!chat && features.chat, body: chat?.body ?? null, badge: chat?.unread, actions: chat?.actions },
     sounds: { title: t('table.widget.sounds'), show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
     info: { title: t('table.info.title'), show: !!view, body: view && <InfoBody view={view} tour={tour} tournamentId={tournamentId} inBb={inBb} /> },
-    bounties: { title: t('table.info.rewards'), show: !!view && features.headBounty && (!!tournamentId || wanted.length > 0), body: view && <BountiesBody view={view} /> },
+    bounties: { title: t('table.info.rewards'), show: !!view && features.headBounty, body: view && <BountiesBody view={view} /> },
     deal: { title: t('table.info.deal'), show: hasDeal, body: <DealButton tour={tour} tournamentId={tournamentId} /> },
     // Ukázání karet a rabbit hunt po handě mají vlastní widget: tlačítka mizí, takže nesmí sdílet místo s ostatními akcemi (např. odchod od stolu).
     reveal: { title: t('table.widget.reveal'), show: hasReveal, body: <div ref={setRevealSlot} className="flex flex-wrap items-center gap-2" /> },
     // Akce hry; samotná tlačítka vykresluje stůl do tohoto místa (portálem), aby se panel mohl libovolně přesouvat.
     tools: {
       title: t('table.widget.tools'),
-      show: hasTools || entries.length > 0,
+      show: hasTools || entries.length > 0 || !!tournamentId,
       body: (
         <div className="flex flex-col gap-2">
           <EntryActions tour={tour} tournamentId={tournamentId} />
