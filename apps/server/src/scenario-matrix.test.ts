@@ -83,7 +83,9 @@ const TOURNAMENTS: Scenario[] = [
 ];
 
 describe('odehrané scénáře: turnaje', { timeout: 900_000 }, () => {
-  it('každý scénář se dohraje, peníze sedí a přehled výsledků souhlasí s peněženkami', async () => {
+  // Stejné scénáře jednou z jejich vestavěných šablon a jednou z prázdného základu „vlastní nastavení“ (vše dolaďuje podrobné nastavení).
+  for (const forced of [null, 'tour-vlastni'] as const)
+  it(`každý scénář se dohraje, peníze sedí a přehled výsledků souhlasí s peněženkami (${forced ?? 'jejich šablony'})`, async () => {
     const s = await start();
     const org = await s.user('organizator');
     const pool: string[] = [];
@@ -94,7 +96,7 @@ describe('odehrané scénáře: turnaje', { timeout: 900_000 }, () => {
       const before = new Map(players.map((p) => [p, s.server.ledger.balance(accounts.wallet(p))]));
       let id: string;
       try {
-        ({ id } = await s.server.tournaments.create(org, { name: `Scénář ${k}`, templateId: sc.template, settings: { ...BASE, ...sc.over } }));
+        ({ id } = await s.server.tournaments.create(org, { name: `Scénář ${k}`, templateId: forced ?? sc.template, settings: { ...BASE, ...sc.over } }));
       } catch (e) {
         problems.push(`${sc.name}: nelze založit (${(e as { code?: string }).code ?? e})`);
         continue;
