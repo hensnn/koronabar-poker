@@ -795,8 +795,8 @@ h3,
 }
 [data-mobile] > body > #root > div > main { min-height: 0; display: flex; flex-direction: column; }
 [data-mobile] .tk-tablepage { flex: 1; min-height: 0; gap: calc(var(--spacing) * 1); }
-[data-mobile] .tk-tp-main { flex: 1; min-height: 0; overflow: auto; gap: calc(var(--spacing) * 1); }
-[data-mobile] .tk-room { padding: calc(var(--spacing) * 1); }
+[data-mobile] .tk-tp-main { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; gap: calc(var(--spacing) * 1); }
+[data-mobile] .tk-room { padding: calc(var(--spacing) * 1) calc(var(--spacing) * 5); }
 /* Výška oválu je omezená místem, které zbyde po liště, stavovém řádku a akční liště; na šířku nikdy nepřeteče. */
 [data-mobile] .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 21rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
 /* Telefon: menší karty (vlastní, soupeřů i board), moje sedadlo posunuté níž k okraji, aby nezakrývalo plátno. */
@@ -874,3 +874,7 @@ h3,
 }
 .tk-card-shown-self { position: relative; z-index: 6; animation: tk-show-self calc(1.3s / var(--tk-anim-speed)) ease-out both; }
 .tk-card-shown-other { animation: tk-flip calc(0.45s / var(--tk-anim-speed)) ease-out both, tk-show-ring calc(0.9s / var(--tk-anim-speed)) calc(0.35s / var(--tk-anim-speed)) ease-out both; }
+
+/* Výběrová pole s dlouhými názvy možností se nikdy nerozšíří přes okno (dialogy, formuláře na telefonu). */
+select { max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+label:has(> select) { min-width: 0; max-width: 100%; }

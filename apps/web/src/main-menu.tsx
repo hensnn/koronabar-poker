@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { t } from '@kb/shared';
+import { useKeepInView } from './keep-in-view';
 import { Link } from './router';
 
 export interface MenuItem {
@@ -64,21 +65,29 @@ export function MainMenu({ groups, isActive, path }: { groups: MenuGroup[]; isAc
                 ▾
               </span>
             </button>
-            <div role="menu" className={`${isOpen ? 'flex' : 'hidden'} mt-1 flex-col gap-1 md:absolute md:left-0 md:top-full md:z-30 md:min-w-44 md:rounded-md md:border md:border-line md:bg-surface md:p-1`}>
-              {g.items.map((i) => (
-                <Link
-                  key={i.to}
-                  to={i.to}
-                  aria-current={isActive(i.to) ? 'page' : undefined}
-                  className={`rounded-md px-3 py-1 border-l-4 ${tone.border} ${isActive(i.to) ? 'bg-primary text-on-primary' : 'bg-surface hover:bg-raised'}`}
-                >
-                  {i.label}
-                </Link>
-              ))}
-            </div>
+            <MenuPopup open={isOpen} items={g.items} border={tone.border} isActive={isActive} />
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Seznam položek skupiny: na telefonu pod tlačítkem, na širším displeji rozbalovací; nikdy nevyčnívá mimo okno. */
+function MenuPopup({ open, items, border, isActive }: { open: boolean; items: MenuItem[]; border: string; isActive: (to: string) => boolean }) {
+  const ref = useKeepInView<HTMLDivElement>(open);
+  return (
+    <div ref={ref} role="menu" className={`${open ? 'flex' : 'hidden'} mt-1 flex-col gap-1 md:absolute md:left-0 md:top-full md:z-30 md:min-w-44 md:rounded-md md:border md:border-line md:bg-surface md:p-1`}>
+      {items.map((i) => (
+        <Link
+          key={i.to}
+          to={i.to}
+          aria-current={isActive(i.to) ? 'page' : undefined}
+          className={`rounded-md px-3 py-1 border-l-4 ${border} ${isActive(i.to) ? 'bg-primary text-on-primary' : 'bg-surface hover:bg-raised'}`}
+        >
+          {i.label}
+        </Link>
+      ))}
     </div>
   );
 }

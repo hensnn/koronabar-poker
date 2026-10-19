@@ -24,6 +24,7 @@ import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
 import { useFeatures } from '../features';
 import { useTournamentResultFallback } from './tournament-result';
+import { useKeepInView } from '../keep-in-view';
 
 /** Turnaj na více stolech: když hráče přesadí k jinému stolu, stránka ho tam sama přesměruje. */
 function useFollowMyTable(tournamentId: string, tableId: string, enabled: boolean): void {
@@ -55,6 +56,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [focus, setFocus] = useState(false);
   const [history, setHistory] = useState(false);
   const [more, setMore] = useState(false);
+  const moreRef = useKeepInView<HTMLDivElement>(more);
   const mobile = useMobileLayout();
   useMobileAttribute(mobile);
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true });
@@ -231,7 +233,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               ⋯
             </Button>
             {more && (
-              <div role="menu" className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col gap-1 rounded-md border border-line bg-surface p-2 shadow-lg" onClick={() => setMore(false)}>
+              <div ref={moreRef} role="menu" className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col gap-1 rounded-md border border-line bg-surface p-2 shadow-lg" onClick={() => setMore(false)}>
                 {tools}
               </div>
             )}

@@ -160,7 +160,12 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
       <>
         {settingsModal}
         {visible.includes('tools') && defs.tools.body}
-        {visible.includes('reveal') && defs.reveal.body}
+        {visible.includes('reveal') && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-muted">{defs.reveal.title}:</span>
+            {defs.reveal.body}
+          </div>
+        )}
         {inWindow.length > 0 && (
           <button className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs" aria-haspopup="dialog" onClick={() => setExpanded(true)}>
             <span className="shrink-0 whitespace-nowrap font-semibold">{t('table.info.title')}</span>
