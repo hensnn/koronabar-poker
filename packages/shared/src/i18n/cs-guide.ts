@@ -5,16 +5,6 @@ export const csGuide: Record<string, string> = {
   'guide.tab.settings': 'Nastavení',
   'guide.tab.guide': 'Návod',
 
-  // ---------- velmi stručný start ----------
-  'guide.quick.title': 'Začínáš? Pět kroků',
-  'guide.quick.1': "Peníze ve hře jsou virtuální, bez skutečné hodnoty. Zůstatek vidíš nahoře.",
-  'guide.quick.2': "Cash game: Hrát → Cash stoly → Sednout → zvol částku.",
-  'guide.quick.3': "Turnaj: Hrát → Turnaje → Přihlásit se před začátkem.",
-  'guide.quick.4': "U stolu hraješ tlačítky Fold, Check/Call a Raise dole. Hlídej čas na tah.",
-  'guide.quick.5': "Další akce a nastavení najdeš ve widgetu O hře a v tlačítku ⚙ Panely.",
-  'guide.quick.more': 'Podrobný návod',
-  'guide.quick.hide': 'Skrýt',
-
   // ---------- podrobný návod ----------
   'guide.intro': 'Tady je podrobný přehled hry. Kapitoly otevřeš kliknutím. Hledej v nich i barevné štítky u nastavení: zelený se mění kdykoli, žlutý od další handy a červený jen před startem hry.',
 

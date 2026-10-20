@@ -222,7 +222,7 @@ export const csUi: Record<string, string> = {
   // Vyúčtování
   'settlement.player': 'Hráč',
   'settlement.result': 'Výsledek',
-  'settlement.transfers': 'Minimální převody (virtuální měna)',
+  'settlement.transfers': 'Minimální převody',
   'settlement.none': 'Není co vyrovnávat.',
   'settlement.transfer': '{from} dá {to} {amount}',
 

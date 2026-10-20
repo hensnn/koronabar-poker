@@ -1,5 +1,5 @@
 import type { TableInfo } from '@kb/game-core';
-import { t } from '@kb/shared';
+import { currencyWord, t } from '@kb/shared';
 
 let showSymbol = false;
 /** Zobrazovat u stolu symbol měny (osobní nastavení ui.showSymbolAtTable). */
@@ -19,7 +19,7 @@ export function formatAmount(chips: number, info: TableInfo, inBb: boolean): str
   const d = info.currencyDecimals;
   const n = d > 0 ? (cur / 10 ** d).toFixed(d) : String(Math.round(cur));
   const label = info.chipLabel ? ` ${info.chipLabel}` : '';
-  return showSymbol ? `${n} ${info.currencySymbol}${label}` : `${n}${label}`;
+  return showSymbol ? `${n} ${currencyWord(Number(n), info.currencyForms)}${label}` : `${n}${label}`;
 }
 
 const POSTFLOP_DEFAULT = [33, 50, 75, 100];

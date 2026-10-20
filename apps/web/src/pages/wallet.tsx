@@ -1,6 +1,7 @@
 import { SettlementPanel } from './settlement';
 import { useCallback, useEffect, useState } from 'react';
-import { t } from '@kb/shared';
+import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
+import { useSettings } from '../settings';
 import { del, errorText, get, post } from '../api';
 import { can, useSession } from '../session';
 import { Badge, Button, Card, DataTable, Notice, Td, TextInput, Select, TextArea } from '../ui';
@@ -26,6 +27,7 @@ interface RequestRow {
 
 export function WalletPage() {
   const { me } = useSession();
+  const settings = useSettings();
   const [hist, setHist] = useState<HistoryRow[]>([]);
   const [reqs, setReqs] = useState<RequestRow[]>([]);
   const [error, setError] = useState('');
@@ -43,9 +45,8 @@ export function WalletPage() {
       <h1 className="font-heading text-2xl font-bold">{t('wallet.title')}</h1>
       <Card>
         <p className="text-lg">
-          {t('wallet.balance')}: <strong className="font-mono">{me?.balance}</strong>
+          {t('wallet.balance')}: <strong className="font-mono">{formatCurrency(me?.balance ?? 0, currencyFormsOf(settings.values))}</strong>
         </p>
-        <p className="text-sm text-muted">{t('footer.virtualCurrency')}</p>
       </Card>
       {error && <Notice kind="error">{error}</Notice>}
 

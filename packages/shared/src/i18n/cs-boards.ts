@@ -79,5 +79,4 @@ export const csBoards: Record<string, string> = {
   'boards.public.loading': 'Načítám přehled…',
   'boards.public.notFound': 'Tento přehled neexistuje nebo byl vypnutý.',
   'boards.public.error': 'Přehled se nepodařilo načíst.',
-  'boards.public.footer': 'Virtuální žetony bez peněžní hodnoty.',
 };

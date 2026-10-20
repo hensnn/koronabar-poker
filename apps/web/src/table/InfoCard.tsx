@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { t } from '@kb/shared';
+import { formatCurrency, t } from '@kb/shared';
 import type { TableView } from '@kb/game-core';
 import { errorText, get, post } from '../api';
 import { onSocket } from '../net';
@@ -68,7 +68,7 @@ export function InfoBody({ view, tour, tournamentId, inBb }: { view: TableView; 
   const info = view.info;
   const { me } = useSession();
   const seated = view.seats.length;
-  const money = (n: number) => `${n.toLocaleString('cs-CZ')} ${info.currencySymbol}`;
+  const money = (n: number) => formatCurrency(n, info.currencyForms);
   const bountyLine = tour
     ? tour.bounty.type === 'fixed'
       ? t('table.info.bountyFixed', { percent: tour.bounty.percent })

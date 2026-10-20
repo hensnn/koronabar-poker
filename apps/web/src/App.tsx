@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { t } from '@kb/shared';
+import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { post } from './api';
 import { Link, matchPath, Redirect, useLocation } from './router';
 import { can, logout, refreshSession, useSession, type Me } from './session';
@@ -181,7 +181,7 @@ function Shell({ me }: { me: Me }) {
           <SoundHost />
           <AnnouncerHost />
           <span className="rounded-md bg-raised px-3 py-1 font-mono" title={t('nav.balance')}>
-            {me.balance} {String(settings.values['economy.currencySymbol'] ?? '')}
+            {formatCurrency(me.balance, currencyFormsOf(settings.values))}
           </span>
           <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
         </nav>
@@ -192,7 +192,6 @@ function Shell({ me }: { me: Me }) {
       <OfflineBanner />
       {!me.user.emailVerified && !blocked && <VerifyBanner />}
       <main className="flex-1">{page}</main>
-      <footer className="border-t border-line pt-3 text-sm text-muted">{t('footer.virtualCurrency')}</footer>
       {!blocked && features.assistant && <AssistantLauncher />}
     </div>
   );

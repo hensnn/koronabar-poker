@@ -10,7 +10,6 @@ function Page({ title, children }: { title: string; children: React.ReactNode })
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-4">
       <h1 className="text-center font-heading text-3xl font-bold">{t('app.name')}</h1>
       <Card title={title}>{children}</Card>
-      <p className="text-center text-sm text-muted">{t('footer.virtualCurrency')}</p>
     </main>
   );
 }

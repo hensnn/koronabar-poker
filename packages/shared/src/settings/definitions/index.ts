@@ -170,6 +170,8 @@ const cash: SettingDef[] = [
 /** Měna a ekonomika. */
 const economy: SettingDef[] = [
   text('economy.currencyName', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'Korona', 30),
+  text('economy.currencyNameFew', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'Korony', 30),
+  text('economy.currencyNameMany', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'Koron', 30),
   text('economy.currencySymbol', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'KČ', 6),
   int('economy.decimals', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 0, 0, 4),
   int('economy.startingBalance', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency' }, 10000, 0, 1_000_000_000),

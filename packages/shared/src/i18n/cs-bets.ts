@@ -1,7 +1,7 @@
 /** Texty sázek a odměn na hlavu. */
 export const csBets: Record<string, string> = {
   'bets.title': 'Sázky',
-  'bets.help': 'Vsaď virtuální měnu na výsledek turnaje. Vklady se hned zamknou, po vyhodnocení se vyplatí výhercům. Měna nemá žádnou peněžní hodnotu.',
+  'bets.help': 'Vsaď na výsledek turnaje. Vklady se hned zamknou, po vyhodnocení se vyplatí výhercům.',
   'bets.empty': 'Zatím žádná sázka.',
   'bets.create': 'Vypsat sázku',
   'bets.createTitle': 'Nová sázka',

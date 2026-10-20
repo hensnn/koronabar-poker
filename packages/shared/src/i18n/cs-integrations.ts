@@ -1,7 +1,7 @@
 /** Texty napojení ven (MQTT, webhooky, Discord). */
 export const csIntegrations: Record<string, string> = {
   'pwa.shortName': 'KoronaBar',
-  'pwa.description': 'Domácí pokerová herna s virtuální měnou bez peněžní hodnoty.',
+  'pwa.description': 'Domácí pokerová herna.',
   'pwa.install': 'Nainstalovat aplikaci',
   'pwa.installed': 'Aplikace je nainstalovaná a otevřená jako samostatné okno.',
   'pwa.installHelp': 'Nainstaluj si hernu jako aplikaci: bude mít vlastní ikonu a okno a upozornění ti budou chodit i při zavřeném prohlížeči.',

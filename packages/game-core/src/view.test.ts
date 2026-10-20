@@ -4,7 +4,7 @@ import { buildView, wentToShowdown, type Reveal } from './view.js';
 import type { PlayerAction } from './types.js';
 
 const cfg = { smallBlind: 5, bigBlind: 10, ante: 0, maxPlayers: 9, timeBankSeconds: 30 };
-const info = { seatCount: 9, smallBlind: 5, bigBlind: 10, minBuyIn: 100, maxBuyIn: 1000, chipsPerCurrencyUnit: 1, topUpEnabled: true, rebuyEnabled: true, currencySymbol: 'KČ', currencyDecimals: 0, straddle: 'off' as const };
+const info = { seatCount: 9, smallBlind: 5, bigBlind: 10, minBuyIn: 100, maxBuyIn: 1000, chipsPerCurrencyUnit: 1, topUpEnabled: true, rebuyEnabled: true, currencySymbol: 'KČ', currencyForms: ['Korona', 'Korony', 'Koron'] as [string, string, string], currencyDecimals: 0, straddle: 'off' as const };
 const none: Reveal = { boardCards: 0, holeCards: false, winners: false };
 
 function randomAction(a: PokertoolsAdapter, rnd: () => number): { id: string; act: PlayerAction } {

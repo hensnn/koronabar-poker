@@ -464,6 +464,7 @@ export class TableActor {
         topUpEnabled: !!s['cash.topUpEnabled'],
         rebuyEnabled: !!s['cash.rebuyEnabled'],
         currencySymbol: String(s['economy.currencySymbol']),
+        currencyForms: [String(s['economy.currencyName']), String(s['economy.currencyNameFew']), String(s['economy.currencyNameMany'])],
         currencyDecimals: num(s, 'economy.decimals'),
         chipLabel: s['table.showChipLabel'] ? String(s['table.chipLabel'] ?? '').trim() : '',
         straddle: !s['table.straddleEnabled'] ? 'off' : s['table.straddleMandatory'] ? 'mandatory' : 'optional',

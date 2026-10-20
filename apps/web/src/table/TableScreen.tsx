@@ -6,7 +6,7 @@ import { useSettings } from '../settings';
 import { NoteDialog, NoteDot } from '../pages/notes';
 import type { SoundPlayEvent } from '../sound-client';
 import type { SeatView, TableView } from '@kb/game-core';
-import { t } from '@kb/shared';
+import { formatCurrency, t } from '@kb/shared';
 import { table, useNet } from '../net';
 import { useSession } from '../session';
 import { ActionBar } from './ActionBar';
@@ -567,11 +567,11 @@ function AmountDialog({ title, view, balance, error, onCancel, onOk }: { title: 
   const [v, setV] = useState(Math.min(max, Math.max(min, Math.floor((min + max) / 2))));
   return (
     <Modal title={title} onClose={onCancel}>
-      {back > 0 && <p className="rounded-md border border-warning px-2 py-1 text-sm">{t('table.returnHint', { n: back, symbol: info.currencySymbol })}</p>}
+      {back > 0 && <p className="rounded-md border border-warning px-2 py-1 text-sm">{t('table.returnHint', { amount: formatCurrency(back, info.currencyForms) })}</p>}
       <p className="text-sm text-muted">
         {t('table.wallet')}:{' '}
         <span className="font-mono">
-          {balance} {info.currencySymbol}
+          {formatCurrency(balance, info.currencyForms)}
         </span>
       </p>
       <div className="flex items-center gap-3">

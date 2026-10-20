@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { t, type BoardColumn } from '@kb/shared';
+import { currencyWord, t, type BoardColumn, type CurrencyForms } from '@kb/shared';
 import { ApiError, get } from '../api';
 import { MultiLineChart, type Pt } from './charts';
 
@@ -16,7 +16,7 @@ interface View {
   subtitle: string;
   columns: BoardColumn[];
   rows: Row[];
-  currency: string;
+  currencyForms: CurrencyForms;
   updatedAt: number;
   refreshSeconds: number;
   chart: { id: string; name: string; points: Pt[] }[];
@@ -26,12 +26,12 @@ const MONEY: BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'bount
 const SIGNED: BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'bounty'];
 const num = (n: number) => n.toLocaleString('cs-CZ');
 
-function cell(col: BoardColumn, r: Row): string {
+function cell(col: BoardColumn, r: Row, forms: CurrencyForms): string {
   const v = r[col];
   if (v === undefined || v === null) return '–';
   if (typeof v !== 'number') return String(v);
   if (col === 'avgPlace') return v.toFixed(1);
-  if (SIGNED.includes(col)) return `${v > 0 ? '+' : ''}${num(v)}`;
+  if (MONEY.includes(col)) return `${v > 0 && SIGNED.includes(col) ? '+' : ''}${num(v)} ${currencyWord(v, forms)}`;
   return num(v);
 }
 
@@ -109,7 +109,7 @@ export function PublicBoardPage({ token }: { token: string }) {
                     const tone = SIGNED.includes(c) && typeof v === 'number' ? (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '') : '';
                     return (
                       <td key={c} className={`px-2 py-1 text-right font-mono ${tone}`}>
-                        {cell(c, r)}
+                        {cell(c, r, view.currencyForms)}
                         {c === 'level' && r.rankName ? <span className="ml-1 font-sans text-xs text-muted">{r.rankName}</span> : null}
                         {c === 'rating' && r.division ? <span className="ml-1 font-sans text-xs text-muted">{r.division}</span> : null}
                       </td>
@@ -128,7 +128,7 @@ export function PublicBoardPage({ token }: { token: string }) {
         </section>
       )}
       <footer className="text-xs text-muted">
-        {t('boards.public.updated', { time: new Date(view.updatedAt).toLocaleString('cs-CZ') })} · {t('boards.public.footer')}
+        {t('boards.public.updated', { time: new Date(view.updatedAt).toLocaleString('cs-CZ') })}
       </footer>
     </main>
   );

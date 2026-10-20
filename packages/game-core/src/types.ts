@@ -118,6 +118,8 @@ export interface TableInfo {
   topUpEnabled: boolean;
   rebuyEnabled: boolean;
   currencySymbol: string;
+  /** Tvary názvu měny (1 / 2 až 4 / 5 a více), např. Korona, Korony, Koron. */
+  currencyForms: [string, string, string];
   currencyDecimals: number;
   /** Vlastní označení žetonů u stolu (prázdné = nezobrazovat). */
   chipLabel?: string;

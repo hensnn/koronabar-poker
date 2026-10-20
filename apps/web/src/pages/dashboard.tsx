@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { t } from '@kb/shared';
+import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { get } from '../api';
 import { Link, navigate } from '../router';
 import { useSession } from '../session';
 import { useSettings } from '../settings';
 import { useMySeats } from '../my-seat';
-import { QuickStart } from './guide';
 import { Badge, Button, Card, Notice } from '../ui';
 import { PollsPanel } from './polls';
 import { useFeatures } from '../features';
@@ -51,7 +50,7 @@ export function DashboardPage() {
   const [tables, setTables] = useState<CashTable[] | null>(null);
   const [tours, setTours] = useState<Tour[] | null>(null);
   const [rows, setRows] = useState<Row[] | null | 'hidden'>(null);
-  const symbol = String(settings.values['economy.currencySymbol'] ?? '');
+  const forms = currencyFormsOf(settings.values);
 
   useEffect(() => {
     let alive = true;
@@ -97,13 +96,12 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-3">
       <h1 className="sr-only">{t('nav.lobby')}</h1>
-      <QuickStart />
       {features.polls && <PollsPanel />}
       <div className="grid gap-3 sm:grid-cols-2">
         <Card title={t('dashboard.account')}>
           <div className="flex flex-col gap-2">
             <p className="font-mono text-3xl font-bold">
-              {me?.balance ?? 0} {symbol}
+              {formatCurrency(me?.balance ?? 0, forms)}
             </p>
             <p className="text-sm text-muted">{t('dashboard.balance')}</p>
             {mine && (

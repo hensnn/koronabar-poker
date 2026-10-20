@@ -15,8 +15,4 @@ describe('návod pro hráče', () => {
       expect(t(`guide.s.${s.id}.${s.points + 1}`)).toBe(`guide.s.${s.id}.${s.points + 1}`);
     }
   });
-  it('stručný start má pět kroků', () => {
-    for (let n = 1; n <= 5; n++) expect(t(`guide.quick.${n}`)).not.toBe(`guide.quick.${n}`);
-    expect(t('guide.quick.6')).toBe('guide.quick.6');
-  });
 });

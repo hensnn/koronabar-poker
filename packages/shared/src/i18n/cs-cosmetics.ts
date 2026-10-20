@@ -81,7 +81,7 @@ export const csCosmetics: Record<string, string> = {
   'cosmetic.shop': 'Obchod',
   'cosmetic.mine': 'Moje předměty',
   'cosmetic.manage': 'Správa katalogu',
-  'cosmetic.intro': 'Předměty jsou jen na ozdobu, ve hře ti nic nepřidají. Získáš je hrou nebo je koupíš za virtuální měnu, která nemá peněžní hodnotu.',
+  'cosmetic.intro': 'Předměty jsou jen na ozdobu, ve hře ti nic nepřidají. Získáš je hrou nebo je koupíš v obchodě.',
   'cosmetic.price': 'Cena: {n}',
   'cosmetic.buy': 'Koupit',
   'cosmetic.bought': 'Koupeno.',
