@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultLayout, forMobile, LEFT_DEFAULT, moveToSide, parseLayout, reorder, RIGHT_DEFAULT, sideOf, toggleCollapsed, toggleHidden, WIDGET_IDS } from './layout';
+import { defaultLayout, LEFT_DEFAULT, moveToSide, parseLayout, reorder, RIGHT_DEFAULT, sideOf, toggleCollapsed, toggleHidden, toggleSide, WIDGET_IDS } from './layout';
 
 const all = (l: ReturnType<typeof parseLayout>) => [...l.left, ...l.right].sort();
 
@@ -9,38 +9,41 @@ describe('rozložení widgetů: načtení', () => {
     expect(l.left).toEqual([...LEFT_DEFAULT]);
     expect(l.right).toEqual([...RIGHT_DEFAULT]);
     expect(l).toEqual(defaultLayout());
+    expect(l.hiddenSides).toEqual([]);
+  });
+  it('akce hráče jsou součástí widgetu „O hře“, ne samostatné widgety', () => {
+    for (const gone of ['plan', 'actions', 'deal', 'tools', 'reveal']) expect(WIDGET_IDS as readonly string[]).not.toContain(gone);
   });
   it('rozbitý JSON nespadne', () => {
     expect(parseLayout('{nesmysl').left).toEqual([...LEFT_DEFAULT]);
   });
-  it('uložené rozložení se zachová, i když je widget z pravého panelu v levém', () => {
-    const l = parseLayout(JSON.stringify({ left: ['info', 'plan'], right: ['table', 'tools'], hidden: ['deal'], collapsed: ['plan'] }));
-    expect(l.left.slice(0, 2)).toEqual(['info', 'plan']);
-    expect(l.right.slice(0, 2)).toEqual(['table', 'tools']);
-    expect(l.right).toContain('bounties');
-    expect(l.hidden).toEqual(['deal']);
-    expect(l.collapsed).toEqual(['plan']);
+  it('uložené rozložení se zachová, i když je widget z pravého panelu v levém; zaniklé widgety se zahodí', () => {
+    const l = parseLayout(JSON.stringify({ left: ['info', 'plan', 'players'], right: ['table', 'tools', 'bounties'], hidden: ['deal', 'sounds'], collapsed: ['plan', 'hand'] }));
+    expect(l.left.slice(0, 2)).toEqual(['info', 'players']);
+    expect(l.right.slice(0, 2)).toEqual(['table', 'bounties']);
+    expect(l.hidden).toEqual(['sounds']);
+    expect(l.collapsed).toEqual(['hand']);
     expect(all(l)).toEqual([...WIDGET_IDS].sort());
   });
   it('widget nikdy není ve dvou panelech a neznámé widgety se zahodí', () => {
-    const l = parseLayout(JSON.stringify({ left: ['plan', 'nic', 'info'], right: ['info', 'plan', 'deal'] }));
-    expect(l.left).toContain('plan');
-    expect(l.right).not.toContain('plan');
+    const l = parseLayout(JSON.stringify({ left: ['hand', 'nic', 'info'], right: ['info', 'hand'] }));
+    expect(l.left).toContain('hand');
+    expect(l.right).not.toContain('hand');
     expect(l.right).not.toContain('info');
     expect(all(l)).toEqual([...WIDGET_IDS].sort());
   });
   it('chybějící widget z novější verze se přidá do svého výchozího panelu za předchozí', () => {
-    const l = parseLayout(JSON.stringify({ left: ['table', 'plan', 'hand', 'actions', 'players', 'chat', 'sounds'], right: ['info', 'bounties', 'deal', 'tools'] }));
+    const l = parseLayout(JSON.stringify({ left: ['table', 'hand', 'players', 'chat', 'sounds'], right: ['info', 'bounties'] }));
     expect(l.left.indexOf('best')).toBe(l.left.indexOf('hand') + 1);
   });
   it('převezme dřívější nastavení levého a pravého panelu, dokud není uložené nové', () => {
-    const left = JSON.stringify({ order: ['clock', 'players', 'plan'], hidden: ['sounds', 'clock'], collapsed: ['hand'] });
+    const left = JSON.stringify({ order: ['clock', 'players', 'hand'], hidden: ['sounds', 'clock'], collapsed: ['hand'] });
     const right = JSON.stringify({ order: ['tools', 'info'], hidden: ['deal'], collapsed: ['info'] });
     const l = parseLayout('', left, right);
-    expect(l.left.indexOf('players')).toBeLessThan(l.left.indexOf('plan'));
+    expect(l.left.indexOf('players')).toBeLessThan(l.left.indexOf('hand'));
     expect(l.left).not.toContain('clock' as never);
-    expect(l.right.slice(0, 3)).toEqual(['tools', 'reveal', 'info']);
-    expect([...l.hidden].sort()).toEqual(['deal', 'sounds']);
+    expect(l.right[0]).toBe('info');
+    expect([...l.hidden].sort()).toEqual(['sounds']);
     expect([...l.collapsed].sort()).toEqual(['hand', 'info']);
     expect(all(l)).toEqual([...WIDGET_IDS].sort());
   });
@@ -56,37 +59,32 @@ describe('rozložení widgetů: změny', () => {
   });
   it('změna pořadí přeskakuje nezobrazené widgety a nepřeleze okraj', () => {
     const l = defaultLayout();
-    expect(reorder(l, 'plan', -1).left.slice(0, 2)).toEqual(['plan', 'table']);
+    expect(reorder(l, 'hand', -1).left.slice(0, 2)).toEqual(['hand', 'table']);
     expect(reorder(l, 'table', -1)).toBe(l);
-    const skipped = reorder(l, 'table', 1, (id) => id === 'plan');
-    expect(skipped.left.slice(0, 3)).toEqual(['hand', 'plan', 'table']);
+    const skipped = reorder(l, 'table', 1, (id) => id === 'hand');
+    expect(skipped.left.slice(0, 3)).toEqual(['best', 'hand', 'table']);
   });
   it('skrytí a sbalení se přepínají', () => {
-    const l = toggleCollapsed(toggleHidden(defaultLayout(), 'info'), 'plan');
+    const l = toggleCollapsed(toggleHidden(defaultLayout(), 'info'), 'hand');
     expect(l.hidden).toEqual(['info']);
-    expect(l.collapsed).toEqual(['plan']);
+    expect(l.collapsed).toEqual(['hand']);
     expect(toggleHidden(l, 'info').hidden).toEqual([]);
-  });
-  it('na telefonu zůstanou akce u stolu vždy v pravém sloupci', () => {
-    const l = moveToSide(defaultLayout(), 'tools', 'left');
-    expect(forMobile(l).right[0]).toBe('tools');
-    expect(forMobile(l).left).not.toContain('tools');
-    expect(forMobile(defaultLayout())).toEqual(defaultLayout());
   });
 });
 
-describe('widget „Ukázat karty“', () => {
-  it('je ve výchozím rozložení pod akcemi, takže akce nepřeskakují', () => {
-    const l = defaultLayout();
-    expect(l.right.indexOf('reveal')).toBe(l.right.indexOf('tools') + 1);
+describe('vypnutí levého nebo pravého panelu', () => {
+  it('panel jde vypnout i zapnout a uloží se s rozložením', () => {
+    let l = toggleSide(defaultLayout(), 'right');
+    expect(l.hiddenSides).toEqual(['right']);
+    l = toggleSide(l, 'left');
+    expect([...l.hiddenSides].sort()).toEqual(['left', 'right']);
+    const back = parseLayout(JSON.stringify(l));
+    expect([...back.hiddenSides].sort()).toEqual(['left', 'right']);
+    expect(toggleSide(toggleSide(defaultLayout(), 'left'), 'left').hiddenSides).toEqual([]);
   });
-  it('na telefonu je hned pod akcemi, i když ho má hráč v levém panelu', () => {
-    const l = moveToSide(moveToSide(defaultLayout(), 'tools', 'left'), 'reveal', 'left');
-    const m = forMobile(l);
-    expect(m.right.slice(0, 2)).toEqual(['tools', 'reveal']);
-  });
-  it('starší uložené rozložení dostane widget za akce', () => {
-    const l = parseLayout(JSON.stringify({ left: ['table'], right: ['info', 'tools'] }));
-    expect(l.right.indexOf('reveal')).toBe(l.right.indexOf('tools') + 1);
+  it('neplatné hodnoty se zahodí a vypnutí panelu nemění pořadí widgetů', () => {
+    const l = parseLayout(JSON.stringify({ left: [...LEFT_DEFAULT], right: [...RIGHT_DEFAULT], hiddenSides: ['left', 'dole', 5] }));
+    expect(l.hiddenSides).toEqual(['left']);
+    expect(l.left).toEqual([...LEFT_DEFAULT]);
   });
 });

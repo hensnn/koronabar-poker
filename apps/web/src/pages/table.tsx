@@ -13,8 +13,8 @@ import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
-import { Panel } from '../table/Panel';
-import { TableWidgetsProvider } from '../table/widgets';
+import { Panel, PanelSettingsButton } from '../table/Panel';
+import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
@@ -55,6 +55,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [drawer, setDrawer] = useState<'chat' | 'panel' | null>(null);
   const [focus, setFocus] = useState(false);
   const [history, setHistory] = useState(false);
+  const hiddenSides = useHiddenSides();
   const [more, setMore] = useState(false);
   const moreRef = useKeepInView<HTMLDivElement>(more);
   const mobile = useMobileLayout();
@@ -177,6 +178,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       <Button onClick={() => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on', true).catch(() => undefined)} title={t('table.mobileDeviceHint')}>
         {mobile ? t('table.mobileOff') : t('table.mobileOn')}
       </Button>
+      <PanelSettingsButton />
       <Button onClick={() => setHistory(true)} title={t('table.history')}>
         📜 {t('table.history')}
       </Button>
@@ -187,7 +189,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   );
   return (
     <TableWidgetsProvider view={view} tableId={tableId} inBb={inBb} chat={chatWidget}>
-    <div className="tk-tablepage" style={pageStyle}>
+    <div className={`tk-tablepage ${hiddenSides.left ? 'tk-no-panel' : ''}`} style={pageStyle}>
+      {!hiddenSides.left && (
       <Resizable
         as="aside"
         className="tk-tp-panel"
@@ -217,13 +220,14 @@ export function TablePage({ tableId }: { tableId: string }) {
           <Panel side="left" />
         </div>
       </Resizable>
+      )}
       <div className="tk-tp-main flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Link to={isTournament ? `/turnaj/${tournamentId}` : '/cash'} className="underline">
             {isTournament ? t('tournament.backToTournament') : t('table.backToLobby')}
           </Link>
           <span className="tk-tp-mobile relative ml-auto flex gap-2">
-            <Button onClick={() => setDrawer('panel')}>{t('table.panelOpen')}</Button>
+            {!hiddenSides.left && <Button onClick={() => setDrawer('panel')}>{t('table.panelOpen')}</Button>}
             <Button onClick={() => setDrawer('chat')}>
               {t('table.chatOpen')}
               {channel && channel.unread > 0 && <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-on-act">{channel.unread}</span>}

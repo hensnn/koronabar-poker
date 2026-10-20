@@ -28,6 +28,8 @@ import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
+import { DealButton, EntryActions } from './InfoCard';
+import { ShowdownPrefs } from './TablePanel';
 
 interface Props {
   tableId: string;
@@ -97,7 +99,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
     [tableId],
   );
 
-  const { tour } = useTableWidgets();
+  const { tour, layout, actionsInline, setToolsSlot } = useTableWidgets();
+  const tournamentId = view?.info.tournament ? (view.info.tournamentId ?? tableId) : null;
   // Hráč, na kterého ukazuje myš: karta s informacemi v rohu u stolu.
   const [hoverSeat, setHoverSeat] = useState<number | null>(null);
   // Klepnutí (dotyk) na hráče kartu připne; zavře se klepnutím mimo hráče nebo znovu na něj.
@@ -144,7 +147,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const canRabbit = !!(view.winners && mine?.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit);
 
   return (
-    <div className="tk-screen flex flex-col gap-2">
+    <div className={`tk-screen flex flex-col gap-2 ${layout.hiddenSides.includes('right') ? 'tk-no-extra' : ''}`}>
       <div className="tk-room relative" {...myLook}>
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
         <div className="tk-table relative mx-auto w-full">
@@ -302,68 +305,79 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
       {mine && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
 
-      {/* Pravý sloupec: widgety o hře (přizpůsobitelné ozubeným kolečkem) a akce hráče. */}
-      <RightColumn>
-        <RevealPortal
-          node={
-            // Widget je u stolu stále (když je ukázání karet nebo rabbit hunt povolené); tlačítka jsou šedá, dokud je nelze použít, pak barevná.
-            mine && (info.showCards || info.rabbitHunt) ? (
-              <>
-                {info.showCards && (
-                  <>
-                    {winnerPref === 'ask' && canShowCards && view.winners?.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="w-full rounded-md border border-primary px-2 py-1 text-sm">{t('table.showWinnerPrompt')}</span>}
-                    <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 'both'))}>
-                      {t('table.showBoth')}
+      {/* Akce hráče: malá tlačítka v widgetu „O hře“; když ten není vidět (telefon, vypnutý panel), v pruhu pod stolem. */}
+      <ActionsPortal
+        node={
+          mine || extra ? (
+            <div className="flex flex-col gap-1.5">
+              {mine && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <label className="flex items-center gap-1 text-xs" title={t('table.sitOutHelp')}>
+                    <input type="checkbox" role="switch" aria-label={t('table.sitOutToggle')} checked={mine.sitOut ?? mine.status === 'sittingOut'} onChange={(e) => void run(e.target.checked ? table.sitOut(tableId) : table.sitIn(tableId))} />
+                    <span className={(mine.sitOut ?? mine.status === 'sittingOut') ? 'font-semibold text-warning' : ''}>{t('table.sittingOut')}</span>
+                  </label>
+                  <ShowdownPrefs />
+                </div>
+              )}
+              {mine && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {info.callClock && (
+                    <button className={canCallClock ? actionToneSm.special : actionOffSm} disabled={!canCallClock} onClick={() => void run(table.callClock(tableId))}>
+                      {t('table.callClock')}
                     </button>
-                    <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 0))}>
-                      {t('table.showFirst')}
+                  )}
+                  {info.straddle === 'optional' && (
+                    <button className={actionToneSm.special} aria-pressed={view.myStraddle} onClick={() => void run(table.straddle(tableId, !view.myStraddle))}>
+                      {view.myStraddle ? t('table.straddleOff') : t('table.straddleOn')}
                     </button>
-                    <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 1))}>
-                      {t('table.showSecond')}
+                  )}
+                  {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
+                    <button className={actionToneSm.add} onClick={() => setDialog({ kind: 'topUp' })}>
+                      {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}
                     </button>
-                  </>
-                )}
-                {info.rabbitHunt && (
-                  <button className={canRabbit ? actionToneSm.special : actionOffSm} disabled={!canRabbit} onClick={() => void run(table.rabbit(tableId))}>
-                    {t('table.rabbit')}
-                  </button>
-                )}
-              </>
-            ) : null
-          }
-        />
-        <ToolsPortal
-          node={
-            mine ? (
-              <div className="tk-tools flex flex-wrap items-center gap-2">
-                {extra}
-          {info.callClock && (
-            <button className={canCallClock ? actionTone.special : actionOff} disabled={!canCallClock} onClick={() => void run(table.callClock(tableId))}>
-              {t('table.callClock')}
-            </button>
-          )}
-          {info.straddle === 'optional' && (
-            <button className={actionTone.special} aria-pressed={view.myStraddle} onClick={() => void run(table.straddle(tableId, !view.myStraddle))}>
-              {view.myStraddle ? t('table.straddleOff') : t('table.straddleOn')}
-            </button>
-          )}
-          {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
-            <button className={actionTone.add} onClick={() => setDialog({ kind: 'topUp' })}>
-              {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}
-            </button>
-          )}
-          {!info.tournament && (
-            <button className={actionTone.leave} onClick={() => void run(table.leave(tableId))}>
-              {t('table.leave')}
-            </button>
-          )}
-              </div>
-            ) : extra ? (
-              <div className="tk-tools flex flex-wrap items-center gap-2">{extra}</div>
-            ) : null
-          }
-        />
-      </RightColumn>
+                  )}
+                  {!info.tournament && (
+                    <button className={actionToneSm.leave} onClick={() => void run(table.leave(tableId))}>
+                      {t('table.leave')}
+                    </button>
+                  )}
+                  <EntryActions tour={tour} tournamentId={tournamentId} />
+                  <DealButton tour={tour} tournamentId={tournamentId} />
+                  {/* Ukázání karet po handě: stále na místě, šedé, dokud není co ukázat. */}
+                  {info.showCards && (
+                    <>
+                      <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 'both'))}>
+                        {t('table.showBoth')}
+                      </button>
+                      <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 0))}>
+                        {t('table.showFirst')}
+                      </button>
+                      <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 1))}>
+                        {t('table.showSecond')}
+                      </button>
+                    </>
+                  )}
+                  {info.rabbitHunt && (
+                    <button className={canRabbit ? actionToneSm.special : actionOffSm} disabled={!canRabbit} onClick={() => void run(table.rabbit(tableId))}>
+                      {t('table.rabbit')}
+                    </button>
+                  )}
+                  {winnerPref === 'ask' && canShowCards && view.winners?.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="w-full rounded-md border border-primary px-2 py-1 text-xs">{t('table.showWinnerPrompt')}</span>}
+                </div>
+              )}
+              {extra && <div className="flex flex-wrap items-center gap-2">{extra}</div>}
+            </div>
+          ) : null
+        }
+      />
+      {actionsInline && (mine || extra) && (
+        <div className="rounded-md border border-line bg-surface p-2">
+          <div ref={setToolsSlot} />
+        </div>
+      )}
+
+      {/* Pravý panel: widgety o hře (přizpůsobitelné); vypnutý panel se nevykreslí. */}
+      {!layout.hiddenSides.includes('right') && <RightColumn />}
 
       {error && (
         <p role="alert" className="text-danger">
@@ -554,19 +568,9 @@ function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string;
   );
 }
 
-/** Akce hráče (Sit out, Dokoupit, Odejít, ukázání karet…) se vykreslí do místa, kde je právě widget „Akce u stolu“ (v levém nebo pravém panelu). */
-/** Tlačítka pro ukázání karet po handě: vlastní widget, aby nesdílela místo s jinými akcemi. */
-function RevealPortal({ node }: { node: ReactNode | null }) {
-  const { revealSlot, setHasReveal } = useTableWidgets();
-  const has = node !== null;
-  useEffect(() => setHasReveal(has), [has, setHasReveal]);
-  return node !== null && revealSlot ? createPortal(node, revealSlot) : null;
-}
-
-function ToolsPortal({ node }: { node: ReactNode | null }) {
-  const { toolsSlot, setHasTools } = useTableWidgets();
-  const has = node !== null;
-  useEffect(() => setHasTools(has), [has, setHasTools]);
+/** Akce hráče se vykreslí do místa, kde je právě slot (widget „O hře“, nebo pruh pod stolem). */
+function ActionsPortal({ node }: { node: ReactNode | null }) {
+  const { toolsSlot } = useTableWidgets();
   return node !== null && toolsSlot ? createPortal(node, toolsSlot) : null;
 }
 
@@ -579,7 +583,7 @@ function sideStyle(w: number, h: number): CSSProperties {
 }
 
 /** Pravý sloupec vedle stolu se stejně nastavitelnou velikostí jako levý panel (tažení za okraj, dvojklik = výchozí). */
-function RightColumn({ children }: { children: ReactNode }) {
+function RightColumn() {
   const values = useSettings().values;
   const stored = { w: Number(values['ui.tableSideWidth'] ?? 0), h: Number(values['ui.tableSideHeight'] ?? 0) };
   const [size, setSize] = useState(stored);
@@ -616,7 +620,6 @@ function RightColumn({ children }: { children: ReactNode }) {
       }}
     >
       <Panel side="right" />
-      {children}
     </Resizable>
   );
 }

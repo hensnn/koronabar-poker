@@ -767,6 +767,8 @@ export const cs: Record<string, string> = {
   'table.widget.actions': 'Akce',
   'table.widget.tools': 'Akce u stolu',
   'table.widget.reveal': 'Ukázat karty',
+  'table.panelShow': 'Zobrazit tento panel',
+  'table.panelsButton': 'Panely',
   'table.showBoth': 'Obě',
   'table.showFirst': '1. karta',
   'table.showSecond': '2. karta',

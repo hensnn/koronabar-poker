@@ -680,6 +680,8 @@ h3,
   .tk-tp-panel { display: flex; flex-direction: column; gap: calc(var(--spacing) * 2); grid-area: panel; position: relative; align-self: stretch; min-height: 20rem; }
   .tk-tp-main { grid-area: main; min-width: 0; }
   .tk-tp-mobile { display: none; }
+  /* Bez levého panelu zabírá hlavní část celou šířku. */
+  .tk-tablepage.tk-no-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'main'; }
 }
 /* Pod širokým displejem jsou nástroje stolu schované pod „⋯“. */
 @media (max-width: 63.99rem) {
@@ -762,6 +764,8 @@ h3,
   html:not([data-mobile]) .tk-screen > :not(.tk-room):not(.tk-extra):not(.tk-turn-row):not(.tk-actionbar) { grid-column: 1 / -1; }
   /* Pravý sloupec sahá i vedle stavového řádku a lišty se sázkami (ty jsou odsazené od pravého okraje stejně jako vlevo), takže je v něm víc místa na widgety. Bez zadané výšky se roztáhne na výšku stolu a lišty a nerozšiřuje řádky. */
   html:not([data-mobile]) .tk-screen > .tk-extra { grid-area: extra; width: var(--tk-side-w, 12rem); height: var(--tk-side-h, auto); align-self: stretch; contain: size; overflow-y: auto; }
+  /* Bez pravého panelu zabírá stůl s lištou celou šířku. */
+  html:not([data-mobile]) .tk-screen.tk-no-extra { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'room' 'turn' 'action'; }
   html:not([data-mobile]) .tk-extra .tk-tools { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
 }
 /* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */

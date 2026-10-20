@@ -2,16 +2,15 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import type { TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { useFeatures } from '../features';
-import { table as tableApi } from '../net';
 import { SoundPalette } from '../pages/sounds';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
-import { actionToneSm } from './buttons';
 import { CardView } from './CardView';
-import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, BountiesBody, DealButton, EntryActions, InfoBody, entryActions, useTournamentInfo, wantedList } from './InfoCard';
+import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, BountiesBody, InfoBody, useTournamentInfo } from './InfoCard';
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
-import { ClockWidget, PlanBar, ShowdownPrefs } from './TablePanel';
+import { ClockWidget } from './TablePanel';
+import { useMobileLayout } from './mobile';
 
 export interface WidgetDef {
   title: string;
@@ -27,12 +26,11 @@ interface Ctx {
   layout: Layout;
   setLayout: (next: Layout) => void;
   defs: Record<WidgetId, WidgetDef>;
+  /** Místo, do kterého stůl vykresluje akce hráče (v widgetu „O hře“, nebo v pruhu pod stolem, když panel s „O hře“ není vidět). */
   setToolsSlot: (el: HTMLElement | null) => void;
   toolsSlot: HTMLElement | null;
-  setHasTools: (v: boolean) => void;
-  setRevealSlot: (el: HTMLElement | null) => void;
-  revealSlot: HTMLElement | null;
-  setHasReveal: (v: boolean) => void;
+  /** Akce se ukazují v pruhu pod stolem (telefon, vypnutý panel nebo skrytý widget „O hře“). */
+  actionsInline: boolean;
   view: TableView | undefined;
   /** Údaje o turnaji (null u cash stolu). */
   tour: TournamentInfo | null;
@@ -60,9 +58,10 @@ function useLayoutState(): [Layout, (next: Layout) => void] {
 export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { view: TableView | undefined; tableId: string; inBb: boolean; chat?: { body: ReactNode; unread: number; actions: ReactNode }; children: ReactNode }) {
   const [layout, setLayout] = useLayoutState();
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
-  const [hasTools, setHasTools] = useState(false);
-  const [revealSlot, setRevealSlot] = useState<HTMLElement | null>(null);
-  const [hasReveal, setHasReveal] = useState(false);
+  const mobile = useMobileLayout();
+  // „O hře“ (a v něm akce) je vidět jen když není skrytý ani jeho panel; jinak se akce ukážou pod stolem.
+  const infoSide = layout.right.includes('info') ? 'right' : 'left';
+  const actionsInline = mobile || layout.hidden.includes('info') || layout.hiddenSides.includes(infoSide);
   const { me } = useSession();
   const features = useFeatures();
   const info = view?.info;
@@ -70,11 +69,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const tournamentId = info?.tournament ? (info.tournamentId ?? tableId) : null;
   const tour = useTournamentInfo(tournamentId);
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
-  const wanted = view ? wantedList(view) : [];
-  const hasCards = !!(mine && mine.hasCards && mine.cards);
-  // Widgety jsou trvale na svém místě (nemizí a neobjevují se): neaktivní tlačítka jsou šedá, aktivní barevná.
-  const hasDeal = !!tournamentId && !!tour && tour.deal.enabled;
-  const entries = entryActions(tour);
 
   const defs: Record<WidgetId, WidgetDef> = {
     table: {
@@ -108,24 +102,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
         )
       ),
     },
-    plan: {
-      title: t('table.widget.plan'),
-      show: !!mine && !!view,
-      body: view && (
-        <div className="flex flex-col gap-1.5">
-          <PlanBar view={view} />
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {mine && (
-              <label className="flex items-center gap-1 text-xs" title={t('table.sitOutHelp')}>
-                <input type="checkbox" role="switch" aria-label={t('table.sitOutToggle')} checked={mine.sitOut ?? mine.status === 'sittingOut'} onChange={(e) => void (e.target.checked ? tableApi.sitOut(tableId) : tableApi.sitIn(tableId))} />
-                {t('table.sittingOut')}
-              </label>
-            )}
-            <ShowdownPrefs />
-          </div>
-        </div>
-      ),
-    },
     hand: {
       title: t('table.widget.hand'),
       show: !!mine,
@@ -147,25 +123,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       title: t('table.widget.best'),
       show: !!mine,
       body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
-    },
-    // Důležité akce hry stále po ruce, i když je stůl na celou obrazovku (tlačítka pod stolem se tam nemusí vejít).
-    actions: {
-      title: t('table.widget.actions'),
-      show: !!mine && !!info,
-      body: mine && info && (
-        <div className="flex flex-wrap gap-1.5">
-          {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
-            <button className={actionToneSm.add} onClick={() => window.dispatchEvent(new Event('kb:topup'))}>
-              {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}
-            </button>
-          )}
-          {!info.tournament && (
-            <button className={actionToneSm.leave} onClick={() => void tableApi.leave(tableId)}>
-              {t('table.leave')}
-            </button>
-          )}
-        </div>
-      ),
     },
     players: {
       title: t('table.widget.players'),
@@ -189,29 +146,25 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     },
     chat: { title: t('table.chat'), show: !!chat && features.chat, body: chat?.body ?? null, badge: chat?.unread, actions: chat?.actions },
     sounds: { title: t('table.widget.sounds'), show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
-    info: { title: t('table.info.title'), show: !!view, body: view && <InfoBody view={view} tour={tour} tournamentId={tournamentId} inBb={inBb} /> },
-    bounties: { title: t('table.info.rewards'), show: !!view && features.headBounty, body: view && <BountiesBody view={view} /> },
-    deal: { title: t('table.info.deal'), show: hasDeal, body: <DealButton tour={tour} tournamentId={tournamentId} /> },
-    // Ukázání karet a rabbit hunt po handě mají vlastní widget: tlačítka mizí, takže nesmí sdílet místo s ostatními akcemi (např. odchod od stolu).
-    reveal: { title: t('table.widget.reveal'), show: hasReveal, body: <div ref={setRevealSlot} className="flex flex-wrap items-center gap-2" /> },
-    // Akce hry; samotná tlačítka vykresluje stůl do tohoto místa (portálem), aby se panel mohl libovolně přesouvat.
-    tools: {
-      title: t('table.widget.tools'),
-      show: hasTools || entries.length > 0 || !!tournamentId,
-      body: (
+    // „O hře“ obsahuje i všechny akce hráče (stůl je vykresluje portálem do tohoto místa): malá tlačítka, aktivní barevná, neaktivní šedá.
+    info: {
+      title: t('table.info.title'),
+      show: !!view,
+      body: view && (
         <div className="flex flex-col gap-2">
-          <EntryActions tour={tour} tournamentId={tournamentId} />
-          <div ref={setToolsSlot} className="flex flex-col gap-2" />
+          <InfoBody view={view} tour={tour} tournamentId={tournamentId} inBb={inBb} />
+          {!actionsInline && <div ref={setToolsSlot} />}
         </div>
       ),
     },
+    bounties: { title: t('table.info.rewards'), show: !!view && features.headBounty, body: view && <BountiesBody view={view} /> },
   };
 
   const value = useMemo<Ctx>(
-    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setHasTools, setRevealSlot, revealSlot, setHasReveal, view, tour }),
+    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, actionsInline, view, tour }),
     // defs se staví při každém vykreslení; kontext se tedy obnovuje s ním
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, setLayout, defs, toolsSlot, revealSlot, view, tour],
+    [layout, setLayout, defs, toolsSlot, actionsInline, view, tour],
   );
   void WIDGET_IDS;
   return (
@@ -221,4 +174,13 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       <RebuyDecisionDialog tour={tour} tournamentId={tournamentId} />
     </WidgetsContext.Provider>
   );
+}
+
+/** Které panely má hráč vypnuté (čte se přímo z osobního nastavení; použitelné i mimo kontext widgetů). */
+export function useHiddenSides(): { left: boolean; right: boolean } {
+  const values = useSettings().values;
+  return useMemo(() => {
+    const l = parseLayout(values['ui.tableLayout'], values['ui.tablePanel'], values['ui.tableSide']);
+    return { left: l.hiddenSides.includes('left'), right: l.hiddenSides.includes('right') };
+  }, [values]);
 }

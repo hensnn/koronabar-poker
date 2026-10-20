@@ -3,7 +3,7 @@ import { t } from '@kb/shared';
 import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { Button, Modal } from '../ui';
 import { positionText, useTournamentInfo, wantedList } from './InfoCard';
-import { forMobile, moveToSide, reorder, sideOf, toggleCollapsed, toggleHidden, WIDGET_IDS, type Layout, type Side, type WidgetId } from './layout';
+import { moveToSide, reorder, sideOf, toggleCollapsed, toggleHidden, toggleSide, WIDGET_IDS, type Layout, type Side, type WidgetId } from './layout';
 import { useMobileLayout } from './mobile';
 import { useSession } from '../session';
 import { useTableWidgets, type WidgetDef } from './widgets';
@@ -63,6 +63,10 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
           const otherName = other === 'left' ? t('table.panelLeft') : t('table.panelRight');
           return (
             <section key={side} className={`rounded-md border-2 p-3 ${st.box}`} aria-label={name}>
+              <label className="mb-2 flex items-center gap-2 text-sm">
+                <input type="checkbox" role="switch" checked={!layout.hiddenSides.includes(side)} onChange={() => setLayout(toggleSide(layout, side))} />
+                {t('table.panelShow')}
+              </label>
               <h3 className={`mb-2 flex items-center gap-2 text-lg font-bold ${st.head}`}>
                 <span aria-hidden="true" className={`inline-block h-3 w-3 rounded-full ${st.dot}`} />
                 {side === 'left' ? '◀ ' : ''}
@@ -128,9 +132,9 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
  * dají přesouvat mezi nimi. Na telefonu je pravý panel sbalený do jednoho řádku (moje pozice, počet hráčů, odměny).
  */
 export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se v tomto výskytu panelu nezobrazí (chat v zásuvce na telefonu má vlastní tlačítko). */ hide?: WidgetId[] }) {
-  const { layout: stored, setLayout, defs, view } = useTableWidgets();
+  const { layout, setLayout, defs, view } = useTableWidgets();
+  const stored = layout;
   const mobile = useMobileLayout();
-  const layout = mobile ? forMobile(stored) : stored;
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const { me } = useSession();
@@ -151,21 +155,17 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
     </Modal>
   ) : null;
 
+  // Vypnutý panel se nevykreslí (zapnout ho jde v nastavení panelů, tlačítko je v nástrojích stolu).
+  if (layout.hiddenSides.includes(side)) return null;
+
   // Telefon, pravý panel: akce hned, ostatní widgety sbalené do jednoho řádku; celé se otevřou v okně.
   if (mobile && side === 'right') {
-    const inWindow = visible.filter((id) => id !== 'tools' && id !== 'reveal');
+    const inWindow = visible;
     const position = positionText(tour, me?.user.id);
     const summary = [view ? (tournamentId && tour ? `${tour.alive}/${tour.players}` : `${view.seats.length}/${view.info.seatCount}`) : null, position, wanted.length > 0 ? `⚑ ${wanted.length}` : null].filter(Boolean).join(' · ');
     return (
       <>
         {settingsModal}
-        {visible.includes('tools') && defs.tools.body}
-        {visible.includes('reveal') && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-muted">{defs.reveal.title}:</span>
-            {defs.reveal.body}
-          </div>
-        )}
         {inWindow.length > 0 && (
           <button className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs" aria-haspopup="dialog" onClick={() => setExpanded(true)}>
             <span className="shrink-0 whitespace-nowrap font-semibold">{t('table.info.title')}</span>
@@ -201,6 +201,23 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
       {visible.map((id) => (
         <Frame key={id} id={id} def={defs[id]} layout={stored} setLayout={setLayout} extra={id === visible[0] ? gear : null} />
       ))}
+    </>
+  );
+}
+
+/** Tlačítko v nástrojích stolu: otevře nastavení panelů (jediné místo, odkud jde vypnutý panel zase zapnout). */
+export function PanelSettingsButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)} title={t('table.panelSettings')}>
+        ⚙ {t('table.panelsButton')}
+      </Button>
+      {open && (
+        <Modal title={t('table.panelSettings')} wide onClose={() => setOpen(false)}>
+          <LayoutSettings onClose={() => setOpen(false)} />
+        </Modal>
+      )}
     </>
   );
 }

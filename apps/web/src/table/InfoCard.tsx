@@ -6,7 +6,7 @@ import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { useSession } from '../session';
 import { Button, Modal } from '../ui';
-import { actionOff, actionTone } from './buttons';
+import { actionOffSm, actionTone, actionToneSm } from './buttons';
 import { formatAmount } from './format';
 
 export interface TournamentInfo {
@@ -192,7 +192,7 @@ export function DealButton({ tour, tournamentId }: { tour: TournamentInfo | null
   const active = tour.status === 'running' && !tour.deal.done;
   return (
     <>
-      <button className={active ? 'w-full rounded-md border border-primary bg-primary px-2 py-1 text-on-primary' : `w-full ${actionOff}`} disabled={!active} onClick={() => setOpen(true)}>
+      <button className={active ? actionToneSm.special : actionOffSm} disabled={!active} onClick={() => setOpen(true)}>
         {tour.deal.done ? t('table.info.dealDone') : tour.deal.open ? t('table.info.dealOpen') : t('deal.propose')}
       </button>
       {open && (
@@ -222,11 +222,11 @@ export function EntryActions({ tour, tournamentId }: { tour: TournamentInfo | nu
   const list = entryActions(tour);
   if (!tournamentId || list.length === 0) return null;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="contents">
       {list.map((a) => (
         <button
           key={a.kind}
-          className={`w-full ${a.active ? (a.kind === 'reenter' ? actionTone.special : actionTone.add) : actionOff}`}
+          className={a.active ? (a.kind === 'reenter' ? actionToneSm.special : actionToneSm.add) : actionOffSm}
           disabled={busy || !a.active}
           onClick={async () => {
             if (!confirm(a.confirm)) return;
@@ -245,7 +245,7 @@ export function EntryActions({ tour, tournamentId }: { tour: TournamentInfo | nu
         </button>
       ))}
       {error && (
-        <p role="alert" className="text-xs text-danger">
+        <p role="alert" className="w-full text-xs text-danger">
           {error}
         </p>
       )}
