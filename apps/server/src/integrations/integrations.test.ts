@@ -173,6 +173,52 @@ describe('webhooky', { timeout: 60_000 }, () => {
     expect(await c.server.integrations.testDiscord(c.admin)).toEqual({ ok: true });
   });
 
+  it('čtyři Discord kanály: každý má vlastní adresu a vlastní události; nenastavený ani vypnutý nic nedostane', async () => {
+    const { f, calls } = fakeFetch();
+    const c = await start(
+      {
+        'integrations.discordEnabled': true, // kanál 1: výchozí události (konec turnaje…)
+        'integrations.discord2Enabled': true,
+        'integrations.discord2Events': 'chat.message',
+        'integrations.discord3Enabled': true,
+        'integrations.discord3Events': 'tournament.finished,poll.created',
+        'integrations.discord4Enabled': false, // vypnutý, i když má adresu
+        'integrations.discord4Events': 'tournament.finished',
+      },
+      { fetch: f },
+    );
+    const hook = (n: number) => `https://discord.example/api/webhooks/${n}/tok${n}`;
+    await c.server.secrets.set(c.admin, 'discord.webhookUrl', hook(1));
+    await c.server.secrets.set(c.admin, 'discord.webhookUrl2', hook(2));
+    await c.server.secrets.set(c.admin, 'discord.webhookUrl3', hook(3));
+    await c.server.secrets.set(c.admin, 'discord.webhookUrl4', hook(4));
+    expect(await code(c.server.integrations.testDiscord(c.admin, 2))).toBe('OK');
+
+    calls.length = 0;
+    c.server.integrations.emit('chat.message', { nick: 'Karel', text: 'ahoj' });
+    c.server.integrations.emit('tournament.finished', { name: 'Páteční', winner: 'Karel', players: 5 });
+    await c.server.integrations.idle();
+    const to = (n: number) => calls.filter((x) => x.url === hook(n)).map((x) => JSON.parse(x.body).content as string);
+    expect(to(2)).toHaveLength(1);
+    expect(to(2)[0]).toContain('ahoj');
+    expect(to(3)).toHaveLength(1);
+    expect(to(3)[0]).toContain('Páteční');
+    expect(to(1)).toHaveLength(1); // výchozí události kanálu 1: konec turnaje
+    expect(to(1)[0]).toContain('Páteční');
+    expect(to(4)).toHaveLength(0);
+
+    // přehled ukáže všechny čtyři sloty (adresy ne) a zkouška posílá jen do vybraného kanálu
+    const ov = await c.server.integrations.overview(c.admin);
+    expect(ov.discord.map((x) => [x.slot, x.enabled, x.configured])).toEqual([[1, true, true], [2, true, true], [3, true, true], [4, false, true]]);
+    expect(JSON.stringify(ov)).not.toContain('tok2');
+    calls.length = 0;
+    expect(await c.server.integrations.testDiscord(c.admin, 3)).toEqual({ ok: true });
+    expect(calls.map((x) => x.url)).toEqual([hook(3)]);
+    const targets = (await c.server.db.select().from(schema.webhookDeliveries)).map((d) => d.target);
+    expect(targets).toEqual(expect.arrayContaining(['discord', 'discord2', 'discord3']));
+    expect(targets).not.toContain('discord4');
+  });
+
   it('skutečné události hry: start turnaje, nová anketa a uzavření večera se odešlou', async () => {
     const { f, calls } = fakeFetch();
     const c = await start({ 'tournament.live': true, 'tournament.minPlayers': 2, 'tournament.buyIn': 100, 'tournament.fee': 0, 'tournament.startingStack': 1500, 'table.seats': 9, 'tournament.payoutPreset': 'wta' }, { fetch: f });

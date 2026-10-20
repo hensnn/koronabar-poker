@@ -43,3 +43,25 @@ export function parseEventList(text: string | undefined | null): IntegrationEven
 }
 
 export const DEFAULT_EVENT_LIST = INTEGRATION_EVENTS.filter((e) => !NOISY_EVENTS.includes(e)).join(',');
+
+/** Discord kanály: pevné sloty 1 až 4, každý s vlastním webhookem (tajný údaj), názvem, vypínačem a událostmi. */
+export const DISCORD_SLOTS = [1, 2, 3, 4] as const;
+export type DiscordSlot = (typeof DISCORD_SLOTS)[number];
+
+export interface DiscordSlotKeys {
+  slot: DiscordSlot;
+  /** Cíl v logu doručení (slot 1 zůstává „discord“ kvůli zpětné kompatibilitě). */
+  target: string;
+  secret: string;
+  enabled: string;
+  name: string;
+  events: string;
+}
+
+export const discordSlotKeys = (slot: DiscordSlot): DiscordSlotKeys =>
+  slot === 1
+    ? { slot, target: 'discord', secret: 'discord.webhookUrl', enabled: 'integrations.discordEnabled', name: 'integrations.discordName', events: 'integrations.discordEvents' }
+    : { slot, target: `discord${slot}`, secret: `discord.webhookUrl${slot}`, enabled: `integrations.discord${slot}Enabled`, name: `integrations.discord${slot}Name`, events: `integrations.discord${slot}Events` };
+
+/** Slot podle cíle doručení (`discord`, `discord2`…), jinak undefined. */
+export const discordSlotOfTarget = (target: string): DiscordSlot | undefined => DISCORD_SLOTS.find((s) => discordSlotKeys(s).target === target);

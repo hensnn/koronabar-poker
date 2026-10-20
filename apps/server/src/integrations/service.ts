@@ -6,6 +6,10 @@ import {
   isIntegrationEvent,
   NOISY_EVENTS,
   parseEventList,
+  DISCORD_SLOTS,
+  discordSlotKeys,
+  discordSlotOfTarget,
+  type DiscordSlot,
   t,
   type EventData,
   type IntegrationEvent,
@@ -120,8 +124,11 @@ export class IntegrationService {
         await db.insert(schema.webhookDeliveries).values({ target: `endpoint:${ep.id}`, endpointId: ep.id, event: p.event, payload: p as unknown as Record<string, unknown>, nextAttemptAt: new Date(this.deps.now()) });
       }
     }
-    if (s['integrations.discordEnabled'] && parseEventList(String(s['integrations.discordEvents'])).includes(p.event) && (await this.deps.secrets.reveal('discord.webhookUrl'))) {
-      await db.insert(schema.webhookDeliveries).values({ target: 'discord', event: p.event, payload: p as unknown as Record<string, unknown>, nextAttemptAt: new Date(this.deps.now()) });
+    for (const slot of DISCORD_SLOTS) {
+      const k = discordSlotKeys(slot);
+      if (s[k.enabled] && parseEventList(String(s[k.events])).includes(p.event) && (await this.deps.secrets.reveal(k.secret))) {
+        await db.insert(schema.webhookDeliveries).values({ target: k.target, event: p.event, payload: p as unknown as Record<string, unknown>, nextAttemptAt: new Date(this.deps.now()) });
+      }
     }
     await this.processNow();
     if (s['integrations.mqttEnabled'] && String(s['integrations.mqttHost']) && parseEventList(String(s['integrations.mqttEvents'])).includes(p.event)) {
@@ -173,8 +180,9 @@ export class IntegrationService {
     let url: string;
     let body: string;
     const headers: Record<string, string> = { 'content-type': 'application/json', 'user-agent': 'KoronaBar-Poker' };
-    if (d.target === 'discord') {
-      const u = await this.deps.secrets.reveal('discord.webhookUrl');
+    const slot = discordSlotOfTarget(d.target);
+    if (slot) {
+      const u = await this.deps.secrets.reveal(discordSlotKeys(slot).secret);
       if (!u) return { ok: false, code: null, error: 'NOT_CONFIGURED' };
       url = u;
       body = JSON.stringify({ content: clip(this.discordText(payload), 1900), allowed_mentions: { parse: [] } });
@@ -314,6 +322,12 @@ export class IntegrationService {
       events: INTEGRATION_EVENTS,
       defaultEvents: DEFAULT_EVENT_LIST,
       discordEvents: parseEventList(String(s['integrations.discordEvents'])),
+      discord: await Promise.all(
+        DISCORD_SLOTS.map(async (slot) => {
+          const k = discordSlotKeys(slot);
+          return { slot, name: String(s[k.name] ?? ''), enabled: !!s[k.enabled], events: parseEventList(String(s[k.events])), configured: !!(await this.deps.secrets.reveal(k.secret)) };
+        }),
+      ),
       mqttEvents: parseEventList(String(s['integrations.mqttEvents'])),
       discordConfigured: !!(await this.deps.secrets.reveal('discord.webhookUrl')),
       mqttConfigured: !!String(s['integrations.mqttHost']),
@@ -402,13 +416,14 @@ export class IntegrationService {
     return { id: row!.id };
   }
 
-  async testDiscord(actorId: string): Promise<{ ok: boolean; error?: string }> {
+  async testDiscord(actorId: string, slot: DiscordSlot = 1): Promise<{ ok: boolean; error?: string }> {
     this.manage(actorId);
-    if (!(await this.deps.secrets.reveal('discord.webhookUrl'))) throw new IntegrationError('NOT_CONFIGURED');
+    const k = discordSlotKeys(slot);
+    if (!(await this.deps.secrets.reveal(k.secret))) throw new IntegrationError('NOT_CONFIGURED');
     const payload: IntegrationPayload = { version: 1, event: 'poll.created', at: this.deps.now(), data: { title: t('integration.testTitle'), test: true } };
     const [row] = await this.deps.db
       .insert(schema.webhookDeliveries)
-      .values({ target: 'discord', event: payload.event, payload: payload as unknown as Record<string, unknown>, nextAttemptAt: new Date(this.deps.now()) })
+      .values({ target: k.target, event: payload.event, payload: payload as unknown as Record<string, unknown>, nextAttemptAt: new Date(this.deps.now()) })
       .returning({ id: schema.webhookDeliveries.id });
     await this.processDue();
     const [d] = await this.deps.db.select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.id, row!.id));

@@ -18,6 +18,9 @@ export const SECRETS: SecretDef[] = [
   { key: 'mqtt.password', permission: 'system.tajne_udaje' },
   { key: 'webhook.signingSecret', permission: 'system.tajne_udaje' },
   { key: 'discord.webhookUrl', permission: 'system.tajne_udaje' },
+  { key: 'discord.webhookUrl2', permission: 'system.tajne_udaje' },
+  { key: 'discord.webhookUrl3', permission: 'system.tajne_udaje' },
+  { key: 'discord.webhookUrl4', permission: 'system.tajne_udaje' },
   { key: 'push.vapidPrivateKey', permission: 'system.tajne_udaje' },
 ];
 

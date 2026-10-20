@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { buildCategories, estimateTournament } from '@kb/shared';
+import { buildCategories, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
@@ -1097,6 +1097,24 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.post('/api/integrations/webhooks/:id/test', intGuard(async (req, reply) => reply.send(await svc.integrations().testEndpoint(need(req).id, (req.params as { id: string }).id))));
   app.post('/api/integrations/mqtt/test', intGuard(async (req, reply) => reply.send(await svc.integrations().testMqtt(need(req).id))));
   app.post('/api/integrations/discord/test', intGuard(async (req, reply) => reply.send(await svc.integrations().testDiscord(need(req).id))));
+  const slotOf = (req: FastifyRequest): DiscordSlot => {
+    const n = Number((req.params as { slot: string }).slot);
+    if (!DISCORD_SLOTS.includes(n as DiscordSlot)) throw new IntegrationError('INVALID', { field: 'slot' });
+    return n as DiscordSlot;
+  };
+  app.post('/api/integrations/discord/:slot/test', intGuard(async (req, reply) => reply.send(await svc.integrations().testDiscord(need(req).id, slotOf(req)))));
+  /** Nastavení jednoho Discord kanálu: název, zapnutí a události (adresa webhooku je mezi tajnými údaji). */
+  app.put('/api/integrations/discord/:slot', intGuard(async (req, reply) => {
+    const u = need(req);
+    const slot = slotOf(req);
+    const body = z.object({ name: z.string().min(1).max(40).optional(), enabled: z.boolean().optional(), events: z.array(z.string()).optional() }).parse(req.body);
+    await svc.integrations().overview(u.id); // oprávnění ověří přehled
+    const k = discordSlotKeys(slot);
+    if (body.name !== undefined) await svc.settings.set(u.id, 'global', '', k.name, body.name.trim());
+    if (body.enabled !== undefined) await svc.settings.set(u.id, 'global', '', k.enabled, body.enabled);
+    if (body.events) await svc.settings.set(u.id, 'global', '', k.events, svc.integrations().parseSelection(body.events));
+    reply.send({ ok: true });
+  }));
   app.put('/api/integrations/events/:channel', intGuard(async (req, reply) => {
     const u = need(req);
     const channel = (req.params as { channel: string }).channel;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
 import { del, errorText, get, patch, post, put } from '../../api';
 import { Badge, Button, Card, DataTable, Modal, Notice, Spinner, Td, TextInput } from '../../ui';
+import { DiscordChannels, type DiscordChannel } from './discord';
 
 interface Overview {
   events: string[];
@@ -9,6 +10,7 @@ interface Overview {
   discordEvents: string[];
   mqttEvents: string[];
   discordConfigured: boolean;
+  discord: DiscordChannel[];
   mqttConfigured: boolean;
 }
 interface Endpoint {
@@ -161,7 +163,7 @@ export function IntegrationsAdminPage() {
       {error && <Notice kind="error">{error}</Notice>}
 
       <ChannelCard title={t('integrations.mqtt')} channel="mqtt" ov={ov} selected={ov.mqttEvents} testLabel={t('integrations.mqttTest')} okText={t('integrations.mqttOk')} missing={!ov.mqttConfigured} reload={load} />
-      <ChannelCard title={t('integrations.discord')} channel="discord" ov={ov} selected={ov.discordEvents} testLabel={t('integrations.discordTest')} okText={t('integrations.discordOk')} missing={!ov.discordConfigured} reload={load} />
+      <DiscordChannels channels={ov.discord} events={ov.events} reload={load} />
 
       <Card
         title={t('integrations.webhooks')}
@@ -205,7 +207,7 @@ export function IntegrationsAdminPage() {
             {log.map((d) => (
               <tr key={d.id}>
                 <Td>{fmt(d.at)}</Td>
-                <Td>{d.target === 'discord' ? 'Discord' : eps.find((e) => d.target === `endpoint:${e.id}`)?.name ?? '?'}</Td>
+                <Td>{d.target.startsWith('discord') ? `Discord: ${ov.discord.find((c) => (c.slot === 1 ? 'discord' : `discord${c.slot}`) === d.target)?.name ?? d.target}` : eps.find((e) => d.target === `endpoint:${e.id}`)?.name ?? '?'}</Td>
                 <Td className="font-mono text-xs">{d.event}</Td>
                 <Td>
                   <Badge tone={d.status === 'ok' ? 'success' : d.status === 'failed' ? 'danger' : 'warning'}>{t(`integrations.status.${d.status}`)}</Badge>

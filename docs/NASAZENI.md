@@ -283,3 +283,14 @@ Dům sbírá rake, poplatky a odvody turnajů i strženou měnu. Počáteční v
 **Výdaje domu** (provoz, ceny pro vítěze, akce…) zapíšeš na stejném místě: vyber **kategorii**, částku a poznámku a klikni na **Zapsat výdaj**. Měna odejde z domu zpět do zásoby; dům nesmí jít do mínusu. Pod formulářem je přehled příjmů a výdajů podle kategorií **za tento měsíc a za tento rok** a seznam posledních výdajů. Kategorie si upravíš v Globálním nastavení → Ekonomika → Kategorie výdajů domu (výchozí: provoz, ceny, akce, ostatní).
 
 Vše jde do účetní knihy a auditu a vyžaduje oprávnění „Ruční úprava knihy“. Mají ho **hlavní správce** (hned) a **pokladník** (jeho výdaj nebo vklad čeká na schválení, např. hlavním správcem v Správa → Schvalování; do přehledu a do knihy se zapíše až po schválení). Roli „Správce“ toto oprávnění ve výchozím stavu nemá; dá se přidat ve Správa → Role. Garance turnajů se doplácí z domu, co dům nepokryje, se vydá nově, takže vklad do domu není nutný.
+
+### Více Discord kanálů (až čtyři)
+
+Každý ze **čtyř kanálů** má vlastní webhook, název, vypínač a vlastní události, takže třeba turnaje půjdou do `#turnaje` a chat do `#hospoda`.
+
+1. V Discordu vytvoř pro každý cílový kanál **vlastní webhook** (Upravit kanál → Integrace → Webhooky → Nový webhook → Kopírovat URL).
+2. **Správa → Tajné údaje:** vlož adresy do položek „Adresa Discord webhooku (kanál 1)“ až „(kanál 4)“.
+3. **Správa → Napojení ven:** u každého Discord kanálu pojmenuj kanál (jen pro tvůj přehled), zapni **Posílat do tohoto kanálu**, zaškrtni události a ulož.
+4. Tlačítkem **Poslat zkušební zprávu** ověř každý kanál zvlášť. Log doručení ukazuje, do kterého kanálu zpráva šla.
+
+Kanál bez adresy, nebo vypnutý, nic nedostane. Dříve nastavený jediný webhook je teď kanál 1.
