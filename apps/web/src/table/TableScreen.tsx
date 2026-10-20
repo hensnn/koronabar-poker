@@ -23,7 +23,7 @@ import { useThemeToken } from '../theme/ThemeProvider';
 import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
-import { Modal } from '../ui';
+import { ErrorToast, Modal } from '../ui';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
@@ -75,6 +75,10 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   usePlanExecutor(view, tableId);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<{ kind: 'join'; seat: number } | { kind: 'topUp' } | null>(null);
+  // Nový dialog začíná bez staré chyby.
+  useEffect(() => {
+    if (dialog) setError('');
+  }, [dialog]);
 
   // Dokoupení žetonů lze vyvolat i z panelu vlevo (widget Akce).
   useEffect(() => {
@@ -383,15 +387,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       {/* Pravý panel: widgety o hře (přizpůsobitelné); vypnutý panel se nevykreslí. */}
       {!layout.hiddenSides.includes('right') && <RightColumn />}
 
-      {error && (
-        <p role="alert" className="text-danger">
-          {error}
-        </p>
-      )}
+      {/* Chyby jsou vidět i při otevřeném dialogu: v dialogu přímo, jinak jako plovoucí lišta nad vším. */}
+      {!dialog && <ErrorToast message={error} onClose={() => setError('')} />}
 
       {dialog && (
         <AmountDialog
           title={dialog.kind === 'join' ? t('table.buyIn') : t('table.topUp')}
+          error={error}
           view={view}
           balance={me?.balance ?? 0}
           onCancel={() => setDialog(null)}
@@ -555,7 +557,7 @@ function Seat({
   );
 }
 
-function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string; view: TableView; balance: number; onCancel: () => void; onOk: (currency: number) => void }) {
+function AmountDialog({ title, view, balance, error, onCancel, onOk }: { title: string; view: TableView; balance: number; /** Chyba z posledního pokusu (např. ochrana hit and run): ukáže se přímo v dialogu. */ error?: string; onCancel: () => void; onOk: (currency: number) => void }) {
   const info = view.info;
   const rate = info.chipsPerCurrencyUnit;
   // Kdo nedávno odešel s větším stackem než je maximum, se smí vrátit se stejným stackem (nad maximální buy-in).
@@ -576,6 +578,11 @@ function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string;
         <input aria-label={t('table.amount')} type="range" className="flex-1" min={min} max={Math.max(min, max)} value={v} onChange={(e) => setV(Number(e.target.value))} />
         <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono" min={min} max={max} value={v} onChange={(e) => setV(Number(e.target.value))} />
       </div>
+      {error && (
+        <p role="alert" className="rounded-md border-2 border-danger px-2 py-1 text-sm text-danger">
+          {error}
+        </p>
+      )}
       <div className="flex gap-2">
         <button className={btnPrimary} onClick={() => onOk(v)}>
           {t('table.confirm')}

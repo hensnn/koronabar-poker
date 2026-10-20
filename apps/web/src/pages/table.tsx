@@ -20,7 +20,7 @@ import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
 import { SoundMenu } from '../sound-menu';
-import { Button, Card, DataTable, Modal, Notice, Td } from '../ui';
+import { Button, Card, DataTable, ErrorToast, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
 import { useFeatures } from '../features';
@@ -248,7 +248,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <SoundMenu />
           </span>
         </div>
-        {toolError && <Notice kind="error">{toolError}</Notice>}
+        <ErrorToast message={toolError} onClose={() => setToolError('')} />
         {features.polls && <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />}
         {pollOpen && (
           <PollEditor

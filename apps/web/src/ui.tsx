@@ -67,6 +67,30 @@ export function Card({ title, children, actions }: { title?: string; children: R
   );
 }
 
+/**
+ * Chybová hláška nad vším (i nad dialogy): plovoucí lišta dole uprostřed, vykreslená do body, aby ji neschovalo
+ * okno přes celou obrazovku. Zavře se křížkem nebo po chvíli.
+ */
+export function ErrorToast({ message, onClose, seconds = 10 }: { message: string; onClose: () => void; seconds?: number }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (!message) return;
+    const id = window.setTimeout(() => closeRef.current(), seconds * 1000);
+    return () => window.clearTimeout(id);
+  }, [message, seconds]);
+  if (!message) return null;
+  return createPortal(
+    <div role="alert" className="fixed inset-x-2 bottom-4 z-[70] mx-auto flex max-w-lg items-start gap-2 rounded-md border-2 border-danger bg-surface px-3 py-2 text-danger shadow-lg">
+      <span className="flex-1">{message}</span>
+      <button type="button" className="rounded-md px-1" aria-label={t('table.close')} onClick={onClose}>
+        ✕
+      </button>
+    </div>,
+    document.body,
+  );
+}
+
 export function Notice({ kind = 'info', children }: { kind?: 'info' | 'error' | 'success'; children: ReactNode }) {
   const cls = kind === 'error' ? 'border-danger text-danger' : kind === 'success' ? 'border-success text-success' : 'border-line text-text';
   return (
@@ -165,7 +189,7 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, s
   }, [sizeKey]);
   // Okno se vykresluje přímo do <body>: uvnitř stolu (kontejner s containment) by `position: fixed` platilo jen vůči stolu a okno by se smrštilo.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onMouseDown={() => (down.current = ref.current ? { w: ref.current.offsetWidth, h: ref.current.offsetHeight } : null)} onMouseUp={() => changedSince(down.current) && saveSize()} style={sizeKey ? sizeStyle(storedW, storedH) : undefined} className={`max-h-full ${sizeKey ? 'w-[32rem] max-w-full' : `w-full ${wide ? 'max-w-4xl' : 'max-w-lg'}`} overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg ${sizeKey ? 'flex min-h-48 min-w-64 resize flex-col' : ''}`}>
         <h2 className="mb-3 font-heading text-lg font-bold">{title}</h2>
         {sizeKey ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}
