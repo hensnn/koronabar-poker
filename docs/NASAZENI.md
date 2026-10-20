@@ -282,4 +282,4 @@ Dům sbírá rake, poplatky a odvody turnajů i strženou měnu. Počáteční v
 
 **Výdaje domu** (provoz, ceny pro vítěze, akce…) zapíšeš na stejném místě: vyber **kategorii**, částku a poznámku a klikni na **Zapsat výdaj**. Měna odejde z domu zpět do zásoby; dům nesmí jít do mínusu. Pod formulářem je přehled příjmů a výdajů podle kategorií **za tento měsíc a za tento rok** a seznam posledních výdajů. Kategorie si upravíš v Globálním nastavení → Ekonomika → Kategorie výdajů domu (výchozí: provoz, ceny, akce, ostatní).
 
-Vše jde do účetní knihy a auditu a vyžaduje oprávnění „Ruční úprava knihy“. Garance turnajů se doplácí z domu, co dům nepokryje, se vydá nově, takže vklad do domu není nutný.
+Vše jde do účetní knihy a auditu a vyžaduje oprávnění „Ruční úprava knihy“. Mají ho **hlavní správce** (hned) a **pokladník** (jeho výdaj nebo vklad čeká na schválení, např. hlavním správcem v Správa → Schvalování; do přehledu a do knihy se zapíše až po schválení). Roli „Správce“ toto oprávnění ve výchozím stavu nemá; dá se přidat ve Správa → Role. Garance turnajů se doplácí z domu, co dům nepokryje, se vydá nově, takže vklad do domu není nutný.

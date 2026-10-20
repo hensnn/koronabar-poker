@@ -23,6 +23,12 @@ export interface PeriodSettlement {
   house: number | null;
 }
 
+/** Poznámka k ruční úpravě knihy, která je výdajem domu (zapíše se do přehledu výdajů). */
+export interface HouseExpenseNote {
+  category: string;
+  amount: number;
+  note: string;
+}
 export type WalletResult = { done: true; txId: number } | { done: false; approvalId: string };
 
 const AMOUNT = (n: unknown): number => {
@@ -107,17 +113,19 @@ export class WalletService {
   }
 
   /** Ruční úprava knihy: libovolné vyvážené záznamy mezi účty, vždy s důvodem. */
-  async adjust(actorId: string, entries: Entry[], reason: string, meta: WalletMeta = {}): Promise<WalletResult> {
+  async adjust(actorId: string, entries: Entry[], reason: string, meta: WalletMeta = {}, houseExpense?: HouseExpenseNote): Promise<WalletResult> {
     if (!reason?.trim()) throw new PermissionError('INVALID', { field: 'reason' });
     if (entries.length < 2) throw new PermissionError('INVALID', { field: 'entries' });
     const d = this.deps.perms.can(actorId, 'mena.upravit_knihu');
     if (!d.allowed) throw new PermissionError('FORBIDDEN');
-    if (d.needsApproval) return { done: false, approvalId: await this.deps.approvals.request(actorId, 'mena.upravit_knihu', { entries, reason }, meta) };
-    return { done: true, txId: (await this.execAdjust(actorId, { entries, reason }, meta)).txId };
+    if (d.needsApproval) return { done: false, approvalId: await this.deps.approvals.request(actorId, 'mena.upravit_knihu', { entries, reason, houseExpense }, meta) };
+    return { done: true, txId: (await this.execAdjust(actorId, { entries, reason, houseExpense }, meta)).txId };
   }
 
-  private async execAdjust(actorId: string, p: { entries: Entry[]; reason: string }, meta: WalletMeta = {}) {
+  private async execAdjust(actorId: string, p: { entries: Entry[]; reason: string; houseExpense?: HouseExpenseNote }, meta: WalletMeta = {}) {
     const tx = this.deps.ledger.post({ kind: 'manual_adjustment', idempotencyKey: `adjust:${randomUUID()}`, entries: p.entries, createdBy: actorId, note: p.reason });
+    // Výdaj domu se zapíše do přehledu až při provedení (i po schválení druhou osobou).
+    if (p.houseExpense) await this.deps.db.insert(schema.houseExpenses).values({ category: p.houseExpense.category, amount: p.houseExpense.amount, note: p.houseExpense.note.slice(0, 300), createdBy: actorId, txId: tx.id, at: new Date(tx.at) });
     await this.deps.audit.log({ actorId, action: 'mena.upravit_knihu', targetType: 'ledger', targetId: String(tx.id), after: { entries: p.entries }, reason: p.reason, ...meta });
     return { txId: tx.id };
   }

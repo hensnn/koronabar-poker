@@ -63,17 +63,15 @@ export class HouseExpenseService {
     if (!this.deps.perms.can(actorId, permission).allowed) throw new HouseExpenseError('FORBIDDEN');
   }
 
-  /** Zapíše výdaj. Vrací `done: false`, když čeká na schválení (pak se výdaj zapíše do přehledu až jeho provedením nově). */
-  async spend(actorId: string, input: { category: string; amount: number; note: string }, meta: Meta = {}): Promise<{ done: boolean; id?: number }> {
+  /** Zapíše výdaj. Vrací `done: false`, když čeká na schválení (do přehledu se zapíše až po schválení). */
+  async spend(actorId: string, input: { category: string; amount: number; note: string }, meta: Meta = {}): Promise<{ done: boolean }> {
     this.can(actorId, 'mena.upravit_knihu');
     const category = input.category.trim();
     const note = input.note.trim();
     if (!this.categories().includes(category) || !Number.isInteger(input.amount) || input.amount <= 0 || !note) throw new HouseExpenseError('INVALID');
     if (input.amount > this.deps.ledger.balance(accounts.house())) throw new HouseExpenseError('INSUFFICIENT');
-    const r = await this.deps.wallet.adjust(actorId, [{ account: accounts.house(), amount: -input.amount }, { account: accounts.mint(), amount: input.amount }], `${category}: ${note}`, meta);
-    if (!r.done) return { done: false };
-    const [row] = await this.deps.db.insert(schema.houseExpenses).values({ category, amount: input.amount, note: note.slice(0, 300), createdBy: actorId, txId: r.txId ?? null, at: new Date(this.deps.now()) }).returning({ id: schema.houseExpenses.id });
-    return { done: true, id: row!.id };
+    const r = await this.deps.wallet.adjust(actorId, [{ account: accounts.house(), amount: -input.amount }, { account: accounts.mint(), amount: input.amount }], `${category}: ${note}`, meta, { category, amount: input.amount, note });
+    return { done: r.done };
   }
 
   /** Vklad do domu (počáteční vklad, doplnění zásoby). */

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
 import { buildServer } from './app.js';
+import { schema } from './db/index.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
 const servers: Server[] = [];
@@ -105,5 +106,32 @@ describe('účet domu: vklad a výdaje (HTTP)', () => {
     expect((await post('/api/admin/wallet/house', { amount: 10, reason: 'x' }, player)).statusCode).toBe(403);
     expect((await post('/api/admin/house/expense', { category: 'provoz', amount: 10, note: 'x' }, player)).statusCode).toBe(403);
     expect((await s.server.app.inject({ method: 'GET', url: '/api/admin/house/report', headers: { cookie: player } })).statusCode).toBe(403);
+  });
+});
+
+describe('výdaje domu spravuje i pokladník (se schválením)', () => {
+  it('pokladník výdaj navrhne, hlavní správce ho schválí a teprve potom je v přehledu a v knize', async () => {
+    const s = await start();
+    const login = async (identifier: string, password: string) => String((await s.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier, password }, headers: { origin: 'http://localhost' } })).headers['set-cookie']).split(';')[0]!;
+    await s.server.perms.assignRole(s.admin, s.player, s.server.perms.roleByKey('pokladnik')!.id);
+    const admin = await login('Admin', 'admin-heslo-123');
+    const pok = await login('Hrac', 'heslo-hrace-123');
+    const call = (method: 'GET' | 'POST', url: string, cookie: string, payload?: unknown) => s.server.app.inject({ method, url, headers: { cookie, origin: 'http://localhost' }, payload: payload as never });
+    await call('POST', '/api/admin/wallet/house', admin, { amount: 3000, reason: 'Vklad' });
+    const report = async () => (await call('GET', '/api/admin/house/report', pok)).json() as { house: number; expenses: { note: string }[]; month: { total: number } };
+    const before = await report();
+
+    const req = await call('POST', '/api/admin/house/expense', pok, { category: 'provoz', amount: 400, note: 'Doména' });
+    expect(req.json()).toMatchObject({ done: false });
+    expect((await report()).expenses).toHaveLength(0);
+    expect((await report()).house).toBe(before.house);
+
+    const [approval] = await s.server.db.select().from(schema.approvalRequests);
+    const decide = await call('POST', `/api/approvals/${approval!.id}/decide`, admin, { approve: true });
+    expect(decide.statusCode).toBe(200);
+    const after = await report();
+    expect(after.house).toBe(before.house - 400);
+    expect(after.expenses.map((e) => e.note)).toEqual(['Doména']);
+    expect(after.month.total).toBe(400);
   });
 });
