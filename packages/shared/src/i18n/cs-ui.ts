@@ -265,6 +265,8 @@ export const csUi: Record<string, string> = {
   'cashier.ledger.search': 'Hledat v poznámce',
   'cashier.ledger.min': 'Částka aspoň',
   'cashier.ledger.limit': 'Nejvýš řádků',
+  'cashier.ledger.amount': 'Částka (největší)',
+  'cashier.ledger.sortBy': 'Řadit podle: {col}',
   'cashier.ledger.reset': 'Zrušit filtry',
   'cashier.ledger.count': 'Zobrazeno pohybů: {n}',
   'cashier.balances': 'Stavy účtů hráčů',

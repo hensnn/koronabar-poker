@@ -148,6 +148,20 @@ describe('účetní kniha s filtry', () => {
     const future = Date.now() + 86_400_000 * 365;
     expect(await get(`?from=${future}`)).toHaveLength(0);
     expect((await get(`?to=${future}&kind=mint&q=sázce`)).length).toBe(1);
+    // řazení: čas (nejnovější první a naopak), druh, největší částka
+    const ids = (rows: { id: number }[]) => rows.map((x) => x.id);
+    const desc = ids(await get(''));
+    expect(desc).toEqual([...desc].sort((a, b) => b - a));
+    expect(ids(await get('?sort=time&dir=asc'))).toEqual([...desc].sort((a, b) => a - b));
+    const kindsAsc = (await get('?sort=kind&dir=asc')).map((x) => x.kind);
+    expect(kindsAsc).toEqual([...kindsAsc].sort());
+    const biggest = (rows: { entries: { amount: number }[] }[]) => rows.map((x) => Math.max(...x.entries.map((e) => Math.abs(e.amount))));
+    const amountsDesc = biggest(await get('?sort=amount&dir=desc'));
+    expect(amountsDesc).toEqual([...amountsDesc].sort((a, b) => b - a));
+    const amountsAsc = biggest(await get('?sort=amount&dir=asc'));
+    expect(amountsAsc).toEqual([...amountsAsc].sort((a, b) => a - b));
+    expect(amountsDesc[0]).toBeGreaterThanOrEqual(1000); // počáteční zůstatky jsou největší
+    expect((await c.call('GET', '/api/admin/ledger?sort=nesmysl', pok)).statusCode).toBe(400);
     // seznam druhů pohybů pro filtr
     const kinds = ((await c.call('GET', '/api/admin/ledger/kinds', pok)).json() as { kinds: string[] }).kinds;
     expect(kinds).toEqual(expect.arrayContaining(['mint', 'manual_adjustment']));

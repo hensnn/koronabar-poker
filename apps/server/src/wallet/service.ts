@@ -39,6 +39,9 @@ export interface LedgerFilters {
   gameId?: string;
   minAmount?: number;
   limit?: number;
+  /** Řazení: čas (výchozí, podle čísla pohybu), druh, nebo největší částka na pohybu; směr `asc` nebo `desc` (výchozí). */
+  sort?: 'time' | 'kind' | 'amount';
+  dir?: 'asc' | 'desc';
 }
 
 /** Rozpad vydané měny: kolik se jí vydalo a kde je teď. */
@@ -258,6 +261,15 @@ export class WalletService {
     return rows;
   }
 
+  /** Řazení knihy; při shodě vždy podle čísla pohybu, aby bylo pořadí stabilní. */
+  private ledgerOrder(f: LedgerFilters) {
+    const lt_ = schema.ledgerTransactions;
+    const dir = f.dir === 'asc' ? asc : desc;
+    if (f.sort === 'kind') return [dir(lt_.kind), dir(lt_.id)];
+    if (f.sort === 'amount') return [dir(sql`(select max(abs(e.amount)) from ledger_entries e where e.transaction_id = ${lt_.id})`), dir(lt_.id)];
+    return [dir(lt_.id)];
+  }
+
   /** Druhy pohybů, které se v knize vyskytují (pro filtr). */
   async ledgerKinds(actorId: string): Promise<string[]> {
     if (!this.deps.perms.can(actorId, 'mena.zobrazit_knihu').allowed) throw new PermissionError('FORBIDDEN');
@@ -286,7 +298,7 @@ export class WalletService {
       if (f.minAmount) inner.push(sql`abs(${le.amount}) >= ${f.minAmount}`);
       conds.push(sql`exists (select 1 from ${le} where ${and(...inner)})`);
     }
-    const txs = await this.deps.db.select().from(lt_).where(and(...conds)).orderBy(desc(lt_.id)).limit(Math.max(1, Math.min(f.limit ?? 100, 500)));
+    const txs = await this.deps.db.select().from(lt_).where(and(...conds)).orderBy(...this.ledgerOrder(f)).limit(Math.max(1, Math.min(f.limit ?? 100, 500)));
     const ids = txs.map((t) => t.id);
     const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(inArray(schema.ledgerEntries.transactionId, ids)).orderBy(asc(schema.ledgerEntries.seq)) : [];
     return txs.map((t) => ({ ...t, entries: entries.filter((e) => e.transactionId === t.id).map((e) => ({ account: e.account, amount: e.amount })) }));

@@ -2006,9 +2006,9 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   }));
   app.get('/api/admin/ledger', guard(async (req, reply) => {
     const q = z
-      .object({ kind: z.string().max(40).optional(), account: z.string().max(80).optional(), from: z.coerce.number().optional(), to: z.coerce.number().optional(), q: z.string().max(100).optional(), game: z.string().max(80).optional(), min: z.coerce.number().int().min(0).optional(), limit: z.coerce.number().int().min(1).max(500).optional() })
+      .object({ kind: z.string().max(40).optional(), account: z.string().max(80).optional(), from: z.coerce.number().optional(), to: z.coerce.number().optional(), q: z.string().max(100).optional(), game: z.string().max(80).optional(), min: z.coerce.number().int().min(0).optional(), limit: z.coerce.number().int().min(1).max(500).optional(), sort: z.enum(['time', 'kind', 'amount']).optional(), dir: z.enum(['asc', 'desc']).optional() })
       .parse(req.query);
-    reply.send(await svc.wallet.ledgerOverview(need(req).id, { kind: q.kind, account: q.account, from: q.from, to: q.to, q: q.q, gameId: q.game, minAmount: q.min, limit: q.limit }));
+    reply.send(await svc.wallet.ledgerOverview(need(req).id, { kind: q.kind, account: q.account, from: q.from, to: q.to, q: q.q, gameId: q.game, minAmount: q.min, limit: q.limit, sort: q.sort, dir: q.dir }));
   }));
   app.get('/api/admin/ledger/kinds', guard(async (req, reply) => reply.send({ kinds: await svc.wallet.ledgerKinds(need(req).id) })));
   app.get('/api/admin/balances', guard(async (req, reply) => reply.send(await svc.wallet.balances(need(req).id))));

@@ -270,6 +270,7 @@ function LedgerPanel() {
   const [text, setText] = useState('');
   const [min, setMin] = useState('');
   const [limit, setLimit] = useState('100');
+  const [sort, setSort] = useState<{ key: 'time' | 'kind' | 'amount'; dir: 'asc' | 'desc' }>({ key: 'time', dir: 'desc' });
   useEffect(() => {
     void get<Record<string, number>>('/api/admin/house').then(setHouse).catch(() => undefined);
     void get<{ kinds: string[] }>('/api/admin/ledger/kinds').then((r) => setKinds(r.kinds)).catch(() => undefined);
@@ -284,11 +285,19 @@ function LedgerPanel() {
     if (text.trim()) p.set('q', text.trim());
     if (Number(min) > 0) p.set('min', min);
     p.set('limit', limit);
+    p.set('sort', sort.key);
+    p.set('dir', sort.dir);
     const timer = window.setTimeout(() => void get<LedgerTx[]>(`/api/admin/ledger?${p.toString()}`).then(setRows).catch(() => undefined), 250);
     return () => window.clearTimeout(timer);
-  }, [kind, account, from, to, text, min, limit]);
+  }, [kind, account, from, to, text, min, limit, sort]);
   const names = new Map(people.map((x) => [`wallet:${x.userId}`, x.nickname]));
   const accountText = (a: string) => names.get(a) ?? (a === 'house' ? t('cashier.house') : a === 'mint' ? t('cashier.ledger.mint') : a);
+  const sortHead = (key: 'time' | 'kind' | 'amount', label: string) => (
+    <button className="underline decoration-dotted" onClick={() => setSort((s) => ({ key, dir: s.key === key && s.dir === 'desc' ? 'asc' : 'desc' }))} aria-label={t('cashier.ledger.sortBy', { col: label })}>
+      {label}
+      {sort.key === key ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+    </button>
+  );
   const filtered = kind !== '' || account !== '' || from !== '' || to !== '' || text.trim() !== '' || Number(min) > 0;
   return (
     <Card title={t('cashier.ledger')}>
@@ -342,12 +351,22 @@ function LedgerPanel() {
         </div>
       </div>
       <p className="mb-2 text-sm text-muted">{t('cashier.ledger.count', { n: rows.length })}</p>
-      <DataTable head={['#', t('wallet.when'), t('wallet.kind'), t('cashier.entries'), t('wallet.note')]}>
+      <DataTable
+        head={[
+          sortHead('time', '#'),
+          sortHead('time', t('wallet.when')),
+          sortHead('kind', t('wallet.kind')),
+          sortHead('amount', t('cashier.ledger.amount')),
+          t('cashier.entries'),
+          t('wallet.note'),
+        ]}
+      >
         {rows.map((r) => (
           <tr key={r.id}>
             <Td>{r.id}</Td>
             <Td>{new Date(r.at).toLocaleString('cs-CZ')}</Td>
             <Td>{kindText(r.kind)}</Td>
+            <Td className="font-mono">{Math.max(0, ...r.entries.map((e) => Math.abs(e.amount))).toLocaleString('cs-CZ')}</Td>
             <Td className="font-mono text-xs">{r.entries.map((e) => `${accountText(e.account)}: ${e.amount > 0 ? '+' : ''}${e.amount}`).join(' · ')}</Td>
             <Td>{r.note}</Td>
           </tr>
