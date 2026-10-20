@@ -34,6 +34,20 @@ export function GlobalSettingsPage({ personal = false }: { personal?: boolean })
   return (
     <div className="flex flex-col gap-3">
       <Notice>{t(personal ? 'admin.personalDefaults.info' : 'admin.globalSettings.info')}</Notice>
+      {personal && (
+        <Card title={t('admin.personalDefaults.takeTitle')}>
+          <p className="mb-2 text-sm text-muted">{t('admin.personalDefaults.takeHelp')}</p>
+          <Button
+            onClick={() => {
+              const mine = Object.entries(settings.user).filter(([k, v]) => v !== undefined && registry.get(k) && isPersonal(registry.get(k)!) && base[k] !== v);
+              setPending({ ...pending, ...Object.fromEntries(mine as [string, SettingValue][]) });
+              setMsg({ kind: 'success', text: t('admin.personalDefaults.taken', { n: mine.length }) });
+            }}
+          >
+            {t('admin.personalDefaults.take')}
+          </Button>
+        </Card>
+      )}
       <SettingsForm
         registry={registry}
         values={values}
