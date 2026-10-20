@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { categoryKey, isVisible, labelKey, optionKey, scopeAllowed, t, type SettingDef, type SettingValue, type SettingValues } from '@kb/shared';
+import { categoryKey, currencyFormsOf, formatCurrency, isVisible, labelKey, optionKey, scopeAllowed, t, type SettingDef, type SettingValue, type SettingValues } from '@kb/shared';
 import { EstimateLine, LevelsTable, levelsFor } from './structure-editor';
 import { errorText, get } from '../api';
 import { registry } from '../settings';
@@ -11,7 +11,16 @@ interface Details {
 }
 
 /** Čitelná hodnota parametru: ano/ne, název možnosti, číslo s jednotkou. */
-function formatValue(def: SettingDef, v: SettingValue): string {
+/** Buy-in je v násobcích velkého blindu; vedle něj se ukáže i částka v měně (BB × velký blind ÷ žetonů na jednotku měny). */
+function buyInInCurrency(def: SettingDef, v: SettingValue, values: SettingValues): string {
+  if (def.key !== 'cash.minBuyInBb' && def.key !== 'cash.maxBuyInBb') return '';
+  const chips = Number(v) * Number(values['table.bigBlind']);
+  const rate = Number(values['cash.chipsPerCurrencyUnit']) || 1;
+  const cur = Math.round(chips / rate);
+  return Number.isFinite(cur) ? ` (${formatCurrency(cur, currencyFormsOf(values))})` : '';
+}
+
+function formatValue(def: SettingDef, v: SettingValue, values: SettingValues): string {
   switch (def.type) {
     case 'bool':
       return t(v ? 'common.yes' : 'common.no');
@@ -19,7 +28,7 @@ function formatValue(def: SettingDef, v: SettingValue): string {
       return t(optionKey(def.key, String(v)));
     case 'int':
       // Částky ve virtuální měně jsou bez jednotky (symbol se u stolu nezobrazuje).
-      return `${v}${def.unit && def.unit !== 'currency' ? ` ${t(`unit.${def.unit}`)}` : ''}`;
+      return `${v}${def.unit && def.unit !== 'currency' ? ` ${t(`unit.${def.unit}`)}` : ''}${buyInInCurrency(def, v, values)}`;
     default:
       return String(v ?? '');
   }
@@ -88,7 +97,7 @@ export function RulesDialog({ detailsPath, kind, onClose }: { detailsPath: strin
                   {group.defs.map((def) => (
                     <div key={def.key} className="contents">
                       <dt title={t(`settings.${def.key}.help`)}>{t(labelKey(def.key))}</dt>
-                      <dd className="text-right font-mono">{formatValue(def, values[def.key] as SettingValue)}</dd>
+                      <dd className="text-right font-mono">{formatValue(def, values[def.key] as SettingValue, values)}</dd>
                     </div>
                   ))}
                 </dl>

@@ -186,9 +186,21 @@ export class MaintenanceService {
       await db.delete(schema.gameResults);
       await db.delete(schema.tournamentEliminations);
     }
-    if (areas.wallets) done.wallets = await this.resetWallets(actorId);
+    if (areas.wallets) {
+      done.wallets = await this.resetWallets(actorId);
+      if (await this.resetHouse(actorId)) done.house = 1;
+    }
     await this.deps.audit.log({ actorId, action: 'udrzba.vynulovani', targetType: 'system', after: { areas, done }, ...meta });
     return done;
+  }
+
+  /** Účet domu zpět na nulu (zůstatek jde do účtu mint) a smazání zapsaných výdajů domu; vrací, zda se něco změnilo. */
+  private async resetHouse(actorId: string): Promise<boolean> {
+    const balance = this.deps.ledger.balance(ledgerAccounts.house());
+    const expenses = await this.count(schema.houseExpenses);
+    await this.deps.db.delete(schema.houseExpenses);
+    if (balance !== 0) this.deps.ledger.post({ kind: 'manual_adjustment', idempotencyKey: `reset-house:${randomUUID()}`, entries: [{ account: ledgerAccounts.house(), amount: -balance }, { account: ledgerAccounts.mint(), amount: balance }], createdBy: actorId, note: 'udrzba.vynulovani' });
+    return balance !== 0 || expenses > 0;
   }
 
   /** Všechny peněženky na startovní zůstatek; rozdíl jde z/do účtu „mint“ (virtuální měna bez hodnoty). */
@@ -207,7 +219,7 @@ export class MaintenanceService {
   }
 
   /**
-   * Nový start účetní knihy: smaže celou historii transakcí a zůstatků a každému hráči připíše počáteční zůstatek
+   * Nový start účetní knihy: smaže celou historii transakcí a zůstatků (včetně účtu domu a výdajů domu) a každému hráči připíše počáteční zůstatek
    * jedinou „otevírací“ transakcí (z účtu mint). Jde jen bez otevřených stolů a běžících turnajů (žádné žetony mimo peněženky).
    */
   async resetLedger(actorId: string, meta: Meta = {}, opts: { balance?: number } = {}): Promise<{ transactionsDeleted: number; users: number }> {
@@ -219,6 +231,7 @@ export class MaintenanceService {
     await this.deps.flush();
     const db = this.deps.db;
     const transactionsDeleted = await this.count(schema.ledgerTransactions);
+    await db.delete(schema.houseExpenses);
     await db.delete(schema.ledgerEntries);
     await db.delete(schema.ledgerTransactions);
     await db.delete(schema.ledgerAccounts);

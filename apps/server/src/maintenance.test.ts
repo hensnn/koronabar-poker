@@ -41,7 +41,14 @@ describe('údržba: vynulování po testování', () => {
     await expect(s.server.maintenance.reset(s.player, { xp: true })).rejects.toBeInstanceOf(MaintenanceError);
     await expect(s.server.maintenance.reset(s.admin, {})).rejects.toBeInstanceOf(MaintenanceError);
 
+    await s.server.houseExpenses.deposit(s.admin, { amount: 900, note: 'test' });
+    await s.server.houseExpenses.spend(s.admin, { category: 'provoz', amount: 100, note: 'test' });
+    expect(s.server.ledger.balance(accounts.house())).toBe(800);
     const done = await s.server.maintenance.reset(s.admin, { xp: true, achievements: true, rating: true, stats: true, wallets: true });
+    // dům je zpět na nule a jeho výdaje smazané
+    expect(done.house).toBe(1);
+    expect(s.server.ledger.balance(accounts.house())).toBe(0);
+    expect(await s.server.db.select().from(schema.houseExpenses)).toHaveLength(0);
     expect(done.xpEvents).toBeGreaterThan(0);
     expect((await s.server.progress.progressOf(s.player)).xp).toBe(0);
     expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(10_000);
@@ -108,6 +115,8 @@ describe('údržba: příprava na ostrý provoz', () => {
   it('smaže chat, upozornění, historii a peněženky nastaví na nulu; uživatelé a nastavení zůstanou', async () => {
     const s = await start();
     await s.server.wallet.topUp(s.admin, s.player, 777, 'test');
+    await s.server.houseExpenses.deposit(s.admin, { amount: 500, note: 'test' });
+    await s.server.houseExpenses.spend(s.admin, { category: 'akce', amount: 50, note: 'test' });
     // chat: zprávy v hlavním kanálu (i systémová) a reakce
     const main = await s.server.chat.ensureMainChannel();
     const m1 = await s.server.chat.send(s.player, main, 'ahoj z testu');
@@ -138,6 +147,9 @@ describe('údržba: příprava na ostrý provoz', () => {
     // peněženky jsou na nule a kniha je vyrovnaná
     expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(0);
     expect(s.server.ledger.balance(accounts.wallet(s.admin))).toBe(0);
+    // účet domu i výdaje domu začínají znovu
+    expect(s.server.ledger.balance(accounts.house())).toBe(0);
+    expect(await s.server.db.select().from(schema.houseExpenses)).toHaveLength(0);
     // uživatelé zůstali, hlavní kanál chatu také (jen prázdný)
     const users = await s.server.db.select({ id: schema.users.id }).from(schema.users);
     expect(users.map((u) => u.id).sort()).toEqual([s.admin, s.player].sort());
