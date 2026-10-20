@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../../api';
 import { Button, Card, DataTable, Notice, NumInput, Select, Td, TextInput } from '../../ui';
+import { useSort } from '../../sort';
 
 interface Report {
   house: number;
@@ -24,6 +25,7 @@ export function HouseCard({ onChange }: { onChange: () => void }) {
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState('');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
+  const exp = useSort<Report['expenses'][number], 'at' | 'category' | 'amount' | 'note'>({ key: 'at', dir: 'desc' }, { at: (x) => x.at, category: (x) => catLabel(x.category), amount: (x) => x.amount, note: (x) => x.note });
   const load = useCallback(() => {
     get<Report>('/api/admin/house/report')
       .then((r) => {
@@ -147,8 +149,8 @@ export function HouseCard({ onChange }: { onChange: () => void }) {
         <p className="mt-2 text-sm text-muted">{t('finance.expenseNone')}</p>
       ) : (
         <div className="mt-3">
-          <DataTable head={[t('finance.expenseWhen'), t('finance.expenseCategory'), t('finance.expenseAmount'), t('finance.expenseNote')]}>
-            {rep.expenses.map((x) => (
+          <DataTable head={[exp.head('at', t('finance.expenseWhen')), exp.head('category', t('finance.expenseCategory')), exp.head('amount', t('finance.expenseAmount')), exp.head('note', t('finance.expenseNote'))]}>
+            {exp.sorted(rep.expenses).map((x) => (
               <tr key={x.id}>
                 <Td>{new Date(x.at).toLocaleDateString('cs-CZ')}</Td>
                 <Td>{catLabel(x.category)}</Td>
