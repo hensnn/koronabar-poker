@@ -81,6 +81,22 @@ describe('TableActor: peníze u stolu', () => {
     expect(m.ledger.balance(accounts.table('t1'))).toBe(1000);
   });
 
+  it('hit and run: kdo odešel s větším stackem, než je maximální buy-in, se smí vrátit se stejným stackem', () => {
+    const m = make({ 'cash.hitAndRunProtection': true, 'cash.hitAndRunMinutes': 30, 'cash.maxBuyInBb': 100 });
+    m.fund('a');
+    m.actor.join('a', 'A', 0, 800);
+    m.actor.leave('a');
+    // maximum se mezitím sníží pod stack, se kterým odešel (např. vyhrál víc, než je povoleno nasedat)
+    m.settings['cash.maxBuyInBb'] = 50;
+    expect(m.actor.viewFor('a').returnStack).toBe(800);
+    expect(m.actor.viewFor('b').returnStack).toBe(0);
+    expect(() => m.actor.join('a', 'A', 0, 500)).toThrowError(expect.objectContaining({ code: 'HIT_AND_RUN' }));
+    expect(() => m.actor.join('a', 'A', 0, 900)).toThrowError(expect.objectContaining({ code: 'BUYIN_TOO_LARGE' }));
+    m.actor.join('a', 'A', 0, 800);
+    expect(m.actor.viewFor('a').returnStack).toBe(0);
+    expect(m.actor.totalChips()).toBe(800);
+  });
+
   it('hit and run: po odchodu nejde hned usednout s menším stackem', () => {
     const m = make({ 'cash.hitAndRunProtection': true, 'cash.hitAndRunMinutes': 30 });
     m.fund('a');

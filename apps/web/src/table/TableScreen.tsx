@@ -558,11 +558,14 @@ function Seat({
 function AmountDialog({ title, view, balance, onCancel, onOk }: { title: string; view: TableView; balance: number; onCancel: () => void; onOk: (currency: number) => void }) {
   const info = view.info;
   const rate = info.chipsPerCurrencyUnit;
-  const min = Math.ceil(info.minBuyIn / rate);
-  const max = Math.min(Math.floor(info.maxBuyIn / rate), balance);
+  // Kdo nedávno odešel s větším stackem než je maximum, se smí vrátit se stejným stackem (nad maximální buy-in).
+  const back = Math.ceil((view.returnStack ?? 0) / rate);
+  const min = Math.max(Math.ceil(info.minBuyIn / rate), back);
+  const max = Math.min(Math.max(Math.floor(info.maxBuyIn / rate), back), balance);
   const [v, setV] = useState(Math.min(max, Math.max(min, Math.floor((min + max) / 2))));
   return (
     <Modal title={title} onClose={onCancel}>
+      {back > 0 && <p className="rounded-md border border-warning px-2 py-1 text-sm">{t('table.returnHint', { n: back, symbol: info.currencySymbol })}</p>}
       <p className="text-sm text-muted">
         {t('table.wallet')}:{' '}
         <span className="font-mono">

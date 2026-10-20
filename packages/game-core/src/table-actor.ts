@@ -191,7 +191,10 @@ export class TableActor {
       const max = num(s, 'cash.maxBuyInBb') * bb;
       if (!Number.isInteger(currencyAmount) || currencyAmount <= 0) throw new GameError('INVALID_AMOUNT');
       if (chips < min) throw new GameError('BUYIN_TOO_SMALL', undefined, { min });
-      if (chips > max) throw new GameError('BUYIN_TOO_LARGE', undefined, { max });
+      // Kdo nedávno odešel s větším stackem, než je maximální buy-in, se smí vrátit se stejným stackem, jinak by se vrátit nemohl.
+      const floor = this.hitAndRunFloor(userId, s);
+      const cap = Math.max(max, Math.ceil(floor / rate) * rate);
+      if (chips > cap) throw new GameError('BUYIN_TOO_LARGE', undefined, { max: cap });
       this.checkHitAndRun(userId, chips, s);
       const got = this.opt.cash.buyIn(userId, this.opt.tableId, currencyAmount, `buyin:${this.opt.tableId}:${userId}:${randomUUID()}`);
       this.seats.set(userId, {
@@ -479,6 +482,7 @@ export class TableActor {
         ...(!this.opt.tournament && (s['jackpot.royalFlushEnabled'] || s['jackpot.badBeatEnabled']) ? { jackpot: this.opt.cash.fundBalance(String(s['rake.jackpotFundId'] || 'jackpot')) } : {}),
       },
       myStraddle: userId ? (this.seats.get(userId)?.wantsStraddle ?? false) : false,
+      returnStack: userId && !this.seats.has(userId) && !this.opt.tournament ? this.hitAndRunFloor(userId, s) : 0,
       viewerId: userId,
       deadline: this.deadline,
       bankActive: this.bankActive,
@@ -1696,12 +1700,18 @@ export class TableActor {
     this.persist();
   }
 
-  private checkHitAndRun(userId: string, chips: number, s: SettingValues): void {
-    if (!s['cash.hitAndRunProtection']) return;
+  /** Kolik žetonů musí mít hráč po návratu (stack, se kterým před chvílí odešel), nebo 0, když ochrana neplatí. */
+  private hitAndRunFloor(userId: string, s: SettingValues): number {
+    if (!s['cash.hitAndRunProtection']) return 0;
     const windowMs = num(s, 'cash.hitAndRunMinutes') * 60_000;
     const now = this.opt.clock.now();
     const last = [...this.recentLeaves].reverse().find((l) => l.userId === userId && now - l.at < windowMs);
-    if (last && chips < last.chips) throw new GameError('HIT_AND_RUN', undefined, { min: last.chips });
+    return last?.chips ?? 0;
+  }
+
+  private checkHitAndRun(userId: string, chips: number, s: SettingValues): void {
+    const floor = this.hitAndRunFloor(userId, s);
+    if (floor > 0 && chips < floor) throw new GameError('HIT_AND_RUN', undefined, { min: floor });
   }
 
   private scheduleMaxSitOut(e: SeatEntry): void {

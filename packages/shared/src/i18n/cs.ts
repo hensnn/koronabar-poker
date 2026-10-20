@@ -767,6 +767,7 @@ export const cs: Record<string, string> = {
   'table.widget.actions': 'Akce',
   'table.widget.tools': 'Akce u stolu',
   'table.widget.reveal': 'Ukázat karty',
+  'table.returnHint': 'Nedávno jsi od stolu odešel s větším stackem: vracíš se minimálně se stejným stackem ({n} {symbol}), i když přesahuje maximální buy-in.',
   'fx.rebuy': 'REBUY',
   'fx.addon': 'ADD-ON',
   'fx.reentry': 'NOVÝ VSTUP',
