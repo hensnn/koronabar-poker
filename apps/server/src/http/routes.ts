@@ -1998,8 +1998,15 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.get('/api/admin/house', guard(async (req, reply) => reply.send(svc.wallet.houseBalances(need(req).id))));
 
   app.post('/api/requests', guard(async (req, reply) => {
-    const b = z.object({ kind: z.enum(['dobiti', 'role', 'schvaleni']), amount: amount.optional(), message: z.string().max(500).optional() }).parse(req.body);
-    return reply.send({ id: await svc.wallet.createRequest(need(req).id, b) });
+    const b = z.object({ kind: z.enum(['dobiti', 'role', 'schvaleni', 'prevod']), amount: amount.optional(), message: z.string().max(500).optional(), target: z.string().max(60).optional() }).parse(req.body);
+    const { target, ...rest } = b;
+    return reply.send({ id: await svc.wallet.createRequest(need(req).id, { ...rest, payload: target ? { target } : undefined }) });
+  }));
+  /** Nastavení převodů do jiných aplikací pro formulář v peněžence. */
+  app.get('/api/wallet/transfer', guard(async (req, reply) => {
+    need(req);
+    const s = svc.settings.resolve();
+    reply.send({ enabled: !!s['economy.transferEnabled'], targets: svc.wallet.transferTargets(), min: Number(s['economy.transferMin']), max: Number(s['economy.transferMax']) });
   }));
   app.get('/api/requests', guard(async (req, reply) => {
     const q = z.object({ all: z.enum(['1', 'true']).optional(), status: z.string().optional() }).parse(req.query);

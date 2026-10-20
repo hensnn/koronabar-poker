@@ -19,6 +19,8 @@ export const accounts = {
   tournament: (id: string) => `tournament:${id}`,
   /** Bounty turnaje: odměny za vyřazení a hlavy hráčů (po skončení turnaje nulový). */
   bounty: (id: string) => `bounty:${id}`,
+  /** Převod Koron do jiné aplikace (výdej z peněženky; jen záznam o převodu, žádné peníze). */
+  external: (target: string) => `external:${target}`,
 } as const;
 
 export type EntryKind =
@@ -48,6 +50,7 @@ export type EntryKind =
   | 'head_bounty_return'
   | 'head_bounty_house'
   | 'shop_purchase'
+  | 'transfer_out'
   | 'manual_adjustment';
 
 export interface Entry {

@@ -294,3 +294,12 @@ Každý ze **čtyř kanálů** má vlastní webhook, název, vypínač a vlastn�
 4. Tlačítkem **Poslat zkušební zprávu** ověř každý kanál zvlášť. Log doručení ukazuje, do kterého kanálu zpráva šla.
 
 Kanál bez adresy, nebo vypnutý, nic nedostane. Dříve nastavený jediný webhook je teď kanál 1.
+
+## Převod Koron do jiné aplikace (žádost o výběr)
+
+Korony jsou společná měna více vašich aplikací (her), proto si hráč může v **Peněžence** požádat o **převod do jiné aplikace**. Jde jen o záznam v účetní knize, **žádné platby ani směna za peníze**.
+
+1. **Zapnutí:** Globální nastavení → Ekonomika → **Převody Koron do jiných aplikací** (ve výchozím stavu je vypnuto). Tamtéž vyplň **Cílové aplikace** (názvy oddělené čárkou, hráč jednu vybere) a nejmenší a největší částku jedné žádosti.
+2. **Hráč:** v Peněžence → karta **Převod do jiné aplikace** vybere cíl a částku. Žádost nejde odeslat na víc, než kolik má, ani mimo povolený rozsah.
+3. **Pokladník:** žádost vyřídí v Pokladně (stejný seznam jako žádosti o dobití, sloupec Druh říká „Převod do: …“). Schválení znovu ověří zůstatek. Korony se odepíšou z peněženky na účet „převod ven“ a zapíšou se do knihy (Druh „Převod do jiné aplikace“). Žádost si hráč nemůže schválit sám.
+4. **Druhá aplikace:** dobití tam uděláte u ní ručně (pokladník ji dobije o stejnou částku). Aplikace spolu zatím nekomunikují automaticky.

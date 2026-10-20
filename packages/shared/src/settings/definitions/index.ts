@@ -237,6 +237,10 @@ const stats: SettingDef[] = [
   text('stats.yearFieldsApi', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'net,tournamentNet,cashNet,liveNet,won,lost,topUps,withdrawals,balanceStart,balanceEnd,hands,tournaments,monthly', 300),
   bool('stats.yearEmailAuto', { category: 'stats', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'stats.yearEnabled', truthy: true } }, false),
   text('finance.expenseCategories', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'provoz,ceny,akce,ostatni', 300),
+  bool('economy.transferEnabled', { category: 'economy', mutability: ADM, scopes: GLOBAL }, false),
+  text('economy.transferTargets', { category: 'economy', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 'jiná hra', 300),
+  int('economy.transferMin', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 100, 1, 1_000_000_000),
+  int('economy.transferMax', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 100000, 1, 1_000_000_000),
   int('stats.categoryTop', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 20),
   bool('stats.publicProfiles', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
 ];

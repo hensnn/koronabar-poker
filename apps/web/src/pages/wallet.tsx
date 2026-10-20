@@ -22,8 +22,17 @@ interface RequestRow {
   message: string | null;
   status: string;
   decisionNote: string | null;
+  payload?: { target?: string } | null;
   createdAt: string;
 }
+interface TransferInfo {
+  enabled: boolean;
+  targets: string[];
+  min: number;
+  max: number;
+}
+
+const kindLabel = (r: { kind: string; payload?: { target?: string } | null }): string => (r.kind === 'prevod' ? `${t('wallet.transfer.kind')}: ${r.payload?.target ?? ''}` : t(`wallet.request.kind.${r.kind}`));
 
 export function WalletPage() {
   const { me } = useSession();
@@ -33,10 +42,21 @@ export function WalletPage() {
   const [error, setError] = useState('');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
+  const [transfer, setTransfer] = useState<TransferInfo | null>(null);
+  const [tTarget, setTTarget] = useState('');
+  const [tAmount, setTAmount] = useState('');
+  const [tMessage, setTMessage] = useState('');
+  const [tMsg, setTMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const canRequest = can(me, 'zadost.vytvorit');
   const reload = useCallback(() => {
     get<HistoryRow[]>('/api/wallet/history').then(setHist).catch((e) => setError(errorText(e)));
     get<RequestRow[]>('/api/requests').then(setReqs).catch(() => undefined);
+    get<TransferInfo>('/api/wallet/transfer')
+      .then((i) => {
+        setTransfer(i);
+        setTTarget((c) => (i.targets.includes(c) ? c : (i.targets[0] ?? '')));
+      })
+      .catch(() => undefined);
   }, []);
   useEffect(reload, [reload, me?.balance]);
 
@@ -73,9 +93,10 @@ export function WalletPage() {
               {t('wallet.request.submit')}
             </Button>
           </form>
-          <DataTable head={[t('wallet.request.amount'), t('wallet.request.status'), t('wallet.request.note'), '']}>
+          <DataTable head={[t('wallet.kind'), t('wallet.request.amount'), t('wallet.request.status'), t('wallet.request.note'), '']}>
             {reqs.filter((r) => r.userId === me?.user.id).map((r) => (
               <tr key={r.id}>
+                <Td>{kindLabel(r)}</Td>
                 <Td className="font-mono">{r.amount}</Td>
                 <Td><Badge tone={r.status === 'approved' ? 'success' : r.status === 'rejected' ? 'danger' : 'muted'}>{t(`request.status.${r.status}`)}</Badge></Td>
                 <Td>{r.decisionNote}</Td>
@@ -83,6 +104,44 @@ export function WalletPage() {
               </tr>
             ))}
           </DataTable>
+        </Card>
+      )}
+
+      {canRequest && transfer?.enabled && (
+        <Card title={t('wallet.transfer.title')}>
+          <p className="mb-2 text-sm text-muted">{t('wallet.transfer.help', { min: transfer.min, max: transfer.max })}</p>
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const n = Number(tAmount);
+              if (!Number.isInteger(n) || n < transfer.min || n > transfer.max) return setTMsg({ kind: 'error', text: t('wallet.transfer.range', { min: transfer.min, max: transfer.max }) });
+              if (n > (me?.balance ?? 0)) return setTMsg({ kind: 'error', text: t('wallet.transfer.balance') });
+              try {
+                await post('/api/requests', { kind: 'prevod', amount: n, message: tMessage, target: tTarget });
+                setTAmount('');
+                setTMessage('');
+                setTMsg({ kind: 'success', text: t('wallet.transfer.sent') });
+                reload();
+              } catch (er) {
+                setTMsg({ kind: 'error', text: errorText(er) });
+              }
+            }}
+          >
+            <Select label={t('wallet.transfer.target')} value={tTarget} onChange={(e) => setTTarget(e.target.value)}>
+              {transfer.targets.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </Select>
+            <TextInput label={t('wallet.request.amount')} type="number" min={transfer.min} max={transfer.max} value={tAmount} onChange={(e) => setTAmount(e.target.value)} required />
+            <TextInput label={t('wallet.request.message')} value={tMessage} onChange={(e) => setTMessage(e.target.value)} maxLength={500} />
+            <Button variant="primary" type="submit" disabled={!tTarget}>
+              {t('wallet.transfer.submit')}
+            </Button>
+          </form>
+          {tMsg && <Notice kind={tMsg.kind}>{tMsg.text}</Notice>}
         </Card>
       )}
 
@@ -161,10 +220,11 @@ export function CashierPanel() {
       {can(me, 'mena.vyridit_zadost') && (
         <Card title={t('cashier.requests')}>
           {reqs.length === 0 && <p className="text-muted">{t('cashier.noRequests')}</p>}
-          <DataTable head={[t('cashier.user'), t('wallet.amount'), t('wallet.request.message'), '']}>
+          <DataTable head={[t('cashier.user'), t('wallet.kind'), t('wallet.amount'), t('wallet.request.message'), '']}>
             {reqs.map((r) => (
               <tr key={r.id}>
                 <Td>{nick(r.userId)}</Td>
+                <Td>{kindLabel(r)}</Td>
                 <Td className="font-mono">{r.amount}</Td>
                 <Td>{r.message}</Td>
                 <Td>

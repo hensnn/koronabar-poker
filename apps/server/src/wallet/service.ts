@@ -137,9 +137,10 @@ export class WalletService {
 
   // ---------- žádosti hráčů ----------
 
-  async createRequest(userId: string, input: { kind: 'dobiti' | 'role' | 'schvaleni'; amount?: number; message?: string; payload?: unknown }): Promise<string> {
+  async createRequest(userId: string, input: { kind: 'dobiti' | 'role' | 'schvaleni' | 'prevod'; amount?: number; message?: string; payload?: unknown }): Promise<string> {
     if (!this.deps.perms.can(userId, 'zadost.vytvorit').allowed) throw new PermissionError('FORBIDDEN');
     if (input.kind === 'dobiti') AMOUNT(input.amount);
+    if (input.kind === 'prevod') this.checkTransfer(userId, input.amount, (input.payload as { target?: string } | null)?.target);
     const pending = await this.deps.db.select({ id: schema.userRequests.id }).from(schema.userRequests).where(and(eq(schema.userRequests.userId, userId), eq(schema.userRequests.kind, input.kind), eq(schema.userRequests.status, 'pending')));
     if (pending.length >= 3) throw new PermissionError('LIMIT_EXCEEDED', { what: 'pending_requests' });
     const [row] = await this.deps.db
@@ -149,6 +150,21 @@ export class WalletService {
     await this.deps.audit.log({ actorId: userId, action: 'zadost.vytvorit', targetType: 'request', targetId: row!.id, after: { kind: input.kind, amount: input.amount } });
     this.deps.notify?.({ kind: 'request_created', requestId: row!.id, userId });
     return row!.id;
+  }
+
+  /** Cílové aplikace převodů z nastavení. */
+  transferTargets(): string[] {
+    return [...new Set(String(this.deps.settings()['economy.transferTargets'] ?? '').split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean))];
+  }
+
+  /** Kontrola žádosti o převod do jiné aplikace: zapnuto, povolený cíl, částka v mezích a dostatek Koron (bez mínusu). */
+  private checkTransfer(userId: string, amount: number | undefined, target: string | undefined): void {
+    const s = this.deps.settings();
+    if (!s['economy.transferEnabled']) throw new PermissionError('INVALID', { field: 'transfer_disabled' });
+    AMOUNT(amount);
+    if (!target || !this.transferTargets().includes(target)) throw new PermissionError('INVALID', { field: 'target' });
+    if (amount! < Number(s['economy.transferMin']) || amount! > Number(s['economy.transferMax'])) throw new PermissionError('INVALID', { field: 'amount' });
+    if (this.deps.ledger.balance(accounts.wallet(userId)) < amount!) throw new PermissionError('INVALID', { field: 'balance' });
   }
 
   async cancelRequest(userId: string, id: string): Promise<void> {
@@ -181,6 +197,22 @@ export class WalletService {
       const d = this.deps.perms.can(actorId, 'mena.vyridit_zadost', { amount: r.amount ?? 0 });
       if (!d.allowed) throw new PermissionError('LIMIT_EXCEEDED', { limits: d.limits });
       txId = (await this.execTopUp(actorId, { userId: r.userId, amount: r.amount!, reason: `žádost ${id}${note ? `: ${note}` : ''}` }, meta)).txId;
+    }
+    if (approve && r.kind === 'prevod') {
+      // Odepsání z peněženky na účet „převod ven“ (žádné peníze); znovu se ověří zůstatek i nastavení.
+      const target = (r.payload as { target?: string } | null)?.target;
+      this.checkTransfer(r.userId, r.amount ?? undefined, target);
+      const tx = this.deps.ledger.post({
+        kind: 'transfer_out',
+        idempotencyKey: `transfer:${id}`,
+        entries: [
+          { account: accounts.wallet(r.userId), amount: -r.amount! },
+          { account: accounts.external(target!), amount: r.amount! },
+        ],
+        createdBy: actorId,
+        note: `převod do: ${target}${note ? ` (${note})` : ''}`,
+      });
+      txId = tx.id;
     }
     await this.deps.db.update(schema.userRequests).set({ status: approve ? 'approved' : 'rejected', decidedBy: actorId, decidedAt: new Date(), decisionNote: note }).where(eq(schema.userRequests.id, id));
     await this.deps.audit.log({ actorId, action: approve ? 'zadost.schvalit' : 'zadost.zamitnout', targetType: 'request', targetId: id, after: { kind: r.kind, txId }, reason: note, ...meta });

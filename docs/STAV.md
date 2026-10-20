@@ -493,3 +493,8 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 - Simulace (cash 3 běhy, turnaje 2 běhy s dlouhým limitem) bez chyb serveru. Turnaje s hráči, kteří mají volbu „zeptat se“ na showdownu, jsou pomalejší (až 6 s na showdown).
 - Průchod všemi stránkami v oknech 1400, 1024, 768, 812×375 a 375 px: opraven přetékající chat na telefonu. Kontrola kontrastu v světlém i tmavém režimu: opraveny odznaky a červená tlačítka v tmavém Červeném salonu (kontrolní dvojice onPrimary vůči danger, success, warning a accent jsou nově v testech motivů). Nativní posuvníky a ovládací prvky sledují světlý/tmavý režim (`color-scheme`).
 - Server: `/api/rating/duel` s neplatným id už nevrací 500. Doplněny české názvy 5 šablon e-mailů, skryté nadpisy h1 na přehledu a ve správě.
+
+## Rozhodnutí: převod Koron mezi aplikacemi (výběr/převod)
+
+- Majitel potvrdil, že Korony se používají i v jiných jeho hrách, a chce proto u peněženky „výběr / převod“. Pravidlo „žádné výběry“ z CLAUDE.md chápu tak, že se nesmí přidat skutečné platby, výplaty ani směna za peníze. Převod Koron do jiné aplikace je jen záznam v účetní knize (žádost, schválení pokladníkem, odepsání na účet `external:<cíl>`), bez peněz a bez automatického propojení.
+- Je to vypnuté (`economy.transferEnabled`), dokud to majitel nezapne. Pokud majitel chce pravidlo v CLAUDE.md upřesnit, je to na něm.
