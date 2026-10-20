@@ -49,6 +49,7 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
     { key: 'ui.sfxEvents', label: t('settings.ui.sfxEvents.label'), def: true },
     { key: 'ui.showInBb', label: t('settings.ui.showInBb.label'), def: false },
     { key: 'ui.showSymbolAtTable', label: t('settings.ui.showSymbolAtTable.label'), def: true },
+    { key: 'ui.showChipLabelAtTable', label: t('settings.ui.showChipLabelAtTable.label'), def: true },
     { key: 'xp.showAtTable', label: t('settings.xp.showAtTable.label'), def: true },
   ];
   const skip = (id: WidgetId) => !present(id);

@@ -2,9 +2,11 @@ import type { TableInfo } from '@kb/game-core';
 import { currencyWord, formatCurrency, t } from '@kb/shared';
 
 let showSymbol = false;
+let showChipLabel = true;
 /** Zobrazovat u stolu symbol měny (osobní nastavení ui.showSymbolAtTable). */
-export function setTableFormat(opts: { symbol: boolean }): void {
+export function setTableFormat(opts: { symbol: boolean; chipLabel?: boolean }): void {
   showSymbol = opts.symbol;
+  showChipLabel = opts.chipLabel ?? true;
 }
 
 /** Částka v měně u stolu: s názvem měny, nebo jen číslo, když hráč název u stolu vypnul (ui.showSymbolAtTable). */
@@ -19,11 +21,12 @@ export function formatAmount(chips: number, info: TableInfo, inBb: boolean): str
     return `${Number.isInteger(bb) ? bb : bb.toFixed(1)} BB`;
   }
   // Turnajové žetony nejsou měna: bez symbolu měny a bez kurzu; označení žetonů se řídí volbou table.showChipLabel (a textem table.chipLabel).
-  if (info.tournament) return info.chipLabel ? `${chips} ${info.chipLabel}` : String(chips);
+  const chipLabel = showChipLabel ? info.chipLabel : '';
+  if (info.tournament) return chipLabel ? `${chips} ${chipLabel}` : String(chips);
   const cur = chips / info.chipsPerCurrencyUnit;
   const d = info.currencyDecimals;
   const n = d > 0 ? (cur / 10 ** d).toFixed(d) : String(Math.round(cur));
-  const label = info.chipLabel ? ` ${info.chipLabel}` : '';
+  const label = chipLabel ? ` ${chipLabel}` : '';
   return showSymbol ? `${n} ${currencyWord(Number(n), info.currencyForms)}${label}` : `${n}${label}`;
 }
 

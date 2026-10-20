@@ -337,6 +337,8 @@ export const cs: Record<string, string> = {
   'settings.ui.colorMode.option.auto': 'Automaticky',
   'settings.ui.themeId.label': 'Motiv',
   'settings.ui.themeId.help': 'Zvolený motiv vzhledu aplikace. Mění se v části Vzhled, ne ručně zde.',
+  'settings.ui.showChipLabelAtTable.label': 'Označení žetonů u stolu',
+  'settings.ui.showChipLabelAtTable.help': 'Zobrazovat u částek u stolu text nastavený pro hru (např. „žetonů“ nebo vlastní značku). Vypnuto = nikdy, i když ho hra má zapnuté. Jen pro tebe.',
   'settings.ui.showSymbolAtTable.label': 'Název měny u stolu',
   'settings.ui.showSymbolAtTable.help': 'Zobrazovat u částek u stolu název měny (např. Korony). Vypnuto = jen čísla; v peněžence a statistikách zůstává.',
   'settings.chat.showSystemAtTable.label': 'Chat u stolu: zprávy o hře',

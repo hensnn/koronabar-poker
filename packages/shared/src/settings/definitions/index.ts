@@ -683,6 +683,7 @@ const ui: SettingDef[] = [
   int('ui.noteWindowHeight', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 2000),
   text('ui.tableSide', { category: 'ui', mutability: A, scopes: USER }, '', 400),
   bool('ui.showSymbolAtTable', { category: 'ui', mutability: A, scopes: USER }, true),
+  bool('ui.showChipLabelAtTable', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.rotateToMe', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.hideMyCards', { category: 'ui', mutability: A, scopes: USER }, false),
   int('ui.mobileTableAspect', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 115, 100, 200),

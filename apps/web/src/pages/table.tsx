@@ -61,7 +61,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const moreRef = useKeepInView<HTMLDivElement>(more);
   const mobile = useMobileLayout();
   useMobileAttribute(mobile);
-  setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true });
+  setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true, chipLabel: settings.values['ui.showChipLabelAtTable'] !== false });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
   useEffect(() => {
     const root = document.documentElement;
