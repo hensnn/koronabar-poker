@@ -645,6 +645,11 @@ export function TournamentPage({ id }: { id: string }) {
           {view.results && view.summary && view.summary.length > 0 ? (
             <>
               <SummaryTable summary={view.summary} meId={me?.user.id} />
+              <p className="mt-2">
+                <a className="rounded-md border border-line bg-surface px-3 py-1 text-sm" href={`/api/tournaments/${view.id}/export.csv`}>
+                  {t('tournament.exportCsv')}
+                </a>
+              </p>
               <p className="mt-2 text-xs text-muted">{t('tournament.resultNote')}</p>
             </>
           ) : view.standings.length === 0 ? (

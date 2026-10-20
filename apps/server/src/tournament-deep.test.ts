@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { accounts } from '@kb/ledger';
 import { FakeClock, randomLegalAction, seededRandom } from '@kb/game-core';
+import { eq } from 'drizzle-orm';
 import { buildServer } from './app.js';
+import { schema } from './db/index.js';
 
 // Hloubkové scénáře turnajů: dohoda po rebuy a add-onu ve všech metodách a typech bounty, živý turnaj s rebuy.
 // Každý scénář kontroluje, že přehled výsledků (náklady, výhra, bounty, zisk) sedí s peněženkami a že kniha zůstává vyrovnaná.
@@ -166,5 +168,23 @@ describe('hloubkově: živý turnaj s rebuy a add-onem', { timeout: 120_000 }, (
     expect(sum).toBe(-(s.server.ledger.balance(accounts.house()) + s.server.ledger.balance(accounts.fund('jackpot'))));
     expect(sum).toBeLessThanOrEqual(0);
     expect(s.server.ledger.balance(accounts.tournament(id))).toBe(0);
+
+    // export výsledků s náklady do CSV: jen pro přihlášené, s BOM, středníky a řádkem celkem
+    const nick = (await s.server.db.select({ n: schema.users.nickname }).from(schema.users).where(eq(schema.users.id, a)))[0]!.n;
+    expect((await s.server.app.inject({ method: 'GET', url: `/api/tournaments/${id}/export.csv` })).statusCode).toBe(401);
+    const login = await s.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: nick, password: 'heslo-hrace-123' }, headers: { origin: 'http://localhost' } });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+    const res = await s.server.app.inject({ method: 'GET', url: `/api/tournaments/${id}/export.csv`, headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(String(res.headers['content-disposition'])).toMatch(/turnaj-.*\.csv/);
+    expect(res.body.startsWith('\uFEFF')).toBe(true);
+    const lines = res.body.replace('\uFEFF', '').trim().split('\r\n');
+    expect(lines).toHaveLength(5); // turnaj, hlavicka, dva hraci, celkem
+    const cells = (line: string) => line.split(';').map((c) => c.replace(/^"|"$/g, ''));
+    const rowA = cells(lines.find((l) => l.includes(nick))!);
+    expect(rowA.slice(2, 9)).toEqual(['1', '110', '1', '100', '1', '50', '260']);
+    const total = cells(lines[lines.length - 1]!);
+    expect(Number(total[11])).toBe(row(a).profit + row(b).profit);
   });
 });

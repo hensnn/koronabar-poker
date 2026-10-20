@@ -32,6 +32,7 @@ export * from './progress.js';
 export * from './achievements.js';
 export * from './rating.js';
 export * from './public-board.js';
+export * from './csv.js';
 export * from './year-stats.js';
 export * from './currency.js';
 export * from './stats-categories.js';

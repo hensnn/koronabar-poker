@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { buildCategories, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
+import { buildCategories, tournamentCsv, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
@@ -1877,6 +1877,16 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   }));
 
   app.get('/api/tournaments/:id', guard(async (req, reply) => reply.send(await svc.tournaments().view(tid(req), viewer(req).id))));
+  /** Výsledky hotového turnaje s náklady (buy-in, rebuy, add-on, výhra, bounty, zisk) jako CSV pro tabulku. Stejná data, která už hráči vidí na stránce turnaje. */
+  app.get('/api/tournaments/:id/export.csv', guard(async (req, reply) => {
+    const view = await svc.tournaments().view(tid(req), viewer(req).id);
+    if (!view.summary || view.summary.length === 0) return reply.status(409).send({ code: 'TOURNAMENT_NOT_FINISHED' });
+    const slug = view.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'turnaj';
+    reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename="turnaj-${slug}.csv"`)
+      .send(tournamentCsv(view.name, view.summary.map((r) => ({ place: r.place, name: r.name, entries: r.entries, entryAmount: r.entryAmount, rebuys: r.rebuys, rebuyAmount: r.rebuyAmount, addons: r.addons, addonAmount: r.addonAmount, spent: r.spent, payout: r.payout, bounty: r.bounty, profit: r.profit }))));
+  }));
   app.get('/api/tournaments/:id/details', guard(async (req, reply) => {
     const u = viewer(req);
     const m = svc.tournaments();

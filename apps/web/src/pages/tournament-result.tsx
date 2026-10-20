@@ -116,6 +116,11 @@ export function TournamentResultHost() {
   return (
     <Modal title={t('tournament.finishedTitle', { name: r.name })} onClose={done} wide>
       <SummaryTable summary={r.summary} meId={me?.user.id} />
+      <p className="mt-2">
+        <a className="rounded-md border border-line bg-surface px-3 py-1 text-sm" href={`/api/tournaments/${r.id}/export.csv`}>
+          {t('tournament.exportCsv')}
+        </a>
+      </p>
       <p className="mt-2 text-xs text-muted">{t('tournament.resultNote')}</p>
       <div className="mt-3 flex justify-end">
         <Button onClick={done}>{t('tournament.resultBackToLobby')}</Button>
