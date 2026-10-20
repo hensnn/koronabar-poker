@@ -255,25 +255,100 @@ interface LedgerTx {
   entries: { account: string; amount: number }[];
 }
 
+const kindText = (k: string): string => (t(`ledger.kind.${k}`) === `ledger.kind.${k}` ? k : t(`ledger.kind.${k}`));
+
+/** Účetní kniha pokladníka s filtry: druh pohybu, hráč nebo účet, období, text v poznámce a nejmenší částka. */
 function LedgerPanel() {
   const [rows, setRows] = useState<LedgerTx[]>([]);
   const [house, setHouse] = useState<Record<string, number>>({});
+  const [kinds, setKinds] = useState<string[]>([]);
+  const [people, setPeople] = useState<{ userId: string; nickname: string }[]>([]);
+  const [kind, setKind] = useState('');
+  const [account, setAccount] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [text, setText] = useState('');
+  const [min, setMin] = useState('');
+  const [limit, setLimit] = useState('100');
   useEffect(() => {
-    void get<LedgerTx[]>('/api/admin/ledger').then(setRows).catch(() => undefined);
     void get<Record<string, number>>('/api/admin/house').then(setHouse).catch(() => undefined);
+    void get<{ kinds: string[] }>('/api/admin/ledger/kinds').then((r) => setKinds(r.kinds)).catch(() => undefined);
+    void get<{ rows: { userId: string; nickname: string }[] }>('/api/admin/balances').then((r) => setPeople(r.rows)).catch(() => undefined);
   }, []);
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (kind) p.set('kind', kind);
+    if (account) p.set('account', account);
+    if (from) p.set('from', String(new Date(`${from}T00:00:00`).getTime()));
+    if (to) p.set('to', String(new Date(`${to}T23:59:59`).getTime()));
+    if (text.trim()) p.set('q', text.trim());
+    if (Number(min) > 0) p.set('min', min);
+    p.set('limit', limit);
+    const timer = window.setTimeout(() => void get<LedgerTx[]>(`/api/admin/ledger?${p.toString()}`).then(setRows).catch(() => undefined), 250);
+    return () => window.clearTimeout(timer);
+  }, [kind, account, from, to, text, min, limit]);
+  const names = new Map(people.map((x) => [`wallet:${x.userId}`, x.nickname]));
+  const accountText = (a: string) => names.get(a) ?? (a === 'house' ? t('cashier.house') : a === 'mint' ? t('cashier.ledger.mint') : a);
+  const filtered = kind !== '' || account !== '' || from !== '' || to !== '' || text.trim() !== '' || Number(min) > 0;
   return (
     <Card title={t('cashier.ledger')}>
       <p className="mb-2">
         {t('cashier.house')}: <strong className="font-mono">{house.house ?? 0}</strong>
       </p>
+      <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <Select label={t('cashier.ledger.filterKind')} value={kind} onChange={(e) => setKind(e.target.value)}>
+          <option value="">{t('cashier.ledger.all')}</option>
+          {kinds.map((k) => (
+            <option key={k} value={k}>
+              {kindText(k)}
+            </option>
+          ))}
+        </Select>
+        <Select label={t('cashier.ledger.filterAccount')} value={account} onChange={(e) => setAccount(e.target.value)}>
+          <option value="">{t('cashier.ledger.all')}</option>
+          <option value="house">{t('cashier.house')}</option>
+          <option value="mint">{t('cashier.ledger.mint')}</option>
+          {people.map((x) => (
+            <option key={x.userId} value={`wallet:${x.userId}`}>
+              {x.nickname}
+            </option>
+          ))}
+        </Select>
+        <TextInput label={t('cashier.ledger.from')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        <TextInput label={t('cashier.ledger.to')} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        <TextInput label={t('cashier.ledger.search')} value={text} maxLength={100} onChange={(e) => setText(e.target.value)} />
+        <TextInput label={t('cashier.ledger.min')} type="number" min={0} value={min} onChange={(e) => setMin(e.target.value)} />
+        <Select label={t('cashier.ledger.limit')} value={limit} onChange={(e) => setLimit(e.target.value)}>
+          {['50', '100', '250', '500'].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </Select>
+        <div className="flex items-end">
+          <Button
+            disabled={!filtered}
+            onClick={() => {
+              setKind('');
+              setAccount('');
+              setFrom('');
+              setTo('');
+              setText('');
+              setMin('');
+            }}
+          >
+            {t('cashier.ledger.reset')}
+          </Button>
+        </div>
+      </div>
+      <p className="mb-2 text-sm text-muted">{t('cashier.ledger.count', { n: rows.length })}</p>
       <DataTable head={['#', t('wallet.when'), t('wallet.kind'), t('cashier.entries'), t('wallet.note')]}>
         {rows.map((r) => (
           <tr key={r.id}>
             <Td>{r.id}</Td>
             <Td>{new Date(r.at).toLocaleString('cs-CZ')}</Td>
-            <Td>{t(`ledger.kind.${r.kind}`)}</Td>
-            <Td className="font-mono text-xs">{r.entries.map((e) => `${e.account}: ${e.amount > 0 ? '+' : ''}${e.amount}`).join(' · ')}</Td>
+            <Td>{kindText(r.kind)}</Td>
+            <Td className="font-mono text-xs">{r.entries.map((e) => `${accountText(e.account)}: ${e.amount > 0 ? '+' : ''}${e.amount}`).join(' · ')}</Td>
             <Td>{r.note}</Td>
           </tr>
         ))}

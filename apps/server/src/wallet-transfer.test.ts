@@ -109,11 +109,53 @@ describe('pokladník vidí stavy účtů hráčů', () => {
     expect(body.rows.find((x) => x.userId === other)!.lastMoveAt).not.toBeNull();
     expect(body.totals.wallets).toBe(body.rows.reduce((n, x) => n + x.balance, 0));
     expect(body.totals.players).toBe(body.rows.length);
+    // rozpad vydané měny: vydáno = peněženky + dům + fondy + stoly + turnaje + převody ven; dobití 500 je mezi vydáními
+    const rec = (body as unknown as { reconciliation: { issued: number; wallets: number; house: number; funds: number; tables: number; tournaments: number; external: number; issuedBy: { amount: number; to: string; kind: string; note: string }[] } }).reconciliation;
+    expect(rec.issued).toBe(rec.wallets + rec.house + rec.funds + rec.tables + rec.tournaments + rec.external);
+    expect(rec.wallets).toBe(body.totals.wallets);
+    expect(rec.issuedBy.find((m) => m.to === 'Druhy' && m.amount === 500)).toMatchObject({ kind: 'mint', note: 'test' });
+    expect(rec.issuedBy.filter((m) => m.amount === 1000).length).toBeGreaterThanOrEqual(3); // počáteční zůstatky při registraci
 
     // hráč bez role pokladníka nic nevidí
     const inv2 = await c.server.accounts.createInvite(c.admin, {});
     await c.server.accounts.register({ inviteCode: inv2, nickname: 'Treti', email: 'treti@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
     const plain = await c.login('Treti', 'heslo-hrace-123');
     expect((await c.call('GET', '/api/admin/balances', plain)).statusCode).toBe(403);
+  });
+});
+
+describe('účetní kniha s filtry', () => {
+  it('filtruje podle druhu, účtu, textu, částky a data; limit a oprávnění', async () => {
+    const c = await start();
+    await c.server.perms.assignRole(c.admin, c.player, c.server.perms.roleByKey('pokladnik')!.id);
+    const inv = await c.server.accounts.createInvite(c.admin, {});
+    const { userId: other } = await c.server.accounts.register({ inviteCode: inv, nickname: 'Druhy', email: 'druhy@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
+    await c.server.wallet.topUp(c.admin, other, 500, 'Výhra v SÁZCE');
+    await c.server.wallet.debit(c.admin, other, 120, 'srážka za škodu');
+    const pok = await c.login('Hrac', 'heslo-hrace-123');
+    const get = async (qs: string) => (await c.call('GET', `/api/admin/ledger${qs}`, pok)).json() as { id: number; kind: string; note: string | null; at: string; entries: { account: string; amount: number }[] }[];
+
+    expect((await get('')).length).toBeGreaterThanOrEqual(4);
+    expect((await get('?kind=manual_adjustment')).map((t) => t.note)).toEqual(['srážka za škodu']);
+    expect((await get('?q=sázce')).map((t) => t.note)).toEqual(['Výhra v SÁZCE']); // bez ohledu na velikost písmen
+    expect(await get('?q=%25')).toHaveLength(0); // procento se bere doslova
+    const mine = await get(`?account=${encodeURIComponent(`wallet:${other}`)}`);
+    expect(mine.every((t) => t.entries.some((e) => e.account === `wallet:${other}`))).toBe(true);
+    expect(mine.length).toBeGreaterThanOrEqual(3); // počáteční zůstatek, dobití, srážka
+    expect((await get('?min=400')).every((t) => t.entries.some((e) => Math.abs(e.amount) >= 400))).toBe(true);
+    expect((await get('?min=1000000'))).toHaveLength(0);
+    expect((await get('?limit=2'))).toHaveLength(2);
+    const future = Date.now() + 86_400_000 * 365;
+    expect(await get(`?from=${future}`)).toHaveLength(0);
+    expect((await get(`?to=${future}&kind=mint&q=sázce`)).length).toBe(1);
+    // seznam druhů pohybů pro filtr
+    const kinds = ((await c.call('GET', '/api/admin/ledger/kinds', pok)).json() as { kinds: string[] }).kinds;
+    expect(kinds).toEqual(expect.arrayContaining(['mint', 'manual_adjustment']));
+    // hráč bez oprávnění knihu nevidí
+    const inv2 = await c.server.accounts.createInvite(c.admin, {});
+    await c.server.accounts.register({ inviteCode: inv2, nickname: 'Treti', email: 'treti@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
+    const plain = await c.login('Treti', 'heslo-hrace-123');
+    expect((await c.call('GET', '/api/admin/ledger?kind=mint', plain)).statusCode).toBe(403);
+    expect((await c.call('GET', '/api/admin/ledger/kinds', plain)).statusCode).toBe(403);
   });
 });

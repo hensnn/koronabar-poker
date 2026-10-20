@@ -29,6 +29,29 @@ export interface HouseExpenseNote {
   amount: number;
   note: string;
 }
+/** Filtry knihy pro pokladníka. */
+export interface LedgerFilters {
+  kind?: string;
+  account?: string;
+  from?: number;
+  to?: number;
+  q?: string;
+  gameId?: string;
+  minAmount?: number;
+  limit?: number;
+}
+
+/** Rozpad vydané měny: kolik se jí vydalo a kde je teď. */
+export interface BalanceReconciliation {
+  issued: number;
+  wallets: number;
+  house: number;
+  funds: number;
+  tables: number;
+  tournaments: number;
+  external: number;
+  issuedBy: { id: number; at: number; kind: string; note: string; amount: number; to: string }[];
+}
 export type WalletResult = { done: true; txId: number } | { done: false; approvalId: string };
 
 const AMOUNT = (n: unknown): number => {
@@ -235,17 +258,71 @@ export class WalletService {
     return rows;
   }
 
-  /** Celá kniha pro pokladníka. */
-  async ledgerOverview(actorId: string, limit = 100) {
+  /** Druhy pohybů, které se v knize vyskytují (pro filtr). */
+  async ledgerKinds(actorId: string): Promise<string[]> {
     if (!this.deps.perms.can(actorId, 'mena.zobrazit_knihu').allowed) throw new PermissionError('FORBIDDEN');
-    const txs = await this.deps.db.select().from(schema.ledgerTransactions).orderBy(desc(schema.ledgerTransactions.id)).limit(Math.min(limit, 500));
+    const rows = await this.deps.db.selectDistinct({ kind: schema.ledgerTransactions.kind }).from(schema.ledgerTransactions);
+    return rows.map((r) => r.kind).sort();
+  }
+
+  /**
+   * Kniha pro pokladníka s filtry: druh pohybu, účet (např. `wallet:<hráč>`, `house`, `mint`), období, text v poznámce, hra
+   * a nejmenší částka na některém záznamu. Nejnovější první, nejvýš 500 řádků.
+   */
+  async ledgerOverview(actorId: string, limitOrFilters: number | LedgerFilters = 100) {
+    if (!this.deps.perms.can(actorId, 'mena.zobrazit_knihu').allowed) throw new PermissionError('FORBIDDEN');
+    const f: LedgerFilters = typeof limitOrFilters === 'number' ? { limit: limitOrFilters } : limitOrFilters;
+    const lt_ = schema.ledgerTransactions;
+    const le = schema.ledgerEntries;
+    const conds = [];
+    if (f.kind) conds.push(eq(lt_.kind, f.kind));
+    if (f.from !== undefined) conds.push(gte(lt_.at, new Date(f.from)));
+    if (f.to !== undefined) conds.push(lte(lt_.at, new Date(f.to)));
+    if (f.q) conds.push(sql`lower(coalesce(${lt_.note}, '')) like ${'%' + f.q.toLowerCase().replace(/[%_\\]/g, (c) => '\\' + c) + '%'}`);
+    if (f.gameId) conds.push(eq(lt_.gameId, f.gameId));
+    if (f.account || f.minAmount) {
+      const inner = [eq(le.transactionId, lt_.id)];
+      if (f.account) inner.push(eq(le.account, f.account));
+      if (f.minAmount) inner.push(sql`abs(${le.amount}) >= ${f.minAmount}`);
+      conds.push(sql`exists (select 1 from ${le} where ${and(...inner)})`);
+    }
+    const txs = await this.deps.db.select().from(lt_).where(and(...conds)).orderBy(desc(lt_.id)).limit(Math.max(1, Math.min(f.limit ?? 100, 500)));
     const ids = txs.map((t) => t.id);
     const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(inArray(schema.ledgerEntries.transactionId, ids)).orderBy(asc(schema.ledgerEntries.seq)) : [];
     return txs.map((t) => ({ ...t, entries: entries.filter((e) => e.transactionId === t.id).map((e) => ({ account: e.account, amount: e.amount })) }));
   }
 
+  /**
+   * Odkud se vzala a kde je všechna vydaná měna: součet vydané měny (účet mint) se rozpadne na peněženky, dům, fondy, stoly,
+   * turnaje a převody ven, a vypíše se posledních 30 vydání (registrace, dobití, garance…) s příjemcem.
+   */
+  private reconcile(nick: Map<string, string>): BalanceReconciliation {
+    const by = new Map<string, number>();
+    const mints: BalanceReconciliation['issuedBy'] = [];
+    const txs = this.deps.ledger.transactions();
+    for (const tx of txs) {
+      for (const e of tx.entries) by.set(e.account, (by.get(e.account) ?? 0) + e.amount);
+      const m = tx.entries.find((e) => e.account === accounts.mint());
+      if (m) {
+        const to = tx.entries.find((e) => e.account !== accounts.mint() && e.amount > 0);
+        mints.push({ id: tx.id, at: tx.at, kind: tx.kind, note: tx.note ?? '', amount: -m.amount, to: to ? (nick.get(to.account) ?? to.account) : '' });
+      }
+    }
+    const sum = (prefix: string) => [...by].filter(([a]) => a.startsWith(prefix)).reduce((n, [, v]) => n + v, 0);
+    return {
+      issued: -(by.get(accounts.mint()) ?? 0),
+      wallets: sum('wallet:'),
+      house: by.get(accounts.house()) ?? 0,
+      funds: sum('fund:'),
+      tables: sum('table:'),
+      tournaments: sum('tournament:') + sum('bounty:') + sum('escrow:'),
+      external: sum('external:'),
+      issuedBy: mints.sort((a, b) => b.id - a.id).slice(0, 30),
+    };
+  }
+
   /** Stavy účtů všech hráčů pro pokladníka: zůstatek peněženky, stav účtu a poslední pohyb; součty za celou hernu. */
-  async balances(actorId: string): Promise<{ rows: { userId: string; nickname: string; status: string; balance: number; lastMoveAt: number | null }[]; totals: { wallets: number; house: number; players: number } }> {
+  async balances(actorId: string): Promise<{ rows: { userId: string; nickname: string; status: string; balance: number; lastMoveAt: number | null }[]; totals: { wallets: number; house: number; players: number }; reconciliation: BalanceReconciliation }> {
     if (!this.deps.perms.can(actorId, 'mena.zobrazit_knihu').allowed) throw new PermissionError('FORBIDDEN');
     const db = this.deps.db;
     const users = await db.select({ id: schema.users.id, nickname: schema.users.nickname, status: schema.users.status }).from(schema.users);
@@ -259,7 +336,8 @@ export class WalletService {
     const rows = users
       .map((u) => ({ userId: u.id, nickname: u.nickname, status: u.status, balance: this.deps.ledger.balance(accounts.wallet(u.id)), lastMoveAt: lastBy.get(accounts.wallet(u.id)) ?? null }))
       .sort((a, b) => b.balance - a.balance || a.nickname.localeCompare(b.nickname, 'cs'));
-    return { rows, totals: { wallets: rows.reduce((n, r) => n + r.balance, 0), house: this.deps.ledger.balance(accounts.house()), players: rows.length } };
+    const nick = new Map(users.map((u) => [accounts.wallet(u.id), u.nickname]));
+    return { rows, totals: { wallets: rows.reduce((n, r) => n + r.balance, 0), house: this.deps.ledger.balance(accounts.house()), players: rows.length }, reconciliation: this.reconcile(nick) };
   }
 
   houseBalances(actorId: string): Record<string, number> {

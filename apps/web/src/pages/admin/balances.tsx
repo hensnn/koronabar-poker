@@ -10,9 +10,20 @@ interface Row {
   balance: number;
   lastMoveAt: number | null;
 }
+interface Recon {
+  issued: number;
+  wallets: number;
+  house: number;
+  funds: number;
+  tables: number;
+  tournaments: number;
+  external: number;
+  issuedBy: { id: number; at: number; kind: string; note: string; amount: number; to: string }[];
+}
 interface Data {
   rows: Row[];
   totals: { wallets: number; house: number; players: number };
+  reconciliation: Recon;
 }
 
 const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
@@ -35,6 +46,33 @@ export function BalancesCard({ refreshKey = 0 }: { refreshKey?: number }) {
     <Card title={t('cashier.balances')}>
       <p className="mb-2 text-sm text-muted">{t('cashier.balancesHelp')}</p>
       <p className="mb-2 font-mono text-sm">{t('cashier.balancesTotal', { wallets: num(data.totals.wallets), house: num(data.totals.house), players: data.totals.players })}</p>
+      <details className="mb-3 rounded-md border border-line bg-surface">
+        <summary className="cursor-pointer px-3 py-2 font-semibold">{t('cashier.recon.title')}</summary>
+        <div className="flex flex-col gap-2 px-3 pb-3">
+          <p className="text-sm text-muted">{t('cashier.recon.help')}</p>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-sm">
+            <dt className="font-bold">{t('cashier.recon.issued')}</dt>
+            <dd className="text-right font-bold">{num(data.reconciliation.issued)}</dd>
+            {(['wallets', 'house', 'funds', 'tables', 'tournaments', 'external'] as const).map((k) => (
+              <div key={k} className="contents">
+                <dt className="text-muted">= {t(`cashier.recon.${k}`)}</dt>
+                <dd className="text-right">{num(data.reconciliation[k])}</dd>
+              </div>
+            ))}
+          </dl>
+          <DataTable head={[t('wallet.when'), t('wallet.kind'), t('cashier.recon.amount'), t('cashier.recon.to'), t('wallet.note')]}>
+            {data.reconciliation.issuedBy.map((m) => (
+              <tr key={m.id}>
+                <Td>{new Date(m.at).toLocaleString('cs-CZ')}</Td>
+                <Td>{t(`ledger.kind.${m.kind}`) === `ledger.kind.${m.kind}` ? m.kind : t(`ledger.kind.${m.kind}`)}</Td>
+                <Td className="font-mono">{m.amount > 0 ? `+${num(m.amount)}` : num(m.amount)}</Td>
+                <Td>{m.to}</Td>
+                <Td>{m.note}</Td>
+              </tr>
+            ))}
+          </DataTable>
+        </div>
+      </details>
       <input type="search" aria-label={t('cashier.balancesSearch')} placeholder={t('cashier.balancesSearch')} value={query} onChange={(e) => setQuery(e.target.value)} className="mb-2 w-full rounded-sm border border-line bg-surface px-3 py-2 text-text" />
       <DataTable head={[t('cashier.user'), t('cashier.balanceCol'), t('cashier.statusCol'), t('cashier.lastMove')]}>
         {rows.map((r) => (
