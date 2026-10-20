@@ -276,7 +276,7 @@ function LedgerPanel() {
     void get<{ kinds: string[] }>('/api/admin/ledger/kinds').then((r) => setKinds(r.kinds)).catch(() => undefined);
     void get<{ rows: { userId: string; nickname: string }[] }>('/api/admin/balances').then((r) => setPeople(r.rows)).catch(() => undefined);
   }, []);
-  useEffect(() => {
+  const query = (): URLSearchParams => {
     const p = new URLSearchParams();
     if (kind) p.set('kind', kind);
     if (account) p.set('account', account);
@@ -287,6 +287,10 @@ function LedgerPanel() {
     p.set('limit', limit);
     p.set('sort', sort.key);
     p.set('dir', sort.dir);
+    return p;
+  };
+  useEffect(() => {
+    const p = query();
     const timer = window.setTimeout(() => void get<LedgerTx[]>(`/api/admin/ledger?${p.toString()}`).then(setRows).catch(() => undefined), 250);
     return () => window.clearTimeout(timer);
   }, [kind, account, from, to, text, min, limit, sort]);
@@ -334,7 +338,10 @@ function LedgerPanel() {
             </option>
           ))}
         </Select>
-        <div className="flex items-end">
+        <div className="flex items-end gap-2">
+          <a className="rounded-md border border-line bg-surface px-3 py-2 text-sm" href={`/api/admin/ledger/export.csv?${(() => { const p = query(); p.delete('limit'); return p.toString(); })()}`}>
+            {t('cashier.ledger.export')}
+          </a>
           <Button
             disabled={!filtered}
             onClick={() => {

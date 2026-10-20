@@ -29,5 +29,24 @@ export function tournamentCsv(tournamentName: string, rows: TournamentCsvRow[]):
   for (const r of rows) lines.push([r.place, r.name, r.entries, r.entryAmount, r.rebuys, r.rebuyAmount, r.addons, r.addonAmount, r.spent, r.payout, r.bounty, r.profit].map(csvCell).join(';'));
   const total = (k: 'entryAmount' | 'rebuyAmount' | 'addonAmount' | 'spent' | 'payout' | 'bounty' | 'profit') => rows.reduce((n, r) => n + r[k], 0);
   lines.push(['', t('tournament.csv.total'), '', total('entryAmount'), '', total('rebuyAmount'), '', total('addonAmount'), total('spent'), total('payout'), total('bounty'), total('profit')].map(csvCell).join(';'));
-  return `﻿${lines.join('\r\n')}\r\n`;
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
+}
+
+export interface LedgerCsvRow {
+  id: number;
+  at: number;
+  kind: string;
+  note: string;
+  entries: { account: string; amount: number }[];
+}
+
+/** CSV účetní knihy: číslo pohybu, datum a čas (UTC, ISO), druh, největší částka, záznamy „účet: částka“ a poznámka (s BOM, CRLF). */
+export function ledgerCsv(rows: LedgerCsvRow[]): string {
+  const head = ['id', 'at', 'kind', 'amount', 'entries', 'note'].map((k) => csvCell(t(`cashier.ledger.csv.${k}`)));
+  const lines = [head.join(';')];
+  for (const r of rows) {
+    const label = t(`ledger.kind.${r.kind}`);
+    lines.push([r.id, new Date(r.at).toISOString(), label === `ledger.kind.${r.kind}` ? r.kind : label, Math.max(0, ...r.entries.map((e) => Math.abs(e.amount))), r.entries.map((e) => `${e.account}: ${e.amount > 0 ? '+' : ''}${e.amount}`).join(' | '), r.note].map(csvCell).join(';'));
+  }
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
 }

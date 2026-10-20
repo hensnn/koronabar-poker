@@ -162,6 +162,16 @@ describe('účetní kniha s filtry', () => {
     expect(amountsAsc).toEqual([...amountsAsc].sort((a, b) => a - b));
     expect(amountsDesc[0]).toBeGreaterThanOrEqual(1000); // počáteční zůstatky jsou největší
     expect((await c.call('GET', '/api/admin/ledger?sort=nesmysl', pok)).statusCode).toBe(400);
+    // export do CSV se stejnými filtry a řazením, účty s přezdívkami
+    const csv = await c.call('GET', `/api/admin/ledger/export.csv?kind=manual_adjustment&sort=amount&dir=desc`, pok);
+    expect(csv.statusCode).toBe(200);
+    expect(csv.headers['content-type']).toContain('text/csv');
+    expect(csv.body.startsWith('\uFEFF')).toBe(true);
+    const csvLines = csv.body.replace('\uFEFF', '').trim().split('\r\n');
+    expect(csvLines).toHaveLength(2); // hlavička a jediná srážka
+    expect(csvLines[1]).toContain('Druhy: -120');
+    expect(csvLines[1]).toContain('srážka za škodu');
+    expect((await c.call('GET', '/api/admin/ledger/export.csv', pok)).body.trim().split('\r\n').length).toBeGreaterThan(4);
     // seznam druhů pohybů pro filtr
     const kinds = ((await c.call('GET', '/api/admin/ledger/kinds', pok)).json() as { kinds: string[] }).kinds;
     expect(kinds).toEqual(expect.arrayContaining(['mint', 'manual_adjustment']));
@@ -171,5 +181,6 @@ describe('účetní kniha s filtry', () => {
     const plain = await c.login('Treti', 'heslo-hrace-123');
     expect((await c.call('GET', '/api/admin/ledger?kind=mint', plain)).statusCode).toBe(403);
     expect((await c.call('GET', '/api/admin/ledger/kinds', plain)).statusCode).toBe(403);
+    expect((await c.call('GET', '/api/admin/ledger/export.csv', plain)).statusCode).toBe(403);
   });
 });

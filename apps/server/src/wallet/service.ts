@@ -281,7 +281,7 @@ export class WalletService {
    * Kniha pro pokladníka s filtry: druh pohybu, účet (např. `wallet:<hráč>`, `house`, `mint`), období, text v poznámce, hra
    * a nejmenší částka na některém záznamu. Nejnovější první, nejvýš 500 řádků.
    */
-  async ledgerOverview(actorId: string, limitOrFilters: number | LedgerFilters = 100) {
+  async ledgerOverview(actorId: string, limitOrFilters: number | LedgerFilters = 100, maxRows = 500) {
     if (!this.deps.perms.can(actorId, 'mena.zobrazit_knihu').allowed) throw new PermissionError('FORBIDDEN');
     const f: LedgerFilters = typeof limitOrFilters === 'number' ? { limit: limitOrFilters } : limitOrFilters;
     const lt_ = schema.ledgerTransactions;
@@ -298,7 +298,7 @@ export class WalletService {
       if (f.minAmount) inner.push(sql`abs(${le.amount}) >= ${f.minAmount}`);
       conds.push(sql`exists (select 1 from ${le} where ${and(...inner)})`);
     }
-    const txs = await this.deps.db.select().from(lt_).where(and(...conds)).orderBy(...this.ledgerOrder(f)).limit(Math.max(1, Math.min(f.limit ?? 100, 500)));
+    const txs = await this.deps.db.select().from(lt_).where(and(...conds)).orderBy(...this.ledgerOrder(f)).limit(Math.max(1, Math.min(f.limit ?? 100, maxRows)));
     const ids = txs.map((t) => t.id);
     const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(inArray(schema.ledgerEntries.transactionId, ids)).orderBy(asc(schema.ledgerEntries.seq)) : [];
     return txs.map((t) => ({ ...t, entries: entries.filter((e) => e.transactionId === t.id).map((e) => ({ account: e.account, amount: e.amount })) }));

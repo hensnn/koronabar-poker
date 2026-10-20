@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { buildCategories, tournamentCsv, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
+import { buildCategories, ledgerCsv, tournamentCsv, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
@@ -2004,11 +2004,23 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       return houseErr(e, reply);
     }
   }));
+  const ledgerQuery = z.object({ kind: z.string().max(40).optional(), account: z.string().max(80).optional(), from: z.coerce.number().optional(), to: z.coerce.number().optional(), q: z.string().max(100).optional(), game: z.string().max(80).optional(), min: z.coerce.number().int().min(0).optional(), limit: z.coerce.number().int().min(1).max(5000).optional(), sort: z.enum(['time', 'kind', 'amount']).optional(), dir: z.enum(['asc', 'desc']).optional() });
+  const ledgerFilters = (q: z.infer<typeof ledgerQuery>) => ({ kind: q.kind, account: q.account, from: q.from, to: q.to, q: q.q, gameId: q.game, minAmount: q.min, limit: q.limit, sort: q.sort, dir: q.dir });
   app.get('/api/admin/ledger', guard(async (req, reply) => {
-    const q = z
-      .object({ kind: z.string().max(40).optional(), account: z.string().max(80).optional(), from: z.coerce.number().optional(), to: z.coerce.number().optional(), q: z.string().max(100).optional(), game: z.string().max(80).optional(), min: z.coerce.number().int().min(0).optional(), limit: z.coerce.number().int().min(1).max(500).optional(), sort: z.enum(['time', 'kind', 'amount']).optional(), dir: z.enum(['asc', 'desc']).optional() })
-      .parse(req.query);
-    reply.send(await svc.wallet.ledgerOverview(need(req).id, { kind: q.kind, account: q.account, from: q.from, to: q.to, q: q.q, gameId: q.game, minAmount: q.min, limit: q.limit, sort: q.sort, dir: q.dir }));
+    const q = ledgerQuery.parse(req.query);
+    reply.send(await svc.wallet.ledgerOverview(need(req).id, ledgerFilters(q)));
+  }));
+  /** Kniha jako CSV se stejnými filtry a řazením jako na obrazovce (nejvýš 5000 pohybů); účty hráčů s přezdívkami. */
+  app.get('/api/admin/ledger/export.csv', guard(async (req, reply) => {
+    const actor = need(req).id;
+    const q = ledgerQuery.parse(req.query);
+    const rows = await svc.wallet.ledgerOverview(actor, { ...ledgerFilters(q), limit: q.limit ?? 5000 }, 5000);
+    const balances = await svc.wallet.balances(actor);
+    const names = new Map(balances.rows.map((r) => [`wallet:${r.userId}`, r.nickname]));
+    reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', 'attachment; filename="ucetni-kniha.csv"')
+      .send(ledgerCsv(rows.map((r) => ({ id: r.id, at: new Date(r.at).getTime(), kind: r.kind, note: r.note ?? '', entries: r.entries.map((e) => ({ account: names.get(e.account) ?? e.account, amount: Number(e.amount) })) }))));
   }));
   app.get('/api/admin/ledger/kinds', guard(async (req, reply) => reply.send({ kinds: await svc.wallet.ledgerKinds(need(req).id) })));
   app.get('/api/admin/balances', guard(async (req, reply) => reply.send(await svc.wallet.balances(need(req).id))));
