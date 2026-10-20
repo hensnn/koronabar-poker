@@ -483,6 +483,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     db,
     perms,
     progress,
+    enabled: () => settings.resolve()['xp.enabled'] !== false,
     onEarned: (userId, a) => {
       void notifications.simple(userId, 'achievement', { name: a.name, xp: a.xp }, '/postup').catch(() => undefined);
       void cosmeticsRef?.sync(userId).catch(() => undefined);

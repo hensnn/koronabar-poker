@@ -64,6 +64,8 @@ export class AchievementService {
       perms: PermissionChecker;
       progress: ProgressService;
       onEarned?: (userId: string, a: { key: string; name: string; icon: string; xp: number }) => void;
+      /** Úspěchy se vyhodnocují jen při zapnutých zkušenostech (XP); bez toho se nic neodemyká ani neoznamuje. */
+      enabled?: () => boolean;
       onError?: (e: unknown) => void;
       /** Jak dlouho se události slučují před vyhodnocením (ms). */
       debounceMs?: number;
@@ -202,6 +204,7 @@ export class AchievementService {
    * nevyhodnocovalo po každé handě (dotazy do historie jsou dražší než samotná hra).
    */
   trigger(userIds: string[], triggers: Trigger[]): void {
+    if (this.deps.enabled && !this.deps.enabled()) return;
     for (const t of triggers) {
       const set = this.waiting.get(t) ?? new Set<string>();
       for (const u of userIds) set.add(u);

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne, notInArray } from 'drizzle-orm';
 import { formatLocal, t, type SettingValues } from '@kb/shared';
 import type { Server } from 'socket.io';
 import { schema, type Db } from './db/index.js';
@@ -17,6 +17,9 @@ export interface NotificationDto {
   /** Hotový český text (server ho skládá z klíče a parametrů). */
   text: string;
 }
+
+/** Upozornění o postupu a úspěších: patří k XP. */
+const XP_KINDS = ['levelUp', 'achievement'];
 
 /**
  * Upozornění v aplikaci (uložená v DB, živě přes Socket.IO) a volitelně e-mailem.
@@ -47,8 +50,14 @@ export class NotificationService {
     return { id: r.id, kind: r.kind, params: r.params, link: r.link, createdAt: r.createdAt.getTime(), read: !!r.readAt, text: this.textFor(r.kind, r.params) };
   }
 
+  /** Druhy upozornění, které patří k zkušenostem (XP): při vypnutých zkušenostech se nevytvářejí ani nezobrazují. */
+  private xpKinds(): string[] {
+    return this.deps.settings.resolve()['xp.enabled'] === false ? XP_KINDS : [];
+  }
+
   /** Jednoduché upozornění jednomu uživateli (v aplikaci, bez e-mailu), např. postup na další level. */
   async simple(userId: string, kind: string, params: Record<string, unknown>, link: string | null): Promise<void> {
+    if (this.xpKinds().includes(kind)) return;
     const [r] = await this.deps.db.insert(schema.notifications).values({ userId, kind, params, link }).returning();
     if (r) this.io?.to(`user:${r.userId}`).emit('notification', this.dto(r));
   }
@@ -89,8 +98,10 @@ export class NotificationService {
   }
 
   async list(userId: string, limit = 50): Promise<{ items: NotificationDto[]; unread: number }> {
-    const rows = await this.deps.db.select().from(schema.notifications).where(eq(schema.notifications.userId, userId)).orderBy(desc(schema.notifications.id)).limit(Math.min(limit, 200));
-    const unreadRows = await this.deps.db.select({ id: schema.notifications.id }).from(schema.notifications).where(and(eq(schema.notifications.userId, userId), isNull(schema.notifications.readAt)));
+    const hidden = this.xpKinds();
+    const mine = hidden.length > 0 ? and(eq(schema.notifications.userId, userId), notInArray(schema.notifications.kind, hidden)) : eq(schema.notifications.userId, userId);
+    const rows = await this.deps.db.select().from(schema.notifications).where(mine).orderBy(desc(schema.notifications.id)).limit(Math.min(limit, 200));
+    const unreadRows = await this.deps.db.select({ id: schema.notifications.id }).from(schema.notifications).where(and(mine, isNull(schema.notifications.readAt)));
     return { items: rows.map((r) => this.dto(r)), unread: unreadRows.length };
   }
 

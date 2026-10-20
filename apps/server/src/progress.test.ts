@@ -144,6 +144,32 @@ describe('zkušenosti a level', { timeout: 120_000 }, () => {
     expect(rows.find((r) => r.victimId === d)!.place).toBe(3);
   });
 
+  it('vypnuté XP: ve zvonečku nepřibývají upozornění o postupu ani úspěších a stará se skryjí', async () => {
+    const c = await start({ 'xp.enabled': false, 'xp.levelBase': 1 });
+    const [a, b] = [await c.user(), await c.user()];
+    // stará upozornění z doby, kdy byly XP zapnuté
+    await c.server.db.insert(schema.notifications).values([
+      { userId: a, kind: 'levelUp', params: { level: 3, rank: 'X' }, link: '/postup' },
+      { userId: a, kind: 'achievement', params: { name: 'Y', xp: 5 }, link: '/postup' },
+      { userId: a, kind: 'tournamentOpen', params: { name: 'T', time: '', minutes: 0 }, link: null },
+    ]);
+    const login = await c.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: 'X0x', password: 'heslo-hrace-123' }, headers: { origin: 'http://localhost' } });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+    const list = async () => (await c.server.app.inject({ method: 'GET', url: '/api/notifications', headers: { cookie } })).json() as { items: { kind: string }[]; unread: number };
+    const before = await list();
+    expect(before.items.map((i) => i.kind)).toEqual(['tournamentOpen']);
+    expect(before.unread).toBe(1);
+    // hra a výhra turnaje nic nepřipíše ani neohlásí
+    c.server.progress.onTournamentFinished('tx', [{ userId: a, place: 1, payout: 10 }, { userId: b, place: 2, payout: 0 }], null, c.clock.now());
+    await c.server.progress.idle();
+    await new Promise((r) => setTimeout(r, 80));
+    c.server.achievements.trigger([a, b], ['tournament', 'hand', 'level']);
+    await c.server.achievements.idle();
+    const rows = await c.server.db.select().from(schema.notifications).where(eq(schema.notifications.userId, a));
+    expect(rows.filter((r) => r.kind === 'levelUp' || r.kind === 'achievement')).toHaveLength(2); // jen ta ručně vložená stará
+    expect((await list()).items.map((i) => i.kind)).toEqual(['tournamentOpen']);
+  });
+
   it('postup na vyšší hodnost pošle upozornění a zprávu do hlavního kanálu', async () => {
     const c = await start({ 'xp.levelBase': 20, 'xp.ranks': 'Začátečník|🌱|muted|1;Pokročilý|🍺|info|2' });
     const [a, b] = [await c.user(), await c.user()];
