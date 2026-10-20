@@ -46,9 +46,6 @@ const TONES = [
 /** Odstín všech turnajových skupin. */
 const TOURNAMENT_TONE = 3;
 
-/** Hodnota se liší od výchozí hodnoty parametru (kvůli zvýraznění změněných položek). */
-const isChanged = (def: SettingDef, value: unknown) => JSON.stringify(value) !== JSON.stringify((def as { default?: unknown }).default);
-
 /** Kdy se změna projeví: barevný štítek (zelená = kdykoli, žlutá = od další handy, červená = jen před startem). Třídy jsou celé kvůli Tailwindu. */
 const WHEN: Record<string, { cls: string; icon: string }> = {
   anytime: { cls: 'border-success text-success', icon: '⚡' },
@@ -75,9 +72,9 @@ export function SettingsForm(p: Props) {
   );
   const changedBy = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const d of p.registry.all()) if (p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind) && isChanged(d, p.values[d.key])) out[d.category] = (out[d.category] ?? 0) + 1;
+    for (const d of p.registry.all()) if (p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind) && p.origins[d.key] === p.editScope) out[d.category] = (out[d.category] ?? 0) + 1;
     return out;
-  }, [p.registry, p.allowedKeys, p.values, p.gameKind]);
+  }, [p.registry, p.allowedKeys, p.values, p.origins, p.editScope, p.gameKind]);
   const changedTotal = Object.values(changedBy).reduce((a, b) => a + b, 0);
   const [active, setActive] = useState(cats[0] ?? '');
   const current = cats.includes(active) ? active : cats[0];
@@ -101,7 +98,7 @@ export function SettingsForm(p: Props) {
     .all()
     .filter((d) => p.allowedKeys(d))
     .filter((d) => (q ? matches(d) : onlyChanged || d.category === current))
-    .filter((d) => !onlyChanged || isChanged(d, p.values[d.key]))
+    .filter((d) => !onlyChanged || p.origins[d.key] === p.editScope)
     .filter((d) => isVisible(p.registry, d.key, p.values, p.gameKind));
 
   return (
@@ -172,7 +169,8 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
   const own = origin === editScope;
   const errs = issues.filter((i) => i.keys.includes(def.key));
   const id = `s-${def.key}`;
-  const changed = isChanged(def, value);
+  // „Změněno“ = hodnotu nastavuje právě tato vrstva (globální nastavení, šablona, hra, stůl nebo osobní); jinak se dědí z nižší vrstvy nebo z vestavěné výchozí hodnoty.
+  const changed = own;
   const when = WHEN[def.mutability] ?? WHEN.anytime!;
   return (
     <div className={`rounded-md border p-3 ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>

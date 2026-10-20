@@ -67,7 +67,7 @@ export const csGuide: Record<string, string> = {
   'guide.s.settings.title': 'Nastavení',
   'guide.s.settings.1': 'Osobní nastavení platí jen pro tebe (zvuky, vzhled, zkratky). Nastavení her a stolů mění správce.',
   'guide.s.settings.2': 'U každé položky je vysvětlení. Barevný štítek říká, kdy se změna projeví: ⚡ zelený kdykoli, ⏭ žlutý od další handy, 🔒 červený jen před startem hry.',
-  'guide.s.settings.3': 'Změněné oproti výchozí hodnotě se zvýrazní a mají štítek Změněno. Přepínač nahoře ukáže jen změněné. Tlačítko u položky vrátí zděděnou hodnotu.',
+  'guide.s.settings.3': 'Hodnota se dědí po vrstvách: vestavěná výchozí → globální nastavení → šablona → hra → stůl → osobní. Položka, kterou nastavuješ právě v této vrstvě, je zvýrazněná štítkem Změněno a u každé je vidět, odkud hodnota pochází. Přepínač nahoře ukáže jen takové položky, tlačítko u položky vrátí zděděnou hodnotu.',
   'guide.s.settings.4': 'Záložky mají barvy podle skupin. Všechny turnajové skupiny sdílejí jednu barvu. Vyhledávání hledá v názvech i nápovědě.',
 
   'guide.s.admin.title': 'Pro správce',
