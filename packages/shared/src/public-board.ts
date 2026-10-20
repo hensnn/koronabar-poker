@@ -4,11 +4,11 @@
  */
 
 /** Sloupce přehledu v pevném pořadí zobrazení (pořadí a přezdívka jsou vždy). */
-export const BOARD_COLUMNS = ['profit', 'cashProfit', 'tournamentProfit', 'xp', 'level', 'rating', 'games', 'wins', 'itm', 'avgPlace', 'bounty', 'cashHands'] as const;
+export const BOARD_COLUMNS = ['profit', 'cashProfit', 'tournamentProfit', 'xp', 'level', 'rating', 'games', 'wins', 'itm', 'avgPlace', 'bounty', 'cashHands', 'balance'] as const;
 export type BoardColumn = (typeof BOARD_COLUMNS)[number];
 
 /** Sloupce s penězi: skryjí se, když přehled nemá ukazovat částky. */
-export const MONEY_COLUMNS: readonly BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'bounty'];
+export const MONEY_COLUMNS: readonly BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'bounty', 'balance'];
 
 export const BOARD_SORTS = ['profit', 'xp', 'rating', 'wins', 'games'] as const;
 export type BoardSort = (typeof BOARD_SORTS)[number];
@@ -33,6 +33,10 @@ export interface PublicBoardConfig {
   hiddenUserIds: string[];
   /** Jak často se stránka sama obnoví (sekundy; 0 = nikdy). */
   refreshSeconds: number;
+  /** Graf vývoje zisku z turnajů v čase (jen když se ukazují částky). */
+  showChart: boolean;
+  /** Kolik nejlepších hráčů má graf (1 až 10). */
+  chartPlayers: number;
 }
 
 export const defaultBoardConfig = (): PublicBoardConfig => ({
@@ -48,6 +52,8 @@ export const defaultBoardConfig = (): PublicBoardConfig => ({
   showMoney: true,
   hiddenUserIds: [],
   refreshSeconds: 60,
+  showChart: true,
+  chartPlayers: 5,
 });
 
 const int = (v: unknown, def: number, min: number, max: number): number => {
@@ -77,6 +83,8 @@ export function sanitizeBoardConfig(raw: unknown): PublicBoardConfig {
     showMoney: r.showMoney === false ? false : true,
     hiddenUserIds: hidden,
     refreshSeconds: int(r.refreshSeconds, d.refreshSeconds, 0, 3600),
+    showChart: r.showChart === false ? false : true,
+    chartPlayers: int(r.chartPlayers, d.chartPlayers, 1, 10),
   };
 }
 

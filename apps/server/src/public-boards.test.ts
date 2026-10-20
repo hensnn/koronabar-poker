@@ -75,6 +75,26 @@ describe('veřejné přehledy hráčů', () => {
     expect(w.rows.every((r) => !('bounty' in r))).toBe(true);
   });
 
+  it('stav peněženky a graf vývoje zisku z turnajů; bez částek žádné z toho', async () => {
+    const c = await start();
+    const [a, b] = [await c.user('Alfa'), await c.user('Beta')];
+    await c.result(a, 't1', 1, 100, 400, 10);
+    await c.result(a, 't2', 2, 100, 50, 5);
+    await c.result(b, 't1', 2, 100, 0, 10);
+    const board = await c.server.publicBoards.create(c.admin, { name: 'G', config: { columns: ['profit', 'balance'], chartPlayers: 1, limit: 0 } });
+    const v = await c.server.publicBoards.view(board.token, '5.5.5.5');
+    expect(v.columns).toEqual(['profit', 'balance']);
+    expect(typeof v.rows[0]!.balance).toBe('number');
+    expect(v.chart).toHaveLength(1);
+    expect(v.chart[0]!.name).toBe('Alfa');
+    expect(v.chart[0]!.points.map((p) => p[1])).toEqual([300, 250]);
+    expect(JSON.stringify(v)).not.toContain(a);
+    await c.server.publicBoards.update(c.admin, board.id, { config: { columns: ['profit', 'balance'], showMoney: false } });
+    const w = await c.server.publicBoards.view(board.token, '5.5.5.6');
+    expect(w.chart).toEqual([]);
+    expect(w.rows.every((r) => !('balance' in r) && !('profit' in r))).toBe(true);
+  });
+
   it('období: starší výsledky se nezapočítají; minimum her', async () => {
     const c = await start();
     const [a, b] = [await c.user('Stary'), await c.user('Novy')];

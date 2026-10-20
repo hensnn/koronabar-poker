@@ -227,6 +227,8 @@ const stats: SettingDef[] = [
   bool('stats.publicOverview', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
   bool('stats.publicEnabled', { category: 'stats', mutability: ADM, scopes: GLOBAL }, false),
   int('stats.leaderboardMinHands', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 30, 0, 100000),
+  int('stats.categoryMinGames', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 3, 1, 1000),
+  int('stats.categoryTop', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 20),
   bool('stats.publicProfiles', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
 ];
 

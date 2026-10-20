@@ -53,3 +53,23 @@ describe('přehled mezi hráči', () => {
     await expect(s.server.overview.compare([s.player], 'balance')).rejects.toThrow('HIDDEN');
   });
 });
+
+describe('kategorie kdo je v čem nejlepší (HTTP)', () => {
+  it('vrací kategorie jen přihlášenému a respektuje skrytý přehled', async () => {
+    const s = await start();
+    await s.server.wallet.topUp(s.admin, s.player, 500, 'test');
+    expect((await s.server.app.inject({ method: 'GET', url: '/api/stats/categories' })).statusCode).toBe(401);
+    const login = await s.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: 'Hrac', password: 'heslo-hrace-123' }, headers: { origin: 'http://localhost' } });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+    const ok = await s.server.app.inject({ method: 'GET', url: '/api/stats/categories', headers: { cookie } });
+    expect(ok.statusCode).toBe(200);
+    const bal = (ok.json() as { categories: { id: string; entries: { nickname: string; value: number }[] }[] }).categories.find((c) => c.id === 'balance');
+    expect(bal?.entries[0]?.nickname).toBe('Hrac');
+    expect(bal!.entries[0]!.value).toBeGreaterThanOrEqual(500);
+
+    const hidden = await start({ 'stats.publicOverview': false });
+    const l2 = await hidden.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: 'Hrac', password: 'heslo-hrace-123' }, headers: { origin: 'http://localhost' } });
+    const r = await hidden.server.app.inject({ method: 'GET', url: '/api/stats/categories', headers: { cookie: String(l2.headers['set-cookie']).split(';')[0]! } });
+    expect(r.statusCode).toBe(403);
+  });
+});

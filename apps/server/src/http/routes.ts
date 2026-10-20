@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { estimateTournament } from '@kb/shared';
+import { buildCategories, estimateTournament } from '@kb/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
@@ -1752,6 +1752,22 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     need(req);
     try {
       reply.send(await svc.overview().overview());
+    } catch (e) {
+      overviewErr(e, reply);
+    }
+  }));
+  /** Kategorie „kdo je v čem nejlepší“ z přehledu hráčů a žebříčku turnajů (za celou dobu). */
+  app.get('/api/stats/categories', guard(async (req, reply) => {
+    need(req);
+    try {
+      const { rows } = await svc.overview().overview();
+      const lead = new Map((await svc.stats().leaderboard({ from: null, to: null })).map((r) => [r.userId, r]));
+      const s = svc.settings.resolve();
+      const players = rows.map((r) => {
+        const l = lead.get(r.userId);
+        return { userId: r.userId, nickname: r.nickname, total: r.total, tournamentNet: r.tournamentNet, cashNet: r.cashNet, balance: r.balance, xp: r.xp, ratingTournament: r.ratingTournament, ratingCash: r.ratingCash, hands: r.hands, games: l?.games ?? 0, wins: l?.wins ?? 0, itm: l?.itm ?? 0, avgPlace: l?.avgPlace ?? null, bounty: l?.bounty ?? 0 };
+      });
+      reply.send({ categories: buildCategories(players, { minGames: Number(s['stats.categoryMinGames']), top: Number(s['stats.categoryTop']) }) });
     } catch (e) {
       overviewErr(e, reply);
     }

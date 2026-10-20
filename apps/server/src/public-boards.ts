@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { and, desc, eq, gt, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, ne, sql } from 'drizzle-orm';
+import { accounts, type Ledger } from '@kb/ledger';
 import { boardName, effectiveColumns, rankFor, sanitizeBoardConfig, type BoardColumn, type PermissionChecker, type PublicBoardConfig, type SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import type { RatingService } from './rating.js';
 import type { StatsService } from './stats.js';
+import { thin } from './timeline.js';
 
 type Meta = { ip?: string | null; source?: AuditSource; reason?: string | null };
 
@@ -41,6 +43,8 @@ export interface BoardRowView {
   avgPlace?: number | null;
   bounty?: number;
   cashHands?: number;
+  /** Stav peněženky (virtuální žetony). */
+  balance?: number;
 }
 
 export interface PublicBoardView {
@@ -51,6 +55,8 @@ export interface PublicBoardView {
   currency: string;
   updatedAt: number;
   refreshSeconds: number;
+  /** Vývoj zisku z turnajů v čase pro nejlepší hráče (prázdné, když graf nebo částky nejsou zapnuté). */
+  chart: { id: string; name: string; points: [number, number][] }[];
 }
 
 interface Deps {
@@ -60,6 +66,7 @@ interface Deps {
   settings: () => SettingValues;
   stats: () => StatsService;
   rating: () => RatingService;
+  ledger: () => Ledger;
   now: () => number;
 }
 
@@ -70,7 +77,7 @@ const MAX_PER_WINDOW = 60;
 
 /**
  * Veřejné přehledy hráčů: žebříček, zisk, zkušenosti a základní údaje na tajném odkazu bez přihlášení.
- * Odkaz jde kdykoli vypnout nebo vyměnit. Nikdy se neposílají e-maily, zůstatky peněženek ani nic skrytého ze hry.
+ * Odkaz jde kdykoli vypnout nebo vyměnit. Nikdy se neposílají e-maily, osobní údaje (kromě přezdívky) ani nic skrytého ze hry; stav peněženky jen když ho správce zapne.
  */
 export class PublicBoardService {
   private cache = new Map<string, { at: number; view: PublicBoardView }>();
@@ -173,7 +180,7 @@ export class PublicBoardService {
 
     const ids = new Set<string>([...leader.map((r) => r.userId), ...progress.map((r) => r.userId), ...ratings.map((r) => r.userId)]);
     for (const h of c.hiddenUserIds) ids.delete(h);
-    if (ids.size === 0) return { title: c.title || name, subtitle: c.subtitle, columns, rows: [], currency: String(s['economy.currencySymbol'] ?? ''), updatedAt: now, refreshSeconds: c.refreshSeconds };
+    if (ids.size === 0) return { title: c.title || name, subtitle: c.subtitle, columns, rows: [], currency: String(s['economy.currencySymbol'] ?? ''), updatedAt: now, refreshSeconds: c.refreshSeconds, chart: [] };
     const users = await this.deps.db
       .select({ id: schema.users.id, nickname: schema.users.nickname })
       .from(schema.users)
@@ -205,6 +212,7 @@ export class PublicBoardService {
         avgPlace: l?.avgPlace ?? null,
         bounty: l?.bounty ?? 0,
         cashHands: l?.cashHands ?? 0,
+        balance: columns.includes('balance') ? this.deps.ledger().balance(accounts.wallet(id)) : 0,
       };
     });
     if (c.minGames > 0 || c.minHands > 0) list = list.filter((x) => (c.minGames > 0 && x.games >= c.minGames) || (c.minHands > 0 && x.cashHands >= c.minHands));
@@ -241,8 +249,24 @@ export class PublicBoardService {
       if (has('avgPlace')) row.avgPlace = x.avgPlace;
       if (has('bounty')) row.bounty = x.bounty;
       if (has('cashHands')) row.cashHands = x.cashHands;
+      if (has('balance')) row.balance = x.balance;
       return row;
     });
-    return { title: c.title || name, subtitle: c.subtitle, columns, rows, currency: String(s['economy.currencySymbol'] ?? ''), updatedAt: now, refreshSeconds: c.refreshSeconds };
+    const chart = c.showChart && c.showMoney ? await this.chart(list.slice(0, c.chartPlayers).map((x) => ({ id: x.id, name: boardName(x.nickname, c.nameMode) })), range.from) : [];
+    return { title: c.title || name, subtitle: c.subtitle, columns, rows, currency: String(s['economy.currencySymbol'] ?? ''), updatedAt: now, refreshSeconds: c.refreshSeconds, chart };
+  }
+
+  /** Kumulovaný zisk z turnajů (výplata + bounty − vstupy) v čase pro vybrané hráče. */
+  private async chart(players: { id: string; name: string }[], from: Date | null): Promise<PublicBoardView['chart']> {
+    if (players.length === 0) return [];
+    const gr = schema.gameResults;
+    const conds = [inArray(gr.userId, players.map((p) => p.id)), eq(gr.kind, 'tournament')];
+    if (from) conds.push(gte(gr.finishedAt, from));
+    const rows = await this.deps.db.select({ userId: gr.userId, at: gr.finishedAt, net: sql<string>`${gr.payout} + ${gr.bounty} - ${gr.spent}` }).from(gr).where(and(...conds)).orderBy(asc(gr.finishedAt));
+    return players.map((p, i) => {
+      let sum = 0;
+      const points = rows.filter((r) => r.userId === p.id).map((r) => [r.at.getTime(), (sum += Number(r.net))] as [number, number]);
+      return { id: String(i), name: p.name, points: thin(points) };
+    });
   }
 }

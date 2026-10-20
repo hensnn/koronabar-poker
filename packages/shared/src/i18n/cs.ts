@@ -9,6 +9,7 @@ import { csBets } from './cs-bets.js';
 import { csLimits } from './cs-limits.js';
 import { csAnnouncer } from './cs-announcer.js';
 import { csBoards } from './cs-boards.js';
+import { csCategories } from './cs-categories.js';
 import { csHands } from './cs-hands.js';
 import { csCosmetics } from './cs-cosmetics.js';
 import { csIntegrations } from './cs-integrations.js';
@@ -28,6 +29,7 @@ export const cs: Record<string, string> = {
   ...csLimits,
   ...csAnnouncer,
   ...csBoards,
+  ...csCategories,
   ...csHands,
   ...csCosmetics,
   ...csIntegrations,

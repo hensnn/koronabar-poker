@@ -6,6 +6,7 @@ import { CardView } from '../table/CardView';
 import { fmtDate, HandReplayBody, signed, tone, type HandDetail } from './hand-replay';
 import { ShareHandButton } from './hand-share';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Tabs, Td, TextInput } from '../ui';
+import { CategoriesView } from './stats-categories';
 import { BarChart, LineChart, MultiLineChart, type Pt, type Series } from './charts';
 
 interface Season {
@@ -324,6 +325,7 @@ function PlayersOverview({ meId }: { meId: string }) {
           <p className="text-xs text-muted">{t('overview.pickHint')}</p>
         </div>
       </Card>
+      <CategoriesView meId={meId} />
       <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('total', t('overview.earn')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('overview.cashNet')), head('balance', t('overview.balance')), head('level', t('overview.level')), head('ratingTournament', t('overview.ratingT')), head('ratingCash', t('overview.ratingC')), head('hands', t('stats.hands')), head('tournaments', t('stats.games'))]}>
         {sorted.map((r) => (
           <tr key={r.userId} className={r.userId === meId ? 'bg-raised' : ''}>

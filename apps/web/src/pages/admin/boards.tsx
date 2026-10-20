@@ -129,6 +129,8 @@ function BoardForm({ board, users, onClose, onSave }: { board: BoardRow; users: 
           <option value="initial">{t('boards.f.nameMode.initial')}</option>
         </Select>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={c.showMoney} onChange={(e) => set('showMoney', e.target.checked)} />{t('boards.f.showMoney')}</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={c.showChart} onChange={(e) => set('showChart', e.target.checked)} />{t('boards.f.showChart')}</label>
+        {c.showChart && <label className="flex flex-col gap-1 text-sm">{t('boards.f.chartPlayers')}<NumInput value={c.chartPlayers} min={1} max={10} onChange={(n) => set('chartPlayers', n)} /><span className="text-xs text-muted">{t('boards.f.chartPlayers.help')}</span></label>}
         <fieldset className="flex flex-col gap-1">
           <legend className="text-sm">{t('boards.f.hidden')}</legend>
           <p className="text-xs text-muted">{t('boards.f.hidden.help')}</p>

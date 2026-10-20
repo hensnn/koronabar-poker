@@ -62,7 +62,7 @@ export const csGuide: Record<string, string> = {
   'guide.s.social.title': 'Ankety, večery a historie',
   'guide.s.social.1': 'Ankety slouží k domluvě (kdy a co hrát). Večer sdružuje hry jednoho setkání a na konci ukáže souhrn a vyúčtování.',
   'guide.s.social.2': 'Historie u stolu ukazuje hotové handy v přehledné tabulce. Kliknutím na řádek otevřeš podrobný průběh.',
-  'guide.s.social.3': 'Statistiky, rating, hodnosti (XP) a úspěchy se počítají z odehraných her. Smazání hry z historie může jejich hodnoty změnit.',
+  'guide.s.social.3': 'Statistiky, rating, hodnosti (XP) a úspěchy se počítají z odehraných her. Smazání hry z historie může jejich hodnoty změnit. Ve Statistikách → Přehled hráčů najdeš srovnání hráčů v čase a kategorie „kdo je v čem nejlepší“.',
 
   'guide.s.settings.title': 'Nastavení',
   'guide.s.settings.1': 'Osobní nastavení platí jen pro tebe (zvuky, vzhled, zkratky). Nastavení her a stolů mění správce.',

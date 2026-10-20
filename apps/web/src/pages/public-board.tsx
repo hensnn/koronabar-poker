@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t, type BoardColumn } from '@kb/shared';
 import { ApiError, get } from '../api';
+import { MultiLineChart, type Pt } from './charts';
 
 interface Row {
   rank: number;
@@ -18,9 +19,11 @@ interface View {
   currency: string;
   updatedAt: number;
   refreshSeconds: number;
+  chart: { id: string; name: string; points: Pt[] }[];
 }
 
-const MONEY: BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'bounty'];
+const MONEY: BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'bounty', 'balance'];
+const SIGNED: BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'bounty'];
 const num = (n: number) => n.toLocaleString('cs-CZ');
 
 function cell(col: BoardColumn, r: Row): string {
@@ -28,7 +31,7 @@ function cell(col: BoardColumn, r: Row): string {
   if (v === undefined || v === null) return '–';
   if (typeof v !== 'number') return String(v);
   if (col === 'avgPlace') return v.toFixed(1);
-  if (MONEY.includes(col)) return `${v > 0 ? '+' : ''}${num(v)}`;
+  if (SIGNED.includes(col)) return `${v > 0 ? '+' : ''}${num(v)}`;
   return num(v);
 }
 
@@ -103,7 +106,7 @@ export function PublicBoardPage({ token }: { token: string }) {
                   </td>
                   {view.columns.map((c) => {
                     const v = r[c];
-                    const tone = MONEY.includes(c) && typeof v === 'number' ? (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '') : '';
+                    const tone = SIGNED.includes(c) && typeof v === 'number' ? (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '') : '';
                     return (
                       <td key={c} className={`px-2 py-1 text-right font-mono ${tone}`}>
                         {cell(c, r)}
@@ -117,6 +120,12 @@ export function PublicBoardPage({ token }: { token: string }) {
             </tbody>
           </table>
         </div>
+      )}
+      {view.chart.some((s) => s.points.length > 0) && (
+        <section className="rounded-md border border-line bg-surface p-3" aria-label={t('boards.public.chart')}>
+          <h2 className="mb-1 font-heading text-base font-bold text-text">{t('boards.public.chart')}</h2>
+          <MultiLineChart series={view.chart} label={t('boards.public.chartHelp')} signed />
+        </section>
       )}
       <footer className="text-xs text-muted">
         {t('boards.public.updated', { time: new Date(view.updatedAt).toLocaleString('cs-CZ') })} · {t('boards.public.footer')}

@@ -1023,7 +1023,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   historyRef.current = history;
   const structures = new BlindStructureService({ db, perms, audit });
   structuresRef.current = structures;
-  publicBoardsRef.current = new PublicBoardService({ db, perms, audit, settings: () => settings.resolve(), stats: () => stats, rating: () => rating, now: () => clock.now() });
+  publicBoardsRef.current = new PublicBoardService({ db, perms, audit, settings: () => settings.resolve(), stats: () => stats, rating: () => rating, ledger: () => ledger, now: () => clock.now() });
   const timeline = new TimelineService({ db, settings: () => settings.resolve() });
   const overview = new OverviewService({
     db,

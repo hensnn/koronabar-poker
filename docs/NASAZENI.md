@@ -231,4 +231,6 @@ Po testování se dá vše zkušební smazat jedním krokem: **Správa → Údr�
 3. „Upravit“ nastaví, co se ukáže: sloupce, řazení, období (celá doba, 30/90 dní, rok), počet řádků, minimum odehraných her, přezdívky celé nebo jen první písmeno, skrytí částek a skrytí vybraných hráčů.
 4. „Nový odkaz“ starý odkaz okamžitě zneplatní; „Vypnutý“ stránku dočasně schová; „Smazat“ ji zruší.
 
-Stránka nikdy neukazuje e-maily, zůstatky peněženek ani interní údaje, vyhledávače ji neindexují a počet dotazů z jedné adresy je omezený. Odkaz zná jen ten, komu ho pošleš, takže ho sdílej jen s lidmi, kterým důvěřuješ.
+Mezi sloupci je i „Stav peněženky“ (počet virtuálních žetonů; skryje se spolu s ostatními částkami). Pod tabulkou je graf vývoje zisku z turnajů v čase u nejlepších hráčů (jde vypnout a nastavit počet hráčů).
+
+Stránka nikdy neukazuje e-maily ani jiné osobní údaje než přezdívku (a jen s vypnutými částkami ani žádné peníze), vyhledávače ji neindexují a počet dotazů z jedné adresy je omezený. Odkaz zná jen ten, komu ho pošleš, takže ho sdílej jen s lidmi, kterým důvěřuješ.
