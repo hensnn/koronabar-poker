@@ -1995,6 +1995,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     }
   }));
   app.get('/api/admin/ledger', guard(async (req, reply) => reply.send(await svc.wallet.ledgerOverview(need(req).id))));
+  app.get('/api/admin/balances', guard(async (req, reply) => reply.send(await svc.wallet.balances(need(req).id))));
   app.get('/api/admin/house', guard(async (req, reply) => reply.send(svc.wallet.houseBalances(need(req).id))));
 
   app.post('/api/requests', guard(async (req, reply) => {

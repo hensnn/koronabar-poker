@@ -63,6 +63,8 @@ interface Scenario {
   over: Record<string, number | boolean | string>;
   /** Hráči po vypadnutí nahodile dokupují (rebuy, add-on, re-entry). */
   chaos?: boolean;
+  /** Pevné semínko nahodilého průběhu (jinak podle pořadí scénáře). */
+  seed?: number;
 }
 
 const BASE = { ...FAST, 'tournament.startingStack': 600, 'tournament.buyIn': 100, 'tournament.fee': 10, 'tournament.minPlayers': 2, 'tournament.levelMinutes': 1, 'tournament.targetMinutes': 15 };
@@ -79,6 +81,10 @@ const TOURNAMENTS: Scenario[] = [
   { name: 'vítěz bere vše', template: 'tour-wta', players: 5, over: {} },
   { name: 'garance, odvod herně a fond', template: 'tour-turbo', players: 5, over: { 'tournament.guarantee': 900, 'tournament.houseCutPercent': 10, 'tournament.fundPercent': 5, 'tournament.payoutRoundTo': 10 } },
   { name: 'freeroll', template: 'tour-freeroll', players: 5, over: { 'tournament.buyIn': 0, 'tournament.fee': 0, 'tournament.guarantee': 300 } },
+  // Dva hráči s rebuy: součet zisků hráčů nesmí být kladný (nikdo nesmí vydělat na cizích vkladech navíc); dohrává se několik různých nahodilých průběhů.
+  ...[1, 2, 3, 4, 5, 6].map((k): Scenario => ({ name: `dva hráči, rebuy (průběh ${k})`, template: 'tour-turbo', players: 2, chaos: true, seed: 5000 + k, over: { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 4, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 600, 'tournament.rebuyMax': 2 } })),
+  { name: 'dva hráči, rebuy, add-on a fixní bounty', template: 'tour-turbo', players: 2, chaos: true, seed: 6001, over: { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 4, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 600, 'tournament.rebuyMax': 2, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 4, 'tournament.addonCost': 50, 'tournament.addonChips': 400, 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30 } },
+  { name: 'tři hráči, rebuy a PKO', template: 'tour-turbo', players: 3, chaos: true, seed: 6002, over: { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 4, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 600, 'tournament.rebuyMax': 2, 'tournament.bountyType': 'pko', 'tournament.bountyPercent': 40 } },
   { name: 'heads-up s bounty', template: 'tour-headsup', players: 2, over: { 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 50 } },
 ];
 
@@ -94,6 +100,7 @@ describe('odehrané scénáře: turnaje', { timeout: 900_000 }, () => {
     for (const [k, sc] of TOURNAMENTS.entries()) {
       const players = pool.slice(0, sc.players);
       const before = new Map(players.map((p) => [p, s.server.ledger.balance(accounts.wallet(p))]));
+      const outsideBefore = s.server.ledger.balance(accounts.house()) + s.server.ledger.balance(accounts.fund('jackpot')) + s.server.ledger.balance(accounts.fund('sezona')) + s.server.ledger.balance(accounts.fund('liga')) + s.server.ledger.balance(accounts.mint());
       let id: string;
       try {
         ({ id } = await s.server.tournaments.create(org, { name: `Scénář ${k}`, templateId: forced ?? sc.template, settings: { ...BASE, ...sc.over } }));
@@ -104,7 +111,7 @@ describe('odehrané scénáře: turnaje', { timeout: 900_000 }, () => {
       for (const p of players) await s.server.tournaments.register(p, id);
       if (s.server.tournaments.get(id)!.state().status === 'registering') await s.server.tournaments.start(org, id);
       const actor = s.server.tables.actors.get(id)!;
-      const rnd = seededRandom(700 + k);
+      const rnd = seededRandom(sc.seed ?? 700 + k);
       for (let i = 0; i < 40_000 && s.server.tournaments.get(id)!.state().status === 'running'; i++) {
         const v = actor.viewFor(null);
         if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
@@ -143,6 +150,15 @@ describe('odehrané scénáře: turnaje', { timeout: 900_000 }, () => {
         const delta = s.server.ledger.balance(accounts.wallet(row.userId)) - before.get(row.userId)!;
         if (delta !== row.profit) problems.push(`${sc.name}: zisk ${s.names.get(row.userId)} v přehledu ${row.profit}, v peněžence ${delta}`);
       }
+      // Součet zisků hráčů je přesně to, co ubylo domu, fondům a zásobě měny (bez garance se nic nevydává), takže nemůže být kladný.
+      const outsideAfter = s.server.ledger.balance(accounts.house()) + s.server.ledger.balance(accounts.fund('jackpot')) + s.server.ledger.balance(accounts.fund('sezona')) + s.server.ledger.balance(accounts.fund('liga')) + s.server.ledger.balance(accounts.mint());
+      const sumProfit = (view.summary ?? []).filter((r) => players.includes(r.userId)).reduce((n, r) => n + r.profit, 0);
+      if (sumProfit !== outsideBefore - outsideAfter) problems.push(`${sc.name}: součet zisků hráčů ${sumProfit} nesedí s dům/fondy/zásoba ${outsideBefore - outsideAfter}`);
+      if (!sc.over['tournament.guarantee'] && sumProfit > 0) problems.push(`${sc.name}: součet zisků hráčů je kladný (${sumProfit})`);
+      for (const row of view.summary ?? []) {
+        if (row.spent !== row.entryAmount + row.rebuyAmount + row.addonAmount) problems.push(`${sc.name}: rozpis nákladů ${s.names.get(row.userId)} nesedí se součtem`);
+        if (row.profit !== row.payout + row.bounty - row.spent) problems.push(`${sc.name}: zisk ${s.names.get(row.userId)} nesedí s výhra + bounty − zaplaceno`);
+      }
       const channelId = await s.server.chat.channelIdByKey('table:' + id);
       const msgs = channelId ? (await allMessages(s.server, s.admin, channelId)).map((m) => m.body) : [];
       if (!msgs.some((m) => m.startsWith('Handa č.'))) problems.push(`${sc.name}: v chatu nejsou výsledky hand`);
@@ -156,6 +172,9 @@ const CASH: { name: string; over: Record<string, number | boolean | string> }[] 
   { name: 'no limit, vše zapnuto', over: { 'table.bettingLimit': 'noLimit', 'table.ante': 1, 'special.runItTwice': true, 'special.runItTimes': 3, 'special.runItVoteSeconds': 5, 'special.sevenTwoBonus': true, 'special.sevenTwoAmountBb': 1, 'special.bombPot': true, 'special.bombPotEveryHands': 4, 'special.rabbitHunt': true, 'special.showCards': true, 'rake.enabled': true, 'rake.percent': 5, 'rake.cap': 5, 'rake.jackpotPercent': 40, 'jackpot.royalFlushEnabled': true, 'jackpot.badBeatEnabled': true } },
   { name: 'pot limit s rake', over: { 'table.bettingLimit': 'potLimit', 'rake.enabled': true, 'rake.percent': 8, 'rake.cap': 3 } },
   { name: 'fixed limit se straddlem', over: { 'table.bettingLimit': 'fixedLimit', 'table.limitMaxBets': 3, 'table.straddleEnabled': true } },
+  { name: 'rake s jackpotem, rakebackem, high hand, bad beat a royal flush', over: { 'rake.enabled': true, 'rake.percent': 10, 'rake.cap': 5, 'rake.jackpotPercent': 20, 'rake.rakebackPercent': 15, 'jackpot.highHandEnabled': true, 'jackpot.highHandMinutes': 1, 'jackpot.highHandPercent': 50, 'jackpot.royalFlushEnabled': true, 'jackpot.royalFlushPercent': 60, 'jackpot.badBeatEnabled': true, 'jackpot.badBeatMinHand': 'quads' } },
+  { name: 'ante, povinný straddle a sedm-dva bonus', over: { 'table.ante': 2, 'table.straddleEnabled': true, 'table.straddleMandatory': true, 'special.sevenTwoBonus': true, 'special.sevenTwoAmountBb': 1, 'special.sevenTwoNeedsShowdown': false } },
+  { name: 'bez raku, dokupování a rebuy povolené', over: { 'rake.enabled': false, 'cash.topUpEnabled': true, 'cash.rebuyEnabled': true } },
   { name: 'rychlé časy a time bank', over: { 'time.turnSeconds': 3, 'time.timeBankSeconds': 4, 'time.timeoutsToSitOut': 2, 'time.callClockEnabled': true } },
 ];
 

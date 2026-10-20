@@ -303,3 +303,9 @@ Korony jsou společná měna více vašich aplikací (her), proto si hráč mů�
 2. **Hráč:** v Peněžence → karta **Převod do jiné aplikace** vybere cíl a částku. Žádost nejde odeslat na víc, než kolik má, ani mimo povolený rozsah.
 3. **Pokladník:** žádost vyřídí v Pokladně (stejný seznam jako žádosti o dobití, sloupec Druh říká „Převod do: …“). Schválení znovu ověří zůstatek. Korony se odepíšou z peněženky na účet „převod ven“ a zapíšou se do knihy (Druh „Převod do jiné aplikace“). Žádost si hráč nemůže schválit sám.
 4. **Druhá aplikace:** dobití tam uděláte u ní ručně (pokladník ji dobije o stejnou částku). Aplikace spolu zatím nekomunikují automaticky.
+
+## Výsledky turnajů s náklady a stavy účtů pro pokladníka
+
+- **Výsledek turnaje** (okno po skončení, stránka turnaje i TV) ukazuje u každého hráče: buy-in, rebuye, add-ony (počet a částka včetně poplatků), zaplaceno celkem, výhru za umístění, bounty a **zisk = výhra + bounty − zaplaceno**. Dřív se u hotového turnaje ukazovala jen výhra za umístění, takže při rebuy mohli být vedle sebe dva „výherci“, i když oba měli v součtu ztrátu. Na TV je u každého hráče i zisk.
+- **Pokladník** vidí ve Správa → Pokladna kartu **Stavy účtů hráčů**: zůstatek každého hráče, poslední pohyb, hledání podle přezdívky a součty (peněženky hráčů, účet domu).
+- **Testy:** v `scenario-matrix.test.ts` a `tournament-deep.test.ts` se odehrávají turnaje s rebuy, add-onem, bounty (fixní, PKO, mystery), garancí a dohodou (ICM, podle žetonů, rovným dílem), včetně dvou hráčů a živého turnaje. U každého se kontroluje, že kniha je vyrovnaná, přehled sedí s peněženkami a součet zisků hráčů nikdy není kladný (zisky hráčů jsou přesně úbytek domu a fondů).

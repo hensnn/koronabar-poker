@@ -5,7 +5,7 @@ import type { PermissionChecker, SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import type { LeaderRow, StatsRange } from './stats.js';
-import type { TournamentManager } from './tournaments.js';
+import { resultSummary, type TournamentManager } from './tournaments.js';
 import type { TableManager } from './tables.js';
 import type { AnnouncerService } from './announcer.js';
 import type { EveningService } from './evenings.js';
@@ -466,7 +466,7 @@ export class TvService {
       prizePool: tour.prizePool() || st.payments.filter((p) => !p.refunded).reduce((a, p) => a + (p.cost - (p.house ?? 0) - (p.fund ?? 0) - (p.bounty ?? 0)), 0),
       payouts: tour.payoutPreview(),
       bubble: tour.isBubble(),
-      standings: tour.standings().map((p) => ({ name: p.name, place: p.place, chips: isLive ? null : p.chips, status: p.status, payout: results?.find((r) => r.userId === p.userId)?.payout ?? null })),
+      standings: tour.standings().map((p) => ({ name: p.name, place: p.place, chips: isLive ? null : p.chips, status: p.status, payout: results?.find((r) => r.userId === p.userId)?.payout ?? null, profit: ((r) => (r ? resultSummary(st, r).profit : null))(results?.find((r) => r.userId === p.userId)) })),
       results: results ? results.map((r) => ({ name: r.name, place: r.place, payout: r.payout })) : null,
     };
   }

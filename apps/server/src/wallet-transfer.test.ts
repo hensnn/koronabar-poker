@@ -92,3 +92,28 @@ describe('převod Koron do jiné aplikace (žádost o výběr)', () => {
     expect((await off.call('POST', '/api/requests', h2, { kind: 'prevod', amount: 300, message: '', target: 'jiná hra' })).statusCode).toBe(400);
   });
 });
+
+describe('pokladník vidí stavy účtů hráčů', () => {
+  it('seznam se zůstatky, poslední pohyb a součty; obyčejný hráč ho nevidí', async () => {
+    const c = await start();
+    await c.server.perms.assignRole(c.admin, c.player, c.server.perms.roleByKey('pokladnik')!.id);
+    const inv = await c.server.accounts.createInvite(c.admin, {});
+    const { userId: other } = await c.server.accounts.register({ inviteCode: inv, nickname: 'Druhy', email: 'druhy@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
+    await c.server.wallet.topUp(c.admin, other, 500, 'test');
+    const pok = await c.login('Hrac', 'heslo-hrace-123');
+    const r = await c.call('GET', '/api/admin/balances', pok);
+    expect(r.statusCode).toBe(200);
+    const body = r.json() as { rows: { userId: string; nickname: string; balance: number; lastMoveAt: number | null }[]; totals: { wallets: number; house: number; players: number } };
+    expect(body.rows.find((x) => x.userId === other)).toMatchObject({ nickname: 'Druhy', balance: 1500 });
+    expect(body.rows[0]!.balance).toBeGreaterThanOrEqual(body.rows[body.rows.length - 1]!.balance); // seřazeno od největšího
+    expect(body.rows.find((x) => x.userId === other)!.lastMoveAt).not.toBeNull();
+    expect(body.totals.wallets).toBe(body.rows.reduce((n, x) => n + x.balance, 0));
+    expect(body.totals.players).toBe(body.rows.length);
+
+    // hráč bez role pokladníka nic nevidí
+    const inv2 = await c.server.accounts.createInvite(c.admin, {});
+    await c.server.accounts.register({ inviteCode: inv2, nickname: 'Treti', email: 'treti@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
+    const plain = await c.login('Treti', 'heslo-hrace-123');
+    expect((await c.call('GET', '/api/admin/balances', plain)).statusCode).toBe(403);
+  });
+});

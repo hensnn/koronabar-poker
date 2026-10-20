@@ -13,6 +13,10 @@ export interface TournamentSummary {
   entries: number;
   rebuys: number;
   addons: number;
+  /** Zaplacené částky včetně poplatků. */
+  entryAmount: number;
+  rebuyAmount: number;
+  addonAmount: number;
   spent: number;
   payout: number;
   bounty: number;
@@ -46,6 +50,33 @@ function show(r: Result): void {
 }
 
 /** Dohledá výsledky turnaje (po otevření jeho stolu, když okno zmeškal): ukáže je, pokud je hráč ještě nepotvrdil. */
+const money = (n: number) => n.toLocaleString('cs-CZ');
+const signed = (n: number) => (n > 0 ? `+${money(n)}` : money(n));
+const part = (count: number, amount: number) => (count > 0 ? `${count}× ${money(amount)}` : '–');
+
+/** Výsledek turnaje s náklady: buy-in, rebuye, add-ony, zaplaceno celkem, výhra, bounty a zisk (výhra + bounty − zaplaceno). */
+export function SummaryTable({ summary, meId }: { summary: TournamentSummary[]; meId?: string }) {
+  return (
+    <div className="overflow-x-auto">
+      <DataTable head={[t('tournament.placeShort'), t('tournament.player'), t('tournament.resultEntries'), t('tournament.resultRebuys'), t('tournament.resultAddons'), t('tournament.resultSpent'), t('tournament.won'), t('tournament.resultBounty'), t('tournament.resultProfit')]}>
+        {summary.map((x) => (
+          <tr key={x.userId} className={x.userId === meId ? 'bg-raised font-semibold' : ''}>
+            <Td className="font-mono">{x.place}.</Td>
+            <Td>{x.name}</Td>
+            <Td className="font-mono">{part(x.entries, x.entryAmount)}</Td>
+            <Td className="font-mono">{part(x.rebuys, x.rebuyAmount)}</Td>
+            <Td className="font-mono">{part(x.addons, x.addonAmount)}</Td>
+            <Td className="font-mono">-{money(x.spent)}</Td>
+            <Td className="font-mono">{money(x.payout)}</Td>
+            <Td className="font-mono">{x.bounty > 0 ? money(x.bounty) : '–'}</Td>
+            <Td className={`font-mono ${x.profit > 0 ? 'text-success' : x.profit < 0 ? 'text-danger' : ''}`}>{signed(x.profit)}</Td>
+          </tr>
+        ))}
+      </DataTable>
+    </div>
+  );
+}
+
 export function useTournamentResultFallback(tournamentId: string): void {
   useEffect(() => {
     if (!tournamentId || seen(tournamentId)) return;
@@ -82,26 +113,9 @@ export function TournamentResultHost() {
     publish(null);
     navigate('/');
   };
-  const money = (n: number) => n.toLocaleString('cs-CZ');
-  const signed = (n: number) => (n > 0 ? `+${money(n)}` : money(n));
   return (
     <Modal title={t('tournament.finishedTitle', { name: r.name })} onClose={done} wide>
-      <div className="overflow-x-auto">
-        <DataTable head={[t('tournament.placeShort'), t('tournament.player'), t('tournament.resultEntries'), t('tournament.resultRebuys'), t('tournament.resultAddons'), t('tournament.resultSpent'), t('tournament.won'), t('tournament.resultProfit')]}>
-          {r.summary.map((x) => (
-            <tr key={x.userId} className={x.userId === me?.user.id ? 'bg-raised font-semibold' : ''}>
-              <Td className="font-mono">{x.place}.</Td>
-              <Td>{x.name}</Td>
-              <Td className="font-mono">{x.entries}</Td>
-              <Td className="font-mono">{x.rebuys}</Td>
-              <Td className="font-mono">{x.addons}</Td>
-              <Td className="font-mono">{money(x.spent)}</Td>
-              <Td className="font-mono">{money(x.payout + x.bounty)}</Td>
-              <Td className={`font-mono ${x.profit > 0 ? 'text-success' : x.profit < 0 ? 'text-danger' : ''}`}>{signed(x.profit)}</Td>
-            </tr>
-          ))}
-        </DataTable>
-      </div>
+      <SummaryTable summary={r.summary} meId={me?.user.id} />
       <p className="mt-2 text-xs text-muted">{t('tournament.resultNote')}</p>
       <div className="mt-3 flex justify-end">
         <Button onClick={done}>{t('tournament.resultBackToLobby')}</Button>

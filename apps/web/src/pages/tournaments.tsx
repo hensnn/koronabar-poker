@@ -6,6 +6,7 @@ import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
 import { Badge, Button, Card, DataTable, Notice, Spinner, Tabs, Td } from '../ui';
 import { DealPanel } from './deal';
+import { SummaryTable, type TournamentSummary } from './tournament-result';
 import { ShareToChat } from './chat-extras';
 import { CalendarPanel, fmtDate, PlansPanel, ScheduleDialog, SeriesPanel } from './planning';
 import { CreateDialog, EditDialog, type Template } from './lobby';
@@ -83,6 +84,7 @@ interface View {
   tables: { id: string; no: number; players: { userId: string; name: string; seat: number; chips: number }[] }[];
   maxTables: number;
   results: { userId: string; name: string; place: number; payout: number; bounty?: number }[] | null;
+  summary?: TournamentSummary[] | null;
   pending: Record<string, SettingValue>;
   me: { registered: boolean; status: string | null; entries: number; rebuys: number; addon: boolean; decideUntil: number | null; tableId: string | null; canRegister: boolean; canUnregister: boolean; canRebuy: boolean; canAddon: boolean; canReenter: boolean };
   can: { manage: boolean; start: boolean; pause: boolean; cancel: boolean };
@@ -640,7 +642,12 @@ export function TournamentPage({ id }: { id: string }) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card title={view.results ? t('tournament.results') : t('tournament.standings')}>
-          {view.standings.length === 0 ? (
+          {view.results && view.summary && view.summary.length > 0 ? (
+            <>
+              <SummaryTable summary={view.summary} meId={me?.user.id} />
+              <p className="mt-2 text-xs text-muted">{t('tournament.resultNote')}</p>
+            </>
+          ) : view.standings.length === 0 ? (
             <p className="text-muted">{t('tournament.noPlayers')}</p>
           ) : (
             <DataTable head={[t('tournament.placeShort'), t('tournament.player'), view.status === 'running' ? (view.live ? t('live.seat') : t('table.chipsShort')) : '', ...(view.bounty.type !== 'none' ? [view.bounty.type === 'mystery' ? t('tournament.bountyEarned') : t('tournament.head'), ...(view.bounty.type !== 'mystery' ? [t('tournament.bountyEarned')] : [])] : []), view.results ? t('tournament.won') : t('tournament.statusCol')]}>

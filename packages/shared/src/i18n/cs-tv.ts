@@ -1,5 +1,6 @@
 /** Texty TV režimu a jeho správy. */
 export const csTv: Record<string, string> = {
+  'tv.profit': 'zisk {n}',
   'tv.pair.title': 'Spárování televize',
   'tv.pair.help': 'Na počítači nebo telefonu otevři Správa → TV, založ zařízení a opiš sem kód.',
   'tv.pair.code': 'Kód ze správy',

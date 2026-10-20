@@ -1175,11 +1175,12 @@ export interface TournamentView {
   can: { manage: boolean; start: boolean; pause: boolean; cancel: boolean };
 }
 
-/** Přehled jednoho hráče po konci turnaje: kolikrát vstoupil, rebuy, add-on, kolik zaplatil, kolik dostal a zisk. */
+/** Přehled jednoho hráče po konci turnaje: kolikrát vstoupil, rebuy, add-on (počty i částky včetně poplatků), kolik zaplatil celkem, výhra, bounty a zisk. */
 export function resultSummary(st: Pick<TournamentState, 'payments' | 'players'>, r: { userId: string; name: string; place: number; payout: number; bounty?: number }) {
   const mine = st.payments.filter((p) => p.userId === r.userId && !p.refunded);
   const count = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon') => mine.filter((p) => p.kind === kind).length;
+  const amount = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon') => mine.filter((p) => p.kind === kind).reduce((n, p) => n + p.cost + p.fee, 0);
   const spent = mine.reduce((n, p) => n + p.cost + p.fee, 0);
   const bounty = r.bounty ?? 0;
-  return { userId: r.userId, name: r.name, place: r.place, entries: count('turnaj_buyin'), rebuys: count('turnaj_rebuy'), addons: count('turnaj_addon'), spent, payout: r.payout, bounty, profit: r.payout + bounty - spent };
+  return { userId: r.userId, name: r.name, place: r.place, entries: count('turnaj_buyin'), rebuys: count('turnaj_rebuy'), addons: count('turnaj_addon'), entryAmount: amount('turnaj_buyin'), rebuyAmount: amount('turnaj_rebuy'), addonAmount: amount('turnaj_addon'), spent, payout: r.payout, bounty, profit: r.payout + bounty - spent };
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, gte, inArray, like, lte, or } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from 'drizzle-orm';
 import { accounts, minimalTransfers, type Entry, type Ledger, type Transfer } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
 import { PermissionError, type PermissionService } from '../auth/permissions.js';
@@ -242,6 +242,24 @@ export class WalletService {
     const ids = txs.map((t) => t.id);
     const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(inArray(schema.ledgerEntries.transactionId, ids)).orderBy(asc(schema.ledgerEntries.seq)) : [];
     return txs.map((t) => ({ ...t, entries: entries.filter((e) => e.transactionId === t.id).map((e) => ({ account: e.account, amount: e.amount })) }));
+  }
+
+  /** Stavy účtů všech hráčů pro pokladníka: zůstatek peněženky, stav účtu a poslední pohyb; součty za celou hernu. */
+  async balances(actorId: string): Promise<{ rows: { userId: string; nickname: string; status: string; balance: number; lastMoveAt: number | null }[]; totals: { wallets: number; house: number; players: number } }> {
+    if (!this.deps.perms.can(actorId, 'mena.zobrazit_knihu').allowed) throw new PermissionError('FORBIDDEN');
+    const db = this.deps.db;
+    const users = await db.select({ id: schema.users.id, nickname: schema.users.nickname, status: schema.users.status }).from(schema.users);
+    const last = await db
+      .select({ account: schema.ledgerEntries.account, at: sql<Date>`max(${schema.ledgerTransactions.at})` })
+      .from(schema.ledgerEntries)
+      .innerJoin(schema.ledgerTransactions, eq(schema.ledgerTransactions.id, schema.ledgerEntries.transactionId))
+      .where(like(schema.ledgerEntries.account, 'wallet:%'))
+      .groupBy(schema.ledgerEntries.account);
+    const lastBy = new Map(last.map((r) => [r.account, new Date(r.at).getTime()]));
+    const rows = users
+      .map((u) => ({ userId: u.id, nickname: u.nickname, status: u.status, balance: this.deps.ledger.balance(accounts.wallet(u.id)), lastMoveAt: lastBy.get(accounts.wallet(u.id)) ?? null }))
+      .sort((a, b) => b.balance - a.balance || a.nickname.localeCompare(b.nickname, 'cs'));
+    return { rows, totals: { wallets: rows.reduce((n, r) => n + r.balance, 0), house: this.deps.ledger.balance(accounts.house()), players: rows.length } };
   }
 
   houseBalances(actorId: string): Record<string, number> {

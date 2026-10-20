@@ -32,7 +32,7 @@ interface TvTournament {
   prizePool: number;
   payouts: { place: number; amount: number }[];
   bubble: boolean;
-  standings: { name: string; place: number; chips: number | null; status: string; payout: number | null }[];
+  standings: { name: string; place: number; chips: number | null; status: string; payout: number | null; profit?: number | null }[];
   results: { name: string; place: number; payout: number }[] | null;
 }
 interface TvSeat {
@@ -396,7 +396,10 @@ function PlayersScreen({ tr }: { tr: TvTournament }) {
             <span>
               {p.place}. {p.name}
             </span>
-            <span className="font-mono">{tr.results ? (p.payout ?? 0) : (p.chips ?? '')}</span>
+            <span className="font-mono">
+              {tr.results ? (p.payout ?? 0) : (p.chips ?? '')}
+              {tr.results && p.profit !== null && p.profit !== undefined && <span className={`ml-3 ${p.profit > 0 ? 'text-success' : p.profit < 0 ? 'text-danger' : 'text-muted'}`}>{t('tv.profit', { n: `${p.profit > 0 ? '+' : ''}${p.profit}` })}</span>}
+            </span>
           </li>
         ))}
       </ol>
