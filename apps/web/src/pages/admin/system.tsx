@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, parseList, scopeAllowed, t, validateValues, type SettingValue } from '@kb/shared';
+import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, parseList, scopeAllowed, t, validateValues, type SettingValue, type SettingValues } from '@kb/shared';
 import { errorText, get, post, put, del } from '../../api';
 import { can, useSession } from '../../session';
 import { loadSettings, registry, saveGlobalSetting, useSettings } from '../../settings';
@@ -8,11 +8,17 @@ import { Badge, Button, Card, DataTable, Notice, Select, Tabs, Td, TextArea, Tex
 
 // ---------- globální nastavení ----------
 
-export function GlobalSettingsPage() {
+/** Osobní nastavení hráčů (vzhled, zvuky, panely…): správce k nim ve druhé stránce volí výchozí hodnoty. */
+const isPersonal = (d: { key: string; scopes?: readonly string[] }) => !!d.scopes?.includes('user') && d.key !== 'ui.themeId';
+
+/** `personal`: stránka Výchozí osobní nastavení (hodnoty bez osobních voleb správce); jinak Globální nastavení. */
+export function GlobalSettingsPage({ personal = false }: { personal?: boolean }) {
   const settings = useSettings();
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [pending, setPending] = useState<Record<string, SettingValue>>({});
-  const values = { ...settings.values, ...pending };
+  // Výchozí osobní nastavení se zobrazuje bez osobních voleb správce: vestavěné hodnoty + globální výchozí.
+  const base: SettingValues = personal ? ({ ...registry.defaults(), ...settings.global } as SettingValues) : settings.values;
+  const values = { ...base, ...pending };
   const issues = useMemo(() => validateValues(registry, values), [values]);
   const problems = blockingIssues(issues, Object.keys(pending));
   const save = async () => {
@@ -27,7 +33,7 @@ export function GlobalSettingsPage() {
   };
   return (
     <div className="flex flex-col gap-3">
-      <Notice>{t('admin.globalSettings.info')}</Notice>
+      <Notice>{t(personal ? 'admin.personalDefaults.info' : 'admin.globalSettings.info')}</Notice>
       <SettingsForm
         registry={registry}
         values={values}
@@ -36,7 +42,7 @@ export function GlobalSettingsPage() {
         onChange={(k, v) => setPending({ ...pending, [k]: v })}
         onReset={(k) => setPending(Object.fromEntries(Object.entries(pending).filter(([x]) => x !== k)))}
         issues={issues}
-        allowedKeys={(d) => scopeAllowed(d.scopes, 'global') || d.scopes === undefined}
+        allowedKeys={(d) => (personal ? isPersonal(d) : (scopeAllowed(d.scopes, 'global') || d.scopes === undefined) && !isPersonal(d))}
         pendingKeys={Object.keys(pending)}
       />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}

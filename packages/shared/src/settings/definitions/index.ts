@@ -39,7 +39,8 @@ const S = 'beforeStart' as const;
 const ADM = 'adminOnly' as const;
 /** Systémové parametry platí globálně, ne po hrách ani šablonách. */
 const GLOBAL = ['global'] as const;
-const USER = ['user', 'userDevice'] as const;
+/** Osobní nastavení; vrstva global je výchozí hodnota pro všechny hráče, kterou si hráč může přepsat. */
+const USER = ['global', 'user', 'userDevice'] as const;
 
 /** Parametry stolu. */
 const table: SettingDef[] = [

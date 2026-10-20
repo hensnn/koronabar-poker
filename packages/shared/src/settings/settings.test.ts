@@ -45,14 +45,22 @@ describe('registr nastavení', () => {
     for (const d of reg.all()) if (d.dependsOn) expect(reg.get(d.dependsOn.key)).toBeTruthy();
   });
 
-  it('osobní parametry (ui.*) jsou jen ve vrstvách user/userDevice', () => {
+  it('osobní parametry (ui.*) jsou ve vrstvách global (výchozí od správce), user a userDevice', () => {
     for (const d of reg.all().filter((x) => x.category === 'ui')) {
-      expect(d.scopes).toEqual(['user', 'userDevice']);
+      expect(d.scopes).toEqual(['global', 'user', 'userDevice']);
     }
   });
 });
 
 describe('vrstvy a dědičnost', () => {
+  it('výchozí hodnota osobního nastavení od správce platí, dokud si ji hráč nepřepíše', () => {
+    const base = resolveSettings(reg, [{ scope: 'global', values: { 'ui.showSymbolAtTable': false } }]);
+    expect(base.values['ui.showSymbolAtTable']).toBe(false);
+    expect(base.origins['ui.showSymbolAtTable']).toBe('global');
+    const own = resolveSettings(reg, [{ scope: 'global', values: { 'ui.showSymbolAtTable': false } }, { scope: 'user', values: { 'ui.showSymbolAtTable': true } }]);
+    expect(own.values['ui.showSymbolAtTable']).toBe(true);
+  });
+
   it('nižší vrstva přepisuje vyšší a eviduje původ', () => {
     const r = resolveSettings(reg, [
       { scope: 'table', values: { 'table.bigBlind': 40 } },

@@ -41,6 +41,7 @@ const SECTIONS: Section[] = [
   { group: 'system', path: '/admin/email', label: 'admin.email', show: (m) => can(m, 'email.spravovat_smtp') || can(m, 'email.sablony') || can(m, 'email.fronta'), render: () => <EmailPage /> },
   { group: 'system', path: '/admin/tajne-udaje', label: 'admin.secrets', show: (m) => can(m, 'email.spravovat_smtp') || can(m, 'system.tajne_udaje'), render: () => <SecretsPage /> },
   { group: 'system', path: '/admin/nastaveni', label: 'admin.settings', show: (m) => can(m, 'nastaveni.globalni'), render: () => <GlobalSettingsPage /> },
+  { group: 'system', path: '/admin/osobni-vychozi', label: 'admin.personalDefaults', show: (m) => can(m, 'nastaveni.globalni'), render: () => <GlobalSettingsPage personal /> },
   { group: 'game', path: '/admin/sablony', label: 'admin.templates', show: (m) => can(m, 'nastaveni.globalni'), render: () => <TemplatesPage /> },
   { group: 'game', path: '/admin/struktury', label: 'admin.structures', show: (m) => can(m, 'nastaveni.globalni'), render: () => <StructuresPage /> },
   { group: 'game', path: '/admin/prehledy', label: 'admin.boards', show: (m) => can(m, 'nastaveni.globalni'), render: () => <BoardsPage /> },

@@ -349,6 +349,8 @@ export const csUi: Record<string, string> = {
   'admin.email': 'E-mail',
   'admin.secrets': 'Tajné údaje',
   'admin.settings': 'Globální nastavení',
+  'admin.personalDefaults': 'Výchozí osobní nastavení',
+  'admin.personalDefaults.info': 'Tady vybereš výchozí hodnoty osobního nastavení (vzhled, zvuky, panely u stolu, zobrazení částek…) pro všechny hráče. Platí pro každého, kdo si danou volbu sám nezměnil; hráč si ji dál může přepsat ve svém Nastavení a tlačítkem Výchozí se vrátí k tvé hodnotě.',
   'admin.audit': 'Audit log',
   'admin.status': 'Stav',
   'admin.active': 'Aktivní',
