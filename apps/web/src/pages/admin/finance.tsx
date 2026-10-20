@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
-import { errorText, get, post } from '../../api';
+import { errorText, get } from '../../api';
+import { HouseCard } from './house';
 import { Link } from '../../router';
-import { Button, Card, DataTable, NumInput, Notice, Spinner, TextInput, Td } from '../../ui';
+import { Card, DataTable, Notice, Spinner, Td } from '../../ui';
 
 interface Finance {
   house: number;
@@ -14,49 +15,19 @@ interface Finance {
 export function FinancePage() {
   const [data, setData] = useState<Finance | null>(null);
   const [error, setError] = useState('');
-  const [amount, setAmount] = useState(0);
-  const [reason, setReason] = useState('');
-  const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const load = useCallback(() => {
     get<Finance>('/api/admin/finance')
       .then(setData)
       .catch((e) => setError(errorText(e)));
   }, []);
   useEffect(load, [load]);
-  const moveHouse = async (direction: 'in' | 'out') => {
-    setMsg(null);
-    try {
-      const r = await post<{ done: boolean }>('/api/admin/wallet/house', { direction, amount, reason });
-      setMsg({ kind: 'success', text: t(r.done ? 'finance.houseDone' : 'finance.housePending') });
-      setAmount(0);
-      setReason('');
-      load();
-    } catch (e) {
-      setMsg({ kind: 'error', text: errorText(e) });
-    }
-  };
   if (!data) return error ? <Notice kind="error">{error}</Notice> : <Spinner label={t('app.loading')} />;
   const sum = (k: 'gross' | 'pool' | 'fees' | 'houseCut' | 'fund' | 'overlay' | 'bounty' | 'paidOut') => data.tournaments.reduce((n, x) => n + x[k], 0);
   return (
     <div className="flex flex-col gap-3">
       <h1 className="font-heading text-2xl font-bold">{t('finance.title')}</h1>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Card title={t('finance.house')}>
-          <p className="font-mono text-2xl">{data.house}</p>
-          <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
-            <p className="text-sm text-muted">{t('finance.houseHelp')}</p>
-            <label className="flex flex-col gap-1 text-sm">
-              {t('finance.houseAmount')}
-              <NumInput value={amount} min={0} onChange={setAmount} />
-            </label>
-            <TextInput label={t('finance.houseReason')} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
-            <div className="flex flex-wrap gap-2">
-              <Button variant="primary" disabled={amount <= 0 || !reason.trim()} onClick={() => void moveHouse('in')}>{t('finance.houseIn')}</Button>
-              <Button disabled={amount <= 0 || !reason.trim() || amount > data.house} onClick={() => void moveHouse('out')}>{t('finance.houseOut')}</Button>
-            </div>
-            {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-          </div>
-        </Card>
+        <HouseCard onChange={load} />
         <Card title={t('finance.funds')}>
           <ul>
             {data.funds.map((f) => (

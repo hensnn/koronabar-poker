@@ -34,6 +34,7 @@ import { PublicBoardService } from './public-boards.js';
 import { TimelineService } from './timeline.js';
 import { OverviewService } from './overview.js';
 import { YearStatsService } from './year-stats.js';
+import { HouseExpenseService } from './house-expenses.js';
 import { TournamentManager, resultSummary, tournamentChatText, type TournamentNotice } from './tournaments.js';
 import { NotificationService } from './notifications.js';
 import { StatsService } from './stats.js';
@@ -269,7 +270,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   const schedulerRef: { current?: Scheduler } = {};
   const notificationsRef: { current?: NotificationService } = {};
   const seriesRef: { current?: SeriesService } = {};
-  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, yearStats: () => yearStatsRef.current!, mailYear: (userId, year) => mailYear(userId, year), timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
+  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, yearStats: () => yearStatsRef.current!, houseExpenses: () => houseExpenses, mailYear: (userId, year) => mailYear(userId, year), timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
 
   let broadcast: (tableId: string) => void = () => undefined;
   // Chat: hlavní kanál, kanály stolů a systémové zprávy u stolů.
@@ -1059,6 +1060,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   structuresRef.current = structures;
   publicBoardsRef.current = new PublicBoardService({ db, perms, audit, settings: () => settings.resolve(), stats: () => stats, rating: () => rating, ledger: () => ledger, now: () => clock.now() });
   const timeline = new TimelineService({ db, settings: () => settings.resolve() });
+  const houseExpenses = new HouseExpenseService({ db, ledger, perms, audit, wallet, settings: () => settings.resolve(), now: () => clock.now() });
   const yearStats = new YearStatsService({ db, ledger, settings: () => settings.resolve(), now: () => clock.now() });
   yearStatsRef.current = yearStats;
   const overview = new OverviewService({
@@ -1095,6 +1097,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     structures,
     publicBoards: publicBoardsRef.current!,
     yearStats: yearStatsRef.current!,
+    houseExpenses,
     timeline,
     overview,
     scheduler,

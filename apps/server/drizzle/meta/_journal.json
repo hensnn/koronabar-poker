@@ -253,6 +253,13 @@
       "when": 1792486791269,
       "tag": "0035_verejne_prehledy",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792500791969,
+      "tag": "0036_vydaje_domu",
+      "breakpoints": true
     }
   ]
 }

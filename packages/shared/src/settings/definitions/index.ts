@@ -236,6 +236,7 @@ const stats: SettingDef[] = [
   text('stats.yearFieldsEmail', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'net,tournamentNet,cashNet,topUps,withdrawals,balanceEnd', 300),
   text('stats.yearFieldsApi', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'net,tournamentNet,cashNet,liveNet,won,lost,topUps,withdrawals,balanceStart,balanceEnd,hands,tournaments,monthly', 300),
   bool('stats.yearEmailAuto', { category: 'stats', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'stats.yearEnabled', truthy: true } }, false),
+  text('finance.expenseCategories', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'provoz,ceny,akce,ostatni', 300),
   int('stats.categoryTop', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 20),
   bool('stats.publicProfiles', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
 ];

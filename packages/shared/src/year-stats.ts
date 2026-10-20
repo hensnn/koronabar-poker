@@ -68,6 +68,12 @@ function tzOffset(ms: number, tz: string): number {
   return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')) - Math.floor(ms / 1000) * 1000;
 }
 
+/** Okamžik půlnoci prvního dne měsíce (0 až 11) v časové zóně, v ms. */
+export function startOfMonth(year: number, month: number, tz: string): number {
+  const guess = Date.UTC(year, month, 1);
+  return guess - tzOffset(guess - tzOffset(guess, tz), tz);
+}
+
 /** Začátek (včetně) a konec (bez) kalendářního roku v časové zóně, v ms. */
 export function yearBounds(year: number, tz: string): { from: number; to: number } {
   const start = (y: number) => {

@@ -74,23 +74,36 @@ describe('kategorie kdo je v čem nejlepší (HTTP)', () => {
   });
 });
 
-describe('vklad do domu a výběr z domu (HTTP)', () => {
-  it('správce vloží měnu do domu a vybere; kniha zůstane vyrovnaná, hráč to nesmí', async () => {
+describe('účet domu: vklad a výdaje (HTTP)', () => {
+  it('správce vloží měnu do domu a zapíše výdaje s kategorií; přehled je sečte, dům nejde do mínusu, hráč nemá přístup', async () => {
     const s = await start();
     const login = async (identifier: string, password: string) => String((await s.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier, password }, headers: { origin: 'http://localhost' } })).headers['set-cookie']).split(';')[0]!;
     const admin = await login('Admin', 'admin-heslo-123');
-    const house = async () => (await s.server.app.inject({ method: 'GET', url: '/api/admin/house', headers: { cookie: admin } })).json().house as number;
-    const before = await house();
-    const inn = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: admin, origin: 'http://localhost' }, payload: { direction: 'in', amount: 5000, reason: 'Počáteční vklad' } });
-    expect(inn.statusCode).toBe(200);
-    expect(await house()).toBe(before + 5000);
-    const out = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: admin, origin: 'http://localhost' }, payload: { direction: 'out', amount: 2000, reason: 'Oprava' } });
-    expect(out.statusCode).toBe(200);
-    expect(await house()).toBe(before + 3000);
-    const tooMuch = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: admin, origin: 'http://localhost' }, payload: { direction: 'out', amount: 999_999, reason: 'x' } });
-    expect(tooMuch.statusCode).toBeGreaterThanOrEqual(400);
+    const post = (url: string, payload: unknown, cookie = admin) => s.server.app.inject({ method: 'POST', url, headers: { cookie, origin: 'http://localhost' }, payload: payload as never });
+    const report = async () => (await s.server.app.inject({ method: 'GET', url: '/api/admin/house/report', headers: { cookie: admin } })).json() as { house: number; categories: string[]; expenses: { category: string; amount: number; note: string }[]; month: { total: number; byCategory: Record<string, number> }; year: { total: number }; income: { month: number } };
+    const before = (await report()).house;
+
+    expect((await post('/api/admin/wallet/house', { amount: 5000, reason: 'Počáteční vklad' })).statusCode).toBe(200);
+    expect((await report()).house).toBe(before + 5000);
+
+    expect((await post('/api/admin/house/expense', { category: 'provoz', amount: 1200, note: 'Server za měsíc' })).statusCode).toBe(200);
+    expect((await post('/api/admin/house/expense', { category: 'ceny', amount: 300, note: 'Cena pro vítěze' })).statusCode).toBe(200);
+    const r = await report();
+    expect(r.house).toBe(before + 5000 - 1500);
+    expect(r.categories).toEqual(['provoz', 'ceny', 'akce', 'ostatni']);
+    expect(r.month.byCategory).toEqual({ provoz: 1200, ceny: 300 });
+    expect(r.year.total).toBe(1500);
+    expect(r.income.month).toBeGreaterThanOrEqual(5000);
+    expect(r.expenses.map((e) => e.note)).toEqual(expect.arrayContaining(['Server za měsíc', 'Cena pro vítěze']));
+
+    // neznámá kategorie, nulová částka i výdaj nad zůstatek domu se odmítnou
+    expect((await post('/api/admin/house/expense', { category: 'neznama', amount: 10, note: 'x' })).statusCode).toBe(400);
+    expect((await post('/api/admin/house/expense', { category: 'provoz', amount: 999_999_999, note: 'x' })).statusCode).toBe(409);
+    expect((await report()).house).toBe(before + 3500);
+
     const player = await login('Hrac', 'heslo-hrace-123');
-    const denied = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: player, origin: 'http://localhost' }, payload: { direction: 'in', amount: 10, reason: 'x' } });
-    expect(denied.statusCode).toBe(403);
+    expect((await post('/api/admin/wallet/house', { amount: 10, reason: 'x' }, player)).statusCode).toBe(403);
+    expect((await post('/api/admin/house/expense', { category: 'provoz', amount: 10, note: 'x' }, player)).statusCode).toBe(403);
+    expect((await s.server.app.inject({ method: 'GET', url: '/api/admin/house/report', headers: { cookie: player } })).statusCode).toBe(403);
   });
 });

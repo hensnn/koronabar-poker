@@ -278,4 +278,8 @@ Do „nabito“ se počítá jen dobití, které hráči udělal správce v pokl
 
 ## Účet domu (herny): počáteční vklad a doplnění
 
-Dům sbírá rake, poplatky a odvody turnajů i strženou měnu. Počáteční vklad nebo doplnění uděláš ve **Správa → Finance** u účtu herny: zadej částku a důvod a klikni na **Vložit do domu**; **Vybrat z domu** vrátí měnu zpět do zásoby. Vše se zapíše do účetní knihy a auditu a vyžaduje oprávnění „Ruční úprava knihy“. Garance turnajů se doplácí z domu, co dům nepokryje, se vydá nově, takže vklad do domu není nutný.
+Dům sbírá rake, poplatky a odvody turnajů i strženou měnu. Počáteční vklad nebo doplnění uděláš ve **Správa → Finance** u účtu herny: zadej částku a důvod a klikni na **Vložit do domu** (měna se nově vydá).
+
+**Výdaje domu** (provoz, ceny pro vítěze, akce…) zapíšeš na stejném místě: vyber **kategorii**, částku a poznámku a klikni na **Zapsat výdaj**. Měna odejde z domu zpět do zásoby; dům nesmí jít do mínusu. Pod formulářem je přehled příjmů a výdajů podle kategorií **za tento měsíc a za tento rok** a seznam posledních výdajů. Kategorie si upravíš v Globálním nastavení → Ekonomika → Kategorie výdajů domu (výchozí: provoz, ceny, akce, ostatní).
+
+Vše jde do účetní knihy a auditu a vyžaduje oprávnění „Ruční úprava knihy“. Garance turnajů se doplácí z domu, co dům nepokryje, se vydá nově, takže vklad do domu není nutný.

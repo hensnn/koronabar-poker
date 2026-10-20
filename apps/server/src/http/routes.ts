@@ -25,6 +25,7 @@ import { PublicBoardError, type PublicBoardService } from '../public-boards.js';
 import type { TimelineService } from '../timeline.js';
 import { OverviewError, type CompareMetric, type OverviewService } from '../overview.js';
 import { YearStatsError, type YearStatsService } from '../year-stats.js';
+import { HouseExpenseError, type HouseExpenseService } from '../house-expenses.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -80,6 +81,7 @@ export interface Services {
   timeline: () => TimelineService;
   overview: () => OverviewService;
   yearStats: () => YearStatsService;
+  houseExpenses: () => HouseExpenseService;
   mailYear: (userId: string, year: number) => Promise<boolean>;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
@@ -1944,12 +1946,35 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const b = z.object({ entries: z.array(z.object({ account: z.string().min(1).max(100), amount: z.number().int() })).min(2).max(20), reason: z.string().min(1).max(300) }).parse(req.body);
     return reply.send(await svc.wallet.adjust(need(req).id, b.entries, b.reason, meta(req)));
   }));
-  /** Vklad do domu (nově vydaná měna jde na účet domu) nebo výběr z domu (měna se vrací do zásoby); vždy s důvodem v účetní knize a auditu. */
+  // ---------- účet domu: vklad a výdaje ----------
+  const houseErr = (e: unknown, reply: FastifyReply) => {
+    if (!(e instanceof HouseExpenseError)) throw e;
+    return reply.code(e.code === 'FORBIDDEN' ? 403 : e.code === 'INSUFFICIENT' ? 409 : 400).send({ code: 'HOUSE_' + e.code });
+  };
+  /** Vklad do domu (počáteční vklad, doplnění zásoby): nově vydaná měna jde na účet domu; vždy s důvodem v knize a auditu. */
   app.post('/api/admin/wallet/house', guard(async (req, reply) => {
-    const b = z.object({ direction: z.enum(['in', 'out']), amount, reason: z.string().min(1).max(300) }).parse(req.body);
-    const sign = b.direction === 'in' ? 1 : -1;
-    const entries = [{ account: 'mint', amount: -sign * b.amount }, { account: 'house', amount: sign * b.amount }];
-    return reply.send(await svc.wallet.adjust(need(req).id, entries, b.reason, meta(req)));
+    const b = z.object({ amount, reason: z.string().min(1).max(300) }).parse(req.body);
+    try {
+      return reply.send(await svc.houseExpenses().deposit(need(req).id, { amount: b.amount, note: b.reason }, meta(req)));
+    } catch (e) {
+      return houseErr(e, reply);
+    }
+  }));
+  app.get('/api/admin/house/report', guard(async (req, reply) => {
+    try {
+      return reply.send(await svc.houseExpenses().report(need(req).id));
+    } catch (e) {
+      return houseErr(e, reply);
+    }
+  }));
+  /** Výdaj domu s kategorií a poznámkou: měna odejde z účtu domu zpět do zásoby. */
+  app.post('/api/admin/house/expense', guard(async (req, reply) => {
+    const b = z.object({ category: z.string().min(1).max(40), amount, note: z.string().min(1).max(300) }).parse(req.body);
+    try {
+      return reply.send(await svc.houseExpenses().spend(need(req).id, b, meta(req)));
+    } catch (e) {
+      return houseErr(e, reply);
+    }
   }));
   app.get('/api/admin/ledger', guard(async (req, reply) => reply.send(await svc.wallet.ledgerOverview(need(req).id))));
   app.get('/api/admin/house', guard(async (req, reply) => reply.send(svc.wallet.houseBalances(need(req).id))));

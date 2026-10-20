@@ -1190,6 +1190,21 @@ export const blindStructures = pgTable('blind_structures', {
 
 // ---------- veřejné přehledy (statistiky na sdíleném odkazu) ----------
 
+/** Výdaje domu (provoz, ceny, akce…) s kategorií a poznámkou; peníze se hýbou v účetní knize (`txId`). */
+export const houseExpenses = pgTable(
+  'house_expenses',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    category: text('category').notNull(),
+    amount: bigint('amount', { mode: 'number' }).notNull(),
+    note: text('note').notNull(),
+    txId: bigint('tx_id', { mode: 'number' }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    at: timestamp('at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('house_expenses_at_idx').on(t.at)],
+);
+
 /** Veřejný přehled hráčů (žebříček, zisk, zkušenosti…) dostupný bez přihlášení přes tajný odkaz (`token`). */
 export const publicBoards = pgTable(
   'public_boards',
