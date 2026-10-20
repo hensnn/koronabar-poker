@@ -4,6 +4,8 @@ import type { PgTable } from 'drizzle-orm/pg-core';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
 import type { PermissionChecker, SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
+import type { ChatImages } from './chat/images.js';
+import type { HistoryService } from './history.js';
 import { schema, type Db } from './db/index.js';
 import type { TableManager } from './tables.js';
 import type { TournamentManager } from './tournaments.js';
@@ -27,6 +29,8 @@ interface Deps {
   tournaments: () => TournamentManager;
   /** Služby si drží frontu zápisů; před mazáním se nechá doběhnout. */
   idle: () => Promise<void>;
+  history: () => HistoryService;
+  chatImages: () => ChatImages;
 }
 
 type Meta = { ip?: string | null; source?: AuditSource; reason?: string | null };
@@ -44,7 +48,30 @@ export interface ResetAreas {
   wallets?: boolean;
 }
 
+/** Jednorázová příprava na ostrý provoz: každá oblast zvlášť, uživatelé a nastavení zůstávají. */
+export interface LaunchOptions {
+  /** Zavřít otevřené stoly a zrušit běžící turnaje. */
+  games?: boolean;
+  /** XP, úspěchy, rating a statistiky (historie hand, výsledky her). */
+  progress?: boolean;
+  /** Hotové stoly, turnaje, ankety, večery a sdílené handy z historie. */
+  history?: boolean;
+  /** Veškerá historie chatu (zprávy, reakce, obrázky); kanály a členství zůstávají. */
+  chat?: boolean;
+  /** Všechna upozornění ve zvonečku. */
+  notifications?: boolean;
+  /** Peněženky všech hráčů na nulu a nový začátek účetní knihy. */
+  wallets?: boolean;
+}
+
 export interface MaintenanceCounts {
+  chatMessages: number;
+  chatImages: number;
+  notifications: number;
+  historyItems: number;
+  /** Hráči, kteří mají v peněžence nenulový zůstatek, a součet zůstatků. */
+  walletsNonZero: number;
+  walletsTotal: number;
   xpEvents: number;
   players: number;
   achievements: number;
@@ -76,7 +103,15 @@ export class MaintenanceService {
   async counts(actorId: string): Promise<MaintenanceCounts> {
     this.can(actorId);
     const tournaments = this.deps.tournaments();
+    const users = await this.deps.db.select({ id: schema.users.id }).from(schema.users);
+    const balances = users.map((u) => this.deps.ledger.balance(ledgerAccounts.wallet(u.id)));
     return {
+      chatMessages: await this.count(schema.chatMessages),
+      chatImages: await this.count(schema.chatImages),
+      notifications: await this.count(schema.notifications),
+      historyItems: (await this.deps.history().overview(actorId)).items.length,
+      walletsNonZero: balances.filter((b) => b !== 0).length,
+      walletsTotal: balances.reduce((a, b) => a + b, 0),
       xpEvents: await this.count(schema.xpEvents),
       players: await this.count(schema.playerProgress),
       achievements: await this.count(schema.playerAchievements),
@@ -158,7 +193,7 @@ export class MaintenanceService {
    * Nový start účetní knihy: smaže celou historii transakcí a zůstatků a každému hráči připíše počáteční zůstatek
    * jedinou „otevírací“ transakcí (z účtu mint). Jde jen bez otevřených stolů a běžících turnajů (žádné žetony mimo peněženky).
    */
-  async resetLedger(actorId: string, meta: Meta = {}): Promise<{ transactionsDeleted: number; users: number }> {
+  async resetLedger(actorId: string, meta: Meta = {}, opts: { balance?: number } = {}): Promise<{ transactionsDeleted: number; users: number }> {
     this.can(actorId);
     const tournaments = this.deps.tournaments();
     const active = tournaments.list().filter((r) => ACTIVE.has(tournaments.get(r.id)?.state().status ?? '')).length;
@@ -171,12 +206,57 @@ export class MaintenanceService {
     await db.delete(schema.ledgerTransactions);
     await db.delete(schema.ledgerAccounts);
     this.deps.ledger.reset();
-    const target = Number(this.deps.settings()['economy.startingBalance'] ?? 0);
+    const target = opts.balance ?? Number(this.deps.settings()['economy.startingBalance'] ?? 0);
     const users = await db.select({ id: schema.users.id }).from(schema.users);
     for (const u of users) if (target > 0) this.deps.cash.mint(u.id, target, `opening:${u.id}:${randomUUID()}`, actorId, 'udrzba.novy_start');
     await this.deps.flush();
     await this.deps.audit.log({ actorId, action: 'udrzba.novy_start_knihy', targetType: 'system', after: { transactionsDeleted, users: users.length, startingBalance: target }, ...meta });
     return { transactionsDeleted, users: users.length };
+  }
+
+  /**
+   * Jednorázová příprava na ostrý provoz. Pořadí: hry (zavřít a zrušit), postup a statistiky, historie her, chat, upozornění
+   * a nakonec peněženky na nulu (nový začátek účetní knihy). Uživatelé, nastavení, šablony, role a napojení se nemění.
+   */
+  async prepareLaunch(actorId: string, o: LaunchOptions, meta: Meta = {}): Promise<Record<string, number>> {
+    this.can(actorId);
+    if (!Object.values(o).some(Boolean)) throw new MaintenanceError('INVALID');
+    const done: Record<string, number> = {};
+    if (o.games || o.progress) {
+      const r = await this.reset(actorId, { games: !!o.games, xp: !!o.progress, achievements: !!o.progress, rating: !!o.progress, stats: !!o.progress }, meta);
+      Object.assign(done, r);
+    }
+    await this.deps.idle();
+    const db = this.deps.db;
+    if (o.history) {
+      const history = this.deps.history();
+      let n = 0;
+      for (const item of (await history.overview(actorId)).items) {
+        try {
+          await history.remove(actorId, item.kind, item.id, meta);
+          n++;
+        } catch {
+          // položka, která se zrovna nedá smazat (např. stůl se otevřel), se přeskočí
+        }
+      }
+      done.historyItems = n;
+    }
+    if (o.chat) {
+      done.chatMessages = await this.count(schema.chatMessages);
+      await db.delete(schema.chatMessages);
+      done.chatImages = await this.deps.chatImages().purgeAll();
+    }
+    if (o.notifications) {
+      done.notifications = await this.count(schema.notifications);
+      await db.delete(schema.notifications);
+    }
+    if (o.wallets) {
+      const r = await this.resetLedger(actorId, meta, { balance: 0 });
+      done.transactionsDeleted = r.transactionsDeleted;
+      done.wallets = r.users;
+    }
+    await this.deps.audit.log({ actorId, action: 'udrzba.priprava_ostry_provoz', targetType: 'system', after: { options: o, done }, ...meta });
+    return done;
   }
 
   /** Vynulování jednoho hráče: XP (a úroveň), úspěchy, rating. */

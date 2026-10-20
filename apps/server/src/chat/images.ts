@@ -75,6 +75,13 @@ export class ChatImages {
     }
   }
 
+  /** Smaže všechny obrázky v chatu (řádky i soubory); vrací jejich počet. */
+  async purgeAll(): Promise<number> {
+    const all = await this.deps.db.delete(schema.chatImages).returning({ id: schema.chatImages.id });
+    for (const o of all) await rm(this.file(o.id), { force: true });
+    return all.length;
+  }
+
   /** Smaže nepřipojené obrázky starší než den a soubory obrázků smazaných zpráv. */
   async purgeOld(): Promise<number> {
     const cutoff = new Date(this.deps.now() - 86_400_000);

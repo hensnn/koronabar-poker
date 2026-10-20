@@ -207,3 +207,12 @@ a v aplikaci **Správa → Hlasatel** zadej adresu `piper` a port `10200`.
 - Stránka se načte, ale hra nebo chat „nežije“: v NPM chybí **Websockets Support**.
 - Přihlášení hlásí chybu původu (FORBIDDEN_ORIGIN): `PUBLIC_URL` v `.env` neodpovídá adrese, ze které aplikaci otevíráš; po úpravě `docker compose up -d`.
 - Push upozornění nechodí: vyžadují HTTPS (přes NPM) a povolení v prohlížeči; na iPhonu jen u nainstalované aplikace.
+
+## Před ostrým provozem: jednorázová příprava (smazání zkušebních dat)
+
+Po testování se dá vše zkušební smazat jedním krokem: **Správa → Údržba → Příprava na ostrý provoz** (karta nahoře). Uživatelé a jejich účty, globální nastavení, šablony stolů a turnajů, struktury blindů, motivy, role, napojení a osobní rozložení panelů **zůstávají**.
+
+1. Udělej zálohu (snímek kontejneru v Proxmoxu a záloha databáze) a ulož si `MASTER_KEY`.
+2. Otevři Údržbu, u každé položky vidíš, kolik se smaže: zavřít stoly a zrušit turnaje, postup a statistiky, hotové hry z Historie, historie chatu, upozornění ve zvonečku, peněženky na 0.
+3. Zaškrtni, co chceš, napiš potvrzovací slovo a potvrď. Akce je nevratná a zapíše se do audit logu.
+4. Hráčům pak dobij měnu v **Správa → Pokladna** (po vynulování mají nulu).

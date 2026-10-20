@@ -4,6 +4,12 @@ import { errorText, get, post } from '../../api';
 import { Button, Card, Notice, TextInput } from '../../ui';
 
 interface Counts {
+  chatMessages: number;
+  chatImages: number;
+  notifications: number;
+  historyItems: number;
+  walletsNonZero: number;
+  walletsTotal: number;
   xpEvents: number;
   players: number;
   achievements: number;
@@ -17,12 +23,16 @@ interface Counts {
 const AREAS = ['games', 'xp', 'achievements', 'rating', 'stats', 'wallets'] as const;
 type Area = (typeof AREAS)[number];
 const CONFIRM_WORD = 'VYNULOVAT';
+const LAUNCH = ['games', 'progress', 'history', 'chat', 'notifications', 'wallets'] as const;
+type LaunchArea = (typeof LAUNCH)[number];
 
 /** Správa → Údržba: vynulování po testování (XP, úspěchy, rating, statistiky, peněženky, otevřené hry). */
 export function MaintenancePage() {
   const [counts, setCounts] = useState<Counts | null>(null);
   const [areas, setAreas] = useState<Record<Area, boolean>>({ games: false, xp: true, achievements: true, rating: true, stats: true, wallets: false });
   const [word, setWord] = useState('');
+  const [launch, setLaunch] = useState<Record<LaunchArea, boolean>>({ games: true, progress: true, history: true, chat: true, notifications: true, wallets: true });
+  const [launchWord, setLaunchWord] = useState('');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const reload = useCallback(() => {
@@ -62,6 +72,39 @@ export function MaintenancePage() {
       setBusy(false);
     }
   };
+  const anyLaunch = LAUNCH.some((a) => launch[a]);
+  const launchHint = (a: LaunchArea): string => {
+    if (!counts) return '';
+    switch (a) {
+      case 'games':
+        return t('launch.count.games', { tables: counts.openTables, tournaments: counts.activeTournaments });
+      case 'progress':
+        return t('launch.count.progress', { hands: counts.hands, results: counts.results, xp: counts.xpEvents });
+      case 'history':
+        return t('launch.count.history', { n: counts.historyItems });
+      case 'chat':
+        return t('launch.count.chat', { messages: counts.chatMessages, images: counts.chatImages });
+      case 'notifications':
+        return t('launch.count.notifications', { n: counts.notifications });
+      case 'wallets':
+        return t('launch.count.wallets', { players: counts.walletsNonZero, total: counts.walletsTotal });
+    }
+  };
+  const runLaunch = async () => {
+    if (!confirm(t('launch.confirm'))) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await post<{ done: Record<string, number> }>('/api/admin/maintenance/launch', launch);
+      setMsg({ kind: 'success', text: t('launch.done', { detail: Object.entries(r.done).map(([k, v]) => `${t(`launch.done.${k}`)}: ${v}`).join(', ') }) });
+      setLaunchWord('');
+      reload();
+    } catch (e) {
+      setMsg({ kind: 'error', text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
   const any = AREAS.some((a) => areas[a]);
   const [ledgerWord, setLedgerWord] = useState('');
   const resetLedger = async () => {
@@ -81,6 +124,30 @@ export function MaintenancePage() {
   return (
     <div className="flex flex-col gap-3">
       <Notice kind="error">{t('maintenance.warning')}</Notice>
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      <Card title={t('launch.title')}>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm">{t('launch.help')}</p>
+          <p className="rounded-md border border-success px-2 py-1 text-sm">{t('launch.keeps')}</p>
+          {LAUNCH.map((a) => (
+            <label key={a} className="flex flex-col gap-0.5">
+              <span className="flex items-center gap-2 font-medium">
+                <input type="checkbox" checked={launch[a]} onChange={(e) => setLaunch({ ...launch, [a]: e.target.checked })} />
+                {t(`launch.area.${a}`)}
+              </span>
+              <span className="pl-6 text-sm text-muted">
+                {t(`launch.help.${a}`)} <strong>{launchHint(a)}</strong>
+              </span>
+            </label>
+          ))}
+          <TextInput label={t('maintenance.confirmLabel', { word: CONFIRM_WORD })} value={launchWord} onChange={(e) => setLaunchWord(e.target.value)} />
+          <div>
+            <Button variant="danger" disabled={busy || !anyLaunch || launchWord.trim() !== CONFIRM_WORD} onClick={() => void runLaunch()}>
+              {t('launch.run')}
+            </Button>
+          </div>
+        </div>
+      </Card>
       <Card title={t('maintenance.title')}>
         <div className="flex flex-col gap-3">
           {AREAS.map((a) => (
@@ -95,7 +162,6 @@ export function MaintenancePage() {
             </label>
           ))}
           <TextInput label={t('maintenance.confirmLabel', { word: CONFIRM_WORD })} value={word} onChange={(e) => setWord(e.target.value)} />
-          {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
           <div>
             <Button variant="danger" disabled={busy || !any || word.trim() !== CONFIRM_WORD} onClick={() => void run()}>
               {t('maintenance.run')}

@@ -995,6 +995,8 @@ export async function buildServer(opts: ServerOptions = {}) {
     settings: () => settings.resolve(),
     tables: () => tablesRef.current!,
     tournaments: () => tournamentsRef.current!,
+    history: () => historyRef.current!,
+    chatImages: () => chatImages,
     idle: async () => {
       await stats.idle();
       await progress.idle();

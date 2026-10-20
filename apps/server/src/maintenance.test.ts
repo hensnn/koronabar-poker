@@ -103,3 +103,57 @@ describe('údržba: vynulování po testování', () => {
     expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(10_000);
   });
 });
+
+describe('údržba: příprava na ostrý provoz', () => {
+  it('smaže chat, upozornění, historii a peněženky nastaví na nulu; uživatelé a nastavení zůstanou', async () => {
+    const s = await start();
+    await s.server.wallet.topUp(s.admin, s.player, 777, 'test');
+    // chat: zprávy v hlavním kanálu (i systémová) a reakce
+    const main = await s.server.chat.ensureMainChannel();
+    const m1 = await s.server.chat.send(s.player, main, 'ahoj z testu');
+    await s.server.chat.send(s.admin, main, 'druhá zpráva');
+    await s.server.chat.system(main, 'systémová zpráva');
+    expect(m1).toBeTruthy();
+    // upozornění
+    await s.server.db.insert(schema.notifications).values([{ userId: s.player, kind: 'tournamentOpen', params: { name: 'T', time: '', minutes: 0 }, link: null }]);
+    // zkušební stůl: hotový (zavřený) i s handami z historie
+    const { id } = await s.server.tables.createTable(s.admin, { name: 'Zkušební', templateId: 'cash-klasika' });
+    await s.server.tables.closeTable(s.admin, id);
+    const before = await s.server.maintenance.counts(s.admin);
+    expect(before.chatMessages).toBeGreaterThanOrEqual(3);
+    expect(before.notifications).toBe(1);
+    expect(before.historyItems).toBeGreaterThanOrEqual(1);
+    expect(before.walletsNonZero).toBeGreaterThan(0);
+
+    await expect(s.server.maintenance.prepareLaunch(s.player, { chat: true })).rejects.toBeInstanceOf(MaintenanceError);
+    await expect(s.server.maintenance.prepareLaunch(s.admin, {})).rejects.toBeInstanceOf(MaintenanceError);
+
+    const done = await s.server.maintenance.prepareLaunch(s.admin, { games: true, progress: true, history: true, chat: true, notifications: true, wallets: true });
+    expect(done.chatMessages).toBeGreaterThanOrEqual(3);
+    expect(done.notifications).toBe(1);
+    expect(done.wallets).toBe(2);
+
+    const after = await s.server.maintenance.counts(s.admin);
+    expect(after).toMatchObject({ chatMessages: 0, chatImages: 0, notifications: 0, historyItems: 0, walletsNonZero: 0, walletsTotal: 0 });
+    // peněženky jsou na nule a kniha je vyrovnaná
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(0);
+    expect(s.server.ledger.balance(accounts.wallet(s.admin))).toBe(0);
+    // uživatelé zůstali, hlavní kanál chatu také (jen prázdný)
+    const users = await s.server.db.select({ id: schema.users.id }).from(schema.users);
+    expect(users.map((u) => u.id).sort()).toEqual([s.admin, s.player].sort());
+    expect(await s.server.chat.history(s.player, main, {})).toEqual([]);
+    // šablony a nastavení zůstaly
+    expect(s.server.templates.list('cash').length).toBeGreaterThan(0);
+  });
+
+  it('každou oblast jde spustit zvlášť: jen chat nechá peněženky být', async () => {
+    const s = await start();
+    await s.server.wallet.topUp(s.admin, s.player, 500, 'test');
+    const main = await s.server.chat.ensureMainChannel();
+    await s.server.chat.send(s.player, main, 'zpráva');
+    const bal = s.server.ledger.balance(accounts.wallet(s.player));
+    await s.server.maintenance.prepareLaunch(s.admin, { chat: true });
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(bal);
+    expect((await s.server.maintenance.counts(s.admin)).chatMessages).toBe(0);
+  });
+});
