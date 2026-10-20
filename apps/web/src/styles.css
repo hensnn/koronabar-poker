@@ -828,16 +828,18 @@ h3,
     align-items: start;
   }
   html:not([data-mobile]) .tk-screen > .tk-room { grid-area: room; }
-  html:not([data-mobile]) .tk-screen > .tk-turn-row { grid-area: turn; }
-  html:not([data-mobile]) .tk-screen > .tk-actionbar { grid-area: action; }
-  html:not([data-mobile]) .tk-screen > :not(.tk-room):not(.tk-extra):not(.tk-turn-row):not(.tk-actionbar) { grid-column: 1 / -1; }
+  html:not([data-mobile]) .tk-side-col > .tk-turn-row { grid-area: turn; }
+  html:not([data-mobile]) .tk-side-col > .tk-actionbar { grid-area: action; }
+  html:not([data-mobile]) .tk-side-col > :not(.tk-extra):not(.tk-turn-row):not(.tk-actionbar) { grid-column: 1 / -1; }
   /* Pravý sloupec sahá i vedle stavového řádku a lišty se sázkami (ty jsou odsazené od pravého okraje stejně jako vlevo), takže je v něm víc místa na widgety. Bez zadané výšky se roztáhne na výšku stolu a lišty a nerozšiřuje řádky. */
-  html:not([data-mobile]) .tk-screen > .tk-extra { grid-area: extra; width: var(--tk-side-w, 12rem); height: var(--tk-side-h, auto); align-self: stretch; contain: size; overflow-y: auto; }
+  html:not([data-mobile]) .tk-side-col > .tk-extra { grid-area: extra; width: var(--tk-side-w, 12rem); height: var(--tk-side-h, auto); align-self: stretch; contain: size; overflow-y: auto; }
   /* Bez pravého panelu zabírá stůl s lištou celou šířku. */
   html:not([data-mobile]) .tk-screen.tk-no-extra { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'room' 'turn' 'action'; }
   html:not([data-mobile]) .tk-extra .tk-tools { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
 }
 /* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */
+/* Obal pravého sloupce je mimo telefon na šířku průhledný: jeho děti jsou přímo prvky mřížky stolu. */
+.tk-side-col { display: contents; }
 .tk-turn-row { min-height: 2.75rem; display: flex; align-items: center; justify-content: center; }
 .tk-actionbar { min-height: 7.25rem; }
 
@@ -909,17 +911,25 @@ h3,
 [data-mobile][data-landscape] .tk-screen {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(15rem, 38%);
-  grid-template-rows: auto auto 1fr;
-  grid-template-areas: 'room turn' 'room action' 'room extra';
   gap: calc(var(--spacing) * 1);
   align-items: start;
   min-height: 0;
 }
-[data-mobile][data-landscape] .tk-screen > .tk-room { grid-area: room; padding: calc(var(--spacing) * 0.5); align-self: center; }
-[data-mobile][data-landscape] .tk-screen > .tk-turn-row { grid-area: turn; min-height: 1.75rem; }
-[data-mobile][data-landscape] .tk-screen > .tk-actionbar { grid-area: action; padding: calc(var(--spacing) * 1); gap: calc(var(--spacing) * 1); }
-[data-mobile][data-landscape] .tk-screen > .tk-extra { grid-area: extra; }
-[data-mobile][data-landscape] .tk-screen > :not(.tk-room):not(.tk-turn-row):not(.tk-actionbar):not(.tk-extra) { grid-column: 2; }
+[data-mobile][data-landscape] .tk-screen > .tk-room { grid-column: 1; grid-row: 1; padding: calc(var(--spacing) * 0.5); align-self: start; }
+/* Pravý sloupec je jeden posuvný blok: prvky pod sebou podle obsahu, nic se nepřekrývá a vždy jde sjet k akcím. */
+[data-mobile][data-landscape] .tk-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 1);
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+}
+[data-mobile][data-landscape] .tk-side-col > * { flex: none; order: 3; }
+[data-mobile][data-landscape] .tk-side-col > .tk-turn-row { order: 1; min-height: 1.75rem; }
+[data-mobile][data-landscape] .tk-side-col > .tk-actionbar { order: 2; padding: calc(var(--spacing) * 1); gap: calc(var(--spacing) * 1); }
 [data-mobile][data-landscape] .tk-table {
   aspect-ratio: var(--tk-table-aspect);
   width: min(100%, calc((100dvh - 4.5rem) * var(--tk-table-aspect)));

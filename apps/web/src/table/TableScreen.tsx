@@ -317,6 +317,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
         </div>
       </div>
 
+      {/* Vše vedle stolu (stav tahu, akční lišta, akce, widgety) je v jednom obalu: na šířku telefonu tvoří vlastní posuvný sloupec, jinde je obal průhledný. */}
+      <div className="tk-side-col">
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
       <div className="tk-turn-row">
       {myTurn ? (
@@ -386,6 +388,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
       {/* Pravý panel: widgety o hře (přizpůsobitelné); vypnutý panel se nevykreslí. */}
       {!layout.hiddenSides.includes('right') && <RightColumn />}
+      </div>
 
       {/* Chyby jsou vidět i při otevřeném dialogu: v dialogu přímo, jinak jako plovoucí lišta nad vším. */}
       {!dialog && <ErrorToast message={error} onClose={() => setError('')} />}
