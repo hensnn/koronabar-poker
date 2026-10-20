@@ -1,10 +1,15 @@
 import type { TableInfo } from '@kb/game-core';
-import { currencyWord, t } from '@kb/shared';
+import { currencyWord, formatCurrency, t } from '@kb/shared';
 
 let showSymbol = false;
 /** Zobrazovat u stolu symbol měny (osobní nastavení ui.showSymbolAtTable). */
 export function setTableFormat(opts: { symbol: boolean }): void {
   showSymbol = opts.symbol;
+}
+
+/** Částka v měně u stolu: s názvem měny, nebo jen číslo, když hráč název u stolu vypnul (ui.showSymbolAtTable). */
+export function tableMoney(n: number, info: TableInfo): string {
+  return showSymbol ? formatCurrency(n, info.currencyForms) : n.toLocaleString('cs-CZ');
 }
 
 /** Zformátuje částku v žetonech: v měně (symbol jen když je zapnutý), nebo v big blindech. */

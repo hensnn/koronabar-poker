@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TableView } from '@kb/game-core';
-import { formatCurrency, t } from '@kb/shared';
+import { t } from '@kb/shared';
 import { onSocket } from '../net';
 import { useSettings } from '../settings';
-import { seatPosition } from './format';
+import { seatPosition, tableMoney } from './format';
 import { fireSfx } from './sfx';
 
 /** Událost turnaje, jak ji server posílá pro animace (hodnoty rebuy a add-onu jsou z nastavení dané hry). */
@@ -75,7 +75,7 @@ const at = (p: { left: number; top: number }, from?: { left: number; top: number
  * bounty (lebka letí od poraženého k vítězi s částkou), nový level, bublina a vítěz. Hodnoty jsou z nastavení hry.
  */
 export function TableFx({ fx, view, viewerSeat }: { fx: ActiveFx[]; view: TableView; viewerSeat: number }) {
-  const money = (n: number) => formatCurrency(n, view.info.currencyForms);
+  const money = (n: number) => tableMoney(n, view.info);
   return (
     <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" aria-hidden="true">
       {fx.map((a) => {
