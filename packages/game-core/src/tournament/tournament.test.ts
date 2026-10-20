@@ -222,6 +222,25 @@ describe('turnaj: registrace a peníze', () => {
   });
 
 
+
+  describe('události pro animace: hodnoty podle nastavení hry', () => {
+    it('rebuy, add-on a nový vstup nesou počet žetonů a cenu z nastavení této hry', () => {
+      const h = harness({ 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'busted', 'tournament.rebuyUntilLevel': 9, 'tournament.rebuyChips': 2222, 'tournament.rebuyCost': 70, 'tournament.addonEnabled': true, 'tournament.addonMode': 'window', 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 9, 'tournament.addonChips': 777, 'tournament.addonCost': 55, 'tournament.reentryEnabled': true, 'tournament.reentryMax': 2, 'tournament.lateRegLevels': 9, 'tournament.startingStack': 1500, 'tournament.buyIn': 100 });
+      registerAll(h);
+      h.tour.start();
+      h.tour.addon('u2');
+      h.tour.onTableEvent({ type: 'bust', players: [{ userId: 'u1', startStack: 100 }], hand: [] } as never);
+      h.tour.rebuy('u1');
+      h.tour.onTableEvent({ type: 'bust', players: [{ userId: 'u3', startStack: 100 }], hand: [] } as never);
+      h.tour.reenter('u3');
+      const fx = h.events.filter((e) => e.type === 'rebuy' || e.type === 'addon' || e.type === 'reentry');
+      expect(fx).toEqual([
+        { type: 'addon', userId: 'u2', name: 'u2', chips: 777, cost: 55 },
+        { type: 'rebuy', userId: 'u1', name: 'u1', chips: 2222, cost: 70 },
+        { type: 'reentry', userId: 'u3', name: 'u3', chips: 1500, cost: 100 },
+      ]);
+    });
+  });
   describe('rebuy: odpojený hráč', () => {
     const base = { 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'busted', 'tournament.rebuyUntilLevel': 9, 'tournament.rebuyDecisionSeconds': 60, 'tournament.rebuyOfflineMaxSeconds': 300, 'tournament.rebuyWaitsForOffline': true };
     const bust = (h: Harness, u: string) => h.tour.onTableEvent({ type: 'bust', players: [{ userId: u, startStack: 100 }], hand: [] } as never);

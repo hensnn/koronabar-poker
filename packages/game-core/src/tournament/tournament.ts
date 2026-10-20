@@ -129,7 +129,11 @@ export type TournamentEvent =
   | { type: 'breakEnd' }
   | { type: 'paused' }
   | { type: 'resumed' }
-  | { type: 'knockout'; victim: string; by: string[]; amount: number; secret: boolean }
+  | { type: 'knockout'; victim: string; victimId: string; by: string[]; byIds: string[]; amount: number; secret: boolean }
+  /** Rebuy, add-on a nový vstup: `chips` a `cost` jsou hodnoty z nastavení této hry (pro animaci u stolu). */
+  | { type: 'rebuy'; userId: string; name: string; chips: number; cost: number }
+  | { type: 'addon'; userId: string; name: string; chips: number; cost: number }
+  | { type: 'reentry'; userId: string; name: string; chips: number; cost: number }
   | { type: 'eliminated'; userId: string; name: string; remaining: number; by: { userId: string; weight: number; equity?: number | null }[] }
   | { type: 'bubble' }
   | { type: 'dealProposed'; method: DealMethod }
@@ -542,10 +546,12 @@ export class Tournament {
     }
     const shares = distribute(value, eliminators.map((x) => x.weight));
     const names: string[] = [];
+    const killerIds: string[] = [];
     eliminators.forEach((x, i) => {
       const amount = shares[i]!;
       const killer = this.rec(x.userId)!;
       names.push(killer.name);
+      killerIds.push(killer.userId);
       if (amount <= 0) return;
       let cash = amount;
       if (type === 'pko') {
@@ -554,7 +560,7 @@ export class Tournament {
       }
       this.awardBounty(killer, cash);
     });
-    this.deps.onEvent?.({ type: 'knockout', victim: victim.name, by: names, amount: value, secret: type === 'mystery' });
+    this.deps.onEvent?.({ type: 'knockout', victim: victim.name, victimId, by: names, byIds: killerIds, amount: value, secret: type === 'mystery' });
   }
 
   private awardBounty(killer: PlayerRecord, cash: number): void {
@@ -930,6 +936,7 @@ export class Tournament {
     this.addBounty(p, part);
     p.rebuys++;
     this.table?.addTournamentChips(userId, num(s, 'tournament.rebuyChips'));
+    this.deps.onEvent?.({ type: 'rebuy', userId, name: p.name, chips: num(s, 'tournament.rebuyChips'), cost: num(s, 'tournament.rebuyCost') });
     if (p.status === 'deciding') {
       this.decideTimers.get(userId)?.();
       this.decideTimers.delete(userId);
@@ -987,6 +994,7 @@ export class Tournament {
     this.pay(userId, 'turnaj_addon', num(s, 'tournament.addonCost'), 0, `trn:${this.deps.id}:addon:${userId}:${p.entries}`);
     p.addon = true;
     this.table?.addTournamentChips(userId, num(s, 'tournament.addonChips'));
+    this.deps.onEvent?.({ type: 'addon', userId, name: p.name, chips: num(s, 'tournament.addonChips'), cost: num(s, 'tournament.addonCost') });
     this.save();
   }
 
@@ -1037,6 +1045,7 @@ export class Tournament {
     } else {
       this.seat(p, num(s, 'tournament.startingStack'));
     }
+    this.deps.onEvent?.({ type: 'reentry', userId, name: p.name, chips: num(s, 'tournament.startingStack'), cost: num(s, 'tournament.buyIn') });
     this.save();
   }
 

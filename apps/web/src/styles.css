@@ -882,3 +882,29 @@ h3,
 /* Výběrová pole s dlouhými názvy možností se nikdy nerozšíří přes okno (dialogy, formuláře na telefonu). */
 select { max-width: 100%; min-width: 0; text-overflow: ellipsis; }
 label:has(> select) { min-width: 0; max-width: 100%; }
+
+/* ---------- animace událostí turnaje u stolu (rebuy, add-on, bounty, vyřazení, level, vítěz) ---------- */
+@keyframes tk-fx-ring { from { transform: translate(-50%, -50%) scale(0.4); opacity: 0.9; } to { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } }
+.tk-fx-ring { animation: tk-fx-ring calc(1.1s / var(--tk-anim-speed)) ease-out both; }
+@keyframes tk-fx-float { 0% { transform: translate(-50%, 0.5rem); opacity: 0; } 15% { transform: translate(-50%, -0.5rem); opacity: 1; } 80% { transform: translate(-50%, -2.2rem); opacity: 1; } 100% { transform: translate(-50%, -3rem); opacity: 0; } }
+.tk-fx-float { animation: tk-fx-float calc(2.4s / var(--tk-anim-speed)) ease-out both; }
+@keyframes tk-fx-chip-a { from { transform: translate(-50%, -50%) translate(-7rem, -5rem) scale(1.2); opacity: 1; } to { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } }
+.tk-fx-chip { animation: tk-fx-chip-a calc(0.7s / var(--tk-anim-speed)) ease-in both; }
+.tk-fx-chip-1 { animation-delay: calc(0.07s / var(--tk-anim-speed)); }
+.tk-fx-chip-2 { animation-delay: calc(0.14s / var(--tk-anim-speed)); }
+.tk-fx-chip-3 { animation-delay: calc(0.21s / var(--tk-anim-speed)); }
+.tk-fx-chip-4 { animation-delay: calc(0.28s / var(--tk-anim-speed)); }
+@keyframes tk-fx-stamp { 0% { transform: translate(-50%, -50%) rotate(-12deg) scale(2.4); opacity: 0; } 25% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 0; } }
+.tk-fx-stamp { animation: tk-fx-stamp calc(2.8s / var(--tk-anim-speed)) ease-out both; }
+@keyframes tk-fx-skull { from { left: var(--from-left); top: var(--from-top); transform: translate(-50%, -50%) scale(1.6) rotate(-20deg); opacity: 1; } 85% { opacity: 1; } to { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 0; } }
+.tk-fx-skull { animation: tk-fx-skull calc(1.4s / var(--tk-anim-speed)) cubic-bezier(0.3, 0.1, 0.2, 1) both; }
+@keyframes tk-fx-banner { 0% { transform: translate(-50%, -150%); opacity: 0; } 12% { transform: translate(-50%, 0); opacity: 1; } 88% { transform: translate(-50%, 0); opacity: 1; } 100% { transform: translate(-50%, -150%); opacity: 0; } }
+.tk-fx-banner { animation: tk-fx-banner calc(3s / var(--tk-anim-speed)) ease-in-out both; }
+@keyframes tk-fx-confetti { from { transform: translateY(-1rem) rotate(0deg); opacity: 1; } to { transform: translateY(26rem) rotate(540deg); opacity: 0; } }
+.tk-fx-confetti { animation: tk-fx-confetti calc(3.2s / var(--tk-anim-speed)) ease-in both; }
+.tk-fx-confetti-1 { animation-delay: calc(0.2s / var(--tk-anim-speed)); }
+.tk-fx-confetti-2 { animation-delay: calc(0.5s / var(--tk-anim-speed)); }
+.tk-fx-confetti-3 { animation-delay: calc(0.8s / var(--tk-anim-speed)); }
+.tk-fx-confetti-4 { animation-delay: calc(1.1s / var(--tk-anim-speed)); }
+.tk-fx-confetti-5 { animation-delay: calc(0.35s / var(--tk-anim-speed)); }
+.tk-fx-confetti-6 { animation-delay: calc(0.65s / var(--tk-anim-speed)); }

@@ -136,6 +136,12 @@ export function tournamentChatText(e: TournamentEvent): string | null {
       return t('chat.sys.tDealRejected');
     case 'knockout':
       return t(e.secret ? 'chat.sys.tKnockoutSecret' : 'chat.sys.tKnockout', { killer: e.by.join(', '), victim: e.victim, amount: e.amount });
+    case 'rebuy':
+      return t('chat.sys.tRebuy', { nick: e.name, chips: e.chips });
+    case 'addon':
+      return t('chat.sys.tAddon', { nick: e.name, chips: e.chips });
+    case 'reentry':
+      return t('chat.sys.tReentry', { nick: e.name, chips: e.chips });
   }
 }
 

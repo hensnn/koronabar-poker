@@ -305,6 +305,10 @@ export async function buildServer(opts: ServerOptions = {}) {
         return say('eliminated', { nick: e.name, remaining: e.remaining });
       case 'knockout':
         return e.secret ? undefined : say('knockout', { killer: e.by.join(' a '), victim: e.victim, amount: e.amount });
+      case 'rebuy':
+      case 'addon':
+      case 'reentry':
+        return undefined;
       case 'bubble':
         return say('bubble');
       case 'finished':
@@ -451,6 +455,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   // Turnaje: stůl každého turnaje je v téže mapě jako cash stoly, takže Socket.IO brána funguje beze změn.
   let closing = false;
   let emitTournamentChanged: (id: string) => void = () => undefined;
+  let emitTournamentFx: (id: string, e: AnnounceTournamentEvent) => void = () => undefined;
   let emitTournamentResult: (userId: string, payload: { id: string; name: string; summary: ReturnType<typeof resultSummary>[] }) => void = () => undefined;
   const publicUrlNow = () => String(settings.resolve()['system.publicUrl'] ?? '');
   const push = new PushService({ db, secrets, subject: () => (publicUrlNow().startsWith('https://') ? publicUrlNow() : 'mailto:admin@localhost.invalid'), sender: opts.pushSender });
@@ -549,6 +554,8 @@ export async function buildServer(opts: ServerOptions = {}) {
     },
     onEvent: (id, e) => {
       sayTournament(id, e);
+      // Animace u stolu: veřejné události turnaje (hodnoty rebuy a add-onu jsou z nastavení hry) jdou všem klientům.
+      if (e.type === 'rebuy' || e.type === 'addon' || e.type === 'reentry' || e.type === 'knockout' || e.type === 'eliminated' || e.type === 'level' || e.type === 'bubble' || e.type === 'finished') emitTournamentFx(id, e);
       if (e.type === 'started' || e.type === 'level' || e.type === 'eliminated' || e.type === 'finished' || e.type === 'cancelled') void betsRef?.syncTournament(id).catch((err) => console.error('Sázky:', err instanceof Error ? err.message : err));
       if (e.type === 'eliminated') void bountiesRef?.onEliminated(id, e.userId, e.by.map((k) => ({ userId: k.userId, weight: k.weight }))).catch((err) => console.error('Odměny na hlavu:', err instanceof Error ? err.message : err));
       if (e.type === 'finished' && e.results[0]) void sounds?.jingle(e.results[0].userId, 'win', { kind: 'table', id }).catch(() => undefined);
@@ -950,6 +957,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   notifications.attach(io);
   if (opts.scheduler !== false) scheduler.start();
   emitTournamentChanged = (id) => void io.emit('tournament:changed', { id });
+  emitTournamentFx = (id, e) => void io.emit('tournament:fx', { id, e: e.type === 'knockout' && e.secret ? { ...e, amount: 0 } : e });
   emitTournamentResult = (userId, payload) => void io.to(`user:${userId}`).emit('tournament:result', payload);
   const sweepTimer = setInterval(() => tournaments.sweep(3600_000), 600_000);
   sweepTimer.unref?.();

@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { TableView } from '@kb/game-core';
-import { useSettings } from '../settings';
+import { resolveFor, useSettings } from '../settings';
 
 /**
  * Zvuky hry u stolu (rozdání, žetony, tah, upozornění na čas, výhra). Jsou syntetizované v prohlížeči, takže
  * nepotřebují žádné soubory, a každý jde zvlášť vypnout v osobním nastavení.
  */
-export type Sfx = 'newHand' | 'dealCard' | 'flip' | 'chip' | 'check' | 'fold' | 'allIn' | 'turn' | 'timeBank' | 'win' | 'winMe';
+export type Sfx = 'newHand' | 'dealCard' | 'flip' | 'chip' | 'check' | 'fold' | 'allIn' | 'turn' | 'timeBank' | 'win' | 'winMe' | 'rebuy' | 'addon' | 'knockout' | 'level' | 'bubble';
 
 /** Které zvuky vzniknou přechodem mezi dvěma pohledy na stůl (čistá funkce, jde testovat). */
 export function detectSfx(prev: TableView | null, next: TableView): Sfx[] {
@@ -56,6 +56,12 @@ const DEF: Record<Sfx | 'warning', { tones?: Tone[]; noise?: Noise; noises?: Noi
   win: { tones: [{ f: 523, at: 0, len: 0.12, gain: 0.3, type: 'triangle' }, { f: 659, at: 0.1, len: 0.12, gain: 0.3, type: 'triangle' }, { f: 784, at: 0.2, len: 0.2, gain: 0.3, type: 'triangle' }] },
   winMe: { tones: [{ f: 523, at: 0, len: 0.12, gain: 0.35, type: 'triangle' }, { f: 659, at: 0.1, len: 0.12, gain: 0.35, type: 'triangle' }, { f: 784, at: 0.2, len: 0.12, gain: 0.35, type: 'triangle' }, { f: 1047, at: 0.3, len: 0.4, gain: 0.35, type: 'triangle' }] },
   warning: { tones: [{ f: 1000, at: 0, len: 0.06, gain: 0.4, type: 'square' }] },
+  // Události turnaje: rebuy cinknutí mincí, add-on vyšší trojtón, vyřazení hluboký úder, level zvonek, bublina gong.
+  rebuy: { tones: [{ f: 1568, at: 0, len: 0.08, gain: 0.3, type: 'triangle' }, { f: 2093, at: 0.07, len: 0.22, gain: 0.3, type: 'triangle' }] },
+  addon: { tones: [{ f: 1319, at: 0, len: 0.1, gain: 0.3, type: 'triangle' }, { f: 1760, at: 0.09, len: 0.1, gain: 0.3, type: 'triangle' }, { f: 2349, at: 0.18, len: 0.3, gain: 0.3, type: 'triangle' }] },
+  knockout: { tones: [{ f: 160, to: 70, at: 0, len: 0.35, gain: 0.5, type: 'sine' }], noise: { at: 0, len: 0.12, gain: 0.25, freq: 600 } },
+  level: { tones: [{ f: 988, at: 0, len: 0.4, gain: 0.3, type: 'sine' }, { f: 1319, at: 0.12, len: 0.5, gain: 0.25, type: 'sine' }] },
+  bubble: { tones: [{ f: 196, at: 0, len: 0.9, gain: 0.45, type: 'sine' }, { f: 392, at: 0, len: 0.7, gain: 0.2, type: 'sine' }] },
 };
 
 let ctx: AudioContext | null = null;
@@ -124,6 +130,11 @@ const SETTING: Record<Sfx | 'warning', string> = {
   warning: 'ui.sfxWarning',
   win: 'ui.sfxWin',
   winMe: 'ui.sfxWin',
+  rebuy: 'ui.sfxEvents',
+  addon: 'ui.sfxEvents',
+  knockout: 'ui.sfxEvents',
+  level: 'ui.sfxEvents',
+  bubble: 'ui.sfxEvents',
 };
 
 const VIBRATE: Partial<Record<Sfx | 'warning', number[]>> = { turn: [120], warning: [80], timeBank: [80, 60, 80] };
@@ -167,4 +178,11 @@ export function useTableSfx(view: TableView | undefined, clockOffset: number): v
     }, 250);
     return () => window.clearInterval(id);
   }, [myTurn, deadline, clockOffset]);
+}
+
+/** Zvuk události mimo hook stolu (např. rebuy): respektuje zapnutí zvuků, hlasitost a zvuky událostí. */
+export function fireSfx(name: Sfx): void {
+  const v = resolveFor().values as Record<string, unknown>;
+  if (v['ui.sfxEnabled'] === false || v[SETTING[name]] === false) return;
+  playSfx(name, Number(v['ui.sfxVolumePercent'] ?? 60) / 100);
 }

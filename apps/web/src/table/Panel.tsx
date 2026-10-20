@@ -45,6 +45,8 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
     { key: 'ui.rotateToMe', label: t('settings.ui.rotateToMe.label'), def: true },
     { key: 'ui.hideMyCards', label: t('settings.ui.hideMyCards.label'), def: false },
     { key: 'ui.dealAnimation', label: t('settings.ui.dealAnimation.label'), def: true },
+    { key: 'ui.eventAnimations', label: t('settings.ui.eventAnimations.label'), def: true },
+    { key: 'ui.sfxEvents', label: t('settings.ui.sfxEvents.label'), def: true },
     { key: 'ui.showInBb', label: t('settings.ui.showInBb.label'), def: false },
     { key: 'ui.showSymbolAtTable', label: t('settings.ui.showSymbolAtTable.label'), def: true },
     { key: 'xp.showAtTable', label: t('settings.xp.showAtTable.label'), def: true },

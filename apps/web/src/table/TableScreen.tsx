@@ -28,6 +28,7 @@ import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
+import { TableFx, useTournamentFx } from './fx';
 import { DealButton, EntryActions } from './InfoCard';
 import { ShowdownPrefs } from './TablePanel';
 
@@ -104,6 +105,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   // Hráč, na kterého ukazuje myš: karta s informacemi v rohu u stolu.
   const [hoverSeat, setHoverSeat] = useState<number | null>(null);
   // Klepnutí (dotyk) na hráče kartu připne; zavře se klepnutím mimo hráče nebo znovu na něj.
+  const fx = useTournamentFx(tournamentId, view);
   const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
   useEffect(() => {
     if (pinnedSeat === null) return;
@@ -175,6 +177,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             )}
           </div>
         )}
+        {fx.length > 0 && <TableFx fx={fx} view={view} viewerSeat={view.viewerSeat ?? 0} />}
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
         <div className="tk-table relative mx-auto w-full">
           {/* střed: board, pot, hlášky */}
