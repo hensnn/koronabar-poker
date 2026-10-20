@@ -5,6 +5,7 @@ import {
   helpKey,
   isVisible,
   labelKey,
+  buyInInCurrency,
   optionKey,
   t,
   type Origin,
@@ -199,6 +200,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
       </p>
       <div className="mt-2">
         <Control def={def} id={id} value={value} onChange={(v) => onChange(def.key, v)} />
+        {buyInInCurrency(def.key, Number(value), values) && <p className="mt-1 text-sm text-muted">= {buyInInCurrency(def.key, Number(value), values)}</p>}
       </div>
       {errs.map((e, i) => (
         <p key={i} role="alert" className="mt-1 text-danger">

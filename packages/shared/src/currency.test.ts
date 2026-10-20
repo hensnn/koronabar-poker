@@ -14,3 +14,14 @@ describe('název měny podle počtu', () => {
     expect(currencyFormsOf({ 'economy.currencyName': 'KČ' })).toEqual(['KČ', 'KČ', 'KČ']);
   });
 });
+
+describe('buy-in v měně', () => {
+  it('BB × velký blind ÷ žetony na jednotku měny, jen pro klíče buy-inu', async () => {
+    const { buyInInCurrency } = await import('./currency.js');
+    const values = { 'table.bigBlind': 10, 'cash.chipsPerCurrencyUnit': 1, 'economy.currencyName': 'Korona', 'economy.currencyNameFew': 'Korony', 'economy.currencyNameMany': 'Koron' };
+    expect(buyInInCurrency('cash.minBuyInBb', 40, values)).toBe('400 Koron');
+    expect(buyInInCurrency('cash.maxBuyInBb', 100, { ...values, 'cash.chipsPerCurrencyUnit': 10 })).toBe('100 Koron');
+    expect(buyInInCurrency('cash.minBuyInBb', 1, { ...values, 'table.bigBlind': 1 })).toBe('1 Korona');
+    expect(buyInInCurrency('table.bigBlind', 40, values)).toBe('');
+  });
+});

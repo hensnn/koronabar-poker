@@ -19,3 +19,15 @@ export function currencyFormsOf(values: Record<string, unknown>): CurrencyForms 
   const one = String(values['economy.currencyName'] ?? 'Korona');
   return [one, String(values['economy.currencyNameFew'] ?? one), String(values['economy.currencyNameMany'] ?? one)];
 }
+
+/**
+ * Buy-in cash stolu je v násobcích velkého blindu (`cash.minBuyInBb`, `cash.maxBuyInBb`); vrací odpovídající částku v měně
+ * („400 Koron“) podle velkého blindu a počtu žetonů na jednotku měny, pro jiné klíče prázdný text.
+ */
+export function buyInInCurrency(key: string, bb: number, values: Record<string, unknown>): string {
+  if (key !== 'cash.minBuyInBb' && key !== 'cash.maxBuyInBb') return '';
+  const chips = Number(bb) * Number(values['table.bigBlind']);
+  const rate = Number(values['cash.chipsPerCurrencyUnit']) || 1;
+  const cur = Math.round(chips / rate);
+  return Number.isFinite(cur) ? formatCurrency(cur, currencyFormsOf(values)) : '';
+}

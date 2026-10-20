@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { categoryKey, currencyFormsOf, formatCurrency, isVisible, labelKey, optionKey, scopeAllowed, t, type SettingDef, type SettingValue, type SettingValues } from '@kb/shared';
+import { buyInInCurrency, categoryKey, isVisible, labelKey, optionKey, scopeAllowed, t, type SettingDef, type SettingValue, type SettingValues } from '@kb/shared';
 import { EstimateLine, LevelsTable, levelsFor } from './structure-editor';
 import { errorText, get } from '../api';
 import { registry } from '../settings';
@@ -11,15 +11,6 @@ interface Details {
 }
 
 /** Čitelná hodnota parametru: ano/ne, název možnosti, číslo s jednotkou. */
-/** Buy-in je v násobcích velkého blindu; vedle něj se ukáže i částka v měně (BB × velký blind ÷ žetonů na jednotku měny). */
-function buyInInCurrency(def: SettingDef, v: SettingValue, values: SettingValues): string {
-  if (def.key !== 'cash.minBuyInBb' && def.key !== 'cash.maxBuyInBb') return '';
-  const chips = Number(v) * Number(values['table.bigBlind']);
-  const rate = Number(values['cash.chipsPerCurrencyUnit']) || 1;
-  const cur = Math.round(chips / rate);
-  return Number.isFinite(cur) ? ` (${formatCurrency(cur, currencyFormsOf(values))})` : '';
-}
-
 function formatValue(def: SettingDef, v: SettingValue, values: SettingValues): string {
   switch (def.type) {
     case 'bool':
@@ -28,7 +19,7 @@ function formatValue(def: SettingDef, v: SettingValue, values: SettingValues): s
       return t(optionKey(def.key, String(v)));
     case 'int':
       // Částky ve virtuální měně jsou bez jednotky (symbol se u stolu nezobrazuje).
-      return `${v}${def.unit && def.unit !== 'currency' ? ` ${t(`unit.${def.unit}`)}` : ''}${buyInInCurrency(def, v, values)}`;
+      return `${v}${def.unit && def.unit !== 'currency' ? ` ${t(`unit.${def.unit}`)}` : ''}${buyInInCurrency(def.key, Number(v), values) ? ` (${buyInInCurrency(def.key, Number(v), values)})` : ''}`;
     default:
       return String(v ?? '');
   }
