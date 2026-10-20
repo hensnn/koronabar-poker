@@ -66,7 +66,7 @@ export function TournamentBanner({ tournamentId }: { tournamentId: string }) {
   const remaining = c.clockMs !== null ? (c.paused ? c.clockMs : c.clockMs - (now - c.fetchedAt)) : null;
   const place = c.standings?.find((p) => p.userId === me?.user.id)?.place;
   return (
-    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-accent bg-accent/10 px-3 py-1 text-sm">
+    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md px-3 py-1 text-sm border border-accent bg-accent/10">
       <span aria-hidden="true">🏆</span>
       <strong className="truncate">{c.name}</strong>
       <span>{t('tournament.level', { n: c.levelNumber })}</span>
