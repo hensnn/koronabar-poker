@@ -46,6 +46,17 @@ const TONES = [
 /** Odstín všech turnajových skupin. */
 const TOURNAMENT_TONE = 3;
 
+/** Hodnota se liší od výchozí hodnoty parametru (kvůli zvýraznění změněných položek). */
+const isChanged = (def: SettingDef, value: unknown) => JSON.stringify(value) !== JSON.stringify((def as { default?: unknown }).default);
+
+/** Kdy se změna projeví: barevný štítek (zelená = kdykoli, žlutá = od další handy, červená = jen před startem). Třídy jsou celé kvůli Tailwindu. */
+const WHEN: Record<string, { cls: string; icon: string }> = {
+  anytime: { cls: 'border-success text-success', icon: '⚡' },
+  betweenHands: { cls: 'border-warning text-warning', icon: '⏭' },
+  beforeStart: { cls: 'border-danger text-danger', icon: '🔒' },
+  adminOnly: { cls: 'border-line text-muted', icon: '🛡' },
+};
+
 /** Malá písmena bez diakritiky, aby „sazka“ našlo i „sázka“. */
 const fold = (s: string) =>
   s
@@ -57,10 +68,17 @@ const fold = (s: string) =>
 /** Formulář vygenerovaný z registru nastavení: žádný parametr se nepíše ručně. */
 export function SettingsForm(p: Props) {
   const [query, setQuery] = useState('');
+  const [onlyChanged, setOnlyChanged] = useState(false);
   const cats = useMemo(
     () => p.registry.categories().filter((c) => p.registry.all().some((d) => d.category === c && p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind))),
     [p.registry, p.allowedKeys, p.values, p.gameKind],
   );
+  const changedBy = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const d of p.registry.all()) if (p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind) && isChanged(d, p.values[d.key])) out[d.category] = (out[d.category] ?? 0) + 1;
+    return out;
+  }, [p.registry, p.allowedKeys, p.values, p.gameKind]);
+  const changedTotal = Object.values(changedBy).reduce((a, b) => a + b, 0);
   const [active, setActive] = useState(cats[0] ?? '');
   const current = cats.includes(active) ? active : cats[0];
   const q = fold(query);
@@ -82,7 +100,8 @@ export function SettingsForm(p: Props) {
   const defs = p.registry
     .all()
     .filter((d) => p.allowedKeys(d))
-    .filter((d) => (q ? matches(d) : d.category === current))
+    .filter((d) => (q ? matches(d) : onlyChanged || d.category === current))
+    .filter((d) => !onlyChanged || isChanged(d, p.values[d.key]))
     .filter((d) => isVisible(p.registry, d.key, p.values, p.gameKind));
 
   return (
@@ -95,7 +114,11 @@ export function SettingsForm(p: Props) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      {!q && (
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" role="switch" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
+        {t('settings.onlyChanged', { n: changedTotal })}
+      </label>
+      {!q && !onlyChanged && (
         <div role="tablist" className="flex flex-wrap gap-2">
           {cats.map((c) => (
             <button
@@ -109,12 +132,17 @@ export function SettingsForm(p: Props) {
             >
               <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(c).dot}`} />
               {t(categoryKey(c))}
+              {(changedBy[c] ?? 0) > 0 && (
+                <span className="rounded-full bg-accent px-1.5 text-xs text-on-act" title={t('settings.changedInCategory', { n: changedBy[c] ?? 0 })}>
+                  {changedBy[c]}
+                </span>
+              )}
             </button>
           ))}
         </div>
       )}
       <div className={`flex flex-col gap-3 rounded-md border-2 p-3 ${q ? 'border-line' : tone(current ?? '').box}`}>
-        {!q && current && (
+        {!q && !onlyChanged && current && (
           <h3 className={`flex items-center gap-2 text-lg font-bold ${tone(current).head}`}>
             <span aria-hidden="true" className={`inline-block h-3 w-3 rounded-full ${tone(current).dot}`} />
             {t(categoryKey(current))}
@@ -122,7 +150,7 @@ export function SettingsForm(p: Props) {
         )}
         {defs.map((d, i) => (
           <div key={d.key} className="flex flex-col gap-1">
-            {q && (i === 0 || defs[i - 1]!.category !== d.category) && (
+            {(q || onlyChanged) && (i === 0 || defs[i - 1]!.category !== d.category) && (
               <h3 className={`mt-2 flex items-center gap-2 text-sm font-bold ${tone(d.category).head}`}>
                 <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(d.category).dot}`} />
                 {t(categoryKey(d.category))}
@@ -144,11 +172,15 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
   const own = origin === editScope;
   const errs = issues.filter((i) => i.keys.includes(def.key));
   const id = `s-${def.key}`;
+  const changed = isChanged(def, value);
+  const when = WHEN[def.mutability] ?? WHEN.anytime!;
   return (
-    <div className={`rounded-md border border-line bg-surface p-3 ${rowClass}`}>
+    <div className={`rounded-md border p-3 ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>
       <div className="flex items-baseline justify-between gap-2">
         <label htmlFor={id} className="font-medium">
+          {def.dependsOn && <span aria-hidden="true" className="mr-1 text-muted">↳</span>}
           {t(labelKey(def.key))}
+          {changed && <span className="ml-2 rounded-sm bg-accent px-1 text-xs font-normal text-on-act">{t('settings.changed')}</span>}
         </label>
         <span className={`text-sm ${own ? 'text-primary' : 'text-muted'}`}>
           {unsaved && <span className="mr-2 rounded-sm bg-warning px-1 text-xs text-on-primary">{t('settings.unsaved')}</span>}
@@ -160,8 +192,12 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
           )}
         </span>
       </div>
-      <p className="text-sm text-muted">
-        {t(helpKey(def.key))} <em>({t(`settings.mutability.${def.mutability}`)})</em>
+      <p className="text-sm text-muted">{t(helpKey(def.key))}</p>
+      <p className="mt-1">
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2 text-xs ${when.cls}`}>
+          <span aria-hidden="true">{when.icon}</span>
+          {t(`settings.mutability.${def.mutability}`)}
+        </span>
       </p>
       <div className="mt-2">
         <Control def={def} id={id} value={value} onChange={(v) => onChange(def.key, v)} />

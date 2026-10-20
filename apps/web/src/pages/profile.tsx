@@ -9,6 +9,7 @@ import { useSession } from '../session';
 import { exportUserSettings, deviceId, importUserSettings, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
 import { SettingsForm } from '../settings/SettingsForm';
 import { Button, Card, Notice, Tabs, TextArea, TextInput } from '../ui';
+import { Guide } from './guide';
 import { LimitsSection } from './limits';
 import { useFeatures } from '../features';
 import { NotesSection } from './notes';
@@ -87,6 +88,7 @@ export function ProfilePage() {
 }
 
 export function SettingsPage() {
+  const [view, setView] = useState<'settings' | 'guide'>('settings');
   const settings = useSettings();
   const [target, setTarget] = useState<'user' | 'device'>('user');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
@@ -103,6 +105,11 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col gap-3">
       <h1 className="font-heading text-2xl font-bold">{t('settings.personal.title')}</h1>
+      <Tabs tabs={[{ id: 'settings', label: t('guide.tab.settings') }, { id: 'guide', label: `📖 ${t('guide.tab.guide')}` }]} value={view} onChange={setView} />
+      {view === 'guide' ? (
+        <Guide />
+      ) : (
+        <>
       <Notice>{t('settings.personal.sync')}</Notice>
       <Tabs tabs={[{ id: 'user', label: t('settings.personal.all') }, { id: 'device', label: t('settings.personal.device', { id: deviceId() }) }]} value={target} onChange={setTarget} />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
@@ -139,6 +146,8 @@ export function SettingsPage() {
           </Button>
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }
