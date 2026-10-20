@@ -6,6 +6,10 @@ export const csGuide: Record<string, string> = {
   'guide.tab.guide': 'Návod',
 
   // ---------- podrobný návod ----------
+  'guide.search': 'Hledat v návodu',
+  'guide.searchHint': 'Hledej třeba straddle, rebuy, bounty nebo time bank',
+  'guide.noResults': 'V návodu nic takového není. Zkus jiné slovo.',
+  'guide.results': 'Nalezeno kapitol: {n}',
   'guide.intro': 'Tady je podrobný přehled hry. Kapitoly otevřeš kliknutím. Hledej v nich i barevné štítky u nastavení: zelený se mění kdykoli, žlutý od další handy a červený jen před startem hry.',
 
   'guide.s.start.title': 'Začínáme',
@@ -29,6 +33,22 @@ export const csGuide: Record<string, string> = {
   'guide.s.tournament.5': 'Dohoda (deal): zbývající hráči si mohou hlasováním rozdělit výhry. Hlasování se zobrazí všem a vyžaduje potřebnou většinu.',
   'guide.s.tournament.6': 'Po skončení se každému ukáže přehled výsledků. Zrušený turnaj vrátí všechny platby, vyplacené bounty zůstávají.',
 
+  'guide.s.special.title': 'Speciální funkce',
+  'guide.s.special.1': 'Straddle: dobrovolná nebo povinná sázka navíc před rozdáním karet (obvykle dvojnásobek velkého blindu), kterou dá hráč po velkém blindu. Zapíná ho správce stolu.',
+  'guide.s.special.2': 'Run it twice: při all-inu před riverem se zbývající karty rozdají víckrát a pot se podle výsledků rozdělí. Hráči o tom hlasují v krátkém časovém limitu.',
+  'guide.s.special.3': 'Rabbit hunt: po skončení handy ukáže, jaké karty by ještě přišly, kdyby se hrálo dál. Slouží jen ke zvědavosti, nic to neovlivní.',
+  'guide.s.special.4': 'Ukázat karty: po složení nebo po handě můžeš dobrovolně ukázat jednu nebo obě karty ostatním. Najdeš to na plovoucí liště vpravo dole u stolu.',
+  'guide.s.special.5': 'Muck: poražený hráč smí na showdownu odhodit karty bez ukázání. Výherce a ten, kdo ukazuje první, ukázat musí (pokud to správce nevypnul).',
+  'guide.s.special.6': 'Bomb pot: občasná handa, kde všichni dají předem domluvený vklad (ante) a hraje se rovnou od flopu. Kdy a jak často, určuje správce.',
+  'guide.s.special.7': 'Sedm-dva bonus: kdo vyhraje handu se sedmičkou a dvojkou, dostane malý bonus od ostatních hráčů u stolu.',
+  'guide.s.special.8': 'Hit and run ochrana: kdo vyhraje a brzy odejde, nesmí se do konce ochranné doby vrátit s menším stackem, než se kterým odešel. Se stejným stackem se vrátit smí.',
+  'guide.s.special.9': 'Time bank: rezerva času navíc, kterou použiješ, když potřebuješ na tah víc než běžný limit. Čerpá se po vypršení času na tah.',
+  'guide.s.special.10': 'Plánovaný tah: předem vybereš, co chceš udělat (třeba složit nebo vyrovnat), a jakmile jsi na tahu, provede se to samo. Najdeš ho u stolu ve widgetu Plánovaný tah.',
+  'guide.s.special.11': 'Rebuy a add-on (turnaj): rebuy je dokoupení žetonů, když máš málo, jen do určitého levelu a s omezeným počtem. Add-on je jednorázové dokoupení v určitém okně, typicky po skončení rebuy. Na rozhodnutí máš časový limit.',
+  'guide.s.special.12': 'Re-entry a pozdní registrace (turnaj): do rozehraného turnaje se lze přihlásit do konce určitého levelu, a vyřazený hráč smí vstoupit znovu za nový buy-in.',
+  'guide.s.special.13': 'Bounty (turnaj): odměna za vyřazení soupeře. Fixní je pevná částka, PKO ti vyplatí část hned a zbytek přičte k tvé vlastní hlavě, Mystery skrývá výši odměny až do vyřazení.',
+  'guide.s.special.14': 'Hlava hráče (sázky): ze svých peněz můžeš vypsat odměnu za vyřazení konkrétního hráče v turnaji. Pokud vyřazen nebude, vrátí se podle pravidel, která nastavil správce.',
+  'guide.s.special.15': 'Jackpot, High hand a Bad beat (cash): část raku jde do fondu, ze kterého se vyplácí bonus za nejlepší ruku období (High hand) nebo za prohru velmi silné ruky s ještě silnější (Bad beat).',
   'guide.s.table.title': 'U stolu',
   'guide.s.table.1': 'Dole jsou tlačítka akcí (Fold, Check/Call, Bet/Raise, All-in), rychlé sázky a posuvník. Zkratky kláves jdou nastavit v osobním nastavení.',
   'guide.s.table.2': 'Plánovaný tah (mimo tvůj tah): předem zvolíš Fold, Check/Fold, Check nebo Call a provede se, až budeš na řadě. Vedle je přepínač Straddle, pokud ho stůl povoluje.',
