@@ -157,3 +157,59 @@ describe('údržba: příprava na ostrý provoz', () => {
     expect((await s.server.maintenance.counts(s.admin)).chatMessages).toBe(0);
   });
 });
+
+describe('údržba: mazání uživatelů a úplný reset', () => {
+  it('smaže vybrané uživatele, zůstatek vrátí do mint, správce a sedící přeskočí', async () => {
+    const s = await start();
+    const mk = async (nick: string) => {
+      const inv = await s.server.accounts.createInvite(s.admin, {});
+      return (await s.server.accounts.register({ inviteCode: inv, nickname: nick, email: `${nick.toLowerCase()}@example.cz`, password: 'heslo-hrace-123', acceptTerms: true })).userId;
+    };
+    const b = await mk('Smazat1');
+    const c = await mk('Sedi');
+    await s.server.wallet.topUp(s.admin, b, 500, 'test');
+    const { id } = await s.server.tables.createTable(s.admin, { name: 'Obsazený', templateId: 'cash-klasika' });
+    const actor = s.server.tables.actors.get(id)!;
+    const info = actor.viewFor(null).info;
+    actor.join(c, 'Sedi', 0, Math.ceil(info.minBuyIn / info.chipsPerCurrencyUnit));
+    const total = () => ['mint', 'house'].reduce((n, k) => n + s.server.ledger.balance(k === 'mint' ? accounts.mint() : accounts.house()), 0);
+    const mintBefore = s.server.ledger.balance(accounts.mint());
+
+    await expect(s.server.maintenance.deleteUsers(s.player, [b])).rejects.toBeInstanceOf(MaintenanceError);
+    const r = await s.server.maintenance.deleteUsers(s.admin, [b, c, s.admin, '00000000-0000-4000-8000-000000000000']);
+    expect(r.deleted).toEqual([b]);
+    expect(r.skipped.map((x) => `${x.nickname}:${x.reason}`).sort()).toEqual([':notFound', 'Admin:admin', 'Sedi:seated']);
+    // zůstatek smazaného se vrátil do mint, kniha je vyrovnaná
+    expect(s.server.ledger.balance(accounts.mint())).toBe(mintBefore + 500 + 10_000);
+    expect(total()).toBeLessThan(0);
+    const users = await s.server.db.select({ id: schema.users.id }).from(schema.users);
+    expect(users.map((u) => u.id)).not.toContain(b);
+    expect(users.map((u) => u.id)).toContain(c);
+  });
+
+  it('úplný reset: všechny tabulky prázdné, požádá o restart; smí jen hlavní správce', async () => {
+    let restarted = 0;
+    const server = await buildServer({
+      clock: new FakeClock(),
+      emailWorker: false,
+      masterKey: { key: Buffer.alloc(32, 3), version: 1 },
+      settingsOverride: { 'system.emailVerificationRequired': false, 'system.publicUrl': 'http://localhost', 'economy.startingBalance': 10_000 },
+      bootstrapAdmin: { nickname: 'Admin', password: 'admin-heslo-123' },
+      defaultTable: false,
+      onRestartRequested: () => void restarted++,
+    });
+    servers.push(server);
+    const [admin] = server.perms.mainAdminIds();
+    const inv = await server.accounts.createInvite(admin!, {});
+    const { userId: player } = await server.accounts.register({ inviteCode: inv, nickname: 'Hrac', email: 'hrac@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
+    await expect(server.maintenance.factoryReset(player)).rejects.toBeInstanceOf(MaintenanceError);
+    const main = await server.chat.ensureMainChannel();
+    await server.chat.send(player, main, 'ahoj');
+    const r = await server.maintenance.factoryReset(admin!);
+    expect(r.tables).toBeGreaterThan(30);
+    expect(restarted).toBe(1);
+    expect((await server.db.select({ id: schema.users.id }).from(schema.users)).length).toBe(0);
+    expect((await server.db.select({ id: schema.chatMessages.id }).from(schema.chatMessages)).length).toBe(0);
+    expect(server.ledger.balance(accounts.wallet(player))).toBe(0);
+  });
+});

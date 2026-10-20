@@ -37,6 +37,17 @@ export function UsersPage() {
   }, [me]);
   useEffect(reload, [reload]);
   const act = (url: string, body?: unknown) => post(url, body).then(reload).catch((e) => setError(errorText(e)));
+  // Smazání účtu (jen správce s globálním nastavením): server některé uživatele přeskočí a řekne proč.
+  const remove = async (u: UserRow) => {
+    if (!confirm(t('admin.deleteConfirm', { nick: u.nickname }))) return;
+    try {
+      const r = await post<{ deleted: string[]; skipped: { reason: string }[] }>('/api/admin/maintenance/delete-users', { ids: [u.id] });
+      setError(r.deleted.length === 0 ? t(`admin.deleteSkipped.${r.skipped[0]?.reason ?? 'notFound'}`) : '');
+      reload();
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -76,6 +87,11 @@ export function UsersPage() {
                       }}
                     >
                       {t('admin.resetProgress')}
+                    </Button>
+                  )}
+                  {can(me, 'nastaveni.globalni') && u.id !== me?.user.id && (
+                    <Button variant="danger" onClick={() => void remove(u)}>
+                      {t('admin.delete')}
                     </Button>
                   )}
                   {can(me, 'uzivatel.vynutit_zmenu_hesla') && (

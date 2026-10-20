@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSession } from '../../session';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../../api';
 import { Button, Card, Notice, TextInput } from '../../ui';
@@ -23,6 +24,14 @@ interface Counts {
 const AREAS = ['games', 'xp', 'achievements', 'rating', 'stats', 'wallets'] as const;
 type Area = (typeof AREAS)[number];
 const CONFIRM_WORD = 'VYNULOVAT';
+const RESET_WORD = 'SMAZAT VŠE';
+
+interface UserRow {
+  id: string;
+  nickname: string;
+  status: string;
+  roles: { role?: string }[];
+}
 const LAUNCH = ['games', 'progress', 'history', 'chat', 'notifications', 'wallets'] as const;
 type LaunchArea = (typeof LAUNCH)[number];
 
@@ -33,6 +42,9 @@ export function MaintenancePage() {
   const [word, setWord] = useState('');
   const [launch, setLaunch] = useState<Record<LaunchArea, boolean>>({ games: true, progress: true, history: true, chat: true, notifications: true, wallets: true });
   const [launchWord, setLaunchWord] = useState('');
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [delIds, setDelIds] = useState<string[]>([]);
+  const [resetWord, setResetWord] = useState('');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const reload = useCallback(() => {
@@ -72,7 +84,12 @@ export function MaintenancePage() {
       setBusy(false);
     }
   };
-  const anyLaunch = LAUNCH.some((a) => launch[a]);
+  useEffect(() => {
+    get<UserRow[]>('/api/admin/users').then(setUsers).catch(() => undefined);
+  }, []);
+  const { me } = useSession();
+  const deletable = users.filter((u) => u.id !== me?.user.id && !u.roles.some((r) => /hlavní/i.test(r.role ?? '')));
+  const anyLaunch = LAUNCH.some((a) => launch[a]) || delIds.length > 0;
   const launchHint = (a: LaunchArea): string => {
     if (!counts) return '';
     switch (a) {
@@ -95,10 +112,26 @@ export function MaintenancePage() {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await post<{ done: Record<string, number> }>('/api/admin/maintenance/launch', launch);
+      const r = await post<{ done: Record<string, number> }>('/api/admin/maintenance/launch', { ...launch, userIds: delIds });
+      setDelIds([]);
+      get<UserRow[]>('/api/admin/users').then(setUsers).catch(() => undefined);
       setMsg({ kind: 'success', text: t('launch.done', { detail: Object.entries(r.done).map(([k, v]) => `${t(`launch.done.${k}`)}: ${v}`).join(', ') }) });
       setLaunchWord('');
       reload();
+    } catch (e) {
+      setMsg({ kind: 'error', text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const runFactoryReset = async () => {
+    if (!confirm(t('factory.confirm'))) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await post('/api/admin/maintenance/factory-reset', { confirm: resetWord.trim() });
+      setMsg({ kind: 'success', text: t('factory.done') });
+      setResetWord('');
     } catch (e) {
       setMsg({ kind: 'error', text: errorText(e) });
     } finally {
@@ -140,6 +173,26 @@ export function MaintenancePage() {
               </span>
             </label>
           ))}
+          <div className="flex flex-col gap-1">
+            <span className="flex flex-wrap items-center gap-2 font-medium">
+              {t('launch.area.users')}
+              <Button onClick={() => setDelIds(deletable.map((u) => u.id))}>{t('launch.users.all')}</Button>
+              <Button onClick={() => setDelIds([])}>{t('launch.users.none')}</Button>
+            </span>
+            <span className="text-sm text-muted">{t('launch.help.users', { n: delIds.length })}</span>
+            <ul className="flex max-h-56 flex-col gap-0.5 overflow-y-auto rounded-md border border-line p-2">
+              {deletable.map((u) => (
+                <li key={u.id}>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={delIds.includes(u.id)} onChange={(e) => setDelIds(e.target.checked ? [...delIds, u.id] : delIds.filter((x) => x !== u.id))} />
+                    {u.nickname}
+                    {u.status === 'blocked' && <span className="text-xs text-muted">({t('admin.blocked')})</span>}
+                  </label>
+                </li>
+              ))}
+              {deletable.length === 0 && <li className="text-sm text-muted">{t('launch.users.empty')}</li>}
+            </ul>
+          </div>
           <TextInput label={t('maintenance.confirmLabel', { word: CONFIRM_WORD })} value={launchWord} onChange={(e) => setLaunchWord(e.target.value)} />
           <div>
             <Button variant="danger" disabled={busy || !anyLaunch || launchWord.trim() !== CONFIRM_WORD} onClick={() => void runLaunch()}>
@@ -165,6 +218,18 @@ export function MaintenancePage() {
           <div>
             <Button variant="danger" disabled={busy || !any || word.trim() !== CONFIRM_WORD} onClick={() => void run()}>
               {t('maintenance.run')}
+            </Button>
+          </div>
+        </div>
+      </Card>
+      <Card title={t('factory.title')}>
+        <div className="flex flex-col gap-3">
+          <Notice kind="error">{t('factory.warning')}</Notice>
+          <p className="text-sm text-muted">{t('factory.help')}</p>
+          <TextInput label={t('maintenance.confirmLabel', { word: RESET_WORD })} value={resetWord} onChange={(e) => setResetWord(e.target.value)} />
+          <div>
+            <Button variant="danger" disabled={busy || resetWord.trim() !== RESET_WORD} onClick={() => void runFactoryReset()}>
+              {t('factory.run')}
             </Button>
           </div>
         </div>

@@ -80,6 +80,8 @@ export interface ServerOptions {
   settingsOverride?: Partial<SettingValues>;
   /** První hlavní administrátor; bez hesla se vygeneruje a vrátí ve výsledku. */
   bootstrapAdmin?: { nickname: string; password?: string };
+  /** Úplný reset dat: jak se požádá o restart aplikace (výchozí: ukončí proces, restart zařídí Docker). */
+  onRestartRequested?: () => void;
   /** Vlastní notifikátor (testy); jinak se e-maily řadí do fronty a odesílají přes SMTP. */
   notifier?: AccountNotifier;
   /** Hlavní šifrovací klíč (testy); jinak z MASTER_KEY / souboru. */
@@ -997,7 +999,17 @@ export async function buildServer(opts: ServerOptions = {}) {
     tournaments: () => tournamentsRef.current!,
     history: () => historyRef.current!,
     chatImages: () => chatImages,
+    isMainAdmin: (id) => perms.mainAdminIds().includes(id),
+    reloadPerms: () => perms.reload(),
+    purgeFiles: async () => {
+      await chatImages.purgeAll();
+      await sounds.purgeFiles();
+      await themeAssetsRef.purgeFiles();
+    },
+    // V provozu aplikaci po úplném resetu znovu spustí Docker (restart: unless-stopped).
+    restart: opts.onRestartRequested ?? (() => void setTimeout(() => process.exit(0), 1500)),
     idle: async () => {
+      await stats.idle();
       await stats.idle();
       await progress.idle();
       await achievements.idle();

@@ -42,6 +42,12 @@ export class ThemeAssets {
     await mkdir(this.deps.dir, { recursive: true });
   }
 
+  /** Smaže všechny nahrané obrázky motivů (úplný reset); složka zůstane prázdná. */
+  async purgeFiles(): Promise<void> {
+    await rm(this.deps.dir, { recursive: true, force: true });
+    await mkdir(this.deps.dir, { recursive: true });
+  }
+
   private file(id: string) {
     return join(this.deps.dir, `${id}.bin`);
   }

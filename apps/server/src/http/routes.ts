@@ -320,8 +320,17 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   // ---------- údržba: vynulování po testování ----------
   app.get('/api/admin/maintenance', guard(async (req, reply) => reply.send(await svc.maintenance().counts(need(req).id))));
   app.post('/api/admin/maintenance/launch', guard(async (req, reply) => {
-    const b = z.object({ games: z.boolean().optional(), progress: z.boolean().optional(), history: z.boolean().optional(), chat: z.boolean().optional(), notifications: z.boolean().optional(), wallets: z.boolean().optional() }).parse(req.body ?? {});
+    const b = z.object({ games: z.boolean().optional(), progress: z.boolean().optional(), history: z.boolean().optional(), chat: z.boolean().optional(), notifications: z.boolean().optional(), wallets: z.boolean().optional(), userIds: z.array(z.string().uuid()).max(500).optional() }).parse(req.body ?? {});
     return reply.send({ done: await svc.maintenance().prepareLaunch(need(req).id, b, meta(req)) });
+  }));
+  app.post('/api/admin/maintenance/delete-users', guard(async (req, reply) => {
+    const b = z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }).parse(req.body ?? {});
+    return reply.send(await svc.maintenance().deleteUsers(need(req).id, b.ids, meta(req)));
+  }));
+  app.post('/api/admin/maintenance/factory-reset', guard(async (req, reply) => {
+    const b = z.object({ confirm: z.string() }).parse(req.body ?? {});
+    if (b.confirm !== 'SMAZAT VŠE') return reply.status(400).send({ code: 'INVALID' });
+    return reply.send(await svc.maintenance().factoryReset(need(req).id, meta(req)));
   }));
   app.post('/api/admin/maintenance/reset-ledger', guard(async (req, reply) => reply.send(await svc.maintenance().resetLedger(need(req).id, meta(req)))));
   app.post('/api/admin/maintenance/reset', guard(async (req, reply) => {

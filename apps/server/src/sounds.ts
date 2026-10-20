@@ -122,6 +122,12 @@ export class SoundService {
     return this.deps.settings();
   }
 
+  /** Smaže všechny soubory zvuků (úplný reset); složka zůstane prázdná. */
+  async purgeFiles(): Promise<void> {
+    await rm(this.deps.dir, { recursive: true, force: true });
+    await mkdir(this.deps.dir, { recursive: true });
+  }
+
   /** Vytvoří složku a vestavěné zvuky (jen pokud ještě nejsou). */
   async init(): Promise<void> {
     await mkdir(this.deps.dir, { recursive: true });

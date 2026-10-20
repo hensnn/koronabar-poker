@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { eq, or, sql } from 'drizzle-orm';
-import type { PgTable } from 'drizzle-orm/pg-core';
+import { and, eq, getTableName, inArray, is, or, sql } from 'drizzle-orm';
+import { PgTable } from 'drizzle-orm/pg-core';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
 import type { PermissionChecker, SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
@@ -31,6 +31,14 @@ interface Deps {
   idle: () => Promise<void>;
   history: () => HistoryService;
   chatImages: () => ChatImages;
+  /** Hlavní administrátor (smí úplný reset; hlavní administrátory nelze smazat). */
+  isMainAdmin: (userId: string) => boolean;
+  /** Po smazání účtů znovu načte role a přiřazení v paměti. */
+  reloadPerms: () => Promise<void>;
+  /** Soubory mimo databázi (zvuky, obrázky motivů), které se při úplném resetu smažou. */
+  purgeFiles: () => Promise<void>;
+  /** Po úplném resetu se aplikace musí restartovat (v provozu ji znovu spustí Docker). */
+  restart: () => void;
 }
 
 type Meta = { ip?: string | null; source?: AuditSource; reason?: string | null };
@@ -60,11 +68,19 @@ export interface LaunchOptions {
   chat?: boolean;
   /** Všechna upozornění ve zvonečku. */
   notifications?: boolean;
+  /** Uživatelé, kteří se mají smazat (hlavní správce, sedící u stolu a ti v otevřených sázkách se přeskočí). */
+  userIds?: string[];
   /** Peněženky všech hráčů na nulu a nový začátek účetní knihy. */
   wallets?: boolean;
 }
 
+export interface DeleteUsersResult {
+  deleted: string[];
+  skipped: { id: string; nickname: string; reason: 'admin' | 'self' | 'seated' | 'tournament' | 'bets' | 'bounty' | 'notFound' }[];
+}
+
 export interface MaintenanceCounts {
+  users: number;
   chatMessages: number;
   chatImages: number;
   notifications: number;
@@ -106,6 +122,7 @@ export class MaintenanceService {
     const users = await this.deps.db.select({ id: schema.users.id }).from(schema.users);
     const balances = users.map((u) => this.deps.ledger.balance(ledgerAccounts.wallet(u.id)));
     return {
+      users: users.length,
       chatMessages: await this.count(schema.chatMessages),
       chatImages: await this.count(schema.chatImages),
       notifications: await this.count(schema.notifications),
@@ -220,7 +237,7 @@ export class MaintenanceService {
    */
   async prepareLaunch(actorId: string, o: LaunchOptions, meta: Meta = {}): Promise<Record<string, number>> {
     this.can(actorId);
-    if (!Object.values(o).some(Boolean)) throw new MaintenanceError('INVALID');
+    if (!Object.values(o).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v)))) throw new MaintenanceError('INVALID');
     const done: Record<string, number> = {};
     if (o.games || o.progress) {
       const r = await this.reset(actorId, { games: !!o.games, xp: !!o.progress, achievements: !!o.progress, rating: !!o.progress, stats: !!o.progress }, meta);
@@ -250,6 +267,11 @@ export class MaintenanceService {
       done.notifications = await this.count(schema.notifications);
       await db.delete(schema.notifications);
     }
+    if (o.userIds && o.userIds.length > 0) {
+      const r = await this.deleteUsers(actorId, o.userIds, meta);
+      done.users = r.deleted.length;
+      done.usersSkipped = r.skipped.length;
+    }
     if (o.wallets) {
       const r = await this.resetLedger(actorId, meta, { balance: 0 });
       done.transactionsDeleted = r.transactionsDeleted;
@@ -257,6 +279,95 @@ export class MaintenanceService {
     }
     await this.deps.audit.log({ actorId, action: 'udrzba.priprava_ostry_provoz', targetType: 'system', after: { options: o, done }, ...meta });
     return done;
+  }
+
+  /**
+   * Smaže uživatelské účty. Přeskočí hlavní administrátory, sebe, hráče sedící u stolu nebo zapsané v otevřeném turnaji
+   * a hráče s otevřenou sázkou nebo odměnou na hlavu (jinak by zůstaly peníze v úschově). Zůstatek peněženky se vrací do
+   * „mint“ (virtuální měna bez hodnoty), takže kniha zůstane vyrovnaná. Ostatní data hráče se smažou kaskádou.
+   */
+  async deleteUsers(actorId: string, userIds: string[], meta: Meta = {}): Promise<DeleteUsersResult> {
+    this.can(actorId);
+    const result: DeleteUsersResult = { deleted: [], skipped: [] };
+    const db = this.deps.db;
+    const seated = new Set<string>();
+    for (const actor of this.deps.tables().actors.values()) for (const p of actor.playersSeated()) seated.add(p.userId);
+    const tournaments = this.deps.tournaments();
+    const playing = new Set<string>();
+    for (const r of tournaments.list()) {
+      const st = tournaments.get(r.id)?.state();
+      if (st && ACTIVE.has(st.status)) for (const p of st.players) if (p.status !== 'out') playing.add(p.userId);
+    }
+    for (const id of [...new Set(userIds)]) {
+      const [u] = await db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users).where(eq(schema.users.id, id));
+      const skip = (reason: DeleteUsersResult['skipped'][number]['reason']) => void result.skipped.push({ id, nickname: u?.nickname ?? '', reason });
+      if (!u) {
+        skip('notFound');
+        continue;
+      }
+      if (this.deps.isMainAdmin(id)) {
+        skip('admin');
+        continue;
+      }
+      if (id === actorId) {
+        skip('self');
+        continue;
+      }
+      if (seated.has(id)) {
+        skip('seated');
+        continue;
+      }
+      if (playing.has(id)) {
+        skip('tournament');
+        continue;
+      }
+      const held = await db
+        .select({ id: schema.betStakes.id })
+        .from(schema.betStakes)
+        .innerJoin(schema.bets, eq(schema.bets.id, schema.betStakes.betId))
+        .where(and(eq(schema.betStakes.userId, id), inArray(schema.bets.status, ['open', 'locked', 'proposed', 'disputed'])));
+      if (held.length > 0) {
+        skip('bets');
+        continue;
+      }
+      const bounties = await db
+        .select({ id: schema.headBounties.id })
+        .from(schema.headBounties)
+        .where(and(or(eq(schema.headBounties.targetId, id), eq(schema.headBounties.posterId, id)), inArray(schema.headBounties.status, ['open', 'pendingWinner'])));
+      if (bounties.length > 0) {
+        skip('bounty');
+        continue;
+      }
+      const wallet = ledgerAccounts.wallet(id);
+      const balance = this.deps.ledger.balance(wallet);
+      if (balance !== 0) this.deps.ledger.post({ kind: 'manual_adjustment', idempotencyKey: `delete-user:${id}:${randomUUID()}`, entries: [{ account: wallet, amount: -balance }, { account: ledgerAccounts.mint(), amount: balance }], createdBy: actorId, note: 'udrzba.smazani_uzivatele' });
+      await this.deps.flush();
+      await db.delete(schema.users).where(eq(schema.users.id, id));
+      await this.deps.audit.log({ actorId, action: 'udrzba.smazat_uzivatele', targetType: 'user', targetId: id, before: { nickname: u.nickname, balance }, ...meta });
+      result.deleted.push(id);
+    }
+    if (result.deleted.length > 0) await this.deps.reloadPerms();
+    return result;
+  }
+
+  /**
+   * Úplný reset jako po instalaci: zavře hry, smaže všechna data ze všech tabulek (včetně uživatelů, nastavení, šablon,
+   * rolí a tajných údajů) i nahrané soubory a požádá o restart aplikace. Po restartu se vytvoří hlavní správce podle
+   * .env (ADMIN_NICKNAME, ADMIN_PASSWORD) a vestavěné šablony, role a zvuky se založí znovu. Jen hlavní správce.
+   */
+  async factoryReset(actorId: string, meta: Meta = {}): Promise<{ tables: number }> {
+    this.can(actorId);
+    if (!this.deps.isMainAdmin(actorId)) throw new MaintenanceError('FORBIDDEN');
+    await this.reset(actorId, { games: true }, meta);
+    await this.deps.idle();
+    await this.deps.flush();
+    await this.deps.purgeFiles();
+    const names = (Object.values(schema) as unknown[]).filter((t) => is(t as object, PgTable)).map((t) => getTableName(t as PgTable));
+    await this.deps.db.execute(sql.raw(`TRUNCATE TABLE ${names.map((n) => `"${n}"`).join(', ')} RESTART IDENTITY CASCADE`));
+    this.deps.ledger.reset();
+    console.warn('Úplný reset dokončen: data jsou smazána, aplikace se restartuje.');
+    this.deps.restart();
+    return { tables: names.length };
   }
 
   /** Vynulování jednoho hráče: XP (a úroveň), úspěchy, rating. */

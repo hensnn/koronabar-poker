@@ -216,3 +216,8 @@ Po testování se dá vše zkušební smazat jedním krokem: **Správa → Údr�
 2. Otevři Údržbu, u každé položky vidíš, kolik se smaže: zavřít stoly a zrušit turnaje, postup a statistiky, hotové hry z Historie, historie chatu, upozornění ve zvonečku, peněženky na 0.
 3. Zaškrtni, co chceš, napiš potvrzovací slovo a potvrď. Akce je nevratná a zapíše se do audit logu.
 4. Hráčům pak dobij měnu v **Správa → Pokladna** (po vynulování mají nulu).
+
+### Smazání uživatelů a úplný reset (do budoucna)
+
+- **Smazání uživatelů:** v kartě Příprava na ostrý provoz zaškrtni, koho smazat (nebo tlačítko Smazat u uživatele ve Správa → Uživatelé). Hlavního správce, sebe, hráče u stolu nebo v otevřeném turnaji a hráče s otevřenou sázkou nebo odměnou na hlavu server přeskočí a řekne proč. Zůstatek smazaného se vrátí do virtuální měny.
+- **Úplný reset (jako po instalaci):** karta Úplný reset v téže Údržbě. Smaže všechna data včetně uživatelů, nastavení, šablon, rolí, tajných údajů i nahraných souborů a aplikace se restartuje (Docker ji znovu spustí). Hlavní správce se vytvoří znovu podle `.env` (`ADMIN_NICKNAME`, `ADMIN_PASSWORD`). Smí jen hlavní správce, vyžaduje potvrzovací slovo a je nevratný, proto předem zálohu.
