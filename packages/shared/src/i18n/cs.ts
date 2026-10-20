@@ -290,7 +290,7 @@ export const cs: Record<string, string> = {
   'settings.economy.currencyNameMany.label': 'Název měny (5 a více)',
   'settings.economy.currencyNameMany.help': 'Tvar názvu měny pro pět a víc kusů a pro nulu: „500 Koron“. Používá se u částek a v textech aplikace.',
   'settings.economy.currencySymbol.label': 'Symbol měny',
-  'settings.economy.currencySymbol.help': 'Značka měny u všech částek (např. Kč). Jen vzhled, hodnota měny se tím nemění.',
+  'settings.economy.currencySymbol.help': 'Značka měny u všech částek (např. Ⓚ, výchozí je velké K v kroužku). Jen vzhled, hodnota měny se tím nemění.',
   'settings.economy.decimals.label': 'Desetinná místa',
   'settings.economy.decimals.help': 'Kolik desetinných míst se u částek zobrazuje. Uloženo je vždy celé číslo.',
   'settings.economy.startingBalance.label': 'Počáteční vklad',

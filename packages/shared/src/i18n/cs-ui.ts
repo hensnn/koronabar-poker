@@ -33,7 +33,7 @@ export const csUi: Record<string, string> = {
   'dashboard.fullStats': 'Celé statistiky',
   'dashboard.statsHidden': 'Žebříček je vypnutý, hráči se mezi sebou nezobrazují.',
   'dashboard.noPlayers': 'Zatím tu nejsou žádní hráči.',
-  'dashboard.earningsHelp': 'Výdělek = turnaje + cash game + živý cash, v měně hry bez peněžní hodnoty.',
+  'dashboard.earningsHelp': 'Výdělek = turnaje + cash game + živý cash.',
   'unit.px': 'px',
   'chat.sys.shown': '{nick} ukázal karty.',
   'chat.sys.shownOne': '{nick} ukázal jednu kartu.',
