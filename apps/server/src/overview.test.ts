@@ -73,3 +73,24 @@ describe('kategorie kdo je v čem nejlepší (HTTP)', () => {
     expect(r.statusCode).toBe(403);
   });
 });
+
+describe('vklad do domu a výběr z domu (HTTP)', () => {
+  it('správce vloží měnu do domu a vybere; kniha zůstane vyrovnaná, hráč to nesmí', async () => {
+    const s = await start();
+    const login = async (identifier: string, password: string) => String((await s.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier, password }, headers: { origin: 'http://localhost' } })).headers['set-cookie']).split(';')[0]!;
+    const admin = await login('Admin', 'admin-heslo-123');
+    const house = async () => (await s.server.app.inject({ method: 'GET', url: '/api/admin/house', headers: { cookie: admin } })).json().house as number;
+    const before = await house();
+    const inn = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: admin, origin: 'http://localhost' }, payload: { direction: 'in', amount: 5000, reason: 'Počáteční vklad' } });
+    expect(inn.statusCode).toBe(200);
+    expect(await house()).toBe(before + 5000);
+    const out = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: admin, origin: 'http://localhost' }, payload: { direction: 'out', amount: 2000, reason: 'Oprava' } });
+    expect(out.statusCode).toBe(200);
+    expect(await house()).toBe(before + 3000);
+    const tooMuch = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: admin, origin: 'http://localhost' }, payload: { direction: 'out', amount: 999_999, reason: 'x' } });
+    expect(tooMuch.statusCode).toBeGreaterThanOrEqual(400);
+    const player = await login('Hrac', 'heslo-hrace-123');
+    const denied = await s.server.app.inject({ method: 'POST', url: '/api/admin/wallet/house', headers: { cookie: player, origin: 'http://localhost' }, payload: { direction: 'in', amount: 10, reason: 'x' } });
+    expect(denied.statusCode).toBe(403);
+  });
+});

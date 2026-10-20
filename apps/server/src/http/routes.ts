@@ -1904,6 +1904,13 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const b = z.object({ entries: z.array(z.object({ account: z.string().min(1).max(100), amount: z.number().int() })).min(2).max(20), reason: z.string().min(1).max(300) }).parse(req.body);
     return reply.send(await svc.wallet.adjust(need(req).id, b.entries, b.reason, meta(req)));
   }));
+  /** Vklad do domu (nově vydaná měna jde na účet domu) nebo výběr z domu (měna se vrací do zásoby); vždy s důvodem v účetní knize a auditu. */
+  app.post('/api/admin/wallet/house', guard(async (req, reply) => {
+    const b = z.object({ direction: z.enum(['in', 'out']), amount, reason: z.string().min(1).max(300) }).parse(req.body);
+    const sign = b.direction === 'in' ? 1 : -1;
+    const entries = [{ account: 'mint', amount: -sign * b.amount }, { account: 'house', amount: sign * b.amount }];
+    return reply.send(await svc.wallet.adjust(need(req).id, entries, b.reason, meta(req)));
+  }));
   app.get('/api/admin/ledger', guard(async (req, reply) => reply.send(await svc.wallet.ledgerOverview(need(req).id))));
   app.get('/api/admin/house', guard(async (req, reply) => reply.send(svc.wallet.houseBalances(need(req).id))));
 
