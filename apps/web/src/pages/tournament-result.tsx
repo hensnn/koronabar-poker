@@ -61,15 +61,15 @@ export function SummaryTable({ summary, meId }: { summary: TournamentSummary[]; 
       <DataTable head={[t('tournament.placeShort'), t('tournament.player'), t('tournament.resultEntries'), t('tournament.resultRebuys'), t('tournament.resultAddons'), t('tournament.resultSpent'), t('tournament.won'), t('tournament.resultBounty'), t('tournament.resultProfit')]}>
         {summary.map((x) => (
           <tr key={x.userId} className={x.userId === meId ? 'bg-raised font-semibold' : ''}>
-            <Td className="font-mono">{x.place}.</Td>
-            <Td>{x.name}</Td>
-            <Td className="font-mono">{part(x.entries, x.entryAmount)}</Td>
-            <Td className="font-mono">{part(x.rebuys, x.rebuyAmount)}</Td>
-            <Td className="font-mono">{part(x.addons, x.addonAmount)}</Td>
-            <Td className="font-mono">-{money(x.spent)}</Td>
-            <Td className="font-mono">{money(x.payout)}</Td>
-            <Td className="font-mono">{x.bounty > 0 ? money(x.bounty) : '–'}</Td>
-            <Td className={`font-mono ${x.profit > 0 ? 'text-success' : x.profit < 0 ? 'text-danger' : ''}`}>{signed(x.profit)}</Td>
+            <Td className="whitespace-nowrap font-mono">{x.place}.</Td>
+            <Td className="whitespace-nowrap">{x.name}</Td>
+            <Td className="whitespace-nowrap font-mono">{part(x.entries, x.entryAmount)}</Td>
+            <Td className="whitespace-nowrap font-mono">{part(x.rebuys, x.rebuyAmount)}</Td>
+            <Td className="whitespace-nowrap font-mono">{part(x.addons, x.addonAmount)}</Td>
+            <Td className="whitespace-nowrap font-mono">-{money(x.spent)}</Td>
+            <Td className="whitespace-nowrap font-mono">{money(x.payout)}</Td>
+            <Td className="whitespace-nowrap font-mono">{x.bounty > 0 ? money(x.bounty) : '–'}</Td>
+            <Td className={`whitespace-nowrap font-mono ${x.profit > 0 ? 'text-success' : x.profit < 0 ? 'text-danger' : ''}`}>{signed(x.profit)}</Td>
           </tr>
         ))}
       </DataTable>
@@ -114,7 +114,7 @@ export function TournamentResultHost() {
     navigate('/');
   };
   return (
-    <Modal title={t('tournament.finishedTitle', { name: r.name })} onClose={done} wide>
+    <Modal title={t('tournament.finishedTitle', { name: r.name })} onClose={done} wide fit>
       <SummaryTable summary={r.summary} meId={me?.user.id} />
       <p className="mt-2">
         <a className="rounded-md border border-line bg-surface px-3 py-1 text-sm" href={`/api/tournaments/${r.id}/export.csv`}>

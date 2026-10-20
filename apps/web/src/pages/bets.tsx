@@ -346,10 +346,69 @@ function CreateBet({ tournamentId, data, onClose, onDone }: { tournamentId: stri
   );
 }
 
-function BountyCard({ data, meId, tournamentId, run }: { data: Data; meId: string; tournamentId: string; run: (fn: () => Promise<unknown>) => Promise<void> }) {
+/** Formulář pro vypsání odměny na hlavu: hledaný hráč a částka v mezích nastavených správcem. */
+function BountyForm({ data, meId, tournamentId, run }: { data: Data; meId: string; tournamentId: string; run: (fn: () => Promise<unknown>) => Promise<void> }) {
   const hb = data.headBounties;
   const [target, setTarget] = useState('');
   const [amount, setAmount] = useState(String(hb.limits.min));
+  return (
+    <div className="flex flex-col gap-2">
+      <Select label={t('bounty.target')} value={target} onChange={(e) => setTarget(e.target.value)}>
+        <option value="">{t('bounty.pickTarget')}</option>
+        {data.players
+          .filter((p) => p.userId !== meId)
+          .map((p) => (
+            <option key={p.userId} value={p.userId}>
+              {p.nickname}
+            </option>
+          ))}
+      </Select>
+      <TextInput label={`${t('bounty.amount')} (${hb.limits.min}–${hb.limits.max})`} type="number" min={hb.limits.min} max={hb.limits.max} value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <div>
+        <Button variant="primary" disabled={!target} onClick={() => void run(() => post(`/api/tournaments/${tournamentId}/bounties`, { targetId: target, amount: Number(amount) }))}>
+          {t('bounty.post')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Okno pro vypsání odměny na hlavu přímo od stolu (z widgetu Odměny); chyby se ukážou v okně a po úspěchu se zavře. */
+export function PostBountyDialog({ tournamentId, onClose }: { tournamentId: string; onClose: () => void }) {
+  const { me } = useSession();
+  const [data, setData] = useState<Data | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    get<Data>(`/api/tournaments/${tournamentId}/bets`).then(setData).catch((e) => setError(errorText(e)));
+  }, [tournamentId]);
+  const run = async (fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+      onClose();
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+  return (
+    <Modal title={t('bounty.post')} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted">{t('bounty.help')}</p>
+        {error && (
+          <p role="alert" className="rounded-md border-2 border-danger px-2 py-1 text-sm text-danger">
+            {error}
+          </p>
+        )}
+        {data && data.headBounties.enabled ? <BountyForm data={data} meId={me?.user.id ?? ''} tournamentId={tournamentId} run={run} /> : !error && <p className="text-muted">{t('app.loading')}</p>}
+        <div className="flex justify-end">
+          <Button onClick={onClose}>{t('table.cancel')}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function BountyCard({ data, meId, tournamentId, run }: { data: Data; meId: string; tournamentId: string; run: (fn: () => Promise<unknown>) => Promise<void> }) {
+  const hb = data.headBounties;
   const open = hb.bounties.filter((x) => x.status === 'open' || x.status === 'pendingWinner');
   const sums = new Map<string, number>();
   for (const x of open) sums.set(x.target.userId, (sums.get(x.target.userId) ?? 0) + x.amount);
@@ -363,28 +422,13 @@ function BountyCard({ data, meId, tournamentId, run }: { data: Data; meId: strin
             <li key={x.id} className="flex flex-wrap items-center gap-2 text-sm">
               <strong>{x.target.nickname}</strong>
               <span className="font-mono">{x.amount}</span>
-              <span className="text-muted">{t('bounty.by', { nick: x.poster.nickname, amount: x.amount })}</span>
+              <span className="text-muted">{t('bounty.by', { nick: x.poster.nickname })}</span>
               <Badge tone={x.status === 'open' ? 'warning' : 'muted'}>{t(`bounty.status.${x.status}`)}</Badge>
               {x.status === 'open' && sums.get(x.target.userId) !== x.amount && <span className="text-xs text-muted">{t('bounty.total', { n: sums.get(x.target.userId) ?? 0 })}</span>}
             </li>
           ))}
         </ul>
-        <div className="flex flex-wrap items-end gap-2">
-          <Select label={t('bounty.target')} value={target} onChange={(e) => setTarget(e.target.value)}>
-            <option value="">{t('bounty.pickTarget')}</option>
-            {data.players
-              .filter((p) => p.userId !== meId)
-              .map((p) => (
-                <option key={p.userId} value={p.userId}>
-                  {p.nickname}
-                </option>
-              ))}
-          </Select>
-          <TextInput label={t('bounty.amount')} type="number" min={hb.limits.min} max={hb.limits.max} value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <Button variant="primary" disabled={!target} onClick={() => void run(() => post(`/api/tournaments/${tournamentId}/bounties`, { targetId: target, amount: Number(amount) }))}>
-            {t('bounty.post')}
-          </Button>
-        </div>
+        <BountyForm data={data} meId={meId} tournamentId={tournamentId} run={run} />
       </div>
     </Card>
   );

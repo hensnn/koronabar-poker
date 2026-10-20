@@ -122,7 +122,7 @@ function sizeStyle(w: number, h: number): CSSProperties | undefined {
   return style;
 }
 
-export function Modal({ title, onClose, children, dirty = false, wide = false, sizeKey }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean; /** Okno má nastavitelnou velikost (tažení za pravý dolní roh); rozměry se pamatují v osobním nastavení `<klíč>Width` a `<klíč>Height`. */ sizeKey?: string }) {
+export function Modal({ title, onClose, children, dirty = false, wide = false, fit = false, sizeKey }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean; /** Okno se přizpůsobí šířce obsahu (tabulka se vejde bez posuvníku), nejvýš do šířky okna prohlížeče. */ fit?: boolean; /** Okno má nastavitelnou velikost (tažení za pravý dolní roh); rozměry se pamatují v osobním nastavení `<klíč>Width` a `<klíč>Height`. */ sizeKey?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const values = useSettings().values;
   const storedW = sizeKey ? Number(values[`${sizeKey}Width`] ?? 0) : 0;
@@ -191,7 +191,7 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, s
   // Okno se vykresluje přímo do <body>: uvnitř stolu (kontejner s containment) by `position: fixed` platilo jen vůči stolu a okno by se smrštilo.
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onMouseDown={() => (down.current = ref.current ? { w: ref.current.offsetWidth, h: ref.current.offsetHeight } : null)} onMouseUp={() => changedSince(down.current) && saveSize()} style={sizeKey ? sizeStyle(storedW, storedH) : undefined} className={`max-h-full ${sizeKey ? 'w-[32rem] max-w-full' : `w-full ${wide ? 'max-w-4xl' : 'max-w-lg'}`} overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg ${sizeKey ? 'flex min-h-48 min-w-64 resize flex-col' : ''}`}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onMouseDown={() => (down.current = ref.current ? { w: ref.current.offsetWidth, h: ref.current.offsetHeight } : null)} onMouseUp={() => changedSince(down.current) && saveSize()} style={sizeKey ? sizeStyle(storedW, storedH) : undefined} className={`max-h-full ${sizeKey ? 'w-[32rem] max-w-full' : fit ? 'w-fit max-w-full' : `w-full ${wide ? 'max-w-4xl' : 'max-w-lg'}`} overflow-auto rounded-lg border border-line bg-surface p-4 shadow-lg ${sizeKey ? 'flex min-h-48 min-w-64 resize flex-col' : ''}`}>
         <h2 className="mb-3 font-heading text-lg font-bold">{title}</h2>
         {sizeKey ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}
       </div>

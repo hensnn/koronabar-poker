@@ -4,6 +4,7 @@ import type { TableView } from '@kb/game-core';
 import { errorText, get, post } from '../api';
 import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
+import { PostBountyDialog } from '../pages/bets';
 import { useSession } from '../session';
 import { Button, Modal } from '../ui';
 import { actionOffSm, actionTone, actionToneSm } from './buttons';
@@ -165,12 +166,30 @@ export function wantedList(view: TableView): { seat: number; name: string; amoun
     .sort((a, b) => b.amount - a.amount);
 }
 
-export function BountiesBody({ view }: { view: TableView }) {
+export function BountiesBody({ view, tour, tournamentId }: { view: TableView; tour?: TournamentInfo | null; tournamentId?: string | null }) {
   const list = wantedList(view);
   const { me } = useSession();
-  if (list.length === 0) return <p className="text-sm text-muted">{t('table.info.noRewards')}</p>;
+  const [posting, setPosting] = useState(false);
   const mineId = view.seats.find((s) => s.playerId === me?.user.id)?.seat;
+  // Vypsat odměnu může hráč zapsaný v běžícím turnaji; tlačítko je při zapnutých odměnách vždy na místě.
+  const canPost = !!tournamentId && !!tour && tour.status === 'running' && tour.me.status === 'playing';
+  const button = tournamentId ? (
+    <>
+      <button className={canPost ? actionToneSm.special : actionOffSm} disabled={!canPost} onClick={() => setPosting(true)}>
+        {t('bounty.post')}
+      </button>
+      {posting && <PostBountyDialog tournamentId={tournamentId} onClose={() => setPosting(false)} />}
+    </>
+  ) : null;
+  if (list.length === 0)
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-muted">{t('table.info.noRewards')}</p>
+        {button}
+      </div>
+    );
   return (
+    <div className="flex flex-col gap-2">
     <ul className="flex flex-col gap-1 text-sm">
       {list.map((w) => (
         <li key={w.seat} className="flex items-center justify-between gap-2">
@@ -182,6 +201,8 @@ export function BountiesBody({ view }: { view: TableView }) {
         </li>
       ))}
     </ul>
+    {button}
+    </div>
   );
 }
 

@@ -69,7 +69,7 @@ export const csBets: Record<string, string> = {
   'bounty.amount': 'Odměna',
   'bounty.post': 'Vypsat odměnu',
   'bounty.total': 'celkem {n}',
-  'bounty.by': 'od {nick}: {amount}',
+  'bounty.by': 'od {nick}',
   'bounty.status.open': 'čeká',
   'bounty.status.pendingWinner': 'připadne vítězi',
   'bounty.status.paid': 'vyplaceno',

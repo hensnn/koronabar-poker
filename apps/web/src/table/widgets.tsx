@@ -157,7 +157,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
         </div>
       ),
     },
-    bounties: { title: t('table.info.rewards'), show: !!view && features.headBounty, body: view && <BountiesBody view={view} /> },
+    bounties: { title: t('table.info.rewards'), show: !!view && features.headBounty, body: view && <BountiesBody view={view} tour={tour} tournamentId={tournamentId} /> },
   };
 
   const value = useMemo<Ctx>(

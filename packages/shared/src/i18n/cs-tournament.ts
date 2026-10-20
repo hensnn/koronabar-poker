@@ -1974,6 +1974,8 @@ export const csTournament: Record<string, string> = {
   'error.HOUSE_FORBIDDEN': 'Na účet domu nemáš oprávnění.',
   'error.HOUSE_INVALID': 'Zkontroluj kategorii, částku a poznámku.',
   'error.HOUSE_INSUFFICIENT': 'Dům nemá dost prostředků na tento výdaj.',
+  'finance.fundName': 'Fond',
+  'finance.fundBalance': 'Zůstatek',
   'finance.houseAmount': 'Částka',
   'finance.houseReason': 'Důvod (zapíše se do knihy)',
   'finance.houseIn': 'Vložit do domu',
