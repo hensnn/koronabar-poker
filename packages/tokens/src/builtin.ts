@@ -1,4 +1,5 @@
 import { MORE_THEMES } from './builtin-more.js';
+import { EXTRA_THEMES } from './builtin-extra.js';
 import { THEME_SCHEMA_VERSION, type Theme } from './schema.js';
 
 /** Vestavěné motivy. Prázdné vrstvy = výchozí tokeny (klasický zelený stůl). */
@@ -50,4 +51,4 @@ export const BUILTIN_THEMES: Theme[] = [
   },
 ];
 
-BUILTIN_THEMES.push(...MORE_THEMES);
+BUILTIN_THEMES.push(...MORE_THEMES, ...EXTRA_THEMES);

@@ -122,8 +122,8 @@ describe('rozšířené tokeny', () => {
 });
 
 describe('vestavěné motivy', () => {
-  it('je jich sedm, mají jedinečná id a všechny jejich hodnoty jsou platné podle schématu', () => {
-    expect(BUILTIN_THEMES.map((x) => x.id)).toEqual(['classic-green', 'high-contrast', 'red-salon', 'casino', 'night', 'minimal', 'retro', 'blue-club', 'gold-evening', 'pastel']);
+  it('je jich dvaadvacet, mají jedinečná id a všechny jejich hodnoty jsou platné podle schématu', () => {
+    expect(BUILTIN_THEMES.map((x) => x.id)).toEqual(['classic-green', 'high-contrast', 'red-salon', 'casino', 'night', 'minimal', 'retro', 'blue-club', 'gold-evening', 'pastel', 'emerald-royal', 'ocean', 'burgundy', 'sunset', 'forest', 'neon', 'ice', 'desert', 'graphite', 'sakura', 'vintage', 'lava']);
     for (const theme of BUILTIN_THEMES) {
       for (const mode of ['light', 'dark'] as const) {
         for (const [k, v] of Object.entries(theme[mode])) {

@@ -93,10 +93,42 @@ h3,
   border-radius: var(--tk-table-radius);
   border: var(--tk-table-edgeWidth) solid var(--tk-color-feltBorder);
   background-color: var(--tk-color-felt);
-  background-image: var(--tk-image-felt);
-  background-size: cover;
+  background-image: var(--tk-image-felt), var(--felt-pattern, none);
+  background-size: cover, var(--felt-pattern-size, auto);
   background-position: center;
   box-shadow: inset 0 0 var(--tk-table-vignetteSize) var(--tk-color-vignette);
+}
+/* Vzory plátna: kreslí se barvou tokenu color.feltPattern, takže se mění s motivem. */
+[data-tk-table-pattern='weave'] {
+  --felt-pattern: repeating-linear-gradient(0deg, var(--tk-color-feltPattern) 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, var(--tk-color-feltPattern) 0 1px, transparent 1px 4px);
+}
+[data-tk-table-pattern='dots'] {
+  --felt-pattern: radial-gradient(var(--tk-color-feltPattern) 1.5px, transparent 2px);
+  --felt-pattern-size: 14px 14px;
+}
+[data-tk-table-pattern='stripes'] {
+  --felt-pattern: repeating-linear-gradient(90deg, var(--tk-color-feltPattern) 0 12px, transparent 12px 24px);
+}
+[data-tk-table-pattern='diamonds'] {
+  --felt-pattern: repeating-linear-gradient(45deg, var(--tk-color-feltPattern) 0 1px, transparent 1px 16px), repeating-linear-gradient(-45deg, var(--tk-color-feltPattern) 0 1px, transparent 1px 16px);
+}
+[data-tk-table-pattern='spotlight'] {
+  --felt-pattern: radial-gradient(ellipse at 50% 45%, var(--tk-color-feltPattern) 0%, transparent 62%);
+}
+[data-tk-table-pattern='speckle'] {
+  --felt-pattern: radial-gradient(var(--tk-color-feltPattern) 1px, transparent 1.5px), radial-gradient(var(--tk-color-feltPattern) 1px, transparent 1.5px);
+  --felt-pattern-size: 11px 11px, 17px 17px;
+}
+[data-tk-table-pattern='rings'] {
+  --felt-pattern: repeating-radial-gradient(circle at 50% 50%, transparent 0 22px, var(--tk-color-feltPattern) 22px 24px);
+}
+[data-tk-table-pattern='grid'] {
+  --felt-pattern: linear-gradient(var(--tk-color-feltPattern) 1px, transparent 1px), linear-gradient(90deg, var(--tk-color-feltPattern) 1px, transparent 1px);
+  --felt-pattern-size: 28px 28px;
+}
+[data-tk-table-pattern='chevron'] {
+  --felt-pattern: linear-gradient(135deg, var(--tk-color-feltPattern) 25%, transparent 25%), linear-gradient(225deg, var(--tk-color-feltPattern) 25%, transparent 25%);
+  --felt-pattern-size: 24px 24px;
 }
 .tk-table-logo {
   background-image: var(--tk-image-logo);
@@ -169,6 +201,27 @@ h3,
   border-color: currentColor;
   box-shadow: none;
 }
+/* Další líce: elegantní (patkové písmo a vnitřní rámeček), podbarvené podle barvy, neonové, s rámečkem a se stínem. */
+[data-tk-cards-style='elegant'] .tk-card {
+  font-family: var(--tk-font-heading);
+  box-shadow: inset 0 0 0 2px var(--tk-color-cardBackAccent), var(--tk-shape-shadow);
+}
+[data-tk-cards-style='elegant'] .tk-card-rank { font-weight: 800; }
+[data-tk-cards-style='tinted'] .tk-card.tk-suit-h { background-color: color-mix(in srgb, var(--suit-h) 12%, var(--tk-color-cardFace)); }
+[data-tk-cards-style='tinted'] .tk-card.tk-suit-d { background-color: color-mix(in srgb, var(--suit-d) 12%, var(--tk-color-cardFace)); }
+[data-tk-cards-style='tinted'] .tk-card.tk-suit-c { background-color: color-mix(in srgb, var(--suit-c) 12%, var(--tk-color-cardFace)); }
+[data-tk-cards-style='tinted'] .tk-card.tk-suit-s { background-color: color-mix(in srgb, var(--suit-s) 12%, var(--tk-color-cardFace)); }
+[data-tk-cards-style='neon'] .tk-card {
+  border-width: 2px;
+  border-color: currentColor;
+  box-shadow: 0 0 6px currentColor, inset 0 0 4px color-mix(in srgb, currentColor 40%, transparent);
+}
+[data-tk-cards-style='frame'] .tk-card {
+  box-shadow: inset 0 0 0 3px var(--tk-color-cardFace), inset 0 0 0 4px var(--tk-color-cardInk), var(--tk-shape-shadow);
+}
+[data-tk-cards-style='shadow'] .tk-card {
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--tk-color-cardInk) 55%, transparent);
+}
 /* Další ruby: mřížka, šachovnice, paprsky, rámeček. */
 [data-tk-cards-back='crosshatch'] {
   --card-pattern: repeating-linear-gradient(0deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 6px), repeating-linear-gradient(90deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 6px);
@@ -180,6 +233,22 @@ h3,
   --card-pattern: repeating-conic-gradient(from 0deg at 50% 50%, var(--tk-color-cardBackAccent) 0 8deg, transparent 8deg 20deg);
 }
 [data-tk-cards-back='rays'] .tk-card-back { background-size: cover, 100% 100%; }
+[data-tk-cards-back='plaid'] {
+  --card-pattern: repeating-linear-gradient(0deg, var(--tk-color-cardBackAccent) 0 3px, transparent 3px 12px), repeating-linear-gradient(90deg, var(--tk-color-cardBackAccent) 0 3px, transparent 3px 12px);
+}
+[data-tk-cards-back='zigzag'] {
+  --card-pattern: linear-gradient(135deg, var(--tk-color-cardBackAccent) 25%, transparent 25%), linear-gradient(225deg, var(--tk-color-cardBackAccent) 25%, transparent 25%);
+}
+[data-tk-cards-back='rings'] {
+  --card-pattern: repeating-radial-gradient(circle at 50% 50%, transparent 0 4px, var(--tk-color-cardBackAccent) 4px 5px);
+}
+[data-tk-cards-back='rings'] .tk-card-back { background-size: cover, 100% 100%; }
+[data-tk-cards-back='scales'] {
+  --card-pattern: radial-gradient(circle at 100% 150%, transparent 24%, var(--tk-color-cardBackAccent) 25% 28%, transparent 29%), radial-gradient(circle at 0 150%, transparent 24%, var(--tk-color-cardBackAccent) 25% 28%, transparent 29%);
+}
+[data-tk-cards-back='lines'] {
+  --card-pattern: repeating-linear-gradient(0deg, var(--tk-color-cardBackAccent) 0 1px, transparent 1px 5px);
+}
 [data-tk-cards-back='frame'] {
   --card-pattern: none;
 }
