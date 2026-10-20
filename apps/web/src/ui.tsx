@@ -1,7 +1,8 @@
 import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from './settings';
 import { createPortal } from 'react-dom';
-import { useEffect, useId, useRef, useState, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { isNumericColumn, sortTableRows, type SortDir } from './sort';
+import { Children, useEffect, useId, useRef, useState, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -219,8 +220,16 @@ export function Spinner({ label }: { label: string }) {
   );
 }
 
-/** Jednoduchá tabulka s hlavičkou; buňky dodá volající. */
-export function DataTable({ head, children }: { head: ReactNode[]; children: ReactNode }) {
+/**
+ * Jednoduchá tabulka s hlavičkou; buňky dodá volající. Textové záhlaví jde kliknutím řadit podle sloupce (číselně, podle data nebo česky podle abecedy;
+ * druhý klik obrátí směr). Tabulka s pevným pořadím (úrovně, výplaty…) vypne řazení přes `sortable={false}`.
+ */
+export function DataTable({ head, children, sortable = true }: { head: ReactNode[]; children: ReactNode; sortable?: boolean }) {
+  const [sort, setSort] = useState<{ col: number; dir: SortDir } | null>(null);
+  const rowCount = Children.count(children);
+  const canSort = sortable && rowCount > 1 && sortTableRows(children, 0, 'asc') !== null;
+  const rows = canSort && sort ? (sortTableRows(children, sort.col, sort.dir) ?? children) : children;
+  const click = (col: number) => setSort((s) => (s?.col === col ? { col, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: isNumericColumn(children, col) ? 'desc' : 'asc' }));
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left">
@@ -228,12 +237,19 @@ export function DataTable({ head, children }: { head: ReactNode[]; children: Rea
           <tr>
             {head.map((h, i) => (
               <th key={typeof h === 'string' ? `${i}:${h}` : i} className="border-b border-line px-2 py-1 font-medium text-muted">
-                {h}
+                {canSort && typeof h === 'string' && h.trim() !== '' ? (
+                  <button className="underline decoration-dotted" onClick={() => click(i)} aria-label={t('cashier.ledger.sortBy', { col: h })}>
+                    {h}
+                    {sort?.col === i ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+                  </button>
+                ) : (
+                  h
+                )}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody>{rows}</tbody>
       </table>
     </div>
   );

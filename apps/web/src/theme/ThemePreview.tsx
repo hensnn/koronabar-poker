@@ -69,7 +69,7 @@ function TablePreview() {
 function LobbyPreview() {
   return (
     <Card title={t('lobby.title')}>
-      <DataTable head={[t('editor.preview.name'), t('lobby.blinds'), t('lobby.players')]}>
+      <DataTable sortable={false} head={[t('editor.preview.name'), t('lobby.blinds'), t('lobby.players')]}>
         <tr>
           <Td>Páteční hra</Td>
           <Td className="font-mono">5/10</Td>

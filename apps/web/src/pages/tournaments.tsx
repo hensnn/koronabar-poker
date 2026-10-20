@@ -673,7 +673,7 @@ export function TournamentPage({ id }: { id: string }) {
           {view.payouts.length === 0 ? (
             <p className="text-muted">{t('tournament.noPayouts')}</p>
           ) : (
-            <DataTable head={[t('tournament.placeShort'), t('tournament.amount')]}>
+            <DataTable sortable={false} head={[t('tournament.placeShort'), t('tournament.amount')]}>
               {view.payouts.map((p) => (
                 <tr key={p.place}>
                   <Td className="font-mono">{p.place}.</Td>
@@ -691,7 +691,7 @@ export function TournamentPage({ id }: { id: string }) {
       <Card title={t('tournament.structure')}>
         <details>
           <summary className="cursor-pointer">{t('tournament.levelsCount', { n: view.levels.length })}</summary>
-          <DataTable head={[t('tournament.levelCol'), t('lobby.blinds'), t('tournament.ante')]}>
+          <DataTable sortable={false} head={[t('tournament.levelCol'), t('lobby.blinds'), t('tournament.ante')]}>
             {view.levels.map((l, i) => (
               <tr key={i} className={i + 1 === view.levelNumber && running ? 'bg-raised' : ''}>
                 <Td className="font-mono">{i + 1}</Td>

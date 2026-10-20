@@ -25,7 +25,7 @@ export function levelsFor(values: SettingValues, players: number): { levels: Lev
 /** Tabulka levelů (ante, SB, BB) s oddělením přestávek. */
 export function LevelsTable({ levels, breakEvery }: { levels: Level[]; breakEvery: number }) {
   return (
-    <DataTable head={['#', t('rules.ante'), t('rules.sb'), t('rules.bb')]}>
+    <DataTable sortable={false} head={['#', t('rules.ante'), t('rules.sb'), t('rules.bb')]}>
       {levels.map((l, i) => (
         <tr key={i} className={breakEvery > 0 && (i + 1) % breakEvery === 0 ? 'border-b-2 border-line' : ''}>
           <Td>{i + 1}</Td>
@@ -296,7 +296,7 @@ export function MoneyPreview({ values }: { values: SettingValues; set?: Set }) {
         {payouts && (
           <div>
             <h3 className="mb-1 font-medium">{t('money.payouts', { n })}</h3>
-            <DataTable head={[t('tournament.placeShort'), t('money.amount'), '%']}>
+            <DataTable sortable={false} head={[t('tournament.placeShort'), t('money.amount'), '%']}>
               {payouts.amounts.map((amt, i) => (
                 <tr key={i}>
                   <Td>{i + 1}.</Td>

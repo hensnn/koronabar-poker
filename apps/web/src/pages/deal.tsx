@@ -106,7 +106,7 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
             <Badge tone="warning">{t('deal.status.open')}</Badge> <strong>{t(`deal.method.${vote.payload.method}`)}</strong> · {mmss(remaining)}
           </p>
           <p className="text-sm text-muted">{vote.proposer ? t('deal.proposedBy', { nick: nameOf(vote.proposer) }) : t('deal.proposedByOrganizer')}</p>
-          <DataTable head={[t('deal.player'), t('deal.chips'), t('tournament.amount'), '']}>
+          <DataTable sortable={false} head={[t('deal.player'), t('deal.chips'), t('tournament.amount'), '']}>
             {vote.voters.map((v) => (
               <tr key={v.userId}>
                 <Td>{nameOf(v.userId)}</Td>
@@ -166,7 +166,7 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
           <>
             <p className="text-sm">{t('deal.total', { total: opt.total })}</p>
             <h3 className="font-medium">{t('deal.compare')}</h3>
-            <DataTable head={[t('deal.player'), t('deal.chips'), ...opt.allowed.filter((m) => m !== 'custom').map((m) => t(`deal.method.${m}`))]}>
+            <DataTable sortable={false} head={[t('deal.player'), t('deal.chips'), ...opt.allowed.filter((m) => m !== 'custom').map((m) => t(`deal.method.${m}`))]}>
               {opt.participants.map((p) => (
                 <tr key={p.userId}>
                   <Td>{p.name}</Td>

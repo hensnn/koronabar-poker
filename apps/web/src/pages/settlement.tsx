@@ -72,7 +72,7 @@ export function SettlementPanel() {
             {data.players.length === 0 ? (
               <p className="text-muted">{t('settlement.emptyPeriod')}</p>
             ) : (
-              <DataTable head={[t('settlement.player'), t('settlement.cash'), t('settlement.tournaments'), t('settlement.total')]}>
+              <DataTable sortable={false} head={[t('settlement.player'), t('settlement.cash'), t('settlement.tournaments'), t('settlement.total')]}>
                 {data.players.map((p) => (
                   <tr key={p.userId}>
                     <Td>{data.names[p.userId] ?? p.userId}</Td>

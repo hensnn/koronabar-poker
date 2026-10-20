@@ -77,7 +77,7 @@ export function ProgressPage() {
         )}
       </Card>
       <Card title={t('xp.preview')}>
-        <DataTable head={[t('xp.level', { n: '' }).trim(), 'XP', 'Σ XP', t('xp.title')]}>
+        <DataTable sortable={false} head={[t('xp.level', { n: '' }).trim(), 'XP', 'Σ XP', t('xp.title')]}>
           {levels.map((l) => (
             <tr key={l.level} className={l.level === me.level ? 'font-bold' : ''}>
               <Td>{l.level}</Td>
