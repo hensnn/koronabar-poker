@@ -98,6 +98,13 @@ export const EMAIL_TEMPLATES: EmailTemplateDef[] = [
     text: 'Ahoj {prezdivka},\n\nvečer skončil. Souhrn:\n\n{souhrn}\n\nCelé vyúčtování: {odkaz}\n\nTento e-mail můžeš vypnout v profilu v osobním nastavení.\n',
   },
   {
+    key: 'rocni_souhrn',
+    variables: ['prezdivka', 'rok', 'souhrn', 'odkaz'],
+    security: false,
+    subject: 'Tvůj herní rok {rok} – KoronaBar Poker',
+    text: 'Ahoj {prezdivka},\n\nzde je souhrn tvého herního roku {rok}:\n\n{souhrn}\n\nVíc najdeš ve Statistikách: {odkaz}\n\nTento e-mail můžeš vypnout v profilu v osobním nastavení.\n',
+  },
+  {
     key: 'chat_souhrn',
     variables: ['prezdivka', 'souhrn', 'odkaz'],
     security: false,

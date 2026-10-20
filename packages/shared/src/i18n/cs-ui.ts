@@ -481,6 +481,7 @@ export const csUi: Record<string, string> = {
   'email.tpl.pozvanka': 'Pozvánka',
   'email.tpl.zadost_vyrizena': 'Vyřízená žádost o dobití',
   'email.tpl.turnaj_upozorneni': 'Upozornění na turnaj',
+  'email.tpl.rocni_souhrn': 'Roční souhrn výdělku',
   'email.tpl.vecer_souhrn': 'Souhrn herního večera',
   'email.tpl.chat_souhrn': 'Souhrn zmeškaných zpráv v chatu',
   'email.tpl.schvaleni_vyrizeno': 'Vyřízená žádost o schválení',

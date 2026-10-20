@@ -10,7 +10,7 @@ import { AuditService } from './auth/audit.js';
 import { PermissionService } from './auth/permissions.js';
 import { seedRoles } from './auth/seed.js';
 import { join } from 'node:path';
-import { eq } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import { t } from '@kb/shared';
 import { ChatService } from './chat/service.js';
 import { setupChatEvents } from './chat/gateway.js';
@@ -33,6 +33,7 @@ import { BlindStructureService } from './structures.js';
 import { PublicBoardService } from './public-boards.js';
 import { TimelineService } from './timeline.js';
 import { OverviewService } from './overview.js';
+import { YearStatsService } from './year-stats.js';
 import { TournamentManager, resultSummary, tournamentChatText, type TournamentNotice } from './tournaments.js';
 import { NotificationService } from './notifications.js';
 import { StatsService } from './stats.js';
@@ -201,6 +202,37 @@ export async function buildServer(opts: ServerOptions = {}) {
     }
   };
 
+  /** Roční souhrn výdělku e-mailem jednomu hráči (údaje podle nastavení správce); vrací false, když hráč nemá e-mail. */
+  const mailYear = async (userId: string, year: number): Promise<boolean> => {
+    const [u] = await db.select({ email: schema.users.email }).from(schema.users).where(eq(schema.users.id, userId));
+    if (!u?.email) return false;
+    const ys = yearStatsRef.current!;
+    const stats = await ys.compute(userId, year);
+    const souhrn = ys.summaryText(stats, ys.fieldsFor('email'), ys.forms());
+    await mailUser(userId, 'email.notifyYear', 'rocni_souhrn', (prezdivka) => ({ prezdivka, rok: year, souhrn: souhrn || '–', odkaz: `${String(settings.resolve()['system.publicUrl'] ?? '').replace(/\/$/, '')}/statistiky` }));
+    return true;
+  };
+  /** Počátkem roku rozešle souhrn za uplynulý rok (každému jednou; hlídá se podle fronty e-mailů). Volá se při tiku plánovače, sama se omezuje na jednou za hodinu. */
+  let lastYearlyCheck = 0;
+  const yearlyMail = async (): Promise<void> => {
+    const now = clock.now();
+    const s = settings.resolve();
+    if (!s['stats.yearEmailAuto'] || s['stats.yearEnabled'] === false || now - lastYearlyCheck < 3_600_000) return;
+    lastYearlyCheck = now;
+    const ys = yearStatsRef.current!;
+    const cur = ys.currentYear();
+    const fromJan = Date.UTC(cur, 0, 1);
+    if (now - fromJan > 14 * 86_400_000) return; // jen v prvních dnech nového roku
+    const year = cur - 1;
+    const users = await db.select({ id: schema.users.id, email: schema.users.email }).from(schema.users).where(eq(schema.users.status, 'active'));
+    for (const u of users) {
+      if (!u.email) continue;
+      const subject = `%${year}%`;
+      const [done] = await db.select({ id: schema.emailQueue.id }).from(schema.emailQueue).where(and(eq(schema.emailQueue.toAddress, u.email), eq(schema.emailQueue.kind, 'rocni_souhrn'), like(schema.emailQueue.subject, subject))).limit(1);
+      if (!done) await mailYear(u.id, year).catch(() => undefined);
+    }
+  };
+
   const approvals = new ApprovalService(db, perms, audit, {
     notify: (e) => {
       if (e.kind !== 'decided') return;
@@ -231,12 +263,13 @@ export async function buildServer(opts: ServerOptions = {}) {
   const maintenanceRef: { current?: MaintenanceService } = {};
   const historyRef: { current?: HistoryService } = {};
   const structuresRef: { current?: BlindStructureService } = {};
+  const yearStatsRef: { current?: YearStatsService } = {};
   const publicBoardsRef: { current?: PublicBoardService } = {};
   const tournamentsRef: { current?: TournamentManager } = {};
   const schedulerRef: { current?: Scheduler } = {};
   const notificationsRef: { current?: NotificationService } = {};
   const seriesRef: { current?: SeriesService } = {};
-  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
+  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, yearStats: () => yearStatsRef.current!, mailYear: (userId, year) => mailYear(userId, year), timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
 
   let broadcast: (tableId: string) => void = () => undefined;
   // Chat: hlavní kanál, kanály stolů a systémové zprávy u stolů.
@@ -611,6 +644,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     notify: (to, notice) => notifyTournament(to, notice),
     onError: (e) => console.error('Plánovač:', e instanceof Error ? e.message : e),
     tickMs: opts.schedulerTickMs,
+    periodic: () => yearlyMail(),
   });
   schedulerRef.current = scheduler;
   const series = new SeriesService({ db, perms, audit, tournaments });
@@ -1025,6 +1059,8 @@ export async function buildServer(opts: ServerOptions = {}) {
   structuresRef.current = structures;
   publicBoardsRef.current = new PublicBoardService({ db, perms, audit, settings: () => settings.resolve(), stats: () => stats, rating: () => rating, ledger: () => ledger, now: () => clock.now() });
   const timeline = new TimelineService({ db, settings: () => settings.resolve() });
+  const yearStats = new YearStatsService({ db, ledger, settings: () => settings.resolve(), now: () => clock.now() });
+  yearStatsRef.current = yearStats;
   const overview = new OverviewService({
     db,
     ledger,
@@ -1058,6 +1094,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     history,
     structures,
     publicBoards: publicBoardsRef.current!,
+    yearStats: yearStatsRef.current!,
     timeline,
     overview,
     scheduler,

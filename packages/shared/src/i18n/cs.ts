@@ -10,6 +10,7 @@ import { csLimits } from './cs-limits.js';
 import { csAnnouncer } from './cs-announcer.js';
 import { csBoards } from './cs-boards.js';
 import { csCategories } from './cs-categories.js';
+import { csYear } from './cs-year.js';
 import { csHands } from './cs-hands.js';
 import { csCosmetics } from './cs-cosmetics.js';
 import { csIntegrations } from './cs-integrations.js';
@@ -30,6 +31,7 @@ export const cs: Record<string, string> = {
   ...csAnnouncer,
   ...csBoards,
   ...csCategories,
+  ...csYear,
   ...csHands,
   ...csCosmetics,
   ...csIntegrations,

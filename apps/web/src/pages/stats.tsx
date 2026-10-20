@@ -7,6 +7,8 @@ import { fmtDate, HandReplayBody, signed, tone, type HandDetail } from './hand-r
 import { ShareHandButton } from './hand-share';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Tabs, Td, TextInput } from '../ui';
 import { CategoriesView } from './stats-categories';
+import { YearView } from './stats-year';
+import { useSettings } from '../settings';
 import { BarChart, LineChart, MultiLineChart, type Pt, type Series } from './charts';
 
 interface Season {
@@ -529,7 +531,8 @@ function SeasonsAdmin({ seasons, reload }: { seasons: Season[]; reload: () => vo
 
 export function StatsPage() {
   const { me } = useSession();
-  const [tab, setTab] = useState<'mine' | 'players' | 'board' | 'hands' | 'seasons'>('mine');
+  const settings = useSettings();
+  const [tab, setTab] = useState<'mine' | 'year' | 'players' | 'board' | 'hands' | 'seasons'>('mine');
   const [season, setSeason] = useState('all');
   const [seasons, setSeasons] = useState<Season[]>([]);
   const manage = can(me, 'statistiky.sezony');
@@ -541,6 +544,7 @@ export function StatsPage() {
   useEffect(reload, [reload]);
   const tabs = [
     { id: 'mine' as const, label: t('stats.tabMine') },
+    ...(settings.values['stats.yearEnabled'] === false ? [] : [{ id: 'year' as const, label: t('year.tab') }]),
     { id: 'players' as const, label: t('overview.tab') },
     { id: 'board' as const, label: t('stats.tabBoard') },
     { id: 'hands' as const, label: t('stats.tabHands') },
@@ -557,6 +561,7 @@ export function StatsPage() {
           <Progress />
         </>
       )}
+      {tab === 'year' && <YearView />}
       {tab === 'players' && me && <PlayersOverview meId={me.user.id} />}
       {tab === 'board' && <Leaderboard season={season} seasons={seasons} />}
       {tab === 'hands' && me && <HandsList me={me.user.id} />}

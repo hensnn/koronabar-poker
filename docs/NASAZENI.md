@@ -264,3 +264,18 @@ Herna umí posílat vybrané události (registrace a konec turnaje, vyřazení h
 - **Změna kanálu:** vytvoř nový webhook a adresu v Tajných údajích přepiš.
 - **Únik adresy:** v Discordu webhook smaž, vytvoř nový a vlož ho znovu. Starý přestane fungovat okamžitě.
 - **Soukromí:** posílají se jen přezdívky a veřejné informace, nikdy cizí karty ani skrytá herní data. Zprávy jsou bez označení @všichni a bez pingů.
+
+## Roční statistika („výdělek v roce“) a co se komu ukazuje
+
+Každý hráč má ve **Statistikách → Rok** přehled za kalendářní rok: výdělek (turnaje, cash game, živý cash), součet výher a ztrát, žetony **nabité** a **strhnuté** správcem (pokladna), zůstatek 1. ledna a na konci roku, počet turnajů a cash hand a graf po měsících. Hráč vidí jen svoje čísla.
+
+**Co se komu ukáže, nastavuješ ve Správa → Roční statistika:** tabulka zaškrtávátek, kde pro každý údaj zvlášť vybereš, zda je na **webu**, v **e-mailu** a v **API**. Změna platí hned.
+- **E-mail:** hráč si souhrn pošle tlačítkem „Poslat souhrn e-mailem“. V **Nastavení → Statistiky** můžeš zapnout i **automatické rozeslání** v prvních dnech nového roku (každému jednou za uplynulý rok; hráč si ho může vypnout v osobním nastavení). Pravidla odesílání (komu a které druhy) platí stejná jako u ostatních e-mailů, text lze upravit ve Správa → E-maily (šablona „Roční souhrn výdělku“).
+- **API:** osobní token s oprávněním „stats:read“ dostane na `/api/v1/stats/year?year=2026` jen údaje povolené pro API.
+- **Vypnutí:** v Nastavení → Statistiky „Roční statistika zapnuta“ vypne všechno najednou (web, e-mail i API).
+
+Do „nabito“ se počítá jen dobití, které hráči udělal správce v pokladně; počáteční vklad při registraci a dobíjení žetonů u stolu ne. Hranice roku se počítá v české časové zóně.
+
+## Účet domu (herny): počáteční vklad a doplnění
+
+Dům sbírá rake, poplatky a odvody turnajů i strženou měnu. Počáteční vklad nebo doplnění uděláš ve **Správa → Finance** u účtu herny: zadej částku a důvod a klikni na **Vložit do domu**; **Vybrat z domu** vrátí měnu zpět do zásoby. Vše se zapíše do účetní knihy a auditu a vyžaduje oprávnění „Ruční úprava knihy“. Garance turnajů se doplácí z domu, co dům nepokryje, se vydá nově, takže vklad do domu není nutný.

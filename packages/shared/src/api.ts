@@ -37,6 +37,7 @@ export const API_ROUTES: ApiRouteDef[] = [
   { method: 'get', path: '/api/v1/seasons', scope: 'stats:read', summary: 'api.route.seasons' },
   { method: 'get', path: '/api/v1/leaderboard', scope: 'stats:read', summary: 'api.route.leaderboard', query: [{ name: 'season', description: 'api.param.season' }] },
   { method: 'get', path: '/api/v1/stats/me', scope: 'stats:read', summary: 'api.route.statsMe', query: [{ name: 'season', description: 'api.param.season' }] },
+  { method: 'get', path: '/api/v1/stats/year', scope: 'stats:read', summary: 'api.route.statsYear', query: [{ name: 'year', description: 'api.param.year' }] },
   { method: 'get', path: '/api/v1/wallet', scope: 'wallet:read', summary: 'api.route.wallet' },
   { method: 'get', path: '/api/v1/evenings', scope: 'evenings:read', summary: 'api.route.evenings' },
   { method: 'post', path: '/api/v1/chat/messages', scope: 'chat:write', summary: 'api.route.chat', body: [{ name: 'text', description: 'api.param.text' }] },

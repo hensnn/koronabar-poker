@@ -33,6 +33,8 @@ export interface SchedulerDeps {
   /** Jak často plánovač kontroluje čas (ms). */
   tickMs?: number;
   onError?: (e: unknown) => void;
+  /** Pravidelná úloha mimo turnaje (např. roční souhrny); volá se při každém tiku, sama si hlídá frekvenci. */
+  periodic?: () => Promise<void>;
 }
 
 const MIN = 60_000;
@@ -138,6 +140,7 @@ export class Scheduler {
   }
 
   private async run(): Promise<void> {
+    await this.deps.periodic?.().catch((e) => this.deps.onError?.(e));
     await this.generate();
     const now = this.deps.clock.now();
     for (const t of this.deps.tournaments.scheduled()) {

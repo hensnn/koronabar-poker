@@ -24,6 +24,7 @@ import type { BlindStructureService } from '../structures.js';
 import { PublicBoardError, type PublicBoardService } from '../public-boards.js';
 import type { TimelineService } from '../timeline.js';
 import { OverviewError, type CompareMetric, type OverviewService } from '../overview.js';
+import { YearStatsError, type YearStatsService } from '../year-stats.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -78,6 +79,8 @@ export interface Services {
   publicBoards: () => PublicBoardService;
   timeline: () => TimelineService;
   overview: () => OverviewService;
+  yearStats: () => YearStatsService;
+  mailYear: (userId: string, year: number) => Promise<boolean>;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
   push: () => PushService;
@@ -1050,6 +1053,15 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       statsErr(e, reply);
     }
   }));
+  app.get('/api/v1/stats/year', v1('stats:read', async (req, reply, uid) => {
+    try {
+      const ys = svc.yearStats();
+      const y = Number((req.query as { year?: string }).year ?? ys.currentYear());
+      reply.send(await ys.forChannel(uid, y, 'api'));
+    } catch (e) {
+      yearErr(e, reply);
+    }
+  }));
   app.get('/api/v1/wallet', v1('wallet:read', async (_req, reply, uid) => reply.send({ balance: svc.ledger.balance(ledgerAccounts.wallet(uid)) })));
   app.get('/api/v1/evenings', v1('evenings:read', async (_req, reply, uid) => reply.send(await svc.evenings().list(uid))));
   app.post('/api/v1/chat/messages', v1('chat:write', async (req, reply, uid) => {
@@ -1744,6 +1756,10 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   /** Vývoj hráče v čase (zůstatek, výsledky, XP, rating, aktivita): jen vlastní data. */
   app.get('/api/stats/timeline', guard(async (req, reply) => reply.send(await svc.timeline().of(need(req).id))));
   /** Přehled mezi hráči a srovnání vývoje (zapíná/vypíná nastavení stats.publicOverview). */
+  const yearErr = (e: unknown, reply: FastifyReply) => {
+    if (!(e instanceof YearStatsError)) throw e;
+    return reply.code(e.code === 'DISABLED' ? 403 : 400).send({ code: 'YEAR_' + e.code });
+  };
   const overviewErr = (e: unknown, reply: FastifyReply) => {
     if (!(e instanceof OverviewError)) throw e;
     return reply.code(e.code === 'HIDDEN' ? 403 : 400).send({ code: 'OVERVIEW_' + e.code });
@@ -1757,6 +1773,30 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     }
   }));
   /** Kategorie „kdo je v čem nejlepší“ z přehledu hráčů a žebříčku turnajů (za celou dobu). */
+  // ---------- roční statistika („výdělek v roce“) ----------
+  app.get('/api/stats/year', guard(async (req, reply) => {
+    const u = need(req);
+    try {
+      const ys = svc.yearStats();
+      const q = z.object({ year: z.coerce.number().int().optional() }).parse(req.query);
+      const year = q.year ?? ys.currentYear();
+      const [stats, years] = [await ys.forChannel(u.id, year, 'web'), await ys.years(u.id)];
+      reply.send({ stats, years, fields: ys.fieldsFor('web') });
+    } catch (e) {
+      yearErr(e, reply);
+    }
+  }));
+  app.post('/api/stats/year/email', guard(async (req, reply) => {
+    const u = need(req);
+    try {
+      const ys = svc.yearStats();
+      const b = z.object({ year: z.number().int().optional() }).parse(req.body ?? {});
+      const sent = await svc.mailYear(u.id, b.year ?? ys.currentYear());
+      reply.code(sent ? 200 : 400).send(sent ? { ok: true } : { code: 'YEAR_NO_EMAIL' });
+    } catch (e) {
+      yearErr(e, reply);
+    }
+  }));
   app.get('/api/stats/categories', guard(async (req, reply) => {
     need(req);
     try {

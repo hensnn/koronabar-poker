@@ -16,6 +16,8 @@ export const csIntegrations: Record<string, string> = {
   'api.route.seasons': 'Seznam sezón',
   'api.route.leaderboard': 'Žebříček (celý, nebo za sezónu)',
   'api.route.statsMe': 'Statistiky majitele tokenu',
+  'api.route.statsYear': 'Roční statistika majitele tokenu (výdělek v roce; vrací jen údaje povolené správcem)',
+  'api.param.year': 'Rok (výchozí je aktuální)',
   'api.route.wallet': 'Zůstatek majitele tokenu',
   'api.route.evenings': 'Herní večery',
   'api.route.chat': 'Napsat zprávu do hlavního chatu',

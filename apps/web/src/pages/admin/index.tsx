@@ -18,6 +18,7 @@ import { AnnouncerAdminPage } from './announcer';
 import { IntegrationsAdminPage } from './integrations';
 import { AssistantAdminPage } from './assistant';
 import { BoardsPage } from './boards';
+import { YearAdminPage } from './year';
 
 type AdminGroup = 'people' | 'game' | 'money' | 'system';
 
@@ -45,6 +46,7 @@ const SECTIONS: Section[] = [
   { group: 'game', path: '/admin/sablony', label: 'admin.templates', show: (m) => can(m, 'nastaveni.globalni'), render: () => <TemplatesPage /> },
   { group: 'game', path: '/admin/struktury', label: 'admin.structures', show: (m) => can(m, 'nastaveni.globalni'), render: () => <StructuresPage /> },
   { group: 'game', path: '/admin/prehledy', label: 'admin.boards', show: (m) => can(m, 'nastaveni.globalni'), render: () => <BoardsPage /> },
+  { group: 'game', path: '/admin/rocni-statistika', label: 'admin.year', show: (m) => can(m, 'nastaveni.globalni'), render: () => <YearAdminPage /> },
   { group: 'game', path: '/admin/tv', label: 'admin.tv', show: (m) => can(m, 'tv.spravovat'), render: () => <TvAdminPage /> },
   { group: 'game', path: '/admin/hlasatel', label: 'admin.announcer', show: (m) => can(m, 'hlasatel.spravovat'), render: () => <AnnouncerAdminPage /> },
   { group: 'system', path: '/admin/napojeni', label: 'admin.integrations', show: (m) => can(m, 'integrace.spravovat'), render: () => <IntegrationsAdminPage /> },
