@@ -15,6 +15,7 @@ import { LiveDirectorPanel } from './live';
 import { useAnnounceRoom } from '../announcer/host';
 import { BetsPanel } from './bets';
 import { useFeatures } from '../features';
+import { decideText } from '../table/decide-text';
 
 interface Summary {
   id: string;
@@ -393,7 +394,7 @@ export function TournamentPage({ id }: { id: string }) {
 
       {m.status === 'deciding' && (
         <Notice kind="error">
-          {t('tournament.decide', { time: decideLeft !== null ? mmss(decideLeft) : '' })}
+          {decideText(m, decideLeft !== null ? mmss(decideLeft) : '')}
         </Notice>
       )}
 

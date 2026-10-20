@@ -7,6 +7,7 @@ import { DealPanel } from '../pages/deal';
 import { useSession } from '../session';
 import { Button, Modal } from '../ui';
 import { actionOffSm, actionTone, actionToneSm } from './buttons';
+import { decideText, decideTitle } from './decide-text';
 import { formatAmount, tableMoney } from './format';
 
 export interface TournamentInfo {
@@ -336,9 +337,9 @@ export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentIn
     }
   };
   return (
-    <Modal title={t('tournament.rebuy')} onClose={() => setHidden(until)}>
+    <Modal title={decideTitle(tour.me)} onClose={() => setHidden(until)}>
       <div className="flex flex-col gap-3">
-        <p>{t('tournament.decide', { time: `${Math.ceil(left / 1000)} s` })}</p>
+        <p>{decideText(tour.me, `${Math.ceil(left / 1000)} s`)}</p>
         {error && (
           <p role="alert" className="text-sm text-danger">
             {error}
