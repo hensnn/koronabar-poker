@@ -1,5 +1,5 @@
 import type { TableInfo } from '@kb/game-core';
-import { currencyWord, formatCurrency, t } from '@kb/shared';
+import { t } from '@kb/shared';
 
 let showSymbol = false;
 let showChipLabel = true;
@@ -9,9 +9,9 @@ export function setTableFormat(opts: { symbol: boolean; chipLabel?: boolean }): 
   showChipLabel = opts.chipLabel ?? true;
 }
 
-/** Částka v měně u stolu: s názvem měny, nebo jen číslo, když hráč název u stolu vypnul (ui.showSymbolAtTable). */
+/** Částka v měně u stolu: se symbolem měny (např. Ⓚ), nebo jen číslo, když hráč symbol u stolu vypnul (ui.showSymbolAtTable). */
 export function tableMoney(n: number, info: TableInfo): string {
-  return showSymbol ? formatCurrency(n, info.currencyForms) : n.toLocaleString('cs-CZ');
+  return showSymbol ? `${n.toLocaleString('cs-CZ')} ${info.currencySymbol}` : n.toLocaleString('cs-CZ');
 }
 
 /** Zformátuje částku v žetonech: v měně (symbol jen když je zapnutý), nebo v big blindech. */
@@ -27,7 +27,7 @@ export function formatAmount(chips: number, info: TableInfo, inBb: boolean): str
   const d = info.currencyDecimals;
   const n = d > 0 ? (cur / 10 ** d).toFixed(d) : String(Math.round(cur));
   const label = chipLabel ? ` ${chipLabel}` : '';
-  return showSymbol ? `${n} ${currencyWord(Number(n), info.currencyForms)}${label}` : `${n}${label}`;
+  return showSymbol ? `${n} ${info.currencySymbol}${label}` : `${n}${label}`;
 }
 
 const POSTFLOP_DEFAULT = [33, 50, 75, 100];
