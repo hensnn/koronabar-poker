@@ -14,6 +14,7 @@ import { useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
+import { TournamentBanner } from '../table/TablePanel';
 import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
@@ -259,6 +260,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             }}
           />
         )}
+        {isTournament && <TournamentBanner tournamentId={tournamentId} />}
         {isTournament && <DealPanel id={tournamentId} onlyOpen />}
         <TableScreen
           tableId={tableId}

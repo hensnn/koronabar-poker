@@ -144,11 +144,37 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   // Co lze po handě ukázat (widget „Ukázat karty“ se ukazuje jen, když je co).
   const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards));
   const canCallClock = !!(mine && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled);
+  // Plovoucí lišta „Ukázat karty“ (pravý dolní roh stolu): jen když je co ukázat; výherce s volbou „zahodit“ ji nevidí, už ukázané karty ji zavřou.
+  const iWon = !!(mine && view.winners?.some((w) => w.seat === mine.seat));
+  const showBar = canShowCards && !(iWon && winnerPref === 'never') && !(mine?.exposed && mine.exposed.every(Boolean));
   const canRabbit = !!(view.winners && mine?.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit);
 
   return (
     <div className={`tk-screen flex flex-col gap-2 ${layout.hiddenSides.includes('right') ? 'tk-no-extra' : ''}`}>
       <div className="tk-room relative" {...myLook}>
+        {mine && (showBar || canRabbit) && (
+          <div role="group" aria-label={t('table.widget.reveal')} className="tk-pop absolute bottom-1 right-1 z-20 flex flex-wrap items-center gap-1.5 rounded-md border border-info bg-surface p-1.5 shadow-lg">
+            {showBar && (
+              <>
+                <span className="text-xs font-semibold">{t('table.revealAsk')}</span>
+                <button className={actionToneSm.show} onClick={() => void run(table.show(tableId, 'both'))}>
+                  {t('table.showBoth')}
+                </button>
+                <button className={actionToneSm.show} onClick={() => void run(table.show(tableId, 0))}>
+                  {t('table.showFirst')}
+                </button>
+                <button className={actionToneSm.show} onClick={() => void run(table.show(tableId, 1))}>
+                  {t('table.showSecond')}
+                </button>
+              </>
+            )}
+            {canRabbit && (
+              <button className={actionToneSm.special} onClick={() => void run(table.rabbit(tableId))}>
+                {t('table.rabbit')}
+              </button>
+            )}
+          </div>
+        )}
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
         <div className="tk-table relative mx-auto w-full">
           {/* střed: board, pot, hlášky */}
@@ -232,7 +258,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
               // Sedadlo s bublinou nebo štítkem musí ležet nad sousedními sedadly i nad sázkami (každé sedadlo je vlastní vrstva).
               <div key={n} data-seat-wrap className="absolute -translate-x-1/2 -translate-y-1/2" onClick={seat ? () => setPinnedSeat((p) => (p === n ? null : n)) : undefined} onMouseEnter={seat ? () => setHoverSeat(n) : undefined} onMouseLeave={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} onFocus={seat ? () => setHoverSeat(n) : undefined} onBlur={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
                 {seat ? (
-                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} />
+                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} onShowCard={seat.playerId === userId && showBar ? (i) => void run(table.show(tableId, i)) : undefined} />
                 ) : info.tournament ? null : (
                   <button className="tk-seat-empty" disabled={seated} onClick={() => setDialog({ kind: 'join', seat: n })}>
                     {t('table.sit')}
@@ -303,7 +329,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       {!myTurn && !acting && <p className="text-center text-sm text-muted">{view.paused ? `⏸ ${t('table.paused')}` : view.handId && view.winners === null && view.street !== null ? t('table.handRunning') : t('table.waitingPlayers')}</p>}
       </div>
 
-      {mine && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} />}
+      {mine && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} onStraddle={(want) => void run(table.straddle(tableId, want))} />}
 
       {/* Akce hráče: malá tlačítka v widgetu „O hře“; když ten není vidět (telefon, vypnutý panel), v pruhu pod stolem. */}
       <ActionsPortal
@@ -326,11 +352,6 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
                       {t('table.callClock')}
                     </button>
                   )}
-                  {info.straddle === 'optional' && (
-                    <button className={actionToneSm.special} aria-pressed={view.myStraddle} onClick={() => void run(table.straddle(tableId, !view.myStraddle))}>
-                      {view.myStraddle ? t('table.straddleOff') : t('table.straddleOn')}
-                    </button>
-                  )}
                   {!info.tournament && (info.topUpEnabled || (mine.stack === 0 && info.rebuyEnabled)) && (
                     <button className={actionToneSm.add} onClick={() => setDialog({ kind: 'topUp' })}>
                       {mine.stack === 0 ? t('table.rebuy') : t('table.topUp')}
@@ -343,26 +364,6 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
                   )}
                   <EntryActions tour={tour} tournamentId={tournamentId} />
                   <DealButton tour={tour} tournamentId={tournamentId} />
-                  {/* Ukázání karet po handě: stále na místě, šedé, dokud není co ukázat. */}
-                  {info.showCards && (
-                    <>
-                      <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 'both'))}>
-                        {t('table.showBoth')}
-                      </button>
-                      <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 0))}>
-                        {t('table.showFirst')}
-                      </button>
-                      <button className={canShowCards ? actionToneSm.show : actionOffSm} disabled={!canShowCards} onClick={() => void run(table.show(tableId, 1))}>
-                        {t('table.showSecond')}
-                      </button>
-                    </>
-                  )}
-                  {info.rabbitHunt && (
-                    <button className={canRabbit ? actionToneSm.special : actionOffSm} disabled={!canRabbit} onClick={() => void run(table.rabbit(tableId))}>
-                      {t('table.rabbit')}
-                    </button>
-                  )}
-                  {winnerPref === 'ask' && canShowCards && view.winners?.some((w) => w.seat === mine.seat) && !mine.exposed && <span className="w-full rounded-md border border-primary px-2 py-1 text-xs">{t('table.showWinnerPrompt')}</span>}
                 </div>
               )}
               {extra && <div className="flex flex-wrap items-center gap-2">{extra}</div>}
@@ -425,8 +426,11 @@ function Seat({
   dealFrom,
   dealTo,
   bubbleSide,
+  onShowCard,
 }: {
   seat: SeatView;
+  /** Klepnutí na vlastní kartu ji ukáže (jen když je ukázání karet právě možné). */
+  onShowCard?: (i: 0 | 1) => void;
   view: TableView;
   mine: boolean;
   offset: number;
@@ -476,7 +480,17 @@ function Seat({
             ? seat.reveal === 'muck' && !seat.cards
               ? <span className="tk-seat-status tk-muck-in">{t('table.muck')}</span>
               : seat.cards && !(hideMine && !peek)
-              ? seat.cards.map((c, i) => <CardView key={seat.exposed?.[i] ? `${c}-shown` : c} card={c} small={!mine} reveal={!mine} shown={seat.exposed?.[i] ? (mine ? 'self' : 'other') : undefined} delayMs={dealDelay(i)} fly={dealFly} />)
+              ? seat.cards.map((c, i) => {
+                  const card = <CardView key={seat.exposed?.[i] ? `${c}-shown` : c} card={c} small={!mine} reveal={!mine} shown={seat.exposed?.[i] ? (mine ? 'self' : 'other') : undefined} delayMs={dealDelay(i)} fly={dealFly} />;
+                  // Klepnutí na vlastní kartu po handě ji ukáže ostatním (stejně jako lišta v rohu stolu).
+                  return onShowCard && !seat.exposed?.[i] ? (
+                    <span key={c} role="button" tabIndex={0} className="cursor-pointer" title={t('table.tapToShow')} onClick={(e) => { e.stopPropagation(); onShowCard(i as 0 | 1); }} onKeyDown={(e) => e.key === 'Enter' && onShowCard(i as 0 | 1)}>
+                      {card}
+                    </span>
+                  ) : (
+                    card
+                  );
+                })
               : [0, 1].map((i) => <CardView key={seat.exposed?.[i] ? `x-${seat.exposed[i]}` : `${view.handId}-${i}`} card={seat.exposed?.[i] ?? null} small={!mine} reveal={!!seat.exposed?.[i]} shown={seat.exposed?.[i] ? 'other' : undefined} delayMs={dealDelay(i)} fly={dealFly} />)
             : status && !out && <span className="tk-seat-status">{status}</span>}
         </div>

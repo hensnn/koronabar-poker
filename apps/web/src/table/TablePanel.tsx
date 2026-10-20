@@ -3,6 +3,7 @@ import type { TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { get } from '../api';
 import { onSocket } from '../net';
+import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { setPlan, usePlan, type Plan } from './plan';
 
@@ -16,6 +17,8 @@ interface Clock {
   clockMs: number | null;
   alive: number;
   players: number;
+  name?: string;
+  standings?: { userId: string; place: number; status: string }[];
 }
 
 const mmss = (ms: number) => {
@@ -23,6 +26,63 @@ const mmss = (ms: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 const blinds = (l: { smallBlind: number; bigBlind: number; ante: number } | null) => (l ? `${l.smallBlind}/${l.bigBlind}${l.ante ? ` (${l.ante})` : ''}` : '-');
+
+/**
+ * Pruh nad stolem, který říká, že hraju turnaj: název, level, blindy, čas do dalšího levelu, kolik hráčů zbývá a moje místo.
+ * Totéž se píše do titulku záložky. Je vidět i při vypnutých panelech.
+ */
+export function TournamentBanner({ tournamentId }: { tournamentId: string }) {
+  const { me } = useSession();
+  const [c, setC] = useState<(Clock & { fetchedAt: number }) | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const load = useCallback(() => {
+    get<Clock>(`/api/tournaments/${tournamentId}`)
+      .then((v) => setC({ ...v, fetchedAt: Date.now() }))
+      .catch(() => undefined);
+  }, [tournamentId]);
+  useEffect(() => {
+    load();
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    const poll = window.setInterval(load, 30_000);
+    const off = onSocket<{ id: string }>('tournament:changed', (m) => m.id === tournamentId && load());
+    return () => {
+      window.clearInterval(id);
+      window.clearInterval(poll);
+      off();
+    };
+  }, [load, tournamentId]);
+  const name = c?.name;
+  const alive = c?.alive;
+  const total = c?.players;
+  useEffect(() => {
+    if (!name) return;
+    const before = document.title;
+    document.title = `🏆 ${name} · ${alive}/${total}`;
+    return () => {
+      document.title = before;
+    };
+  }, [name, alive, total]);
+  if (!c) return null;
+  const remaining = c.clockMs !== null ? (c.paused ? c.clockMs : c.clockMs - (now - c.fetchedAt)) : null;
+  const place = c.standings?.find((p) => p.userId === me?.user.id)?.place;
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-accent bg-accent/10 px-3 py-1 text-sm">
+      <span aria-hidden="true">🏆</span>
+      <strong className="truncate">{c.name}</strong>
+      <span>{t('tournament.level', { n: c.levelNumber })}</span>
+      <span className="font-mono">{blinds(c.level)}</span>
+      {remaining !== null && (
+        <span className="font-mono font-bold" role="timer">
+          {mmss(remaining)}
+        </span>
+      )}
+      {c.paused && <span className="font-semibold text-warning">{t('tournament.paused')}</span>}
+      {c.onBreak && <span className="font-semibold text-warning">{t('tournament.onBreak')}</span>}
+      <span className="text-muted">{t('table.tbanner.players', { alive: c.alive, total: c.players })}</span>
+      {place !== undefined && <span>{t('table.tbanner.place', { n: place })}</span>}
+    </div>
+  );
+}
 
 /** Hodiny turnaje: level, blindy, zbývající čas; data z turnaje, odpočet lokálně. */
 export function ClockWidget({ tournamentId }: { tournamentId: string }) {
@@ -70,7 +130,7 @@ export function ClockWidget({ tournamentId }: { tournamentId: string }) {
 }
 
 /** Plánovaný tah: zvolí se dopředu, provede se automaticky na tahu. */
-export function PlanBar({ view }: { view: TableView }) {
+export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí dobrovolného straddle (jen u stolu s dobrovolným straddle). */ onStraddle?: (want: boolean) => void }) {
   const plan = usePlan();
   const opts: Plan[] = ['fold', 'checkFold', 'check', 'call'];
   return (
@@ -80,6 +140,12 @@ export function PlanBar({ view }: { view: TableView }) {
           {t(`table.plan.${p}`)}
         </button>
       ))}
+      {view.info.straddle === 'optional' && onStraddle && (
+        <label className="ml-2 flex items-center gap-1 text-xs" title={t('table.straddleTip')}>
+          <input type="checkbox" role="switch" aria-label={t('table.straddle')} checked={view.myStraddle} onChange={(e) => onStraddle(e.target.checked)} />
+          <span className={view.myStraddle ? 'font-semibold text-accent' : ''}>{t('table.straddle')}</span>
+        </label>
+      )}
     </div>
   );
 }

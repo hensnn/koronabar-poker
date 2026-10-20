@@ -13,6 +13,8 @@ interface Props {
   quickPost: string;
   quickPre: string;
   onAct: (a: PlayerAction) => void;
+  /** Přepnutí dobrovolného straddle: je u plánovaného tahu, protože se rozhoduje předem. */
+  onStraddle?: (want: boolean) => void;
 }
 
 const base = 'tk-act px-4 py-2 font-medium disabled:opacity-40';
@@ -22,7 +24,7 @@ const base = 'tk-act px-4 py-2 font-medium disabled:opacity-40';
  * (Fold, Check/Call, Bet/Raise, All-in), aby se okno stolu při tahu nezvětšovalo ani neposouvalo.
  * Mimo tah je na místě tlačítek plánovaný tah.
  */
-export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct }: Props) {
+export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStraddle }: Props) {
   const aggress = !!legal && (legal.canBet || legal.canRaise);
   const fixed = view.info.bettingLimit === 'fixedLimit';
   const [amount, setAmount] = useState(legal?.minRaiseTo ?? 0);
@@ -121,7 +123,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct }: Pro
       ) : (
         <div className="flex min-h-10 flex-wrap items-center gap-2">
           <span className="text-sm text-muted">{t('table.widget.plan')}:</span>
-          <PlanBar view={view} />
+          <PlanBar view={view} onStraddle={onStraddle} />
         </div>
       )}
     </div>
