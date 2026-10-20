@@ -21,6 +21,7 @@ import type { TemplateService } from '../templates.js';
 import type { MaintenanceService } from '../maintenance.js';
 import type { HistoryService, HistoryKind } from '../history.js';
 import type { BlindStructureService } from '../structures.js';
+import { PublicBoardError, type PublicBoardService } from '../public-boards.js';
 import type { TimelineService } from '../timeline.js';
 import { OverviewError, type CompareMetric, type OverviewService } from '../overview.js';
 import type { TournamentManager } from '../tournaments.js';
@@ -74,6 +75,7 @@ export interface Services {
   maintenance: () => MaintenanceService;
   history: () => HistoryService;
   structures: () => BlindStructureService;
+  publicBoards: () => PublicBoardService;
   timeline: () => TimelineService;
   overview: () => OverviewService;
   scheduler: () => Scheduler;
@@ -294,6 +296,58 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
 
   // ---------- uložené struktury blindů ----------
   const structureBody = z.object({ name: z.string().max(100), description: z.string().max(300).optional(), levels: z.string().max(5000), startingStack: z.number().int().min(1), levelMinutes: z.number().int().min(1).max(240) });
+  // ---------- veřejné přehledy (statistika na sdíleném odkazu) ----------
+  const boardErr = (e: unknown, reply: FastifyReply) => {
+    if (!(e instanceof PublicBoardError)) throw e;
+    return reply.status(e.code === 'FORBIDDEN' ? 403 : e.code === 'RATE_LIMIT' ? 429 : e.code === 'NOT_FOUND' ? 404 : 400).send({ code: 'BOARD_' + e.code });
+  };
+  app.get('/api/admin/public-boards', guard(async (req, reply) => {
+    try {
+      return reply.send(await svc.publicBoards().list(need(req).id));
+    } catch (e) {
+      return boardErr(e, reply);
+    }
+  }));
+  const boardBody = z.object({ name: z.string().max(100).optional(), enabled: z.boolean().optional(), config: z.record(z.string(), z.unknown()).optional() });
+  app.post('/api/admin/public-boards', guard(async (req, reply) => {
+    try {
+      const b = boardBody.parse(req.body ?? {});
+      return reply.send(await svc.publicBoards().create(need(req).id, { name: b.name ?? '', config: b.config }, meta(req)));
+    } catch (e) {
+      return boardErr(e, reply);
+    }
+  }));
+  app.put('/api/admin/public-boards/:id', guard(async (req, reply) => {
+    try {
+      return reply.send(await svc.publicBoards().update(need(req).id, (req.params as { id: string }).id, boardBody.parse(req.body ?? {}), meta(req)));
+    } catch (e) {
+      return boardErr(e, reply);
+    }
+  }));
+  app.post('/api/admin/public-boards/:id/rotate', guard(async (req, reply) => {
+    try {
+      return reply.send(await svc.publicBoards().rotate(need(req).id, (req.params as { id: string }).id, meta(req)));
+    } catch (e) {
+      return boardErr(e, reply);
+    }
+  }));
+  app.delete('/api/admin/public-boards/:id', guard(async (req, reply) => {
+    try {
+      await svc.publicBoards().remove(need(req).id, (req.params as { id: string }).id, meta(req));
+      return reply.send({ ok: true });
+    } catch (e) {
+      return boardErr(e, reply);
+    }
+  }));
+  // Veřejná stránka přehledu: bez přihlášení, jen přes tajný odkaz; neindexuje se a krátce se kešuje.
+  app.get('/api/public/board/:token', async (req, reply) => {
+    try {
+      const view = await svc.publicBoards().view((req.params as { token: string }).token, req.ip);
+      return reply.header('cache-control', 'public, max-age=30').header('x-robots-tag', 'noindex, nofollow').send(view);
+    } catch (e) {
+      return boardErr(e, reply);
+    }
+  });
   app.get('/api/structures', guard(async (req, reply) => {
     need(req);
     return reply.send({ structures: await svc.structures().list() });

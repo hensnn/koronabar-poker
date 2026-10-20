@@ -31,6 +31,7 @@ export * from './hand-stats.js';
 export * from './progress.js';
 export * from './achievements.js';
 export * from './rating.js';
+export * from './public-board.js';
 export * from './polls/conditions.js';
 export * from './polls/engine.js';
 export * from './polls/actions.js';

@@ -1188,6 +1188,26 @@ export const blindStructures = pgTable('blind_structures', {
   createdAt: createdAt(),
 });
 
+// ---------- veřejné přehledy (statistiky na sdíleném odkazu) ----------
+
+/** Veřejný přehled hráčů (žebříček, zisk, zkušenosti…) dostupný bez přihlášení přes tajný odkaz (`token`). */
+export const publicBoards = pgTable(
+  'public_boards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    /** Tajná část odkazu; jde vyměnit, čímž starý odkaz přestane fungovat. */
+    token: text('token').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    /** Sloupce, řazení, období, počet řádků, skrytí hráčů… (viz `PublicBoardConfig`). */
+    config: jsonb('config').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('public_boards_token_uq').on(t.token)],
+);
+
 // ---------- AI asistent a MCP ----------
 
 /** Historie konverzace s asistentem (jen vlastní uživatel ji vidí). */

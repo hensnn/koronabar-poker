@@ -32,6 +32,7 @@ import { LevelUpToast } from './progress-client';
 import { TournamentPage, TournamentsPage } from './pages/tournaments';
 import { LiveCashListPage, LiveCashPage } from './pages/live';
 import { TvPage } from './pages/tv';
+import { PublicBoardPage } from './pages/public-board';
 import { EveningPage, EveningsPage } from './pages/evenings';
 import { NotificationBell } from './notifications';
 import { SoundMenu } from './sound-menu';
@@ -80,6 +81,7 @@ function Router() {
   const isPublic = PUBLIC.some((p) => path === p);
 
   if (path === '/tv') return <TvPage />;
+  if (path.startsWith('/verejne/')) return <PublicBoardPage token={path.slice('/verejne/'.length)} />;
   if (session.status === 'loading') {
     return (
       <main className="p-4">

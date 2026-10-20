@@ -221,3 +221,14 @@ Po testování se dá vše zkušební smazat jedním krokem: **Správa → Údr�
 
 - **Smazání uživatelů:** v kartě Příprava na ostrý provoz zaškrtni, koho smazat (nebo tlačítko Smazat u uživatele ve Správa → Uživatelé). Hlavního správce, sebe, hráče u stolu nebo v otevřeném turnaji a hráče s otevřenou sázkou nebo odměnou na hlavu server přeskočí a řekne proč. Zůstatek smazaného se vrátí do virtuální měny.
 - **Úplný reset (jako po instalaci):** karta Úplný reset v téže Údržbě. Smaže všechna data včetně uživatelů, nastavení, šablon, rolí, tajných údajů i nahraných souborů a aplikace se restartuje (Docker ji znovu spustí). Hlavní správce se vytvoří znovu podle `.env` (`ADMIN_NICKNAME`, `ADMIN_PASSWORD`). Smí jen hlavní správce, vyžaduje potvrzovací slovo a je nevratný, proto předem zálohu.
+
+## Veřejné přehledy (žebříček na sdíleném odkazu)
+
+Žebříček hráčů (zisk, zkušenosti, level, hodnocení, výhry…) můžeš ukázat komukoli na internetu **bez registrace** pod tajným odkazem.
+
+1. V **Nastavení → Statistiky** zapni „Veřejné přehledy zapnuty“ (ve výchozím stavu je vypnuto a žádný odkaz nefunguje).
+2. Ve **Správa → Veřejné přehledy** klikni na „Nový přehled“. Vznikne odkaz ve tvaru `https://poker.example.cz/verejne/…`; tlačítkem „Kopírovat odkaz“ ho pošli, komu chceš.
+3. „Upravit“ nastaví, co se ukáže: sloupce, řazení, období (celá doba, 30/90 dní, rok), počet řádků, minimum odehraných her, přezdívky celé nebo jen první písmeno, skrytí částek a skrytí vybraných hráčů.
+4. „Nový odkaz“ starý odkaz okamžitě zneplatní; „Vypnutý“ stránku dočasně schová; „Smazat“ ji zruší.
+
+Stránka nikdy neukazuje e-maily, zůstatky peněženek ani interní údaje, vyhledávače ji neindexují a počet dotazů z jedné adresy je omezený. Odkaz zná jen ten, komu ho pošleš, takže ho sdílej jen s lidmi, kterým důvěřuješ.
