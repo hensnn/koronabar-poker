@@ -234,3 +234,33 @@ Po testování se dá vše zkušební smazat jedním krokem: **Správa → Údr�
 Mezi sloupci je i „Stav peněženky“ (počet virtuálních žetonů; skryje se spolu s ostatními částkami). Pod tabulkou je graf vývoje zisku z turnajů v čase u nejlepších hráčů (jde vypnout a nastavit počet hráčů).
 
 Stránka nikdy neukazuje e-maily ani jiné osobní údaje než přezdívku (a jen s vypnutými částkami ani žádné peníze), vyhledávače ji neindexují a počet dotazů z jedné adresy je omezený. Odkaz zná jen ten, komu ho pošleš, takže ho sdílej jen s lidmi, kterým důvěřuješ.
+
+## Discord: propojení přes webhook (zprávy z herny do kanálu)
+
+Herna umí posílat vybrané události (registrace a konec turnaje, vyřazení hráče, all-in, velký pot, bad beat, nová anketa, konec večera…) jako zprávy do Discord kanálu. Bot ani účet navíc není potřeba, stačí **webhook**: tajná adresa kanálu. Jde jen jedním směrem (herna → Discord), hráči přes Discord nic nezadávají.
+
+### 1. Vytvoř webhook v Discordu (potřebuješ oprávnění spravovat server)
+1. V Discordu otevři server a vyber **kanál**, kam mají zprávy chodit (nebo ho nejdřív vytvoř, třeba `#poker`).
+2. Klikni u kanálu na ozubené kolečko **Upravit kanál** → **Integrace** → **Webhooky** → **Nový webhook**.
+3. Pojmenuj ho (třeba KoronaBar) a případně nahraj ikonu. To je jméno, pod kterým zprávy přijdou.
+4. Klikni na **Kopírovat URL webhooku**. Adresa vypadá jako `https://discord.com/api/webhooks/číslo/dlouhý-text`. **Je to heslo ke kanálu**: kdo ji má, může do kanálu psát. Nikam ji nevkládej veřejně.
+
+### 2. Vlož adresu do herny
+1. Přihlas se jako hlavní správce → **Správa → Tajné údaje**.
+2. U **Adresa Discord webhooku** vlož zkopírovanou adresu a ulož. Uloží se šifrovaně a už se nikdy nezobrazí celá (jen poslední znaky).
+
+### 3. Zapni napojení
+1. **Správa → Globální nastavení** → kategorie **Napojení ven**.
+2. Zapni **Napojení ven** (hlavní vypínač) a **Discord**.
+3. Událost vyber v **Správa → Napojení ven** (část Discord): zaškrtni jen to, co chceš v kanálu číst. Doporučuji začít střídmě: registrace a konec turnaje, konec večera. Velké pushování (každý all-in, chat) kanál rychle zaplaví.
+
+### 4. Vyzkoušej
+1. **Správa → Napojení ven** → u Discordu klikni **Poslat zkušební zprávu**.
+2. V kanálu se objeví zpráva. Zobrazí-li se hláška "Adresa webhooku Discordu zatím není zadaná", vrať se ke kroku 2.
+3. Skutečné události uvidíš, jakmile nastanou (třeba otevři registraci turnaje). Doručení a případné chyby jsou v logu na stejné stránce.
+
+### Když to nejde
+- **Zkušební zpráva nedojde:** zkontroluj, že je zapnuté **Napojení ven** i **Discord** a že adresa není smazaná (v Discordu se webhook dá smazat). Chybová hláška je v logu doručení.
+- **Změna kanálu:** vytvoř nový webhook a adresu v Tajných údajích přepiš.
+- **Únik adresy:** v Discordu webhook smaž, vytvoř nový a vlož ho znovu. Starý přestane fungovat okamžitě.
+- **Soukromí:** posílají se jen přezdívky a veřejné informace, nikdy cizí karty ani skrytá herní data. Zprávy jsou bez označení @všichni a bez pingů.
