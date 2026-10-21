@@ -51,7 +51,7 @@ describe('logo aplikace', () => {
     const admin = await c.login('Admin', 'admin-heslo-123');
     const player = await c.login('Hrac', 'heslo-hrace-123');
 
-    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: null, logoDark: null, showName: true, heightPercent: 100, darkLogoMode: 'invert', headerMode: 'logo', loginBackground: 'felt', loginBg: null });
+    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: null, logoDark: null, showName: true, heightPercent: 100, darkLogoMode: 'invert', headerMode: 'logo', loginBackground: 'felt', loginBg: null, login: expect.objectContaining({ background: 'felt', logoPlacement: 'above', logoSizePercent: 100 }) });
     expect((await c.call('GET', '/api/public/brand/logo')).statusCode).toBe(404);
 
     // hráč logo nahrát nesmí
@@ -70,7 +70,7 @@ describe('logo aplikace', () => {
     await c.call('PUT', '/api/settings/global', admin, { key: 'branding.showName', value: false });
 
     // veřejně (bez přihlášení)
-    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: id, logoDark: null, showName: false, heightPercent: 150, darkLogoMode: 'invert', headerMode: 'logo', loginBackground: 'felt', loginBg: null });
+    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: id, logoDark: null, showName: false, heightPercent: 150, darkLogoMode: 'invert', headerMode: 'logo', loginBackground: 'felt', loginBg: null, login: expect.any(Object) });
     const img = await c.call('GET', '/api/public/brand/logo');
     expect(img.statusCode).toBe(200);
     expect(img.headers['content-type']).toBe('image/png');

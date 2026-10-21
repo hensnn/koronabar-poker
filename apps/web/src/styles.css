@@ -998,22 +998,65 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 :root[data-mode='dark'] .tk-brand-light { display: none; }
 :root[data-mode='dark'] .tk-brand-plate { background: var(--tk-color-cardFace); border-radius: var(--tk-shape-radiusMd); padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2); box-sizing: content-box; }
 
-/* Pozadí přihlašovací stránky: plstěný stůl v barvách motivu, jednobarevné, nebo vlastní obrázek. */
-.tk-login-bg { min-height: 100vh; background-color: var(--tk-color-bg); }
+/* Přihlašovací stránka: pozadí (stůl, přechod, karetní vzor, jednobarevné, vlastní obrázek), poloha a šířka karty, umístění loga. */
+.tk-login-bg { position: relative; isolation: isolate; min-height: 100vh; background-color: var(--tk-color-bg); --login-tone: var(--tk-color-primary); }
+.tk-login-bg[data-tone='secondary'] { --login-tone: var(--tk-color-secondary); }
+.tk-login-bg[data-tone='accent'] { --login-tone: var(--tk-color-accent); }
+.tk-login-bg[data-tone='info'] { --login-tone: var(--tk-color-info); }
 .tk-login-bg[data-login-bg='felt'] {
   background-image:
     radial-gradient(ellipse at 50% 38%, transparent 0 40%, var(--tk-color-vignette) 100%),
     radial-gradient(ellipse at 50% 38%, var(--tk-color-felt) 0 58%, var(--tk-color-roomBg) 100%);
 }
-/* Značka na přihlašovací stránce leží na podkladu karty, aby byla čitelná na jakémkoli pozadí i v tmavém režimu. */
-.tk-login-bg h1 > span {
+.tk-login-bg[data-login-bg='gradient'] { background-image: linear-gradient(160deg, var(--login-tone) 0%, var(--tk-color-bg) 85%); }
+.tk-login-bg[data-login-bg='suits'] {
+  background-image:
+    repeating-linear-gradient(45deg, var(--login-tone) 0 1px, transparent 1px 2.5rem),
+    repeating-linear-gradient(-45deg, var(--login-tone) 0 1px, transparent 1px 2.5rem),
+    linear-gradient(180deg, var(--tk-color-bg), var(--tk-color-surfaceRaised));
+}
+.tk-login-bg[data-login-bg='image']::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--login-blur, 0rem) * -2);
+  z-index: -2;
+  background-image: var(--login-bg-url);
+  background-size: cover;
+  background-position: center;
+  filter: blur(var(--login-blur, 0rem));
+}
+.tk-login-bg[data-login-bg='image']::after { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--tk-color-bg); opacity: var(--login-overlay, 0.3); }
+.tk-login-wrap { display: flex; min-height: inherit; align-items: center; justify-content: center; padding: calc(var(--spacing) * 4); }
+.tk-login-main { display: flex; width: 100%; max-width: 28rem; flex-direction: column; gap: calc(var(--spacing) * 4); }
+.tk-login-main[data-width='narrow'] { max-width: 22rem; }
+.tk-login-main[data-width='wide'] { max-width: 40rem; }
+.tk-login-tagline { color: var(--tk-color-text); font-weight: 600; }
+/* Uvítací text mimo kartu leží na malém podkladu, aby byl čitelný na jakémkoli pozadí. */
+.tk-login-brand > .tk-login-tagline { align-self: center; margin-inline: auto; width: fit-content; padding: calc(var(--spacing) * 1) calc(var(--spacing) * 3); border-radius: var(--tk-shape-radiusMd); background: var(--tk-color-surface); box-shadow: var(--tk-shape-shadow); }
+/* Značka na přihlašovací stránce leží (podle nastavení) na podkladu karty, aby byla čitelná na jakémkoli pozadí. */
+.tk-login-bg[data-plate='card'] .tk-login-brand h1 > span {
   background: var(--tk-color-surface);
   border: var(--tk-shape-borderWidth) solid var(--tk-color-border);
   border-radius: var(--tk-shape-radiusLg);
   padding: calc(var(--spacing) * 2) calc(var(--spacing) * 4);
   box-shadow: var(--tk-shape-shadow);
 }
-.tk-login-bg[data-login-bg='image'] { background-image: var(--login-bg-url); background-size: cover; background-position: center; }
+.tk-login-bg[data-plate='none'] .tk-login-brand h1 > span { color: var(--tk-color-feltText); }
+.tk-login-bg[data-plate='none'][data-login-bg='plain'] .tk-login-brand h1 > span, .tk-login-bg[data-plate='none'][data-login-bg='suits'] .tk-login-brand h1 > span { color: var(--tk-color-text); }
+.tk-login-main[data-placement='inside'] .tk-login-brand h1 > span { box-shadow: none; border: 0; padding: 0; background: none; }
+/* Na širokém displeji: poloha karty vlevo nebo vpravo a značka vedle karty. */
+@media (min-width: 48rem) {
+  .tk-login-wrap[data-pos='left'] { justify-content: flex-start; }
+  .tk-login-wrap[data-pos='right'] { justify-content: flex-end; }
+  .tk-login-main[data-placement='side'] { max-width: none; flex-direction: row; align-items: center; justify-content: center; gap: calc(var(--spacing) * 8); }
+  .tk-login-main[data-placement='side'] > .tk-login-brand { flex: 1; }
+  .tk-login-main[data-placement='side'] > section { width: 24rem; flex: none; }
+  .tk-login-main[data-placement='side'][data-width='narrow'] > section { width: 18rem; }
+  .tk-login-main[data-placement='side'][data-width='wide'] > section { width: 32rem; }
+}
+/* Náhled ve správě: stejná stránka v rámečku. */
+.tk-login-preview { min-height: 22rem; max-height: 26rem; overflow: hidden; border-radius: var(--tk-shape-radiusLg); border: var(--tk-shape-borderWidth) solid var(--tk-color-border); }
+.tk-login-preview .tk-login-wrap { min-height: 22rem; }
 
 /* Logo v tmavém režimu: převrácení barev (jednobarevné tmavé logo se zesvětlí). */
 :root[data-mode='dark'] .tk-brand-invert { filter: invert(1) hue-rotate(180deg); }

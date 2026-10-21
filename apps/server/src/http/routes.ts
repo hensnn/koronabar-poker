@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { buildCategories, ledgerCsv, tournamentCsv, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
+import { buildCategories, loginLayoutOf, ledgerCsv, tournamentCsv, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
@@ -202,6 +202,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       headerMode: ['logo', 'name', 'none'].includes(String(s['branding.headerMode'])) ? String(s['branding.headerMode']) : 'logo',
       loginBackground: mode === 'image' && !bg ? 'felt' : mode,
       loginBg: bg ? bg.id : null,
+      login: loginLayoutOf(s),
     });
   });
   const brandImage = async (key: 'branding.logoAssetId' | 'branding.logoDarkAssetId' | 'branding.loginBgAssetId', reply: FastifyReply) => {

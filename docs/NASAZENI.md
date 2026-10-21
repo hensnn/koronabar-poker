@@ -341,3 +341,10 @@ Můžeš nastavit, zda se vedle loga ukáže i název aplikace, a velikost loga 
 **Tmavý režim a přihlašovací stránka.** Ve Správa → Logo aplikace můžeš nahrát i **samostatné logo pro tmavý režim**; bez něj se v tmavém režimu běžné logo položí na světlý podklad (jde vypnout), aby tmavé logo nezmizelo. Na užších obrazovkách se vedle loga neukazuje název, aby hlavička zbytečně nezabírala místo. **Pozadí přihlašovací stránky** se volí: plstěný stůl v barvách vybraného motivu (výchozí), jednobarevné, nebo vlastní obrázek; značka na ní leží na podkladu karty, takže je čitelná na jakémkoli pozadí.
 
 **Další volby značky.** Ve Správa → Logo aplikace: **Logo v tmavém režimu** (převrátit barvy: hodí se pro tmavé jednobarevné logo, světlý podklad: pro barevné, nebo beze změny; výchozí je převrácení) a **Značka v hlavičce** (logo, jen název, nebo nic, takže nepřekáží; na hlavní stránku pak vede Lobby v nabídce). Každý hráč si ve svém Nastavení může zapnout či vypnout **Kompaktní hlavičku na telefonu**: logo, nabídka, upozornění a zůstatek se vejdou do jednoho řádku, nabídka se rozbaluje přes obsah a zvuk s odhlášením jsou uvnitř nabídky.
+
+**Vzhled přihlašovací stránky (samostatná nastavení).** Ve Správa → Logo aplikace je karta **Přihlašovací stránka: vzhled** se živým náhledem, který se mění hned po přepnutí volby:
+- **Pozadí:** plstěný stůl, barevný přechod, karetní vzor (kosočtverce), jednobarevné, nebo vlastní obrázek (s nastavitelným ztmavením a rozostřením, aby byl formulář čitelný). U stolu, přechodu a vzoru se volí barva z motivu (hlavní, doplňková, akcentní, modrá), takže se mění s motivem a tmavým režimem.
+- **Logo:** umístění (nad kartou, uvnitř karty, vedle karty na širokém displeji, bez loga), velikost 40 až 400 % nezávisle na hlavičce, zobrazení názvu a podklad značky.
+- **Karta s formulářem:** poloha (uprostřed, vlevo, vpravo; na úzkém displeji vždy uprostřed) a šířka (úzká, běžná, široká).
+- **Uvítací text** pod značkou (například název vaší herní skupiny).
+Tlačítko „Vrátit vzhled přihlášení na výchozí“ vše vrátí. Všechny hodnoty jsou i v Nastavení → Vzhled a motivy.

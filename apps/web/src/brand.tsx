@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { t } from '@kb/shared';
+import { LOGIN_DEFAULTS, t, type LoginLayout } from '@kb/shared';
 import { Link } from './router';
 
 export interface Brand {
@@ -13,8 +13,10 @@ export interface Brand {
   darkLogoMode: 'invert' | 'plate' | 'none';
   /** Značka v hlavičce: logo, jen název, nebo nic. */
   headerMode: 'logo' | 'name' | 'none';
-  loginBackground: 'felt' | 'plain' | 'image';
+  loginBackground: 'felt' | 'plain' | 'gradient' | 'suits' | 'image';
   loginBg: string | null;
+  /** Vzhled přihlašovací stránky (velikost loga, umístění, pozadí, poloha karty…). */
+  login: LoginLayout;
 }
 
 let current: Brand | null = null;
@@ -57,19 +59,19 @@ export function useBrand(): Brand | null {
 export const brandVars = (b: Brand | null): CSSProperties => ({ ['--brand-scale' as string]: String((b?.heightPercent ?? 100) / 100) });
 
 /** Značka aplikace: logo (je-li nahrané) a případně název; bez loga jen název. `large` je větší varianta pro přihlašovací stránku. */
-export function BrandMark({ large = false, link = true, header = false }: { large?: boolean; link?: boolean; /** Značka v hlavičce aplikace: řídí ji režim „Značka v hlavičce“. */ header?: boolean }) {
+export function BrandMark({ large = false, link = true, header = false, scalePercent, showName: showNameOverride }: { large?: boolean; link?: boolean; /** Značka v hlavičce aplikace: řídí ji režim „Značka v hlavičce“. */ header?: boolean; /** Vlastní velikost loga v procentech (přihlašovací stránka). */ scalePercent?: number; /** Vlastní volba zobrazení názvu (přihlašovací stránka). */ showName?: boolean }) {
   const brand = useBrand();
   const mode = header ? (brand?.headerMode ?? 'logo') : 'logo';
   if (mode === 'none') return null;
   const hasLogo = !!brand?.logo && mode === 'logo';
-  const showName = !hasLogo || brand?.showName !== false;
+  const showName = !hasLogo || (showNameOverride ?? brand?.showName) !== false;
   const darkImg = !!brand?.logoDark;
   const dark = !darkImg ? (brand?.darkLogoMode ?? 'invert') : 'none';
   const adapt = hasLogo ? (dark === 'plate' ? 'tk-brand-plate' : dark === 'invert' ? 'tk-brand-invert' : '') : '';
   const size = large ? 'tk-brand-logo tk-brand-logo-large' : 'tk-brand-logo';
   const alt = showName ? '' : t('app.name');
   const body = (
-    <span className={`inline-flex items-center gap-2 font-heading font-bold ${large ? 'text-3xl' : 'text-lg md:text-2xl'}`} style={brandVars(brand)}>
+    <span className={`inline-flex items-center gap-2 font-heading font-bold ${large ? 'text-3xl' : 'text-lg md:text-2xl'}`} style={scalePercent === undefined ? brandVars(brand) : brandVars({ ...(brand as Brand), heightPercent: scalePercent })}>
       {hasLogo && <img src={`/api/public/brand/logo?v=${brand!.logo}`} alt={alt} className={`${size} ${darkImg ? 'tk-brand-light' : ''} ${adapt}`} />}
       {hasLogo && darkImg && <img src={`/api/public/brand/logo?variant=dark&v=${brand!.logoDark}`} alt={alt} className={`${size} tk-brand-dark`} />}
       {showName && <span className={hasLogo && !large ? 'hidden md:inline' : ''}>{t('app.name')}</span>}
@@ -100,9 +102,5 @@ export function BrandFavicon() {
   return null;
 }
 
-/** Atributy pozadí přihlašovací stránky (druh pozadí a vlastní obrázek jako CSS proměnná). */
-export function loginBackgroundProps(b: Brand | null): { 'data-login-bg': string; style?: CSSProperties } {
-  const mode = b?.loginBackground ?? 'felt';
-  if (mode === 'image' && b?.loginBg) return { 'data-login-bg': 'image', style: { ['--login-bg-url' as string]: `url(/api/public/brand/background?v=${b.loginBg})` } };
-  return { 'data-login-bg': mode === 'plain' ? 'plain' : 'felt' };
-}
+/** Výchozí vzhled přihlášení, dokud se nenačte značka. */
+export const loginOf = (b: Brand | null): LoginLayout => b?.login ?? LOGIN_DEFAULTS;

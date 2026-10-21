@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { BrandMark, loginBackgroundProps, useBrand } from '../brand';
+import { loginOf, useBrand } from '../brand';
+import { LoginFrame } from './login-frame';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { Link, navigate, queryParam, useLocation } from '../router';
@@ -9,14 +10,9 @@ import { Button, Card, Notice, TextInput } from '../ui';
 function Page({ title, children }: { title: string; children: React.ReactNode }) {
   const brand = useBrand();
   return (
-    <div className="tk-login-bg" {...loginBackgroundProps(brand)}>
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-4">
-        <h1 className="flex justify-center">
-          <BrandMark large link={false} />
-        </h1>
-        <Card title={title}>{children}</Card>
-      </main>
-    </div>
+    <LoginFrame layout={loginOf(brand)} bgImage={brand?.loginBg ?? null} title={title}>
+      {children}
+    </LoginFrame>
   );
 }
 
