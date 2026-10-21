@@ -58,7 +58,8 @@ export class ThemeAssets {
     const brand = kind === 'brand';
     if (!this.deps.perms.can(userId, brand ? 'nastaveni.globalni' : 'motiv.vytvorit').allowed) throw new AssetError('FORBIDDEN');
     const s = this.deps.settings();
-    const max = Number(s['theme.imageMaxKb']);
+    // Logo a pozadí přihlášení (brand) mají vlastní, vyšší limit než obrázky motivů.
+    const max = Number(s[brand ? 'branding.imageMaxKb' : 'theme.imageMaxKb']);
     if (data.length > max * 1024) throw new AssetError('TOO_LARGE', { max });
     const format = detectImage(data);
     if (!format) throw new AssetError('INVALID', { field: 'data' });

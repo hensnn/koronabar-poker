@@ -84,6 +84,21 @@ describe('logo aplikace', () => {
     expect((await c.call('GET', '/api/public/brand/logo')).statusCode).toBe(404);
   });
 
+  it('logo a pozadí mají vyšší limit velikosti než obrázky motivů; nad limit se odmítne', async () => {
+    const c = await start();
+    const admin = await c.login('Admin', 'admin-heslo-123');
+    const big = (kb: number) => Buffer.concat([PNG, Buffer.alloc(kb * 1024)]).toString('base64');
+    // 2 MB: pro motiv moc (výchozí 1 MB), pro logo a pozadí v pořádku (výchozí 4 MB)
+    expect((await c.call('POST', '/api/theme-assets', admin, { kind: 'felt', data: big(2048) })).statusCode).toBe(400);
+    expect((await c.call('POST', '/api/theme-assets', admin, { kind: 'brand', data: big(2048) })).statusCode).toBe(200);
+    const over = await c.call('POST', '/api/theme-assets', admin, { kind: 'brand', data: big(5000) });
+    expect(over.statusCode).toBe(400);
+    expect(over.json()).toMatchObject({ error: 'ASSET_TOO_LARGE', params: { max: 4096 } });
+    // správce limit zvýší
+    await c.call('PUT', '/api/settings/global', admin, { key: 'branding.imageMaxKb', value: 8192 });
+    expect((await c.call('POST', '/api/theme-assets', admin, { kind: 'brand', data: big(5000) })).statusCode).toBe(200);
+  });
+
   it('obrázek jiného druhu nejde použít jako logo, i kdyby jeho id někdo zadal do nastavení', async () => {
     const c = await start();
     const admin = await c.login('Admin', 'admin-heslo-123');

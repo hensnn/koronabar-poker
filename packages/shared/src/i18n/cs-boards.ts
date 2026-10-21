@@ -1,5 +1,7 @@
 /** Veřejné přehledy hráčů (statistika na sdíleném odkazu): správa a veřejná stránka. */
 export const csBoards: Record<string, string> = {
+  'logo.shrunk': 'Obrázek byl před nahráním zmenšen, aby se vešel do limitu.',
+  'logo.maxSize': 'Největší povolená velikost souboru: {kb} KB (větší obrázek se automaticky zmenší). Limit se mění v Nastavení → Vzhled a motivy.',
   'logo.previewDark': 'Náhled loga v tmavém režimu',
   'logo.slotMain': 'Logo',
   'logo.slotDark': 'Logo pro tmavý režim (volitelné)',

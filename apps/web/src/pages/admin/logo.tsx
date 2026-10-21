@@ -5,6 +5,7 @@ import { BrandMark, refreshBrand, useBrand } from '../../brand';
 import { saveGlobalSetting, useSettings } from '../../settings';
 import { Button, Card, Notice, NumInput, Select, TextInput } from '../../ui';
 import { LoginFrame } from '../login-frame';
+import { shrinkImage } from '../../image-shrink';
 
 const toBase64 = (buf: ArrayBuffer) => {
   let bin = '';
@@ -18,10 +19,16 @@ type AssetKey = 'branding.logoAssetId' | 'branding.logoDarkAssetId' | 'branding.
 /** Jedno místo pro nahraný obrázek (logo, logo pro tmavý režim, pozadí přihlášení): nahrát, nahradit, odebrat. */
 function AssetSlot({ settingKey, title, help, present, run, busy }: { settingKey: AssetKey; title: string; help?: string; present: boolean; run: (fn: () => Promise<void>, ok: string) => Promise<void>; busy: boolean }) {
   const settings = useSettings();
+  const [note, setNote] = useState('');
   const current = String(settings.values[settingKey] ?? '');
+  const maxKb = Number(settings.values['branding.imageMaxKb'] ?? 4096);
+  const isBg = settingKey === 'branding.loginBgAssetId';
   const upload = (file: File) =>
     run(async () => {
-      const r = await post<{ id: string }>('/api/theme-assets', { kind: 'brand', data: toBase64(await file.arrayBuffer()) });
+      // Velký obrázek se před nahráním zmenší (pozadí na nejvýš 2560 bodů, logo na 1024; logo si ponechá průhlednost).
+      const { data, shrunk } = await shrinkImage(file, { maxBytes: maxKb * 1024, maxSide: isBg ? 2560 : 1024, keepAlpha: !isBg });
+      if (shrunk) setNote(t('logo.shrunk'));
+      const r = await post<{ id: string }>('/api/theme-assets', { kind: 'brand', data: toBase64(data) });
       await saveGlobalSetting(settingKey, r.id);
       if (current) void del(`/api/theme-assets/${current}`).catch(() => undefined);
     }, t('logo.saved'));
@@ -34,6 +41,8 @@ function AssetSlot({ settingKey, title, help, present, run, busy }: { settingKey
     <div className="flex flex-col gap-2 border-t border-line pt-3">
       <h3 className="font-bold">{title}</h3>
       {help && <p className="text-sm text-muted">{help}</p>}
+      {note && <p className="text-xs text-muted">{note}</p>}
+      <p className="text-xs text-muted">{t('logo.maxSize', { kb: maxKb })}</p>
       {present && <img src={`/api/theme-assets/${current}`} alt={title} className="max-h-24 max-w-64 rounded-sm border border-line bg-surface object-contain" />}
       <div className="flex flex-wrap items-center gap-2">
         <label className="cursor-pointer rounded-md border border-line bg-surface px-3 py-1 text-sm">

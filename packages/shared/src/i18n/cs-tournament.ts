@@ -1654,6 +1654,8 @@ export const csTournament: Record<string, string> = {
   'settings.economy.transferMin.help': 'Nejmenší částka, o kterou lze požádat při převodu do jiné aplikace.',
   'settings.economy.transferMax.label': 'Největší převod',
   'settings.economy.transferMax.help': 'Největší částka jedné žádosti o převod do jiné aplikace.',
+  'settings.branding.imageMaxKb.label': 'Největší obrázek loga a pozadí přihlášení',
+  'settings.branding.imageMaxKb.help': 'Nejvýš kolik KB smí mít obrázek loga a pozadí přihlašovací stránky. Větší obrázek se při nahrávání ve správě automaticky zmenší; server větší soubor odmítne. Obrázky motivů mají vlastní, nižší limit (Nastavení motivů).',
   'settings.branding.logoAssetId.label': 'Logo aplikace (identifikátor obrázku)',
   'settings.branding.logoAssetId.help': 'Identifikátor nahraného loga aplikace. Logo se nahrává ve Správa → Logo aplikace; tady jde jen vymazat, aby se vrátil text.',
   'settings.branding.logoDarkAssetId.label': 'Logo pro tmavý režim (identifikátor obrázku)',

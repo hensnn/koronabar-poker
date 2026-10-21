@@ -348,3 +348,5 @@ Můžeš nastavit, zda se vedle loga ukáže i název aplikace, a velikost loga 
 - **Karta s formulářem:** poloha (uprostřed, vlevo, vpravo; na úzkém displeji vždy uprostřed) a šířka (úzká, běžná, široká).
 - **Uvítací text** pod značkou (například název vaší herní skupiny).
 Tlačítko „Vrátit vzhled přihlášení na výchozí“ vše vrátí. Všechny hodnoty jsou i v Nastavení → Vzhled a motivy.
+
+**Velikost obrázků loga a pozadí.** Logo a pozadí přihlášení mají vlastní limit velikosti souboru **4 MB** (Nastavení → Vzhled a motivy → „Největší obrázek loga a pozadí přihlášení“, až 10 MB); obrázky motivů mají nižší limit 1 MB. Při nahrávání ve správě se větší obrázek **automaticky zmenší** (pozadí na nejvýš 2560 bodů delší strany, logo na 1024 s ponechanou průhledností), takže nahrát jde i fotka z telefonu. Povolené formáty: PNG, JPG, WebP a GIF (SVG ne).
