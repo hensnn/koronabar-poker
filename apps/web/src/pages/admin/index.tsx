@@ -80,7 +80,7 @@ export function AdminRouter() {
   return (
     <div className="flex flex-col gap-3">
       <nav aria-label={t('admin.nav')}>
-        <MainMenu groups={menu} isActive={(to) => to === path} path={path} />
+        <MainMenu groups={menu} isActive={(to) => to === path} path={path} subBar />
       </nav>
       <h1 className="sr-only">{t(current.label)}</h1>
       {current.render()}
