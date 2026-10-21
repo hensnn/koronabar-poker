@@ -3,11 +3,15 @@ import { t } from '@kb/shared';
 import { errorText, get } from '../api';
 import { Button, Card, DataTable, Notice, Spinner, Td } from '../ui';
 
+type Parts = Partial<Record<string, number>>;
+/** Pořadí složek ve sloupcích, shodné s tabulkou výsledků turnaje (Buy-in, Rebuy, Add-on, Výhra, Bounty). */
+const PART_ORDER = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'refund', 'other'] as const;
+
 interface Settlement {
   from: number;
   to: number;
-  players: { userId: string; cash: number; tournament: number; total: number }[];
-  games: { id: string; name: string; kind: 'cash' | 'tournament'; results: Record<string, number> }[];
+  players: { userId: string; cash: number; tournament: number; total: number; parts: Parts }[];
+  games: { id: string; name: string; kind: 'cash' | 'tournament'; results: Record<string, number>; parts: Record<string, Parts> }[];
   transfers: { from: string; to: string; amount: number }[];
   names: Record<string, string>;
   house: number | null;
@@ -27,6 +31,38 @@ const toLocalInput = (ms: number): string => {
 };
 const signed = (v: number): string => (v > 0 ? `+${v}` : String(v));
 const tone = (v: number): string => (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '');
+
+/** Tabulka rozpadu: řádek na hráče, sloupce podle složek (prázdné se skrývají) a Výsledek jako jejich součet. */
+function PartsTable({ rows, names, withSum }: { rows: { userId: string; parts: Parts; total: number }[]; names: Record<string, string>; withSum: boolean }) {
+  const used = PART_ORDER.filter((k) => rows.some((r) => (r.parts[k] ?? 0) !== 0));
+  const sumOf = (k: string) => rows.reduce((n, r) => n + (r.parts[k] ?? 0), 0);
+  return (
+    <DataTable head={[t('settlement.player'), ...used.map((k) => t(`settlement.part.${k}`)), t('settlement.result')]}>
+      {rows.map((r) => (
+        <tr key={r.userId}>
+          <Td>{names[r.userId] ?? r.userId}</Td>
+          {used.map((k) => (
+            <Td key={k} className={`font-mono ${tone(r.parts[k] ?? 0)}`}>
+              {signed(r.parts[k] ?? 0)}
+            </Td>
+          ))}
+          <Td className={`font-mono font-medium ${tone(r.total)}`}>{signed(r.total)}</Td>
+        </tr>
+      ))}
+      {withSum && (
+        <tr className="font-medium">
+          <Td>{t('settlement.sum')}</Td>
+          {used.map((k) => (
+            <Td key={k} className="font-mono">
+              {signed(sumOf(k))}
+            </Td>
+          ))}
+          <Td className="font-mono">{signed(rows.reduce((n, r) => n + r.total, 0))}</Td>
+        </tr>
+      )}
+    </DataTable>
+  );
+}
 
 /** Vyúčtování večera nebo období: cash a turnaje zvlášť i dohromady, rozpad po hrách a minimální převody. */
 export function SettlementPanel() {
@@ -72,44 +108,27 @@ export function SettlementPanel() {
             {data.players.length === 0 ? (
               <p className="text-muted">{t('settlement.emptyPeriod')}</p>
             ) : (
-              <DataTable sortable={false} head={[t('settlement.player'), t('settlement.cash'), t('settlement.tournaments'), t('settlement.total')]}>
-                {data.players.map((p) => (
-                  <tr key={p.userId}>
-                    <Td>{data.names[p.userId] ?? p.userId}</Td>
-                    <Td className={`font-mono ${tone(p.cash)}`}>{signed(p.cash)}</Td>
-                    <Td className={`font-mono ${tone(p.tournament)}`}>{signed(p.tournament)}</Td>
-                    <Td className={`font-mono font-medium ${tone(p.total)}`}>{signed(p.total)}</Td>
-                  </tr>
-                ))}
-                <tr className="font-medium">
-                  <Td>{t('settlement.sum')}</Td>
-                  <Td className="font-mono">{signed(data.players.reduce((n, p) => n + p.cash, 0))}</Td>
-                  <Td className="font-mono">{signed(data.players.reduce((n, p) => n + p.tournament, 0))}</Td>
-                  <Td className="font-mono">{signed(data.players.reduce((n, p) => n + p.total, 0))}</Td>
-                </tr>
-              </DataTable>
+              <>
+                <PartsTable rows={data.players} names={data.names} withSum />
+                <p className="text-sm text-muted">{t('settlement.partsHelp')}</p>
+              </>
             )}
             {data.house !== null && data.players.length > 0 && (
               <p className="text-sm text-muted">{t('settlement.house', { amount: data.house })}</p>
             )}
             {data.games.length > 0 && (
-              <details>
+              <details open>
                 <summary className="cursor-pointer">{t('settlement.byGame', { n: data.games.length })}</summary>
-                <ul className="mt-2 flex flex-col gap-2">
+                <div className="mt-2 flex flex-col gap-4">
                   {data.games.map((g) => (
-                    <li key={g.id}>
-                      <strong>{g.name}</strong> <span className="text-sm text-muted">({g.kind === 'tournament' ? t('settlement.kindTournament') : t('settlement.kindCash')})</span>
-                      <ul className="ml-4">
-                        {Object.entries(g.results).map(([id, v]) => (
-                          <li key={id} className="flex gap-3">
-                            <span>{data.names[id] ?? id}</span>
-                            <span className={`font-mono ${tone(v)}`}>{signed(v)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
+                    <section key={g.id} className="flex flex-col gap-1">
+                      <h4>
+                        <strong>{g.name}</strong> <span className="text-sm text-muted">({g.kind === 'tournament' ? t('settlement.kindTournament') : t('settlement.kindCash')})</span>
+                      </h4>
+                      <PartsTable rows={Object.entries(g.results).map(([id, v]) => ({ userId: id, parts: g.parts[id] ?? {}, total: v }))} names={data.names} withSum={Object.keys(g.results).length > 1} />
+                    </section>
                   ))}
-                </ul>
+                </div>
               </details>
             )}
             <h3 className="font-medium">{t('settlement.transfers')}</h3>

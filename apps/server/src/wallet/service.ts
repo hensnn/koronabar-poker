@@ -12,11 +12,43 @@ export interface WalletMeta {
   source?: AuditSource;
 }
 
+/** Složky vyúčtování: cash (vklady a výběry), turnaje (buy-in, rebuy, add-on, výhra, bounty, vrácení) a ostatní pohyby. Vklady a náklady jsou záporné, výhry kladné. */
+export const SETTLEMENT_PARTS = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'refund', 'other'] as const;
+export type SettlementPart = (typeof SETTLEMENT_PARTS)[number];
+export type PartTotals = Partial<Record<SettlementPart, number>>;
+
+/** Do které složky patří pohyb peněženky podle druhu transakce. */
+export function settlementPartOf(kind: string): SettlementPart {
+  switch (kind) {
+    case 'cash_buyin':
+    case 'cash_topup':
+      return 'cashBuyIn';
+    case 'cash_cashout':
+    case 'cash_return':
+      return 'cashOut';
+    case 'turnaj_buyin':
+    case 'turnaj_fee':
+      return 'buyIn';
+    case 'turnaj_rebuy':
+      return 'rebuy';
+    case 'turnaj_addon':
+      return 'addon';
+    case 'turnaj_vyplata':
+      return 'payout';
+    case 'bounty':
+      return 'bounty';
+    case 'turnaj_refund':
+      return 'refund';
+    default:
+      return 'other';
+  }
+}
+
 export interface PeriodSettlement {
   from: number;
   to: number;
-  players: { userId: string; cash: number; tournament: number; total: number }[];
-  games: { id: string; name: string; kind: 'cash' | 'tournament'; results: Record<string, number> }[];
+  players: { userId: string; cash: number; tournament: number; total: number; parts: PartTotals }[];
+  games: { id: string; name: string; kind: 'cash' | 'tournament'; results: Record<string, number>; parts: Record<string, PartTotals> }[];
   transfers: Transfer[];
   names: Record<string, string>;
   /** Kolik za období připadlo herně (rake, poplatky, odvody); jen pro oprávněné. */
@@ -378,15 +410,23 @@ export class WalletService {
 
     const cash: Record<string, number> = {};
     const tournament: Record<string, number> = {};
-    const games = new Map<string, { id: string; kind: 'cash' | 'tournament'; results: Record<string, number> }>();
+    const games = new Map<string, { id: string; kind: 'cash' | 'tournament'; results: Record<string, number>; parts: Record<string, PartTotals> }>();
+    const parts: Record<string, PartTotals> = {};
+    const addPart = (target: Record<string, PartTotals>, uid: string, part: SettlementPart, amount: number) => {
+      const p = (target[uid] ??= {});
+      p[part] = (p[part] ?? 0) + amount;
+    };
     for (const e of entries) {
       const tx = byId.get(e.transactionId)!;
       const uid = e.account.slice('wallet:'.length);
       const kind = tx.kind.startsWith('turnaj_') || tx.kind === 'bounty' ? 'tournament' : 'cash';
       (kind === 'tournament' ? tournament : cash)[uid] = ((kind === 'tournament' ? tournament : cash)[uid] ?? 0) + e.amount;
       const gid = tx.gameId ?? '';
-      const g = games.get(gid) ?? { id: gid, kind, results: {} };
+      const g = games.get(gid) ?? { id: gid, kind, results: {}, parts: {} };
       g.results[uid] = (g.results[uid] ?? 0) + e.amount;
+      const part = settlementPartOf(tx.kind);
+      addPart(parts, uid, part, e.amount);
+      addPart(g.parts, uid, part, e.amount);
       games.set(gid, g);
     }
     // Hráči, kteří u cash stolu ještě sedí, mají žetony u stolu: počítají se jako výběr (jen když období sahá do současnosti).
@@ -396,8 +436,10 @@ export class WalletService {
         const value = Math.floor(s.chips / rate);
         if (value === 0 && !cash[s.userId]) continue;
         cash[s.userId] = (cash[s.userId] ?? 0) + value;
-        const g = games.get(s.tableId) ?? { id: s.tableId, kind: 'cash' as const, results: {} };
+        const g = games.get(s.tableId) ?? { id: s.tableId, kind: 'cash' as const, results: {}, parts: {} };
         g.results[s.userId] = (g.results[s.userId] ?? 0) + value;
+        addPart(parts, s.userId, 'cashOut', value);
+        addPart(g.parts, s.userId, 'cashOut', value);
         games.set(s.tableId, g);
       }
     }
@@ -419,12 +461,12 @@ export class WalletService {
     const tourNames = gameIds.length ? await this.deps.db.select({ id: schema.tournaments.id, name: schema.tournaments.name }).from(schema.tournaments).where(inArray(schema.tournaments.id, gameIds)) : [];
     const gameName = new Map([...tableNames, ...tourNames].map((g) => [g.id, g.name]));
 
-    let players = involved.map((id) => ({ userId: id, cash: cash[id] ?? 0, tournament: tournament[id] ?? 0, total: total[id] ?? 0 }));
+    let players = involved.map((id) => ({ userId: id, cash: cash[id] ?? 0, tournament: tournament[id] ?? 0, total: total[id] ?? 0, parts: parts[id] ?? {} }));
     let gameList = [...games.values()].map((g) => ({ ...g, name: gameName.get(g.id) ?? g.id }));
     if (!privileged) {
       // Běžný hráč vidí jen svůj výsledek a převody, které se ho týkají.
       players = players.filter((p) => p.userId === actorId);
-      gameList = gameList.map((g) => ({ ...g, results: g.results[actorId] !== undefined ? { [actorId]: g.results[actorId]! } : {} })).filter((g) => Object.keys(g.results).length > 0);
+      gameList = gameList.map((g) => ({ ...g, results: g.results[actorId] !== undefined ? { [actorId]: g.results[actorId]! } : {}, parts: g.parts[actorId] ? { [actorId]: g.parts[actorId]! } : {} })).filter((g) => Object.keys(g.results).length > 0);
       transfers = transfers.filter((t) => t.from === actorId || t.to === actorId);
     }
     const names: Record<string, string> = Object.fromEntries(users.map((u) => [u.id, u.nickname]));

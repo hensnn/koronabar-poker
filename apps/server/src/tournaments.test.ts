@@ -167,6 +167,13 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     expect(all.house).toBe(30);
     for (const p of all.players) expect(p.total).toBe(p.cash + p.tournament);
     expect(all.games.map((g) => g.kind).sort()).toEqual(['cash', 'tournament']);
+    // rozpad podle složek: součet složek je výsledek hráče, buy-in včetně poplatku je záporný, výhry kladné
+    const sum = (o: Record<string, number | undefined>) => Object.values(o).reduce<number>((n, v) => n + (v ?? 0), 0);
+    for (const p of all.players) expect(sum(p.parts)).toBe(p.total);
+    for (const p of all.players) expect(p.parts.buyIn).toBe(-110);
+    const tour = all.games.find((g) => g.kind === 'tournament')!;
+    for (const [uid, v] of Object.entries(tour.results)) expect(sum(tour.parts[uid]!)).toBe(v);
+    expect(tour.parts[a]!.buyIn).toBe(-110);
     // minimální převody vyrovnají všechny hráče vůči sobě a domu
     const net: Record<string, number> = {};
     for (const t of all.transfers) {
