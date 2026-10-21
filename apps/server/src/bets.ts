@@ -359,9 +359,10 @@ export class BetService {
   async list(viewerId: string, tournamentId: string) {
     const bets = await this.deps.db.select().from(schema.bets).where(eq(schema.bets.tournamentId, tournamentId)).orderBy(desc(schema.bets.createdAt));
     const stakes = bets.length ? await this.deps.db.select().from(schema.betStakes).where(inArray(schema.betStakes.betId, bets.map((b) => b.id))) : [];
-    const ids = [...new Set([...bets.flatMap((b) => [b.creatorId, ...subjectsOf(b.subject as BetSubject, b.params as BetParams)]), ...stakes.map((x) => x.userId)])].filter((x): x is string => !!x);
-    const nicks = ids.length ? new Map((await this.deps.db.select({ id: schema.users.id, n: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, ids))).map((u) => [u.id, u.n])) : new Map<string, string>();
     const f = this.deps.facts(tournamentId);
+    // Přezdívky potřebuje i každý účastník turnaje (výběr hráče u odměn na hlavu a sázek), ne jen ti, kdo už jsou v nějaké sázce.
+    const ids = [...new Set([...bets.flatMap((b) => [b.creatorId, ...subjectsOf(b.subject as BetSubject, b.params as BetParams)]), ...stakes.map((x) => x.userId), ...(f?.participants ?? [])])].filter((x): x is string => !!x);
+    const nicks = ids.length ? new Map((await this.deps.db.select({ id: schema.users.id, n: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, ids))).map((u) => [u.id, u.n])) : new Map<string, string>();
     const referee = this.can(viewerId, 'sazky.rozhodnout');
     const s = this.s();
     return {

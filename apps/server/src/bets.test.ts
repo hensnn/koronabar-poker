@@ -71,6 +71,18 @@ const escrow = (s: Ctx, betId: string) => s.server.ledger.balance(accounts.escro
 const stakeOf = async (s: Ctx, betId: string) => (await s.server.db.select().from(schema.betStakes).where(eq(schema.betStakes.betId, betId))).length;
 
 describe('sázkový bank', { timeout: 90_000 }, () => {
+  it('výběr hráče (odměny na hlavu, sázky) má přezdívky všech účastníků, i když ještě nejsou v žádné sázce', async () => {
+    const s = await start();
+    const g = await setup(s);
+    const view = await s.server.bets.list(g.a, g.id);
+    const nicks = await s.server.db.select({ id: schema.users.id, n: schema.users.nickname }).from(schema.users);
+    expect(view.players).toHaveLength(3);
+    for (const p of view.players) {
+      expect(p.nickname).not.toBe('');
+      expect(p.nickname).toBe(nicks.find((u) => u.id === p.userId)!.n);
+    }
+  });
+
   it('vklady se zamknou v escrow a po konci turnaje se vyplatí poměrně mezi výherce', async () => {
     const s = await start();
     const g = await setup(s);
