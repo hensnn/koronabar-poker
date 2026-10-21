@@ -111,7 +111,7 @@ export function SettingsPage() {
       ) : (
         <>
       <Notice>{t('settings.personal.sync')}</Notice>
-      <Tabs tabs={[{ id: 'user', label: t('settings.personal.all') }, { id: 'device', label: t('settings.personal.device', { id: deviceId() }) }]} value={target} onChange={setTarget} />
+      <Tabs tabs={[{ id: 'user', label: t('settings.personal.all') }, { id: 'device', label: t('settings.personal.device', { kind: t(`settings.personal.kind.${deviceId()}`) }) }]} value={target} onChange={setTarget} />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       <ThemeChooser onPick={(id) => void saveUserSetting('ui.themeId', id, target === 'device').catch((e) => setMsg({ kind: 'error', text: errorText(e) }))} current={String(settings.values['ui.themeId'])} />
       <SettingsForm

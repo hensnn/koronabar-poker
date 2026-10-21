@@ -7,18 +7,26 @@ export const registry = createDefaultRegistry();
 
 const CACHE = 'kb.settings.cache.v1';
 const DEVICE = 'kb.device';
+const DEVICE_MIGRATED = 'kb.device.migrated';
 
-/** Identifikátor zařízení zůstává jen v tomto prohlížeči (osobní nastavení „jen na tomto zařízení“). */
-export function deviceId(): string {
+/** Starší identifikátor konkrétního prohlížeče (dřívější „jen toto zařízení“); dnes slouží jen k jednorázovému převzetí hodnot. */
+function legacyDeviceId(): string | null {
   try {
-    let id = localStorage.getItem(DEVICE);
-    if (!id) {
-      id = crypto.randomUUID().slice(0, 8);
-      localStorage.setItem(DEVICE, id);
-    }
-    return id;
+    return localStorage.getItem(DEVICE);
   } catch {
-    return 'temp';
+    return null;
+  }
+}
+
+/**
+ * Typ zařízení pro vlastní nastavení: 'phone' (telefon a tablet s dotykovým ovládáním) nebo 'desktop' (počítač).
+ * Každý typ má u hráče vlastní profil osobního nastavení, který se použije automaticky na všech zařízeních toho typu.
+ */
+export function deviceId(): 'phone' | 'desktop' {
+  try {
+    return window.matchMedia('(pointer: coarse)').matches ? 'phone' : 'desktop';
+  } catch {
+    return 'desktop';
   }
 }
 
@@ -62,6 +70,7 @@ export async function loadSettings(): Promise<void> {
   written.device.clear();
   written.global.clear();
   const [mine, glob] = await Promise.all([get<{ user: Partial<SettingValues>; device: Partial<SettingValues> }>(`/api/me/settings?device=${deviceId()}`), get<{ values: Partial<SettingValues> }>('/api/settings/global')]);
+  await adoptLegacyDevice(mine);
   if (token !== loadToken) return; // mezitím začalo novější načtení
   const overlay = (layer: 'user' | 'device' | 'global', fresh: Partial<SettingValues>) => {
     const out: Partial<SettingValues> = { ...fresh };
@@ -72,6 +81,28 @@ export async function loadSettings(): Promise<void> {
     return out;
   };
   set({ user: overlay('user', mine.user), device: overlay('device', mine.device), global: overlay('global', glob.values), loaded: true });
+}
+
+/** Jednorázově převezme hodnoty „jen toto zařízení“ ze starého identifikátoru prohlížeče do profilu typu zařízení, pokud je ten ještě prázdný. */
+async function adoptLegacyDevice(mine: { device: Partial<SettingValues> }): Promise<void> {
+  const old = legacyDeviceId();
+  if (!old || old === deviceId()) return;
+  try {
+    if (localStorage.getItem(DEVICE_MIGRATED)) return;
+    localStorage.setItem(DEVICE_MIGRATED, '1');
+  } catch {
+    return;
+  }
+  if (Object.keys(mine.device).length > 0) return;
+  try {
+    const legacy = await get<{ user: Partial<SettingValues>; device: Partial<SettingValues> }>(`/api/me/settings?device=${encodeURIComponent(old)}`);
+    for (const [k, v] of Object.entries(legacy.device)) {
+      await put('/api/me/settings', { key: k, value: v, device: deviceId() });
+      (mine.device as Record<string, unknown>)[k] = v;
+    }
+  } catch {
+    /* převzetí je jen pohodlí, bez něj se začne s prázdným profilem */
+  }
 }
 
 export function clearSettings() {
