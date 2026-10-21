@@ -57,7 +57,7 @@ export function GlobalSettingsPage({ personal = false }: { personal?: boolean })
         onChange={(k, v) => setPending({ ...pending, [k]: v })}
         onReset={(k) => setPending(Object.fromEntries(Object.entries(pending).filter(([x]) => x !== k)))}
         issues={issues}
-        allowedKeys={(d) => (personal ? isPersonal(d) : (scopeAllowed(d.scopes, 'global') || d.scopes === undefined) && !isPersonal(d) && d.appliesTo !== 'tournament')}
+        allowedKeys={(d) => (personal ? isPersonal(d) : d.scopes !== undefined && scopeAllowed(d.scopes, 'global') && !isPersonal(d))}
         pendingKeys={Object.keys(pending)}
       />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button, NumInput } from '../ui';
 import {
   categoryKey,
+  groupOf,
+  SPECIAL_GROUPS,
   helpKey,
   isVisible,
   labelKey,
@@ -101,6 +103,12 @@ export function SettingsForm(p: Props) {
     .filter((d) => (q ? matches(d) : onlyChanged || d.category === current))
     .filter((d) => !onlyChanged || p.origins[d.key] === p.editScope)
     .filter((d) => isVisible(p.registry, d.key, p.values, p.gameKind));
+  // Uvnitř Speciálních prvků se nastavení řadí podle podskupin (stabilní řazení drží původní pořadí uvnitř skupiny).
+  const groupIdx = (d: SettingDef) => {
+    const g = groupOf(d.key, d.category);
+    return g ? SPECIAL_GROUPS.indexOf(g) : -1;
+  };
+  if (!q && !onlyChanged) defs.sort((a, b) => groupIdx(a) - groupIdx(b));
 
   return (
     <div className="flex flex-col gap-4">
@@ -148,6 +156,9 @@ export function SettingsForm(p: Props) {
         )}
         {defs.map((d, i) => (
           <div key={d.key} className="flex flex-col gap-1">
+            {!q && !onlyChanged && groupOf(d.key, d.category) && (i === 0 || groupOf(defs[i - 1]!.key, defs[i - 1]!.category) !== groupOf(d.key, d.category)) && (
+              <h4 className="mt-3 border-b border-line pb-1 font-heading text-base font-bold text-text">{t(`settings.group.${groupOf(d.key, d.category)}`)}</h4>
+            )}
             {(q || onlyChanged) && (i === 0 || defs[i - 1]!.category !== d.category) && (
               <h3 className={`mt-2 flex items-center gap-2 text-sm font-bold ${tone(d.category).head}`}>
                 <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(d.category).dot}`} />
