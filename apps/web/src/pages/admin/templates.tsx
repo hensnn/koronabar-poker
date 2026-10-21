@@ -4,6 +4,7 @@ import { del, errorText, get, post, put } from '../../api';
 import { registry } from '../../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, DataTable, Modal, Notice, Select, Td, TextArea, TextInput } from '../../ui';
+import { BulkTemplateEditor } from './templates-bulk';
 import { MoneyPreview, RebuyCard, StructureEditor, TournamentBasics } from '../structure-editor';
 
 interface Template {
@@ -27,6 +28,7 @@ export function TemplatesPage() {
   const [rows, setRows] = useState<Template[]>([]);
   const [error, setError] = useState('');
   const [deleted, setDeleted] = useState<{ id: string; kind: Template['kind']; name: string }[]>([]);
+  const [bulk, setBulk] = useState(false);
   const [editor, setEditor] = useState<{ base: Template | null; kind: Template['kind']; copy?: boolean } | null>(null);
   const reload = useCallback(() => {
     get<{ templates: Template[]; deleted?: { id: string; kind: Template['kind']; name: string }[] }>('/api/admin/templates')
@@ -62,6 +64,7 @@ export function TemplatesPage() {
         <Button variant="primary" onClick={() => setEditor({ base: null, kind: 'cash' })}>
           {t('templates.newCash')}
         </Button>
+        <Button onClick={() => setBulk(true)}>{t('templates.bulk.open')}</Button>
       </div>
       {error && <Notice kind="error">{error}</Notice>}
       <DataTable head={[t('templates.name'), t('templates.kind'), t('templates.origin'), '']}>
@@ -142,6 +145,16 @@ export function TemplatesPage() {
             ))}
           </ul>
         </div>
+      )}
+      {bulk && (
+        <BulkTemplateEditor
+          templates={rows}
+          onClose={() => setBulk(false)}
+          onSaved={() => {
+            setBulk(false);
+            reload();
+          }}
+        />
       )}
       {editor && (
         <TemplateEditor
