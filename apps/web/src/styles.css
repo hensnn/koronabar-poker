@@ -991,3 +991,26 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Logo aplikace v hlavičce: výška podle nastavení (měřítko), šířka podle poměru stran. */
 .tk-brand-logo { height: calc(2.25rem * var(--brand-scale, 1)); width: auto; max-width: 16rem; object-fit: contain; }
 .tk-brand-logo-large { height: calc(4.5rem * var(--brand-scale, 1)); max-width: 20rem; }
+
+/* Logo v tmavém režimu: samostatná varianta, nebo běžné logo na světlém podkladu (aby tmavé logo nezmizelo). */
+.tk-brand-dark { display: none; }
+:root[data-mode='dark'] .tk-brand-dark { display: inline; }
+:root[data-mode='dark'] .tk-brand-light { display: none; }
+:root[data-mode='dark'] .tk-brand-plate { background: var(--tk-color-cardFace); border-radius: var(--tk-shape-radiusMd); padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2); box-sizing: content-box; }
+
+/* Pozadí přihlašovací stránky: plstěný stůl v barvách motivu, jednobarevné, nebo vlastní obrázek. */
+.tk-login-bg { min-height: 100vh; background-color: var(--tk-color-bg); }
+.tk-login-bg[data-login-bg='felt'] {
+  background-image:
+    radial-gradient(ellipse at 50% 38%, transparent 0 40%, var(--tk-color-vignette) 100%),
+    radial-gradient(ellipse at 50% 38%, var(--tk-color-felt) 0 58%, var(--tk-color-roomBg) 100%);
+}
+/* Značka na přihlašovací stránce leží na podkladu karty, aby byla čitelná na jakémkoli pozadí i v tmavém režimu. */
+.tk-login-bg h1 > span {
+  background: var(--tk-color-surface);
+  border: var(--tk-shape-borderWidth) solid var(--tk-color-border);
+  border-radius: var(--tk-shape-radiusLg);
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 4);
+  box-shadow: var(--tk-shape-shadow);
+}
+.tk-login-bg[data-login-bg='image'] { background-image: var(--login-bg-url); background-size: cover; background-position: center; }

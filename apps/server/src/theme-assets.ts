@@ -74,8 +74,8 @@ export class ThemeAssets {
   }
 
   /** Logo aplikace z nastavení (veřejné: vidí ho i nepřihlášený na přihlašovací stránce); null, když není nastavené. */
-  async brandLogo(): Promise<{ data: Buffer; mime: string; id: string } | null> {
-    const id = String(this.deps.settings()['branding.logoAssetId'] ?? '').trim();
+  async brandLogo(key: 'branding.logoAssetId' | 'branding.logoDarkAssetId' | 'branding.loginBgAssetId' = 'branding.logoAssetId'): Promise<{ data: Buffer; mime: string; id: string } | null> {
+    const id = String(this.deps.settings()[key] ?? '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
     const [r] = await this.deps.db.select().from(schema.themeAssets).where(and(eq(schema.themeAssets.id, id), eq(schema.themeAssets.kind, 'brand')));
     if (!r) return null;

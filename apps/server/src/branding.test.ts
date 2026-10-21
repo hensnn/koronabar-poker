@@ -31,12 +31,27 @@ async function start() {
 }
 
 describe('logo aplikace', () => {
+  it('logo pro tmavý režim a vlastní pozadí přihlášení: veřejně čitelné, bez nahraného obrázku se pozadí vrátí na plstěný stůl', async () => {
+    const c = await start();
+    const admin = await c.login('Admin', 'admin-heslo-123');
+    const up = async () => (await c.call('POST', '/api/theme-assets', admin, { kind: 'brand', data: PNG.toString('base64') })).json().id as string;
+    const [light, dark, bg] = [await up(), await up(), await up()];
+    for (const [key, value] of [['branding.logoAssetId', light], ['branding.logoDarkAssetId', dark], ['branding.loginBgAssetId', bg], ['branding.loginBackground', 'image']] as const) await c.call('PUT', '/api/settings/global', admin, { key, value });
+    expect((await c.call('GET', '/api/public/brand')).json()).toMatchObject({ logo: light, logoDark: dark, loginBackground: 'image', loginBg: bg });
+    expect((await c.call('GET', '/api/public/brand/logo?variant=dark')).statusCode).toBe(200);
+    expect((await c.call('GET', '/api/public/brand/background')).statusCode).toBe(200);
+    // režim „vlastní obrázek“ bez obrázku se tváří jako plstěný stůl
+    await c.call('PUT', '/api/settings/global', admin, { key: 'branding.loginBgAssetId', value: '' });
+    expect((await c.call('GET', '/api/public/brand')).json()).toMatchObject({ loginBackground: 'felt', loginBg: null });
+    expect((await c.call('GET', '/api/public/brand/background')).statusCode).toBe(404);
+  });
+
   it('bez loga je značka jen název; správce logo nahraje, je veřejně vidět a jde odebrat; hráč nahrát nesmí', async () => {
     const c = await start();
     const admin = await c.login('Admin', 'admin-heslo-123');
     const player = await c.login('Hrac', 'heslo-hrace-123');
 
-    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: null, showName: true, heightPercent: 100 });
+    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: null, logoDark: null, showName: true, heightPercent: 100, darkPlate: true, loginBackground: 'felt', loginBg: null });
     expect((await c.call('GET', '/api/public/brand/logo')).statusCode).toBe(404);
 
     // hráč logo nahrát nesmí
@@ -55,7 +70,7 @@ describe('logo aplikace', () => {
     await c.call('PUT', '/api/settings/global', admin, { key: 'branding.showName', value: false });
 
     // veřejně (bez přihlášení)
-    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: id, showName: false, heightPercent: 150 });
+    expect((await c.call('GET', '/api/public/brand')).json()).toEqual({ logo: id, logoDark: null, showName: false, heightPercent: 150, darkPlate: true, loginBackground: 'felt', loginBg: null });
     const img = await c.call('GET', '/api/public/brand/logo');
     expect(img.statusCode).toBe(200);
     expect(img.headers['content-type']).toBe('image/png');

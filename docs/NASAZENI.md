@@ -337,3 +337,5 @@ Ve **Správa → Logo aplikace** nahraješ obrázek loga (PNG, JPG, WebP nebo GI
 - jako **ikona záložky** prohlížeče.
 
 Můžeš nastavit, zda se vedle loga ukáže i název aplikace, a velikost loga (40 až 400 %). Tlačítkem Odebrat logo se vrátí text. Logo je veřejné (musí být vidět i před přihlášením), nahrávat ho smí jen správce nastavení. Hodnoty jsou také v Nastavení → Vzhled a motivy.
+
+**Tmavý režim a přihlašovací stránka.** Ve Správa → Logo aplikace můžeš nahrát i **samostatné logo pro tmavý režim**; bez něj se v tmavém režimu běžné logo položí na světlý podklad (jde vypnout), aby tmavé logo nezmizelo. Na užších obrazovkách se vedle loga neukazuje název, aby hlavička zbytečně nezabírala místo. **Pozadí přihlašovací stránky** se volí: plstěný stůl v barvách vybraného motivu (výchozí), jednobarevné, nebo vlastní obrázek; značka na ní leží na podkladu karty, takže je čitelná na jakémkoli pozadí.

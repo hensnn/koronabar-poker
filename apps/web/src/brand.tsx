@@ -5,8 +5,14 @@ import { Link } from './router';
 export interface Brand {
   /** Identifikátor nahraného loga (mění se s každým novým obrázkem), nebo null. */
   logo: string | null;
+  /** Samostatné logo pro tmavý režim (nebo null). */
+  logoDark: string | null;
   showName: boolean;
   heightPercent: number;
+  /** Bez loga pro tmavý režim se běžné logo v tmavém režimu položí na světlý podklad. */
+  darkPlate: boolean;
+  loginBackground: 'felt' | 'plain' | 'image';
+  loginBg: string | null;
 }
 
 let current: Brand | null = null;
@@ -53,10 +59,15 @@ export function BrandMark({ large = false, link = true }: { large?: boolean; lin
   const brand = useBrand();
   const hasLogo = !!brand?.logo;
   const showName = !hasLogo || brand?.showName !== false;
+  const darkImg = !!brand?.logoDark;
+  const plate = hasLogo && !darkImg && brand?.darkPlate !== false;
+  const size = large ? 'tk-brand-logo tk-brand-logo-large' : 'tk-brand-logo';
+  const alt = showName ? '' : t('app.name');
   const body = (
     <span className={`inline-flex items-center gap-2 font-heading font-bold ${large ? 'text-3xl' : 'text-2xl'}`} style={brandVars(brand)}>
-      {hasLogo && <img src={`/api/public/brand/logo?v=${brand!.logo}`} alt={showName ? '' : t('app.name')} className={large ? 'tk-brand-logo tk-brand-logo-large' : 'tk-brand-logo'} />}
-      {showName && <span>{t('app.name')}</span>}
+      {hasLogo && <img src={`/api/public/brand/logo?v=${brand!.logo}`} alt={alt} className={`${size} ${darkImg ? 'tk-brand-light' : ''} ${plate ? 'tk-brand-plate' : ''}`} />}
+      {hasLogo && darkImg && <img src={`/api/public/brand/logo?variant=dark&v=${brand!.logoDark}`} alt={alt} className={`${size} tk-brand-dark`} />}
+      {showName && <span className={hasLogo && !large ? 'hidden md:inline' : ''}>{t('app.name')}</span>}
     </span>
   );
   return link ? (
@@ -82,4 +93,11 @@ export function BrandFavicon() {
     link.href = `/api/public/brand/logo?v=${brand.logo}`;
   }, [brand?.logo]);
   return null;
+}
+
+/** Atributy pozadí přihlašovací stránky (druh pozadí a vlastní obrázek jako CSS proměnná). */
+export function loginBackgroundProps(b: Brand | null): { 'data-login-bg': string; style?: CSSProperties } {
+  const mode = b?.loginBackground ?? 'felt';
+  if (mode === 'image' && b?.loginBg) return { 'data-login-bg': 'image', style: { ['--login-bg-url' as string]: `url(/api/public/brand/background?v=${b.loginBg})` } };
+  return { 'data-login-bg': mode === 'plain' ? 'plain' : 'felt' };
 }

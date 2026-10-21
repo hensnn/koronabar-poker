@@ -190,11 +190,21 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   /** Značka aplikace pro hlavičku a přihlašovací stránku: logo (je-li nahrané), zda ukázat i název a velikost. Veřejné. */
   app.get('/api/public/brand', async (_req, reply) => {
     const s = svc.settings.resolve();
-    const logo = await svc.themeAssets().brandLogo();
-    return reply.header('cache-control', 'no-cache').send({ logo: logo ? logo.id : null, showName: s['branding.showName'] !== false, heightPercent: Number(s['branding.logoHeightPercent'] ?? 100) });
+    const assets = svc.themeAssets();
+    const [logo, dark, bg] = [await assets.brandLogo(), await assets.brandLogo('branding.logoDarkAssetId'), await assets.brandLogo('branding.loginBgAssetId')];
+    const mode = String(s['branding.loginBackground'] ?? 'felt');
+    return reply.header('cache-control', 'no-cache').send({
+      logo: logo ? logo.id : null,
+      logoDark: dark ? dark.id : null,
+      showName: s['branding.showName'] !== false,
+      heightPercent: Number(s['branding.logoHeightPercent'] ?? 100),
+      darkPlate: s['branding.darkPlate'] !== false,
+      loginBackground: mode === 'image' && !bg ? 'felt' : mode,
+      loginBg: bg ? bg.id : null,
+    });
   });
-  app.get('/api/public/brand/logo', async (_req, reply) => {
-    const logo = await svc.themeAssets().brandLogo();
+  const brandImage = async (key: 'branding.logoAssetId' | 'branding.logoDarkAssetId' | 'branding.loginBgAssetId', reply: FastifyReply) => {
+    const logo = await svc.themeAssets().brandLogo(key);
     if (!logo) return reply.status(404).send({ error: 'NO_LOGO' });
     return reply
       .header('content-type', logo.mime)
@@ -203,7 +213,9 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       .header('x-content-type-options', 'nosniff')
       .header('content-security-policy', "default-src 'none'; sandbox")
       .send(logo.data);
-  });
+  };
+  app.get('/api/public/brand/logo', async (req, reply) => brandImage((req.query as { variant?: string }).variant === 'dark' ? 'branding.logoDarkAssetId' : 'branding.logoAssetId', reply));
+  app.get('/api/public/brand/background', async (_req, reply) => brandImage('branding.loginBgAssetId', reply));
   app.get('/api/public/terms', async () => ({ text: String(svc.settings.resolve()['system.termsText']) }));
 
   // ---------- přihlášení a účet ----------
