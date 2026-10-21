@@ -25,3 +25,17 @@ describe('veřejný přehled: nastavení', () => {
     expect(boardName('', 'initial')).toBe('?•••');
   });
 });
+
+import { defaultAppearance, sanitizeAppearance } from './public-board.js';
+
+describe('vzhled veřejného přehledu', () => {
+  it('výchozí vzhled a převzetí platných hodnot, mezí a neplatných voleb', () => {
+    expect(sanitizeAppearance(undefined)).toEqual(defaultAppearance());
+    const a = sanitizeAppearance({ background: 'gradient', tone: 'info', colorMode: 'dark', width: 'full', density: 'compact', logoSizePercent: 9999, bgOverlayPercent: -1, highlightTop: 99, logo: false, medals: false, footerText: '  Pokerová liga  ', header: 'nesmysl' });
+    expect(a).toMatchObject({ background: 'gradient', tone: 'info', colorMode: 'dark', width: 'full', density: 'compact', logoSizePercent: 400, bgOverlayPercent: 0, highlightTop: 10, logo: false, medals: false, footerText: 'Pokerová liga', header: 'card' });
+  });
+  it('vzhled je součástí nastavení přehledu a starý přehled bez vzhledu dostane výchozí', () => {
+    expect(sanitizeBoardConfig({ columns: ['profit'] }).appearance).toEqual(defaultAppearance());
+    expect(sanitizeBoardConfig({ appearance: { width: 'wide' } }).appearance.width).toBe('wide');
+  });
+});

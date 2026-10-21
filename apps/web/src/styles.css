@@ -1034,7 +1034,7 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Uvítací text mimo kartu leží na malém podkladu, aby byl čitelný na jakémkoli pozadí. */
 .tk-login-brand > .tk-login-tagline { align-self: center; margin-inline: auto; width: fit-content; padding: calc(var(--spacing) * 1) calc(var(--spacing) * 3); border-radius: var(--tk-shape-radiusMd); background: var(--tk-color-surface); box-shadow: var(--tk-shape-shadow); }
 /* Značka na přihlašovací stránce leží (podle nastavení) na podkladu karty, aby byla čitelná na jakémkoli pozadí. */
-.tk-login-bg[data-plate='card'] .tk-login-brand h1 > span {
+.tk-login-bg[data-plate='card'] .tk-login-brand h1 > span, .tk-login-bg[data-plate='card'] .tk-login-brand h2 > span {
   background: var(--tk-color-surface);
   border: var(--tk-shape-borderWidth) solid var(--tk-color-border);
   border-radius: var(--tk-shape-radiusLg);
@@ -1070,3 +1070,22 @@ label:has(> select) { min-width: 0; max-width: 100%; }
   .tk-compact-header > nav > div:not(#hlavni-nabidka) { white-space: nowrap; font-size: 0.8rem; padding-inline: calc(var(--spacing) * 1.5); }
   .tk-compact-header > nav button { white-space: nowrap; }
 }
+
+/* Veřejný přehled hráčů: rám s pozadím (stejné druhy jako přihlašovací stránka), šířka, hustota řádků, zvýraznění nejlepších. */
+.tk-board-frame { min-height: 100vh; }
+.tk-board-main { margin-inline: auto; display: flex; max-width: 56rem; flex-direction: column; gap: calc(var(--spacing) * 3); padding: calc(var(--spacing) * 4); }
+.tk-board-main[data-width='narrow'] { max-width: 40rem; }
+.tk-board-main[data-width='wide'] { max-width: 72rem; }
+.tk-board-main[data-width='full'] { max-width: none; }
+.tk-board-header { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--spacing) * 3); }
+.tk-board-header-card { padding: calc(var(--spacing) * 3) calc(var(--spacing) * 4); border-radius: var(--tk-shape-radiusLg); border: var(--tk-shape-borderWidth) solid var(--tk-color-border); background: var(--tk-color-surface); box-shadow: var(--tk-shape-shadow); }
+.tk-board-table, .tk-board-chart, .tk-board-empty { border-radius: var(--tk-shape-radiusMd); border: var(--tk-shape-borderWidth) solid var(--tk-color-border); background: var(--tk-color-surface); }
+.tk-board-chart, .tk-board-empty { padding: calc(var(--spacing) * 3); }
+.tk-board-cell { padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2); }
+.tk-board-main[data-density='compact'] .tk-board-cell { padding: calc(var(--spacing) * 0.5) calc(var(--spacing) * 1.5); }
+.tk-board-main[data-density='comfortable'] .tk-board-cell { padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3); }
+.tk-board-row { border-top: var(--tk-shape-borderWidth) solid var(--tk-color-border); }
+.tk-board-main[data-zebra='1'] .tk-board-row:nth-child(even) { background: var(--tk-color-surfaceRaised); }
+.tk-board-main .tk-board-top { background: color-mix(in srgb, var(--login-tone) 18%, var(--tk-color-surface)); }
+.tk-board-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: calc(var(--spacing) * 2); padding: calc(var(--spacing) * 1) calc(var(--spacing) * 3); border-radius: var(--tk-shape-radiusMd); background: var(--tk-color-surface); color: var(--tk-color-textMuted); font-size: 0.75rem; }
+.tk-board-preview { min-height: 0; max-height: 34rem; overflow: auto; border-radius: var(--tk-shape-radiusLg); border: var(--tk-shape-borderWidth) solid var(--tk-color-border); }

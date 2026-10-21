@@ -149,6 +149,12 @@ describe('veřejné přehledy hráčů', () => {
     expect(ok.statusCode).toBe(200);
     expect(ok.headers['x-robots-tag']).toContain('noindex');
     expect(ok.json().title).toBe('HTTP');
+    expect(ok.json().appearance).toMatchObject({ background: 'felt', width: 'normal', medals: true });
+    // vzhled uložený u přehledu se promítne do veřejné stránky
+    await c.server.publicBoards.update(c.admin, board.id, { config: { appearance: { width: 'wide', density: 'compact', colorMode: 'dark', footerText: 'Liga u Karla' } } });
+    c.clock.advance(60_000);
+    const styled = await c.server.app.inject({ method: 'GET', url: `/api/public/board/${board.token}` });
+    expect(styled.json().appearance).toMatchObject({ width: 'wide', density: 'compact', colorMode: 'dark', footerText: 'Liga u Karla' });
     expect((await c.server.app.inject({ method: 'GET', url: '/api/public/board/neexistuje-neexistuje-neexistuje' })).statusCode).toBe(404);
     expect((await c.server.app.inject({ method: 'GET', url: '/api/admin/public-boards' })).statusCode).toBe(401);
   });

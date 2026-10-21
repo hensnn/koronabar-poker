@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { and, asc, desc, eq, gt, gte, inArray, ne, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
-import { currencyFormsOf, boardName, effectiveColumns, rankFor, sanitizeBoardConfig, type BoardColumn, type CurrencyForms, type PermissionChecker, type PublicBoardConfig, type SettingValues } from '@kb/shared';
+import { type BoardAppearance, currencyFormsOf, boardName, effectiveColumns, rankFor, sanitizeBoardConfig, type BoardColumn, type CurrencyForms, type PermissionChecker, type PublicBoardConfig, type SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import type { RatingService } from './rating.js';
@@ -57,6 +57,8 @@ export interface PublicBoardView {
   refreshSeconds: number;
   /** Vývoj zisku z turnajů v čase pro nejlepší hráče (prázdné, když graf nebo částky nejsou zapnuté). */
   chart: { id: string; name: string; points: [number, number][] }[];
+  /** Vzhled stránky (logo, pozadí, barvy, hustota…). */
+  appearance: BoardAppearance;
 }
 
 interface Deps {
@@ -180,7 +182,7 @@ export class PublicBoardService {
 
     const ids = new Set<string>([...leader.map((r) => r.userId), ...progress.map((r) => r.userId), ...ratings.map((r) => r.userId)]);
     for (const h of c.hiddenUserIds) ids.delete(h);
-    if (ids.size === 0) return { title: c.title || name, subtitle: c.subtitle, columns, rows: [], currencyForms: currencyFormsOf(s), updatedAt: now, refreshSeconds: c.refreshSeconds, chart: [] };
+    if (ids.size === 0) return { title: c.title || name, subtitle: c.subtitle, columns, rows: [], currencyForms: currencyFormsOf(s), updatedAt: now, refreshSeconds: c.refreshSeconds, chart: [], appearance: c.appearance };
     const users = await this.deps.db
       .select({ id: schema.users.id, nickname: schema.users.nickname })
       .from(schema.users)
@@ -253,7 +255,7 @@ export class PublicBoardService {
       return row;
     });
     const chart = c.showChart && c.showMoney ? await this.chart(list.slice(0, c.chartPlayers).map((x) => ({ id: x.id, name: boardName(x.nickname, c.nameMode) })), range.from) : [];
-    return { title: c.title || name, subtitle: c.subtitle, columns, rows, currencyForms: currencyFormsOf(s), updatedAt: now, refreshSeconds: c.refreshSeconds, chart };
+    return { title: c.title || name, subtitle: c.subtitle, columns, rows, currencyForms: currencyFormsOf(s), updatedAt: now, refreshSeconds: c.refreshSeconds, chart, appearance: c.appearance };
   }
 
   /** Kumulovaný zisk z turnajů (výplata + bounty − vstupy) v čase pro vybrané hráče. */

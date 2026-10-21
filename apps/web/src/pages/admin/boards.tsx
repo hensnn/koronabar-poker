@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BOARD_COLUMNS, BOARD_SORTS, defaultBoardConfig, sanitizeBoardConfig, t, type PublicBoardConfig } from '@kb/shared';
 import { del, errorText, get, post, put } from '../../api';
 import { Button, Card, Modal, NumInput, Notice, Select, TextInput } from '../../ui';
+import { BoardAppearanceEditor } from './boards-appearance';
 
 interface BoardRow {
   id: string;
@@ -131,6 +132,7 @@ function BoardForm({ board, users, onClose, onSave }: { board: BoardRow; users: 
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={c.showMoney} onChange={(e) => set('showMoney', e.target.checked)} />{t('boards.f.showMoney')}</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={c.showChart} onChange={(e) => set('showChart', e.target.checked)} />{t('boards.f.showChart')}</label>
         {c.showChart && <label className="flex flex-col gap-1 text-sm">{t('boards.f.chartPlayers')}<NumInput value={c.chartPlayers} min={1} max={10} onChange={(n) => set('chartPlayers', n)} /><span className="text-xs text-muted">{t('boards.f.chartPlayers.help')}</span></label>}
+        <BoardAppearanceEditor config={c} onChange={(a) => set('appearance', a)} />
         <fieldset className="flex flex-col gap-1">
           <legend className="text-sm">{t('boards.f.hidden')}</legend>
           <p className="text-xs text-muted">{t('boards.f.hidden.help')}</p>

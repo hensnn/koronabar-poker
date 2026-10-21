@@ -13,6 +13,81 @@ export const MONEY_COLUMNS: readonly BoardColumn[] = ['profit', 'cashProfit', 't
 export const BOARD_SORTS = ['profit', 'xp', 'rating', 'wins', 'games'] as const;
 export type BoardSort = (typeof BOARD_SORTS)[number];
 
+/** Vzhled veřejného přehledu: logo, pozadí, barva z motivu, barevný režim, šířka, hustota řádků, zvýraznění nejlepších a patička. */
+export const BOARD_BACKGROUNDS = ['plain', 'felt', 'gradient', 'suits', 'image'] as const;
+export const BOARD_TONES = ['primary', 'secondary', 'accent', 'info'] as const;
+export const BOARD_MODES = ['auto', 'light', 'dark'] as const;
+export const BOARD_WIDTHS = ['narrow', 'normal', 'wide', 'full'] as const;
+export const BOARD_DENSITIES = ['compact', 'normal', 'comfortable'] as const;
+export const BOARD_HEADERS = ['card', 'plain'] as const;
+
+export interface BoardAppearance {
+  /** Logo aplikace v záhlaví přehledu, nebo žádné. */
+  logo: boolean;
+  logoSizePercent: number;
+  background: (typeof BOARD_BACKGROUNDS)[number];
+  tone: (typeof BOARD_TONES)[number];
+  /** Ztmavení obrázku pozadí (0 až 90 %); obrázek je pozadí přihlašovací stránky. */
+  bgOverlayPercent: number;
+  /** Barevný režim stránky: podle zařízení, vždy světlý, vždy tmavý. */
+  colorMode: (typeof BOARD_MODES)[number];
+  width: (typeof BOARD_WIDTHS)[number];
+  density: (typeof BOARD_DENSITIES)[number];
+  header: (typeof BOARD_HEADERS)[number];
+  zebra: boolean;
+  /** Medaile u prvních tří míst. */
+  medals: boolean;
+  /** Kolik nejlepších řádků je zvýrazněných (0 až 10). */
+  highlightTop: number;
+  showUpdated: boolean;
+  footerText: string;
+}
+
+export const defaultAppearance = (): BoardAppearance => ({
+  logo: true,
+  logoSizePercent: 100,
+  background: 'felt',
+  tone: 'primary',
+  bgOverlayPercent: 40,
+  colorMode: 'auto',
+  width: 'normal',
+  density: 'normal',
+  header: 'card',
+  zebra: true,
+  medals: true,
+  highlightTop: 3,
+  showUpdated: true,
+  footerText: '',
+});
+
+const oneOf = <T extends string>(list: readonly T[], v: unknown, def: T): T => (list.includes(v as T) ? (v as T) : def);
+
+/** Ověří vzhled přehledu; neplatné hodnoty nahradí výchozími. */
+export function sanitizeAppearance(raw: unknown): BoardAppearance {
+  const d = defaultAppearance();
+  const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const n = (v: unknown, def: number, min: number, max: number) => {
+    const x = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(x) ? Math.min(max, Math.max(min, Math.round(x))) : def;
+  };
+  return {
+    logo: r.logo === false ? false : true,
+    logoSizePercent: n(r.logoSizePercent, d.logoSizePercent, 40, 400),
+    background: oneOf(BOARD_BACKGROUNDS, r.background, d.background),
+    tone: oneOf(BOARD_TONES, r.tone, d.tone),
+    bgOverlayPercent: n(r.bgOverlayPercent, d.bgOverlayPercent, 0, 90),
+    colorMode: oneOf(BOARD_MODES, r.colorMode, d.colorMode),
+    width: oneOf(BOARD_WIDTHS, r.width, d.width),
+    density: oneOf(BOARD_DENSITIES, r.density, d.density),
+    header: oneOf(BOARD_HEADERS, r.header, d.header),
+    zebra: r.zebra === false ? false : true,
+    medals: r.medals === false ? false : true,
+    highlightTop: n(r.highlightTop, d.highlightTop, 0, 10),
+    showUpdated: r.showUpdated === false ? false : true,
+    footerText: typeof r.footerText === 'string' ? r.footerText.trim().slice(0, 200) : d.footerText,
+  };
+}
+
 export interface PublicBoardConfig {
   /** Nadpis stránky (prázdný = název přehledu). */
   title: string;
@@ -37,6 +112,8 @@ export interface PublicBoardConfig {
   showChart: boolean;
   /** Kolik nejlepších hráčů má graf (1 až 10). */
   chartPlayers: number;
+  /** Vzhled stránky přehledu. */
+  appearance: BoardAppearance;
 }
 
 export const defaultBoardConfig = (): PublicBoardConfig => ({
@@ -54,6 +131,7 @@ export const defaultBoardConfig = (): PublicBoardConfig => ({
   refreshSeconds: 60,
   showChart: true,
   chartPlayers: 5,
+  appearance: defaultAppearance(),
 });
 
 const int = (v: unknown, def: number, min: number, max: number): number => {
@@ -85,6 +163,7 @@ export function sanitizeBoardConfig(raw: unknown): PublicBoardConfig {
     refreshSeconds: int(r.refreshSeconds, d.refreshSeconds, 0, 3600),
     showChart: r.showChart === false ? false : true,
     chartPlayers: int(r.chartPlayers, d.chartPlayers, 1, 10),
+    appearance: sanitizeAppearance(r.appearance),
   };
 }
 
