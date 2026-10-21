@@ -236,6 +236,11 @@ describe('HTTP API: správa', () => {
     expect((await admin.call('PUT', '/api/settings/global', { key: 'economy.startingBalance', value: 5000 })).status).toBe(200);
     expect((await admin.call('GET', '/api/settings/global')).json.values['economy.startingBalance']).toBe(5000);
     expect((await admin.call('PUT', '/api/settings/global', { key: 'economy.startingBalance', value: -5 })).json.code).toBe('SETTINGS_INVALID');
+    // uloženou obecnou hodnotu jde odstranit (vrací se výchozí), hráč to nesmí
+    expect((await hrac.c.call('DELETE', '/api/settings/global/economy.startingBalance')).status).toBe(403);
+    expect((await admin.call('DELETE', '/api/settings/global/economy.startingBalance')).status).toBe(200);
+    expect((await admin.call('GET', '/api/settings/global')).json.values['economy.startingBalance']).toBeUndefined();
+    await admin.call('PUT', '/api/settings/global', { key: 'economy.startingBalance', value: 5000 });
     const audit = (await admin.call('GET', '/api/admin/audit?limit=20')).json as { action: string; after: any }[];
     expect(audit.find((a) => a.action === 'nastaveni.zmena')!.after['economy.startingBalance']).toBe(5000);
   });

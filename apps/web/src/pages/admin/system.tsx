@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, parseList, scopeAllowed, t, validateValues, type SettingValue, type SettingValues } from '@kb/shared';
+import { EMAIL_TEMPLATES, SECRETS, labelKey, SMTP_PRESETS, parseList, scopeAllowed, t, validateValues, type SettingValue, type SettingValues } from '@kb/shared';
 import { errorText, get, post, put, del } from '../../api';
 import { can, useSession } from '../../session';
-import { loadSettings, registry, saveGlobalSetting, useSettings } from '../../settings';
+import { loadSettings, registry, resetGlobalSetting, saveGlobalSetting, useSettings } from '../../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, Card, DataTable, Notice, Select, Tabs, Td, TextArea, TextInput } from '../../ui';
 
@@ -49,6 +49,7 @@ export function GlobalSettingsPage({ personal = false }: { personal?: boolean })
           </Button>
         </Card>
       )}
+      {!personal && <InheritedGameValues global={settings.global} onDone={(m) => setMsg(m)} />}
       <SettingsForm
         registry={registry}
         values={values}
@@ -63,6 +64,48 @@ export function GlobalSettingsPage({ personal = false }: { personal?: boolean })
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       <UnsavedBar count={Object.keys(pending).length} disabled={problems.length > 0} onSave={() => void save()} onDiscard={() => setPending({})} problems={problems} />
     </div>
+  );
+}
+
+/**
+ * Dříve zadané obecné hodnoty herních nastavení: už se nedají upravit, ale dál platí pro šablony, které je samy nenastavují.
+ * Sekce je vidět jen když nějaké existují; každou lze odstranit (platí pak výchozí hodnota nebo hodnota šablony).
+ */
+function InheritedGameValues({ global, onDone }: { global: Partial<SettingValues>; onDone: (m: { kind: 'error' | 'success'; text: string }) => void }) {
+  const left = Object.keys(global).filter((k) => {
+    const d = registry.get(k);
+    return !!d && d.scopes === undefined;
+  });
+  if (left.length === 0) return null;
+  const show = (v: SettingValue) => (typeof v === 'boolean' ? (v ? t('common.yes') : t('common.no')) : String(v));
+  const drop = async (keys: string[]) => {
+    try {
+      for (const k of keys) await resetGlobalSetting(k);
+      void loadSettings().catch(() => undefined);
+      onDone({ kind: 'success', text: t('admin.inherited.done', { n: keys.length }) });
+    } catch (e) {
+      onDone({ kind: 'error', text: errorText(e) });
+    }
+  };
+  return (
+    <Card title={t('admin.inherited.title', { n: left.length })}>
+      <p className="mb-2 text-sm text-muted">{t('admin.inherited.help')}</p>
+      <DataTable head={[t('admin.inherited.setting'), t('admin.inherited.value'), t('admin.inherited.default'), '']}>
+        {left.map((k) => (
+          <tr key={k}>
+            <Td>{t(labelKey(k))}</Td>
+            <Td className="font-mono">{show(global[k] as SettingValue)}</Td>
+            <Td className="font-mono">{show(registry.get(k)!.default as SettingValue)}</Td>
+            <Td>
+              <Button onClick={() => void drop([k])}>{t('admin.inherited.remove')}</Button>
+            </Td>
+          </tr>
+        ))}
+      </DataTable>
+      <div className="mt-2">
+        <Button onClick={() => confirm(t('admin.inherited.confirmAll', { n: left.length })) && void drop(left)}>{t('admin.inherited.removeAll')}</Button>
+      </div>
+    </Card>
   );
 }
 

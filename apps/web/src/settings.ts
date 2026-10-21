@@ -132,6 +132,20 @@ export async function saveGlobalSetting(key: string, value: SettingValue): Promi
   }
 }
 
+/** Odstraní uloženou globální hodnotu (správce): platí zase výchozí. */
+export async function resetGlobalSetting(key: string): Promise<void> {
+  const before = state.global;
+  const { [key]: _drop, ...rest } = before;
+  written.global.add(key);
+  set({ global: rest });
+  try {
+    await del(`/api/settings/global/${encodeURIComponent(key)}`);
+  } catch (e) {
+    set({ global: before });
+    throw e;
+  }
+}
+
 export async function resetUserSetting(key: string, deviceOnly = false): Promise<void> {
   const layer = deviceOnly ? 'device' : 'user';
   const { [key]: _drop, ...rest } = state[layer];

@@ -315,6 +315,12 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     return reply.send({ ok: true });
   }));
 
+  app.delete('/api/settings/global/:key', guard(async (req, reply) => {
+    const u = need(req);
+    await svc.settings.reset(u.id, 'global', '', (req.params as { key: string }).key, meta(req));
+    return reply.send({ ok: true });
+  }));
+
   // ---------- správa uživatelů a pozvánek ----------
 
   app.get('/api/admin/users', guard(async (req, reply) => reply.send(await svc.accounts.listUsers(need(req).id))));
