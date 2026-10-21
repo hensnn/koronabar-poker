@@ -358,6 +358,7 @@ export class TournamentManager {
       participants: st.players.filter((p) => p.status !== 'out' || st.status === 'registering').map((p) => p.userId),
       rebuyOpen,
       winnerId: st.results?.[0]?.userId ?? null,
+      headBounty: !!s['tournament.headBounty'],
     };
   }
 

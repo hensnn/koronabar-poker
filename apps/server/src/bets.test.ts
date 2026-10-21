@@ -377,4 +377,17 @@ describe('odměna na hlavu', { timeout: 90_000 }, () => {
     const h = await setup(off);
     expect(await code(off.server.headBounties.post(h.a, h.id, h.b, 50))).toBe('DISABLED');
   });
+
+  it('odměny na hlavu lze vypnout jen pro jeden turnaj (nastavení turnaje), obecné zapnutí zůstává', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const [a, b] = [await s.user(), await s.user()];
+    const { id } = await s.server.tournaments.create(org, { name: 'Bez hlav', templateId: 'tour-turbo', settings: { ...LIVE, 'tournament.headBounty': false } });
+    for (const p of [a, b]) await s.server.tournaments.liveRegister(org, id, p);
+    expect(await code(s.server.headBounties.post(a, id, b, 50))).toBe('DISABLED');
+    expect((await s.server.headBounties.list(id)).enabled).toBe(false);
+    const g = await setup(s);
+    await s.server.headBounties.post(g.a, g.id, g.b, 20);
+    expect((await s.server.headBounties.list(g.id)).enabled).toBe(true);
+  });
 });

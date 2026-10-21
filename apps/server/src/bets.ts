@@ -23,6 +23,8 @@ export interface BetFacts extends TournamentFacts {
   /** Je ještě otevřené rebuy období (před startem také)? */
   rebuyOpen: boolean;
   winnerId: string | null;
+  /** Povolil turnaj odměny na hlavu (nastavení turnaje)? */
+  headBounty: boolean;
 }
 
 interface Deps {
@@ -429,6 +431,7 @@ export class HeadBountyService {
       if (!this.deps.perms.can(userId, 'sazky.hlava').allowed) throw new BetError('FORBIDDEN');
       const f = this.deps.facts(tournamentId);
       if (!f) throw new BetError('NOT_FOUND');
+      if (!f.headBounty) throw new BetError('DISABLED');
       if (f.status !== 'registering' && f.status !== 'running') throw new BetError('CLOSED');
       if (targetId === userId) throw new BetError('SELF');
       if (!f.participants.includes(targetId)) throw new BetError('NOT_ELIGIBLE');
@@ -528,7 +531,7 @@ export class HeadBountyService {
     const nicks = ids.length ? new Map((await this.deps.db.select({ id: schema.users.id, n: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, ids))).map((u) => [u.id, u.n])) : new Map<string, string>();
     const s = this.s();
     return {
-      enabled: !!s['headBounty.enabled'],
+      enabled: !!s['headBounty.enabled'] && (this.deps.facts(tournamentId)?.headBounty ?? true),
       limits: { min: Number(s['headBounty.min']), max: Number(s['headBounty.max']), maxPerPoster: Number(s['headBounty.maxPerPoster']) },
       bounties: rows.map((r) => ({ id: r.id, target: { userId: r.targetId, nickname: nicks.get(r.targetId) ?? '' }, poster: { userId: r.posterId, nickname: nicks.get(r.posterId) ?? '' }, amount: r.amount, status: r.status, paidTo: r.paidTo })),
     };

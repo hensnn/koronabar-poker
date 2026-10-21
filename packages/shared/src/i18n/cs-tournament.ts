@@ -243,7 +243,6 @@ export const csTournament: Record<string, string> = {
   'chat.sys.jackpotBadBeat': 'Bad beat jackpot! {nick} dostává {amount}.',
 
   'settings.category.tournament': 'Turnaj',
-  'settings.category.tournamentRebuy': 'Turnaj: rebuy, add-on, re-entry',
   'settings.category.tournamentPayout': 'Turnaj: výplaty',
 
   'settings.tournament.buyIn.label': 'Buy-in',
@@ -323,7 +322,6 @@ export const csTournament: Record<string, string> = {
   'settings.tournament.reentryMax.label': 'Nejvíc re-entry na hráče',
   'settings.tournament.reentryMax.help': 'Kolikrát smí jeden hráč do turnaje vstoupit znovu.',
 
-  'settings.category.tournamentBounty': 'Turnaj: bounty',
   'settings.tournament.bountyType.label': 'Bounty (odměny za vyřazení)',
   'settings.tournament.bountyType.help': 'Fixní: za vyřazení dostaneš pevnou odměnu. PKO: část odměny dostaneš hned a zbytek se přičte k tvé vlastní hlavě. Mystery: odměna je překvapení, ukáže se až po vyřazení.',
   'settings.tournament.bountyType.option.none': 'Bez bounty',
@@ -1771,6 +1769,8 @@ export const csTournament: Record<string, string> = {
   'settings.tournament.reminders.help': 'Minuty před startem, kdy se registrovaným hráčům pošle připomenutí (např. 1440, 60, 10).',
   'settings.tournament.autoPauseBelow.label': 'Automatická pauza pod … připojenými hráči',
   'settings.tournament.autoPauseBelow.help': 'Když klesne počet připojených hráčů pod tuto hranici, turnaj se sám pozastaví a po návratu hráčů pokračuje. 0 = vypnuto.',
+  'settings.tournament.headBounty.label': 'Povolit odměny na hlavu',
+  'settings.tournament.headBounty.help': 'Hráči mohou v tomto turnaji vypisovat odměny na hlavu jiných hráčů. Platí jen když jsou odměny na hlavu zapnuté i obecně (v nastavení Speciální prvky); limity částek zůstávají společné.',
   'settings.tournament.dealEnabled.label': 'Povolit dohodu (deal)',
   'settings.tournament.dealEnabled.help': 'Zbývající hráči se mohou dohodnout na rozdělení prize poolu. Platí jen při souhlasu všech.',
   'settings.tournament.dealIcm.label': 'Dohoda: ICM',

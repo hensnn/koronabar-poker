@@ -108,6 +108,7 @@
 ### Hotovo (kroky 3.7 a 3.8)
 - **Režimy time banku** (`time.bankMode`): společná rezerva (dosavadní), časové žetony (počet a délka z nastavení), šachové hodiny, Fischer (přírůstek po tahu), Bronstein (vrácení nejvýš spotřebovaného), jen pevný limit tahu (shot clock). Doplňování rezervy po N handách se stropem. Odpojený hráč čeká dál jen po dobu prodlevy pro odpojené. U sedadla se ukazuje skutečná rezerva.
 - **Zavolání času** (`time.callClockEnabled`): hráč v handě zkrátí tah soupeře na zadaný čas, rezerva soupeře se nepoužije, jednou za tah. Tlačítko u stolu, příkaz `table:callClock` přes oprávnění a rate limit.
+- **Speciální prvky jsou na jednom místě**: v kategorii Speciální prvky najdete rebuy, add-on, re-entry, bounty, dohodu (deal), sázky a odměny na hlavu. U turnaje přibylo nastavení „Povolit odměny na hlavu“ (obecný vypínač zůstává hlavní, limity jsou společné).
 - **Vyúčtování – úplný rozpad**: tabulka hráčů i každé hry má sloupce Cash vklady a výběry, Buy-in (včetně poplatku), Rebuy, Add-on, Výhra, Bounty, Vrácení a Výsledek (součet); prázdné sloupce se skrývají, hráč bez oprávnění vidí jen svůj řádek.
 - **Vyúčtování období** (Peněženka → Vyúčtování večera): cash a turnaje zvlášť i dohromady, rozpad po hrách, součty, zisk herny a minimální převody. U cash stolů, kde hráč ještě sedí, se počítají žetony u stolu. Oprávnění `mena.vyuctovani` vidí všechny, ostatní jen svůj řádek a své převody. Přibyly české názvy nových typů pohybů v historii.
 - Testů celkem: 343 (časové režimy mají vlastní sadu i simulace s boty), `pnpm -r typecheck` čistý.
