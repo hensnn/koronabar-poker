@@ -481,9 +481,9 @@ describe('AI asistent: úspora a ochrana limitů (bezplatný plán)', { timeout:
     const c = await start({ 'assistant.localFirst': false }, sp.provider);
     await c.server.assistant.chat(c.admin, { text: 'vysvětli mi sázky na turnaj', context: 'rules' });
     await c.server.assistant.chat(c.admin, { text: 'vysvětli mi sázky na turnaj', context: 'admin' });
-    expect(sp.seen[0]!.model).toBe('gemini-2.5-flash-lite');
+    expect(sp.seen[0]!.model).toBe('gemini-3.5-flash-lite');
     expect(sp.seen[0]!.tools.some((t) => t.name.startsWith('propose'))).toBe(false);
-    expect(sp.seen[1]!.model).toBe('gemini-2.5-flash');
+    expect(sp.seen[1]!.model).toBe('gemini-3.5-flash');
     expect(sp.seen[1]!.tools.some((t) => t.name.startsWith('propose'))).toBe(true);
     // vlastní model pro vysvětlování má přednost
     const own = scripted([say('ok')]);

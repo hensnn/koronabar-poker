@@ -117,7 +117,7 @@ const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 /** Kontexty, kde asistent hlavně vysvětluje (bez návrhů změn): stačí rychlejší model a menší sada nástrojů. */
 const EXPLAIN_CONTEXTS: readonly string[] = ['rules', 'lobby', 'table'];
 /** Výchozí rychlý model poskytovatele pro vysvětlování, když správce nezadal vlastní. */
-const FAST_MODEL: Record<AiProviderId, string> = { gemini: 'gemini-2.5-flash-lite', anthropic: 'claude-haiku-5-5', openai: 'gpt-4.1-mini', compatible: '' };
+const FAST_MODEL: Record<AiProviderId, string> = { gemini: 'gemini-3.5-flash-lite', anthropic: 'claude-haiku-5-5', openai: 'gpt-4.1-mini', compatible: '' };
 
 export class AssistantService {
   /** Časy posledních volání modelu (posuvné okno jedné minuty) pro omezení za minutu. */

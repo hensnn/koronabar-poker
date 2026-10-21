@@ -249,7 +249,7 @@ const stats: SettingDef[] = [
 const themeSettings: SettingDef[] = [
   bool('assistant.enabled', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, true),
   choice('assistant.provider', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, 'gemini', ['gemini', 'anthropic', 'openai', 'compatible']),
-  text('assistant.modelGemini', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, 'gemini-2.5-flash', 80),
+  text('assistant.modelGemini', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, 'gemini-3.5-flash', 80),
   text('assistant.modelAnthropic', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, 'claude-sonnet-5-5', 80),
   text('assistant.modelOpenai', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, 'gpt-4.1', 80),
   text('assistant.modelCompatible', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, '', 80),

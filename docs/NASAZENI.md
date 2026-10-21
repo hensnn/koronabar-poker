@@ -319,10 +319,12 @@ Korony jsou společná měna více vašich aplikací (her), proto si hráč mů�
 ## AI asistent: úspora a bezplatný plán Gemini
 
 Asistent je nastavený tak, aby s bezplatným plánem Gemini (nízké limity volání) vystačil:
-- **Rychlý a hlavní model:** otázky na vysvětlení (kontexty Pravidla, Lobby, Stůl) běží na rychlém modelu `gemini-2.5-flash-lite` a bez nástrojů pro návrhy změn; návrhy změn a plánování na hlavním modelu `gemini-2.5-flash`. Vlastní modely nastavíš v Nastavení → Asistent (Model pro vysvětlování, Model pro plánování).
+- **Rychlý a hlavní model:** otázky na vysvětlení (kontexty Pravidla, Lobby, Stůl) běží na rychlém modelu `gemini-3.5-flash-lite` a bez nástrojů pro návrhy změn; návrhy změn a plánování na hlavním modelu `gemini-3.5-flash`. Vlastní modely nastavíš v Nastavení → Asistent (Model pro vysvětlování, Model pro plánování).
 - **Nejdřív návod:** jednoduché otázky typu „co je straddle“ se zodpoví přímo z návodu **bez volání AI** (nestojí limit poskytovatele ani denní limity). Zopakuješ-li stejnou otázku, odpoví už model. Žádosti o změnu jdou vždy na model. Vypíná se volbou „Nejdřív odpovědět z návodu“.
 - **Limit za minutu:** aplikace pošle nejvýš 8 volání modelu za minutu (bezplatný plán povoluje asi 10). Nad limit se dotaz hned odmítne hláškou „zkus za X s“, poskytovatel se nezahltí.
 - **Celkový časový strop 90 s** na jednu otázku (místo násobků limitu jednoho volání). Vypršení času a vyčerpaný limit poskytovatele se už neopakují.
 - **Kratší kontext:** historie 6 zpráv, nejvýš 4 kroky s nástroji, výsledky nástrojů zkrácené na 3000 znaků.
 - **Spotřeba:** ve Správa → Asistent → Spotřeba je počet dotazů, tokenů a odpovědí z návodu bez AI; od 80 % denního limitu se ukáže upozornění (i v okně asistenta).
 Všechny hodnoty se mění v Nastavení → Asistent.
+
+**Změna modelu Gemini:** Starší modely Gemini 2.5 už nefungují, výchozí je proto `gemini-3.5-flash` (hlavní) a `gemini-3.5-flash-lite` (rychlý). Pokud jsi si název modelu dříve ukládal v Nastavení → Asistent, uložená hodnota má přednost: přepiš ji na `gemini-3.5-flash` (nebo smaž pomocí tlačítka pro výchozí hodnotu). Přesné názvy modelů a limity bezplatného plánu najdeš v dokumentaci Google AI Studio; po změně ověř tlačítkem „Vyzkoušet připojení“ ve Správa → Asistent.

@@ -1521,7 +1521,7 @@ export const csTournament: Record<string, string> = {
   'settings.assistant.provider.option.openai': 'OpenAI',
   'settings.assistant.provider.option.compatible': 'Rozhraní kompatibilní s OpenAI (vlastní)',
   'settings.assistant.modelGemini.label': 'Model Gemini',
-  'settings.assistant.modelGemini.help': 'Název modelu u Google (například gemini-2.5-flash).',
+  'settings.assistant.modelGemini.help': 'Název modelu u Google (například gemini-3.5-flash).',
   'settings.assistant.modelAnthropic.label': 'Model Claude',
   'settings.assistant.modelAnthropic.help': 'Název modelu Claude, který AI asistent používá (např. claude-sonnet-5-5).',
   'settings.assistant.modelOpenai.label': 'Model OpenAI',
