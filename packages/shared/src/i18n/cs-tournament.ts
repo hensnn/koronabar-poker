@@ -187,7 +187,6 @@ export const csTournament: Record<string, string> = {
 
   // ----- rake a jackpoty -----
   'settings.category.rake': 'Rake',
-  'settings.category.jackpot': 'Jackpoty',
   'settings.rake.enabled.label': 'Vybírat rake',
   'settings.rake.enabled.help': 'Herna si z každého potu strhne malé procento. Hráči ho vidí u stolu předem.',
   'settings.rake.percent.label': 'Rake v procentech z potu',

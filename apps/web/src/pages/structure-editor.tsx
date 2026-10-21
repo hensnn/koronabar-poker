@@ -125,6 +125,37 @@ export function TournamentBasics({ values, set }: { values: SettingValues; set: 
           )}
         </div>
       </div>
+      <div className="mt-3 grid gap-3 border-t border-line pt-3 sm:grid-cols-2">
+        <h4 className="font-medium sm:col-span-2">{t('basics.special')}</h4>
+        <div className="flex flex-col gap-2">
+          <Toggle k="tournament.reentryEnabled" values={values} set={set} />
+          {values['tournament.reentryEnabled'] && (
+            <div className="flex flex-wrap gap-3 pl-6">
+              <NumField k="tournament.reentryMax" values={values} set={set} min={1} label={t('basics.maxCount')} />
+            </div>
+          )}
+          <Toggle k="tournament.dealEnabled" values={values} set={set} />
+          <Toggle k="tournament.headBounty" values={values} set={set} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-wrap items-center gap-2 text-sm">
+            {t(labelKey('tournament.bountyType'))}
+            <select className={selectCls} value={String(values['tournament.bountyType'])} onChange={(e) => set('tournament.bountyType', e.target.value)}>
+              {['none', 'fixed', 'pko', 'mystery'].map((o) => (
+                <option key={o} value={o}>
+                  {t(optionKey('tournament.bountyType', o))}
+                </option>
+              ))}
+            </select>
+          </label>
+          {values['tournament.bountyType'] !== 'none' && (
+            <div className="flex flex-wrap gap-3 pl-6">
+              <NumField k="tournament.bountyPercent" values={values} set={set} />
+              {values['tournament.bountyType'] === 'pko' && <NumField k="tournament.pkoCashPercent" values={values} set={set} />}
+            </div>
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

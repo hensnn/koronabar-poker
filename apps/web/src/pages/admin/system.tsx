@@ -34,6 +34,7 @@ export function GlobalSettingsPage({ personal = false }: { personal?: boolean })
   return (
     <div className="flex flex-col gap-3">
       <Notice>{t(personal ? 'admin.personalDefaults.info' : 'admin.globalSettings.info')}</Notice>
+      {!personal && <Notice>{t('admin.globalSettings.tournamentNote')}</Notice>}
       {personal && (
         <Card title={t('admin.personalDefaults.takeTitle')}>
           <p className="mb-2 text-sm text-muted">{t('admin.personalDefaults.takeHelp')}</p>
@@ -56,7 +57,7 @@ export function GlobalSettingsPage({ personal = false }: { personal?: boolean })
         onChange={(k, v) => setPending({ ...pending, [k]: v })}
         onReset={(k) => setPending(Object.fromEntries(Object.entries(pending).filter(([x]) => x !== k)))}
         issues={issues}
-        allowedKeys={(d) => (personal ? isPersonal(d) : (scopeAllowed(d.scopes, 'global') || d.scopes === undefined) && !isPersonal(d))}
+        allowedKeys={(d) => (personal ? isPersonal(d) : (scopeAllowed(d.scopes, 'global') || d.scopes === undefined) && !isPersonal(d) && d.appliesTo !== 'tournament')}
         pendingKeys={Object.keys(pending)}
       />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}

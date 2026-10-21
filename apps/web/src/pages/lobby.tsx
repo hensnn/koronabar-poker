@@ -205,6 +205,7 @@ export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', pos
           ))}
         </fieldset>
         {top?.({ values: resolved.values, set: (k, v) => setOverrides((o) => ({ ...o, [k]: v })) })}
+        {extras?.({ values: resolved.values, set: (k, v) => setOverrides((o) => ({ ...o, [k]: v })) })}
         <Button onClick={() => setAdvanced(!advanced)}>{advanced ? t('lobby.hideAdvanced') : t('lobby.showAdvanced')}</Button>
         {advanced && (
           <SettingsForm
@@ -219,7 +220,6 @@ export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', pos
             gameKind={kind}
           />
         )}
-        {extras?.({ values: resolved.values, set: (k, v) => setOverrides((o) => ({ ...o, [k]: v })) })}
         {error && <Notice kind="error">{error}</Notice>}
         <div className="flex gap-2">
           <Button

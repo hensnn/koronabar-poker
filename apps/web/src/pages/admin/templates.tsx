@@ -172,6 +172,7 @@ function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template
   const issues = useMemo(() => validateValues(registry, values), [values]);
   const problems = blockingIssues(issues, dirty.length ? dirty : Object.keys(values));
   const gameKind = kind === 'live' ? 'tournament' : kind;
+  const [advanced, setAdvanced] = useState(gameKind !== 'tournament');
   const setOne = (k: string, v: SettingValue) => {
     setValues((cur) => ({ ...cur, [k]: v }));
     setDirty((d) => (d.includes(k) ? d : [...d, k]));
@@ -195,30 +196,36 @@ function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template
           <option value={kind}>{t(`templates.kind.${kind}`)}</option>
         </Select>
         {gameKind === 'tournament' && <TournamentBasics values={resolved.values} set={setOne} />}
-        <SettingsForm
-          registry={registry}
-          values={resolved.values}
-          origins={Object.fromEntries(registry.all().map((d) => [d.key, d.key in values ? 'template' : 'default']))}
-          editScope="template"
-          onChange={(k, v) => {
-            setValues({ ...values, [k]: v });
-            setDirty((d) => (d.includes(k) ? d : [...d, k]));
-          }}
-          onReset={(k) => {
-            setValues(Object.fromEntries(Object.entries(values).filter(([x]) => x !== k)));
-            setDirty((d) => (d.includes(k) ? d : [...d, k]));
-          }}
-          issues={issues}
-          allowedKeys={templateScoped}
-          gameKind={gameKind}
-          pendingKeys={dirty}
-        />
         {gameKind === 'tournament' && (
           <>
             <StructureEditor values={resolved.values} set={setOne} />
             <MoneyPreview values={resolved.values} />
             <RebuyCard values={resolved.values} set={setOne} />
           </>
+        )}
+        {gameKind === 'tournament' && <Button onClick={() => setAdvanced(!advanced)}>{advanced ? t('lobby.hideAdvanced') : t('lobby.showAdvanced')}</Button>}
+        {advanced && (
+          <>
+            <p className="text-sm text-muted">{t('basics.advancedHelp')}</p>
+          <SettingsForm
+            registry={registry}
+            values={resolved.values}
+            origins={Object.fromEntries(registry.all().map((d) => [d.key, d.key in values ? 'template' : 'default']))}
+            editScope="template"
+            onChange={(k, v) => {
+              setValues({ ...values, [k]: v });
+              setDirty((d) => (d.includes(k) ? d : [...d, k]));
+            }}
+            onReset={(k) => {
+              setValues(Object.fromEntries(Object.entries(values).filter(([x]) => x !== k)));
+              setDirty((d) => (d.includes(k) ? d : [...d, k]));
+            }}
+            issues={issues}
+            allowedKeys={templateScoped}
+            gameKind={gameKind}
+            pendingKeys={dirty}
+          />
+            </>
         )}
         {error && <Notice kind="error">{error}</Notice>}
         <div className="flex gap-2">
