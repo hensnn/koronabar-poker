@@ -443,3 +443,96 @@ describe('poskytovatelé AI: převod požadavků a odpovědí', () => {
     await expect(createProvider('openai', { apiKey: 'K', fetcher: f }).complete(req())).rejects.toMatchObject({ detail: 'Quota exceeded', status: 429 });
   });
 });
+
+describe('AI asistent: úspora a ochrana limitů (bezplatný plán)', { timeout: 90_000 }, () => {
+  it('jednoduchá otázka na vysvětlení se zodpoví z návodu bez volání AI a nepočítá se do limitů; opakovaná jde na model', async () => {
+    const sp = scripted([say('Odpověď modelu.')]);
+    const c = await start({}, sp.provider);
+    const u = await c.user();
+    const first = await c.server.assistant.chat(u, { text: 'co je straddle?', context: 'rules' });
+    expect(first.reply).toContain('Z návodu');
+    expect(first.reply).toContain('Straddle');
+    expect(first.tokens).toBe(0);
+    expect(sp.seen).toHaveLength(0); // model se nevolal
+    expect((await c.server.assistant.status(u)).used).toBe(0); // nepočítá se do denního limitu
+    // stejná otázka znovu = uživatel chce víc: odpoví model
+    const again = await c.server.assistant.chat(u, { text: 'co je straddle?', context: 'rules' });
+    expect(again.reply).toBe('Odpověď modelu.');
+    expect(sp.seen).toHaveLength(1);
+    expect((await c.server.assistant.status(u)).used).toBe(1);
+    const usage = await c.server.assistant.usage(c.admin);
+    expect(usage.totalLocal).toBe(1);
+  });
+
+  it('žádosti o změnu, obecné otázky a vypnuté „nejdřív návod“ jdou na model', async () => {
+    const sp = scripted([say('a'), say('b'), say('c')]);
+    const c = await start({}, sp.provider);
+    const u = await c.user();
+    await c.server.assistant.chat(u, { text: 'zapni straddle u stolu', context: 'table' }); // žádost o změnu
+    await c.server.assistant.chat(u, { text: 'poker', context: 'rules' }); // příliš obecné
+    expect(sp.seen).toHaveLength(2);
+    const off = await start({ 'assistant.localFirst': false }, scripted([say('x')]).provider);
+    const v = await off.user();
+    expect((await off.server.assistant.chat(v, { text: 'co je straddle?', context: 'rules' })).reply).toBe('x');
+  });
+
+  it('vysvětlování běží na rychlém modelu a bez nástrojů pro návrhy; návrhy změn na hlavním modelu', async () => {
+    const sp = scripted([say('ok'), say('ok')]);
+    const c = await start({ 'assistant.localFirst': false }, sp.provider);
+    await c.server.assistant.chat(c.admin, { text: 'vysvětli mi sázky na turnaj', context: 'rules' });
+    await c.server.assistant.chat(c.admin, { text: 'vysvětli mi sázky na turnaj', context: 'admin' });
+    expect(sp.seen[0]!.model).toBe('gemini-2.5-flash-lite');
+    expect(sp.seen[0]!.tools.some((t) => t.name.startsWith('propose'))).toBe(false);
+    expect(sp.seen[1]!.model).toBe('gemini-2.5-flash');
+    expect(sp.seen[1]!.tools.some((t) => t.name.startsWith('propose'))).toBe(true);
+    // vlastní model pro vysvětlování má přednost
+    const own = scripted([say('ok')]);
+    const d = await start({ 'assistant.localFirst': false, 'assistant.modelExplain': 'muj-model' }, own.provider);
+    await d.server.assistant.chat(d.admin, { text: 'vysvětli mi sázky na turnaj', context: 'rules' });
+    expect(own.seen[0]!.model).toBe('muj-model');
+  });
+
+  it('limit volání za minutu: nad limit hned srozumitelná chyba, po minutě zase jde', async () => {
+    const sp = scripted([say('1'), say('2'), say('3')]);
+    const c = await start({ 'assistant.perMinute': 2, 'assistant.localFirst': false }, sp.provider);
+    const u = await c.user();
+    await c.server.assistant.chat(u, { text: 'otázka jedna dlouhá', context: 'admin' });
+    await c.server.assistant.chat(u, { text: 'otázka dvě dlouhá', context: 'admin' });
+    expect(await code(c.server.assistant.chat(u, { text: 'otázka tři dlouhá', context: 'admin' }))).toBe('BUSY');
+    expect(sp.seen).toHaveLength(2); // třetí volání poskytovatele se vůbec neodeslalo
+    c.clock.advance(61_000);
+    expect((await c.server.assistant.chat(u, { text: 'otázka čtyři dlouhá', context: 'admin' })).reply).toBe('3');
+  });
+
+  it('vyčerpaný limit poskytovatele (429) a vypršený čas se neopakují; celkový strop otázky', async () => {
+    let calls = 0;
+    const limited: AiProvider = { async complete() { calls++; throw new ProviderError('Resource exhausted', 429); } };
+    const c = await start({ 'assistant.retries': 3, 'assistant.localFirst': false }, limited);
+    expect(await code(c.server.assistant.chat(c.admin, { text: 'otázka na model', context: 'admin' }))).toBe('PROVIDER_LIMIT');
+    expect(calls).toBe(1);
+
+    calls = 0;
+    const slow: AiProvider = { async complete() { calls++; throw new ProviderError('TIMEOUT'); } };
+    const d = await start({ 'assistant.retries': 3, 'assistant.localFirst': false }, slow);
+    expect(await code(d.server.assistant.chat(d.admin, { text: 'otázka na model', context: 'admin' }))).toBe('TIMEOUT');
+    expect(calls).toBe(1);
+
+    // celkový strop: druhé volání nastane až po uplynutí stropu, takže se už neodešle
+    let n = 0;
+    const clockRef: { advance?: (ms: number) => void } = {};
+    const stepper: AiProvider = { async complete() { n++; clockRef.advance!(70_000); return { text: '', toolCalls: [{ id: 'x', name: 'list_games', args: {} }], tokens: 1 }; } };
+    const e = await start({ 'assistant.totalTimeoutSeconds': 60, 'assistant.localFirst': false }, stepper);
+    clockRef.advance = (ms) => e.clock.advance(ms);
+    expect(await code(e.server.assistant.chat(e.admin, { text: 'otázka na model', context: 'admin' }))).toBe('TIMEOUT');
+    expect(n).toBe(1);
+  });
+
+  it('dlouhý výsledek nástroje se zkrátí na nastavený počet znaků', async () => {
+    const { clipTool } = await import('./service.js');
+    expect(clipTool('a'.repeat(50), 100)).toBe('a'.repeat(50));
+    const clipped = clipTool('b'.repeat(500), 100);
+    expect(clipped.startsWith('b'.repeat(100))).toBe(true);
+    expect(clipped).toContain('zkráceno');
+    expect(clipped.length).toBeLessThan(200);
+  });
+});

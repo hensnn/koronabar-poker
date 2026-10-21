@@ -18,6 +18,7 @@ import {
   unknownVariables,
   validateValues,
   type AiProviderId,
+  answerFromGuide,
   type AssistantContext,
   type PermissionChecker,
   type ProposalAction,
@@ -40,7 +41,7 @@ import type { TemplateService } from '../templates.js';
 import type { TournamentManager } from '../tournaments.js';
 import { createProvider, ProviderError, type AiProvider, type ChatMsg, type ToolCall, type ToolSpec } from './providers.js';
 
-export type AssistantErrorCode = 'DISABLED' | 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'LIMIT_USER' | 'LIMIT_GLOBAL' | 'PROVIDER' | 'EXPIRED' | 'NOT_PENDING' | 'UNKNOWN_VARIABLE';
+export type AssistantErrorCode = 'DISABLED' | 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'LIMIT_USER' | 'LIMIT_GLOBAL' | 'PROVIDER' | 'BUSY' | 'TIMEOUT' | 'PROVIDER_LIMIT' | 'EXPIRED' | 'NOT_PENDING' | 'UNKNOWN_VARIABLE';
 
 export class AssistantError extends Error {
   constructor(
@@ -83,6 +84,11 @@ export interface ProposalDto {
   values: Record<string, string | number | boolean>;
 }
 
+/** Výsledek nástroje zkrácený na nejvýš `max` znaků (delší kontext zpomaluje a zdražuje odpověď). */
+export function clipTool(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max)}\n…(zkráceno, celkem ${text.length} znaků)`;
+}
+
 export interface ChatResult {
   reply: string;
   proposals: ProposalDto[];
@@ -108,7 +114,14 @@ const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
  * nikdy neprovádí sám: vytvoří návrh „před → po“, který uživatel potvrdí; provede ho stejná logika jako ruční změna
  * (oprávnění, pravidla „kdy lze měnit“, validace, audit se značkou asistenta).
  */
+/** Kontexty, kde asistent hlavně vysvětluje (bez návrhů změn): stačí rychlejší model a menší sada nástrojů. */
+const EXPLAIN_CONTEXTS: readonly string[] = ['rules', 'lobby', 'table'];
+/** Výchozí rychlý model poskytovatele pro vysvětlování, když správce nezadal vlastní. */
+const FAST_MODEL: Record<AiProviderId, string> = { gemini: 'gemini-2.5-flash-lite', anthropic: 'claude-haiku-5-5', openai: 'gpt-4.1-mini', compatible: '' };
+
 export class AssistantService {
+  /** Časy posledních volání modelu (posuvné okno jedné minuty) pro omezení za minutu. */
+  private calls: number[] = [];
   constructor(private deps: Deps) {}
 
   private s() {
@@ -132,7 +145,9 @@ export class AssistantService {
   private modelFor(ctx: AssistantContext): string {
     const s = this.s();
     const byProvider = { gemini: 'assistant.modelGemini', anthropic: 'assistant.modelAnthropic', openai: 'assistant.modelOpenai', compatible: 'assistant.modelCompatible' }[this.providerId()];
-    const override = ctx === 'rules' ? String(s['assistant.modelExplain']) : ctx === 'planning' ? String(s['assistant.modelPlanning']) : '';
+    // Otázky na vysvětlení běží na rychlém a levném modelu, návrhy změn na hlavním (u bezplatného Gemini šetří limit).
+    const explain = EXPLAIN_CONTEXTS.includes(ctx);
+    const override = explain ? String(s['assistant.modelExplain']) || FAST_MODEL[this.providerId()] : ctx === 'planning' ? String(s['assistant.modelPlanning']) : '';
     return override || String(s[byProvider]);
   }
 
@@ -149,10 +164,10 @@ export class AssistantService {
     return createProvider(this.providerId(), { apiKey: (await this.apiKey()) ?? '', baseUrl: String(this.s()['assistant.baseUrl']), fetcher: this.deps.fetcher });
   }
 
-  async status(userId: string): Promise<{ available: boolean; used: number; max: number; contexts: readonly string[]; voiceInput: boolean; voiceOutput: boolean; canManage: boolean }> {
+  async status(userId: string): Promise<{ available: boolean; used: number; max: number; warnPercent: number; contexts: readonly string[]; voiceInput: boolean; voiceOutput: boolean; canManage: boolean }> {
     const available = this.can(userId, 'asistent.pouzivat') && (await this.configured());
     const used = await this.usedToday(userId);
-    return { available, used, max: Number(this.s()['assistant.perUserDaily']), contexts: ASSISTANT_CONTEXTS, voiceInput: !!this.s()['assistant.voiceInput'], voiceOutput: !!this.s()['assistant.voiceOutput'], canManage: this.can(userId, 'asistent.spravovat') };
+    return { available, used, max: Number(this.s()['assistant.perUserDaily']), warnPercent: Number(this.s()['assistant.usageWarnPercent']), contexts: ASSISTANT_CONTEXTS, voiceInput: !!this.s()['assistant.voiceInput'], voiceOutput: !!this.s()['assistant.voiceOutput'], canManage: this.can(userId, 'asistent.spravovat') };
   }
 
   private day(): string {
@@ -178,6 +193,14 @@ export class AssistantService {
       .onConflictDoUpdate({ target: [schema.assistantUsage.day, schema.assistantUsage.userId], set: { requests: sql`${schema.assistantUsage.requests} + 1` } });
   }
 
+  /** Započítá odpověď z návodu (bez AI) do statistiky; do denních limitů se nepočítá. */
+  private async countLocal(userId: string): Promise<void> {
+    await this.deps.db
+      .insert(schema.assistantUsage)
+      .values({ day: this.day(), userId, requests: 0, tokens: 0, localAnswers: 1 })
+      .onConflictDoUpdate({ target: [schema.assistantUsage.day, schema.assistantUsage.userId], set: { localAnswers: sql`${schema.assistantUsage.localAnswers} + 1` } });
+  }
+
   private async addTokens(userId: string, tokens: number): Promise<void> {
     if (tokens <= 0) return;
     await this.deps.db
@@ -190,12 +213,12 @@ export class AssistantService {
   async usage(actorId: string) {
     this.manage(actorId);
     const rows = await this.deps.db
-      .select({ userId: schema.assistantUsage.userId, requests: schema.assistantUsage.requests, tokens: schema.assistantUsage.tokens, nickname: schema.users.nickname })
+      .select({ userId: schema.assistantUsage.userId, requests: schema.assistantUsage.requests, tokens: schema.assistantUsage.tokens, localAnswers: schema.assistantUsage.localAnswers, nickname: schema.users.nickname })
       .from(schema.assistantUsage)
       .innerJoin(schema.users, eq(schema.users.id, schema.assistantUsage.userId))
       .where(eq(schema.assistantUsage.day, this.day()))
       .orderBy(desc(schema.assistantUsage.requests));
-    return { day: this.day(), rows, totalRequests: rows.reduce((n, r) => n + r.requests, 0), totalTokens: rows.reduce((n, r) => n + r.tokens, 0), maxPerUser: Number(this.s()['assistant.perUserDaily']), maxGlobal: Number(this.s()['assistant.globalDaily']) };
+    return { day: this.day(), rows, totalRequests: rows.reduce((n, r) => n + r.requests, 0), totalTokens: rows.reduce((n, r) => n + r.tokens, 0), totalLocal: rows.reduce((n, r) => n + r.localAnswers, 0), warnPercent: Number(this.s()['assistant.usageWarnPercent']), maxPerUser: Number(this.s()['assistant.perUserDaily']), maxGlobal: Number(this.s()['assistant.globalDaily']) };
   }
 
   private manage(actorId: string): void {
@@ -371,10 +394,12 @@ export class AssistantService {
   }
 
   /** Nástroje, které smí uživatel v tuto chvíli používat (s popisy, případně upravenými v GUI). */
-  async toolSpecs(userId: string): Promise<ToolSpec[]> {
+  async toolSpecs(userId: string, ctx?: AssistantContext): Promise<ToolSpec[]> {
     const out: ToolSpec[] = [];
     for (const tool of ASSISTANT_TOOLS) {
       if (this.disabledTools().includes(tool.name)) continue;
+      // Při vysvětlování se návrhy změn neposílají: menší sada nástrojů je kratší prompt a rychlejší odpověď.
+      if (ctx && EXPLAIN_CONTEXTS.includes(ctx) && tool.kind === 'propose') continue;
       if (tool.permission && !this.can(userId, tool.permission)) continue;
       out.push({ name: tool.name, description: await this.promptText(`tool.${tool.name}`), parameters: translateSchema(tool.parameters) });
     }
@@ -791,15 +816,22 @@ export class AssistantService {
     const s = this.s();
     const provider = await this.provider();
     const system = await this.buildSystem(userId, ctx, targetId);
-    const tools = await this.toolSpecs(userId);
+    const tools = await this.toolSpecs(userId, ctx);
     const messages: ChatMsg[] = [...history, { role: 'user', content: text }];
     const maxSteps = Number(s['assistant.maxToolSteps']);
     const retries = Number(s['assistant.retries']);
+    const perCallMs = Number(s['assistant.timeoutSeconds']) * 1000;
+    const deadline = this.deps.now() + Number(s['assistant.totalTimeoutSeconds']) * 1000;
+    const maxChars = Number(s['assistant.toolResultChars']);
     let tokens = 0;
     let reply = '';
     for (let step = 0; step <= maxSteps; step++) {
       let result;
       for (let attempt = 0; ; attempt++) {
+        // Celkový strop otázky a limit volání za minutu (bezplatný plán poskytovatele): bez zbytečného čekání a bez zasypání poskytovatele.
+        const remaining = deadline - this.deps.now();
+        if (remaining <= 0) throw new AssistantError('TIMEOUT');
+        this.takeCallSlot();
         try {
           result = await provider.complete({
             model: this.modelFor(ctx),
@@ -808,11 +840,15 @@ export class AssistantService {
             tools: step < maxSteps ? tools : [],
             temperature: Number(s['assistant.temperaturePercent']) / 100,
             maxTokens: Number(s['assistant.maxTokens']),
-            timeoutMs: Number(s['assistant.timeoutSeconds']) * 1000,
+            timeoutMs: Math.min(perCallMs, remaining),
           });
           break;
         } catch (e) {
-          if (attempt >= retries) throw new AssistantError('PROVIDER', { detail: e instanceof ProviderError ? e.detail : e instanceof Error ? e.message : 'ERROR' });
+          const pe = e instanceof ProviderError ? e : null;
+          // Vypršený čas a vyčerpaný limit poskytovatele se neopakují (druhý pokus by dopadl stejně a jen by spotřeboval limit).
+          if (pe?.status === 429) throw new AssistantError('PROVIDER_LIMIT');
+          if (pe?.detail === 'TIMEOUT') throw new AssistantError('TIMEOUT');
+          if (attempt >= retries) throw new AssistantError('PROVIDER', { detail: pe ? pe.detail : e instanceof Error ? e.message : 'ERROR' });
         }
       }
       tokens += result.tokens;
@@ -821,10 +857,19 @@ export class AssistantService {
         break;
       }
       messages.push({ role: 'assistant', content: result.text, toolCalls: result.toolCalls });
-      for (const call of result.toolCalls as ToolCall[]) messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: await this.runTool(env, call.name, call.args) });
+      for (const call of result.toolCalls as ToolCall[]) messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: clipTool(await this.runTool(env, call.name, call.args), maxChars) });
       reply = result.text;
     }
     return { reply, tokens, system };
+  }
+
+  /** Rezervuje volání modelu v posuvném okně minuty; nad limit vyhodí BUSY s dobou čekání. */
+  private takeCallSlot(): void {
+    const limit = Number(this.s()['assistant.perMinute']);
+    const now = this.deps.now();
+    this.calls = this.calls.filter((at) => now - at < 60_000);
+    if (limit > 0 && this.calls.length >= limit) throw new AssistantError('BUSY', { seconds: Math.max(1, Math.ceil((this.calls[0]! + 60_000 - now) / 1000)) });
+    this.calls.push(now);
   }
 
   private checkReady = async (userId: string): Promise<void> => {
@@ -837,6 +882,18 @@ export class AssistantService {
     const text = (input.text ?? '').trim();
     if (!text || text.length > 4000) throw new AssistantError('INVALID', { field: 'text' });
     const ctx: AssistantContext = input.context && isAssistantContext(input.context) ? input.context : 'lobby';
+    // Jednoduchá otázka na vysvětlení: odpověď z návodu bez AI (nestojí limit poskytovatele ani denní limity). Opakovaná stejná otázka jde na model.
+    if (this.s()['assistant.localFirst'] && EXPLAIN_CONTEXTS.includes(ctx)) {
+      const last = (await this.history(userId, 2)).filter((m) => m.role === 'user').pop();
+      const local = last?.content.trim().toLowerCase() === text.toLowerCase() ? null : answerFromGuide(text);
+      if (local) {
+        const reply = [t('assistant.local.prefix', { chapter: local.chapter }), ...local.paragraphs.map((p) => `• ${p}`), '', t('assistant.local.suffix')].join('\n');
+        await this.deps.db.insert(schema.assistantMessages).values({ userId, context: ctx, role: 'user', content: text });
+        await this.deps.db.insert(schema.assistantMessages).values({ userId, context: ctx, role: 'assistant', content: reply, proposalIds: [] });
+        await this.countLocal(userId);
+        return { reply, proposals: [], tokens: 0 };
+      }
+    }
     await this.spend(userId);
     const env: ToolEnv = { userId, source: 'assistant', requestText: text, dryRun: false, proposals: [] };
     const size = Number(this.s()['assistant.historySize']);

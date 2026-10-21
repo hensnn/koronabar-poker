@@ -186,6 +186,11 @@ describe('odehrané scénáře: cash stoly', { timeout: 600_000 }, () => {
     for (let i = 0; i < 5; i++) users.push(await s.user());
     const problems: string[] = [];
     for (const [k, sc] of CASH.entries()) {
+      // Hráči mezi scénáři prohrávají a rake odchází domu: před každým scénářem se jim peněženka doplní na výchozí zůstatek, aby se vždy mohli posadit.
+      for (const u of users) {
+        const missing = START - s.server.ledger.balance(accounts.wallet(u));
+        if (missing > 0) await s.server.wallet.topUp(s.admin, u, missing, 'doplnění mezi scénáři');
+      }
       let id: string;
       try {
         ({ id } = await s.server.tables.createTable(org, { name: `Cash scénář ${k}`, templateId: 'cash-klasika', settings: { ...FAST, ...sc.over } }));
@@ -200,6 +205,7 @@ describe('odehrané scénáře: cash stoly', { timeout: 600_000 }, () => {
           actor.join(u, s.names.get(u)!, i, Math.min(info.maxBuyIn, Math.max(info.minBuyIn, info.bigBlind * 60)));
         } catch (e) {
           if (!(e instanceof GameError)) throw e;
+          problems.push(`${sc.name}: hráč ${i} se nemohl posadit (${(e as { code?: string }).code ?? e.message})`);
         }
       }
       const rnd = seededRandom(900 + k);

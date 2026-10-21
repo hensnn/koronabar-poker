@@ -29,6 +29,7 @@ interface Status {
   available: boolean;
   used: number;
   max: number;
+  warnPercent: number;
   voiceInput: boolean;
   voiceOutput: boolean;
 }
@@ -210,7 +211,7 @@ export function AssistantLauncher() {
         <section role="dialog" aria-label={t('assistant.title')} className="fixed bottom-16 right-4 z-40 flex max-h-[70vh] w-[min(28rem,calc(100vw-2rem))] flex-col rounded-lg border border-line bg-surface shadow-lg">
           <header className="flex items-center gap-2 border-b border-line p-2">
             <strong className="flex-1">{t('assistant.title')}</strong>
-            <span className="text-xs text-muted">{status.max > 0 ? t('assistant.usage', { used: status.used, max: status.max }) : t('assistant.unlimited')}</span>
+            <span className={`text-xs ${status.max > 0 && status.used * 100 >= status.max * status.warnPercent ? 'font-semibold text-warning' : 'text-muted'}`}>{status.max > 0 ? t('assistant.usage', { used: status.used, max: status.max }) : t('assistant.unlimited')}</span>
             <Button
               onClick={() => {
                 if (confirm(t('assistant.clear') + '?')) void del('/api/assistant/history').then(() => setMsgs([]));

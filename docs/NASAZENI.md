@@ -315,3 +315,14 @@ Korony jsou společná měna více vašich aplikací (her), proto si hráč mů�
 **Řazení klikem na záhlaví** funguje i ve Správa → Finance (turnaje, fondy a výdaje domu), stejně jako v účetní knize.
 
 **Pokladna: kniha s filtry a rozpad vydané měny.** Účetní kniha (Správa → Pokladna) se dá filtrovat podle druhu pohybu, hráče nebo účtu (včetně domu a zásoby měny), období, textu v poznámce a nejmenší částky, a řadit klikem na záhlaví (čas, druh, největší částka; druhým kliknutím se směr obrátí); zobrazí až 500 pohybů a u účtů ukazuje přezdívky místo identifikátorů. Tlačítko **Stáhnout (CSV)** uloží knihu se stejnými filtry a řazením (až 5000 pohybů, UTF-8 s BOM, středníky). Karta **Stavy účtů hráčů** má rozbalovací část **Kolik Koron se vydalo a kde je**: součet všech vydaných Koron se rozpadne na peněženky, dům, fondy, stoly, turnaje a převody ven a vypíše posledních 30 vydání (registrace, dobití, doplatek garance…) s příjemcem. Pokud součet peněženek a domu nesedí s tím, co jsi hráčům dal, najdeš tam, odkud se rozdíl vzal.
+
+## AI asistent: úspora a bezplatný plán Gemini
+
+Asistent je nastavený tak, aby s bezplatným plánem Gemini (nízké limity volání) vystačil:
+- **Rychlý a hlavní model:** otázky na vysvětlení (kontexty Pravidla, Lobby, Stůl) běží na rychlém modelu `gemini-2.5-flash-lite` a bez nástrojů pro návrhy změn; návrhy změn a plánování na hlavním modelu `gemini-2.5-flash`. Vlastní modely nastavíš v Nastavení → Asistent (Model pro vysvětlování, Model pro plánování).
+- **Nejdřív návod:** jednoduché otázky typu „co je straddle“ se zodpoví přímo z návodu **bez volání AI** (nestojí limit poskytovatele ani denní limity). Zopakuješ-li stejnou otázku, odpoví už model. Žádosti o změnu jdou vždy na model. Vypíná se volbou „Nejdřív odpovědět z návodu“.
+- **Limit za minutu:** aplikace pošle nejvýš 8 volání modelu za minutu (bezplatný plán povoluje asi 10). Nad limit se dotaz hned odmítne hláškou „zkus za X s“, poskytovatel se nezahltí.
+- **Celkový časový strop 90 s** na jednu otázku (místo násobků limitu jednoho volání). Vypršení času a vyčerpaný limit poskytovatele se už neopakují.
+- **Kratší kontext:** historie 6 zpráv, nejvýš 4 kroky s nástroji, výsledky nástrojů zkrácené na 3000 znaků.
+- **Spotřeba:** ve Správa → Asistent → Spotřeba je počet dotazů, tokenů a odpovědí z návodu bez AI; od 80 % denního limitu se ukáže upozornění (i v okně asistenta).
+Všechny hodnoty se mění v Nastavení → Asistent.

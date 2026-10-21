@@ -1284,6 +1284,8 @@ export const assistantUsage = pgTable(
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     requests: integer('requests').notNull().default(0),
     tokens: integer('tokens').notNull().default(0),
+    /** Odpovědi z návodu bez volání AI (nepočítají se do limitů). */
+    localAnswers: integer('local_answers').notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.day, t.userId] })],
 );

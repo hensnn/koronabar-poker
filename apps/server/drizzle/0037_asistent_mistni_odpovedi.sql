@@ -1,0 +1,1 @@
+ALTER TABLE "assistant_usage" ADD COLUMN "local_answers" integer DEFAULT 0 NOT NULL;

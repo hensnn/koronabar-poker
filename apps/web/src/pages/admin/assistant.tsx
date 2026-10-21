@@ -190,7 +190,7 @@ function SandboxTab() {
 }
 
 function UsageTab() {
-  const [u, setU] = useState<{ day: string; rows: { userId: string; nickname: string; requests: number; tokens: number }[]; totalRequests: number; totalTokens: number; maxPerUser: number; maxGlobal: number } | null>(null);
+  const [u, setU] = useState<{ day: string; rows: { userId: string; nickname: string; requests: number; tokens: number; localAnswers: number }[]; totalRequests: number; totalTokens: number; totalLocal: number; warnPercent: number; maxPerUser: number; maxGlobal: number } | null>(null);
   const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   useEffect(() => {
     get<NonNullable<typeof u>>('/api/assistant/usage')
@@ -214,10 +214,11 @@ function UsageTab() {
         </Button>
       </div>
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      {u && u.maxGlobal > 0 && u.totalRequests * 100 >= u.maxGlobal * u.warnPercent && <Notice kind="error">{t('assistantAdmin.usageWarn', { percent: Math.round((u.totalRequests * 100) / u.maxGlobal) })}</Notice>}
       {u && (
         <Card title={`${t('assistantAdmin.usage')}: ${t('assistantAdmin.usageToday')}`}>
           <p className="mb-2 text-sm text-muted">
-            {u.totalRequests} / {u.maxGlobal > 0 ? u.maxGlobal : t('assistant.unlimited')} · {u.totalTokens} tokenů
+            {u.totalRequests} / {u.maxGlobal > 0 ? u.maxGlobal : t('assistant.unlimited')} · {u.totalTokens} tokenů · {t('assistantAdmin.usageLocal')}: {u.totalLocal}
           </p>
           <DataTable head={[t('assistantAdmin.usageUser'), t('assistantAdmin.usageRequests'), t('assistantAdmin.usageTokens')]}>
             {u.rows.map((r) => (
