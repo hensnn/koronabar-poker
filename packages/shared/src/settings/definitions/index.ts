@@ -794,6 +794,18 @@ export function createDefaultRegistry(): SettingsRegistry {
       messageKey: 'rule.minBuyInAboveMax',
     },
     {
+      id: 'assistantTimeouts',
+      keys: ['assistant.timeoutSeconds', 'assistant.totalTimeoutSeconds'],
+      check: (v) => (v['assistant.totalTimeoutSeconds'] as number) >= (v['assistant.timeoutSeconds'] as number),
+      messageKey: 'rule.assistantTimeouts',
+    },
+    {
+      id: 'assistantLimits',
+      keys: ['assistant.perUserDaily', 'assistant.globalDaily'],
+      check: (v) => (v['assistant.globalDaily'] as number) === 0 || (v['assistant.perUserDaily'] as number) === 0 || (v['assistant.perUserDaily'] as number) <= (v['assistant.globalDaily'] as number),
+      messageKey: 'rule.assistantLimits',
+    },
+    {
       id: 'badBeatShares',
       keys: ['jackpot.badBeatLoserShare', 'jackpot.badBeatWinnerShare'],
       check: (v) => (v['jackpot.badBeatLoserShare'] as number) + (v['jackpot.badBeatWinnerShare'] as number) <= 100,

@@ -222,6 +222,8 @@ export const csTournament: Record<string, string> = {
   'settings.jackpot.badBeatLoserShare.help': 'Kolik procent vyplacené částky dostane hráč s prohrávající silnou rukou.',
   'settings.jackpot.badBeatWinnerShare.label': 'Bad beat: podíl vítěze',
   'settings.jackpot.badBeatWinnerShare.help': 'Kolik procent dostane vítěz handy. Zbytek se rozdělí mezi ostatní hráče v handě.',
+  'rule.assistantTimeouts': 'Celkový časový strop otázky nesmí být kratší než časový limit jednoho volání.',
+  'rule.assistantLimits': 'Denní limit jednoho hráče nesmí být větší než denní limit celé aplikace.',
   'rule.badBeatShares': 'Podíl poraženého a vítěze dohromady nesmí přesáhnout 100 %.',
   'table.rakeInfo': 'Rake {percent} % (strop {cap})',
   'table.rakeInfoNoCap': 'Rake {percent} %',
