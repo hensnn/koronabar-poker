@@ -1312,7 +1312,6 @@ export const csTournament: Record<string, string> = {
   'chat.sys.tHandForHandOff': 'Bublina splaskla, hand-for-hand končí.',
   'notice.liveMove.text': 'Ředitel tě přesadil: stůl {table}, místo {seat}.',
   'notice.liveMove.event': 'Přesazení u stolu',
-  'settings.category.bets': 'Sázky a odměny na hlavu',
   'settings.bets.enabled.label': 'Sázky',
   'settings.bets.enabled.help': 'Zapíná a vypíná sázky vedle hry (vklady se zamykají v účetní knize).',
   'settings.bets.minStake.label': 'Nejmenší vklad do sázky',
