@@ -241,6 +241,9 @@ const stats: SettingDef[] = [
   text('economy.transferTargets', { category: 'economy', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 'jiná hra', 300),
   int('economy.transferMin', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 100, 1, 1_000_000_000),
   int('economy.transferMax', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 100000, 1, 1_000_000_000),
+  text('branding.logoAssetId', { category: 'theme', mutability: ADM, scopes: GLOBAL }, '', 40),
+  bool('branding.showName', { category: 'theme', mutability: ADM, scopes: GLOBAL }, true),
+  int('branding.logoHeightPercent', { category: 'theme', mutability: ADM, scopes: GLOBAL, unit: '%' }, 100, 40, 400),
   int('stats.categoryTop', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 20),
   bool('stats.publicProfiles', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
 ];

@@ -18,7 +18,7 @@ export class AssetError extends Error {
   }
 }
 
-export const ASSET_KINDS = ['felt', 'roomBg', 'cardBack', 'logo'] as const;
+export const ASSET_KINDS = ['felt', 'roomBg', 'cardBack', 'logo', 'brand'] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
 const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
@@ -53,8 +53,10 @@ export class ThemeAssets {
   }
 
   async upload(userId: string, kind: string, data: Buffer): Promise<{ id: string; kind: AssetKind }> {
-    if (!this.deps.perms.can(userId, 'motiv.vytvorit').allowed) throw new AssetError('FORBIDDEN');
     if (!ASSET_KINDS.includes(kind as AssetKind)) throw new AssetError('INVALID', { field: 'kind' });
+    // Logo aplikace (brand) nahrává správce nastavení; obrázky motivů kdo smí tvořit motivy.
+    const brand = kind === 'brand';
+    if (!this.deps.perms.can(userId, brand ? 'nastaveni.globalni' : 'motiv.vytvorit').allowed) throw new AssetError('FORBIDDEN');
     const s = this.deps.settings();
     const max = Number(s['theme.imageMaxKb']);
     if (data.length > max * 1024) throw new AssetError('TOO_LARGE', { max });
@@ -63,12 +65,25 @@ export class ThemeAssets {
     const allowed = String(s['theme.imageFormats']).split(',').map((x) => x.trim().toLowerCase().replace('jpeg', 'jpg'));
     if (!allowed.includes(format)) throw new AssetError('FORMAT');
     const mine = await this.deps.db.select({ id: schema.themeAssets.id }).from(schema.themeAssets).where(eq(schema.themeAssets.ownerId, userId));
-    if (mine.length >= Number(s['theme.maxImagesPerUser'])) throw new AssetError('LIMIT', { max: Number(s['theme.maxImagesPerUser']) });
+    if (!brand && mine.filter((m) => m.id).length >= Number(s['theme.maxImagesPerUser'])) throw new AssetError('LIMIT', { max: Number(s['theme.maxImagesPerUser']) });
     const id = randomUUID();
     await writeFile(this.file(id), data);
     await this.deps.db.insert(schema.themeAssets).values({ id, ownerId: userId, kind, mime: MIME[format]!, sizeBytes: data.length });
     await this.deps.audit.log({ actorId: userId, action: 'motiv.obrazek_nahran', targetType: 'theme_asset', targetId: id, after: { kind } });
     return { id, kind: kind as AssetKind };
+  }
+
+  /** Logo aplikace z nastavení (veřejné: vidí ho i nepřihlášený na přihlašovací stránce); null, když není nastavené. */
+  async brandLogo(): Promise<{ data: Buffer; mime: string; id: string } | null> {
+    const id = String(this.deps.settings()['branding.logoAssetId'] ?? '').trim();
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    const [r] = await this.deps.db.select().from(schema.themeAssets).where(and(eq(schema.themeAssets.id, id), eq(schema.themeAssets.kind, 'brand')));
+    if (!r) return null;
+    try {
+      return { data: await readFile(this.file(id)), mime: r.mime, id };
+    } catch {
+      return null;
+    }
   }
 
   async list(userId: string) {

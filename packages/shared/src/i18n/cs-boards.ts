@@ -1,5 +1,17 @@
 /** Veřejné přehledy hráčů (statistika na sdíleném odkazu): správa a veřejná stránka. */
 export const csBoards: Record<string, string> = {
+  'admin.logo': 'Logo aplikace',
+  'logo.title': 'Logo aplikace',
+  'logo.help': 'Logo je hlavním prvkem aplikace: ukáže se v hlavičce vlevo (po klepnutí vede na hlavní stránku), na přihlašovací stránce a jako ikona záložky prohlížeče. Doporučuji obrázek s průhledným pozadím (PNG nebo WebP), nejlépe na šířku.',
+  'logo.preview': 'Náhled loga',
+  'logo.upload': 'Nahrát logo',
+  'logo.replace': 'Nahrát jiné logo',
+  'logo.remove': 'Odebrat logo',
+  'logo.hint': 'PNG, JPG, WebP nebo GIF; velikost souboru omezuje nastavení motivů. SVG se z bezpečnostních důvodů nepřijímá.',
+  'logo.showName': 'Ukázat název aplikace vedle loga',
+  'logo.size': 'Velikost loga v hlavičce',
+  'logo.saved': 'Uloženo.',
+  'logo.removed': 'Logo je odebrané, v hlavičce je zase název.',
   'admin.boards': 'Veřejné přehledy',
   'error.BOARD_FORBIDDEN': 'Na správu veřejných přehledů nemáš oprávnění.',
   'error.BOARD_NOT_FOUND': 'Tento přehled neexistuje nebo je vypnutý.',

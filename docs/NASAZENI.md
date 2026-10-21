@@ -328,3 +328,12 @@ Asistent je nastavený tak, aby s bezplatným plánem Gemini (nízké limity vol
 Všechny hodnoty se mění v Nastavení → Asistent.
 
 **Změna modelu Gemini:** Starší modely Gemini 2.5 už nefungují, výchozí je proto `gemini-3.5-flash` (hlavní) a `gemini-3.5-flash-lite` (rychlý). Pokud jsi si název modelu dříve ukládal v Nastavení → Asistent, uložená hodnota má přednost: přepiš ji na `gemini-3.5-flash` (nebo smaž pomocí tlačítka pro výchozí hodnotu). Přesné názvy modelů a limity bezplatného plánu najdeš v dokumentaci Google AI Studio; po změně ověř tlačítkem „Vyzkoušet připojení“ ve Správa → Asistent.
+
+## Logo aplikace
+
+Ve **Správa → Logo aplikace** nahraješ obrázek loga (PNG, JPG, WebP nebo GIF; SVG se z bezpečnostních důvodů nepřijímá, nejlépe PNG s průhledným pozadím na šířku). Logo je hlavním prvkem aplikace:
+- v **hlavičce** vlevo (po klepnutí vede na hlavní stránku),
+- na **přihlašovací a registrační stránce** (větší),
+- jako **ikona záložky** prohlížeče.
+
+Můžeš nastavit, zda se vedle loga ukáže i název aplikace, a velikost loga (40 až 400 %). Tlačítkem Odebrat logo se vrátí text. Logo je veřejné (musí být vidět i před přihlášením), nahrávat ho smí jen správce nastavení. Hodnoty jsou také v Nastavení → Vzhled a motivy.

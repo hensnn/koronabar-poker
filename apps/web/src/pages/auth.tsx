@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { BrandMark } from '../brand';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { Link, navigate, queryParam, useLocation } from '../router';
@@ -8,7 +9,9 @@ import { Button, Card, Notice, TextInput } from '../ui';
 function Page({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-4">
-      <h1 className="text-center font-heading text-3xl font-bold">{t('app.name')}</h1>
+      <h1 className="flex justify-center">
+        <BrandMark large link={false} />
+      </h1>
       <Card title={title}>{children}</Card>
     </main>
   );

@@ -987,3 +987,7 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 .tk-fx-confetti-4 { animation-delay: calc(1.1s / var(--tk-anim-speed)); }
 .tk-fx-confetti-5 { animation-delay: calc(0.35s / var(--tk-anim-speed)); }
 .tk-fx-confetti-6 { animation-delay: calc(0.65s / var(--tk-anim-speed)); }
+
+/* Logo aplikace v hlavičce: výška podle nastavení (měřítko), šířka podle poměru stran. */
+.tk-brand-logo { height: calc(2.25rem * var(--brand-scale, 1)); width: auto; max-width: 16rem; object-fit: contain; }
+.tk-brand-logo-large { height: calc(4.5rem * var(--brand-scale, 1)); max-width: 20rem; }

@@ -23,6 +23,7 @@ import { StatsPage } from './pages/stats';
 import { SoundHost } from './pages/sounds';
 import { useFeatures } from './features';
 import { TournamentResultHost } from './pages/tournament-result';
+import { BrandFavicon, BrandMark } from './brand';
 import { AssistantLauncher } from './pages/assistant';
 import { OfflineBanner } from './pwa';
 import { AnnouncerHost } from './announcer/host';
@@ -165,9 +166,8 @@ function Shell({ me }: { me: Me }) {
   return (
     <div className={`mx-auto flex min-h-screen flex-col gap-3 p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <Link to="/" className="font-heading text-2xl font-bold">
-          {t('app.name')}
-        </Link>
+        <BrandMark />
+        <BrandFavicon />
         <nav aria-label={t('nav.main')} className="flex flex-wrap items-center gap-2">
           <button className="rounded-md border border-line bg-surface px-3 py-1 md:hidden" aria-expanded={menuOpen} aria-controls="hlavni-nabidka" onClick={() => setMenuOpen((v) => !v)}>
             ☰ {t('nav.menu')}

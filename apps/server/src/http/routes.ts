@@ -187,6 +187,23 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   // ---------- veřejné ----------
 
   app.get('/health', async () => ({ ok: true }));
+  /** Značka aplikace pro hlavičku a přihlašovací stránku: logo (je-li nahrané), zda ukázat i název a velikost. Veřejné. */
+  app.get('/api/public/brand', async (_req, reply) => {
+    const s = svc.settings.resolve();
+    const logo = await svc.themeAssets().brandLogo();
+    return reply.header('cache-control', 'no-cache').send({ logo: logo ? logo.id : null, showName: s['branding.showName'] !== false, heightPercent: Number(s['branding.logoHeightPercent'] ?? 100) });
+  });
+  app.get('/api/public/brand/logo', async (_req, reply) => {
+    const logo = await svc.themeAssets().brandLogo();
+    if (!logo) return reply.status(404).send({ error: 'NO_LOGO' });
+    return reply
+      .header('content-type', logo.mime)
+      .header('cache-control', 'public, max-age=3600')
+      .header('etag', `"${logo.id}"`)
+      .header('x-content-type-options', 'nosniff')
+      .header('content-security-policy', "default-src 'none'; sandbox")
+      .send(logo.data);
+  });
   app.get('/api/public/terms', async () => ({ text: String(svc.settings.resolve()['system.termsText']) }));
 
   // ---------- přihlášení a účet ----------
