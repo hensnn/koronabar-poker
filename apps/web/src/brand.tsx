@@ -9,8 +9,10 @@ export interface Brand {
   logoDark: string | null;
   showName: boolean;
   heightPercent: number;
-  /** Bez loga pro tmavý režim se běžné logo v tmavém režimu položí na světlý podklad. */
-  darkPlate: boolean;
+  /** Bez samostatného loga pro tmavý režim: převrátit barvy, světlý podklad, nebo beze změny. */
+  darkLogoMode: 'invert' | 'plate' | 'none';
+  /** Značka v hlavičce: logo, jen název, nebo nic. */
+  headerMode: 'logo' | 'name' | 'none';
   loginBackground: 'felt' | 'plain' | 'image';
   loginBg: string | null;
 }
@@ -55,17 +57,20 @@ export function useBrand(): Brand | null {
 export const brandVars = (b: Brand | null): CSSProperties => ({ ['--brand-scale' as string]: String((b?.heightPercent ?? 100) / 100) });
 
 /** Značka aplikace: logo (je-li nahrané) a případně název; bez loga jen název. `large` je větší varianta pro přihlašovací stránku. */
-export function BrandMark({ large = false, link = true }: { large?: boolean; link?: boolean }) {
+export function BrandMark({ large = false, link = true, header = false }: { large?: boolean; link?: boolean; /** Značka v hlavičce aplikace: řídí ji režim „Značka v hlavičce“. */ header?: boolean }) {
   const brand = useBrand();
-  const hasLogo = !!brand?.logo;
+  const mode = header ? (brand?.headerMode ?? 'logo') : 'logo';
+  if (mode === 'none') return null;
+  const hasLogo = !!brand?.logo && mode === 'logo';
   const showName = !hasLogo || brand?.showName !== false;
   const darkImg = !!brand?.logoDark;
-  const plate = hasLogo && !darkImg && brand?.darkPlate !== false;
+  const dark = !darkImg ? (brand?.darkLogoMode ?? 'invert') : 'none';
+  const adapt = hasLogo ? (dark === 'plate' ? 'tk-brand-plate' : dark === 'invert' ? 'tk-brand-invert' : '') : '';
   const size = large ? 'tk-brand-logo tk-brand-logo-large' : 'tk-brand-logo';
   const alt = showName ? '' : t('app.name');
   const body = (
-    <span className={`inline-flex items-center gap-2 font-heading font-bold ${large ? 'text-3xl' : 'text-2xl'}`} style={brandVars(brand)}>
-      {hasLogo && <img src={`/api/public/brand/logo?v=${brand!.logo}`} alt={alt} className={`${size} ${darkImg ? 'tk-brand-light' : ''} ${plate ? 'tk-brand-plate' : ''}`} />}
+    <span className={`inline-flex items-center gap-2 font-heading font-bold ${large ? 'text-3xl' : 'text-lg md:text-2xl'}`} style={brandVars(brand)}>
+      {hasLogo && <img src={`/api/public/brand/logo?v=${brand!.logo}`} alt={alt} className={`${size} ${darkImg ? 'tk-brand-light' : ''} ${adapt}`} />}
       {hasLogo && darkImg && <img src={`/api/public/brand/logo?variant=dark&v=${brand!.logoDark}`} alt={alt} className={`${size} tk-brand-dark`} />}
       {showName && <span className={hasLogo && !large ? 'hidden md:inline' : ''}>{t('app.name')}</span>}
     </span>

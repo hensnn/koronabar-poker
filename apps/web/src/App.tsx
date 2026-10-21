@@ -160,30 +160,41 @@ function Shell({ me }: { me: Me }) {
   else if (path.startsWith('/admin')) page = <AdminRouter />;
   else page = <Redirect to="/" />;
   // Vypnutá funkce nemá mít přístupnou ani adresu.
+  const compact = settings.values['ui.compactHeader'] !== false;
   const off = (prefix: string, on: boolean) => !on && (path === prefix || path.startsWith(prefix + '/'));
   if (off('/ankety', features.polls) || off('/chat', features.chat) || off('/vecery', features.evenings) || off('/postup', features.xp) || off('/obchod', features.shop)) page = <Redirect to="/" />;
 
   return (
     <div className={`mx-auto flex min-h-screen flex-col gap-3 p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <BrandMark />
+      <header className={`flex items-center justify-between gap-2 ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
+        <BrandMark header />
         <BrandFavicon />
-        <nav aria-label={t('nav.main')} className="flex flex-wrap items-center gap-2">
+        <nav aria-label={t('nav.main')} className={`flex items-center gap-2 ${compact ? 'min-w-0 flex-wrap' : 'flex-wrap'}`}>
           <button className="rounded-md border border-line bg-surface px-3 py-1 md:hidden" aria-expanded={menuOpen} aria-controls="hlavni-nabidka" onClick={() => setMenuOpen((v) => !v)}>
             ☰ {t('nav.menu')}
           </button>
-          <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} w-full flex-wrap gap-2 md:order-first md:flex md:w-auto`}>
+          <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} flex-wrap gap-2 md:order-first md:flex md:w-auto ${compact ? 'absolute inset-x-0 top-full z-40 mt-1 rounded-lg border border-line bg-surface p-2 shadow-lg md:static md:mt-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'w-full'}`}>
             <MainMenu groups={groups} isActive={isActive} path={path} />
+            {compact && (
+              <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
+                <SoundMenu />
+                <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
+              </div>
+            )}
           </div>
           <MyTableButton path={path} />
           <NotificationBell />
-          <SoundMenu />
+          <span className={compact ? 'hidden md:inline-flex' : 'inline-flex'}>
+            <SoundMenu />
+          </span>
           <SoundHost />
           <AnnouncerHost />
           <span className="rounded-md bg-raised px-3 py-1 font-mono" title={t('nav.balance')}>
             {formatCurrency(me.balance, currencyFormsOf(settings.values))}
           </span>
-          <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
+          <span className={compact ? 'hidden md:inline-flex' : 'inline-flex'}>
+            <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
+          </span>
         </nav>
       </header>
       {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}

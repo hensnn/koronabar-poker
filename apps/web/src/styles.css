@@ -1014,3 +1014,16 @@ label:has(> select) { min-width: 0; max-width: 100%; }
   box-shadow: var(--tk-shape-shadow);
 }
 .tk-login-bg[data-login-bg='image'] { background-image: var(--login-bg-url); background-size: cover; background-position: center; }
+
+/* Logo v tmavém režimu: převrácení barev (jednobarevné tmavé logo se zesvětlí). */
+:root[data-mode='dark'] .tk-brand-invert { filter: invert(1) hue-rotate(180deg); }
+
+/* Kompaktní hlavička na telefonu: jeden řádek, menší mezery a písmo, nic se nezalamuje do výšky. */
+@media (max-width: 47.99rem) {
+  .tk-compact-header { gap: calc(var(--spacing) * 1); }
+  .tk-compact-header > nav { gap: calc(var(--spacing) * 1); }
+  .tk-compact-header > nav > button,
+  .tk-compact-header > nav > span,
+  .tk-compact-header > nav > div:not(#hlavni-nabidka) { white-space: nowrap; font-size: 0.8rem; padding-inline: calc(var(--spacing) * 1.5); }
+  .tk-compact-header > nav button { white-space: nowrap; }
+}

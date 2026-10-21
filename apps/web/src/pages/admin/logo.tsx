@@ -68,7 +68,8 @@ export function LogoAdminPage() {
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const percent = Number(settings.values['branding.logoHeightPercent'] ?? 100);
   const showName = settings.values['branding.showName'] !== false;
-  const plate = settings.values['branding.darkPlate'] !== false;
+  const darkMode = String(settings.values['branding.darkLogoMode'] ?? 'invert');
+  const headerMode = String(settings.values['branding.headerMode'] ?? 'logo');
   const bgMode = String(settings.values['branding.loginBackground'] ?? 'felt');
   const run = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);
@@ -101,10 +102,22 @@ export function LogoAdminPage() {
           <AssetSlot settingKey="branding.logoAssetId" title={t('logo.slotMain')} present={!!brand?.logo} run={run} busy={busy} />
           <span className="text-xs text-muted">{t('logo.hint')}</span>
           <AssetSlot settingKey="branding.logoDarkAssetId" title={t('logo.slotDark')} help={t('logo.slotDarkHelp')} present={!!brand?.logoDark} run={run} busy={busy} />
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" role="switch" checked={plate} disabled={busy} onChange={(e) => void save('branding.darkPlate', e.target.checked)} />
-            {t('logo.darkPlate')}
-          </label>
+          <Select label={t('settings.branding.darkLogoMode.label')} value={darkMode} disabled={busy} onChange={(e) => void save('branding.darkLogoMode', e.target.value)}>
+            {(['invert', 'plate', 'none'] as const).map((m) => (
+              <option key={m} value={m}>
+                {t(`settings.branding.darkLogoMode.option.${m}`)}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted">{t('settings.branding.darkLogoMode.help')}</p>
+          <Select label={t('settings.branding.headerMode.label')} value={headerMode} disabled={busy} onChange={(e) => void save('branding.headerMode', e.target.value)}>
+            {(['logo', 'name', 'none'] as const).map((m) => (
+              <option key={m} value={m}>
+                {t(`settings.branding.headerMode.option.${m}`)}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted">{t('settings.branding.headerMode.help')}</p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" role="switch" checked={showName} disabled={busy} onChange={(e) => void save('branding.showName', e.target.checked)} />
             {t('logo.showName')}

@@ -198,7 +198,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       logoDark: dark ? dark.id : null,
       showName: s['branding.showName'] !== false,
       heightPercent: Number(s['branding.logoHeightPercent'] ?? 100),
-      darkPlate: s['branding.darkPlate'] !== false,
+      darkLogoMode: ['invert', 'plate', 'none'].includes(String(s['branding.darkLogoMode'])) ? String(s['branding.darkLogoMode']) : 'invert',
+      headerMode: ['logo', 'name', 'none'].includes(String(s['branding.headerMode'])) ? String(s['branding.headerMode']) : 'logo',
       loginBackground: mode === 'image' && !bg ? 'felt' : mode,
       loginBg: bg ? bg.id : null,
     });

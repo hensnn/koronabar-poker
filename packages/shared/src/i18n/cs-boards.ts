@@ -4,7 +4,6 @@ export const csBoards: Record<string, string> = {
   'logo.slotMain': 'Logo',
   'logo.slotDark': 'Logo pro tmavý režim (volitelné)',
   'logo.slotDarkHelp': 'Pokud se logo na tmavém pozadí nečte, nahraj jeho světlou variantu. Bez ní se v tmavém režimu použije běžné logo (na světlém podkladu, pokud je zapnutý).',
-  'logo.darkPlate': 'Bez loga pro tmavý režim dát běžné logo na světlý podklad',
   'logo.loginTitle': 'Pozadí přihlašovací stránky',
   'logo.loginHelp': 'Přihlašovací a registrační stránka může mít plstěný stůl v barvách vybraného motivu, jednobarevné pozadí nebo vlastní obrázek.',
   'logo.loginMode': 'Pozadí',
