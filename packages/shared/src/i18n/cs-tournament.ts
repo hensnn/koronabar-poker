@@ -1772,7 +1772,6 @@ export const csTournament: Record<string, string> = {
   'settings.tournament.reminders.help': 'Minuty před startem, kdy se registrovaným hráčům pošle připomenutí (např. 1440, 60, 10).',
   'settings.tournament.autoPauseBelow.label': 'Automatická pauza pod … připojenými hráči',
   'settings.tournament.autoPauseBelow.help': 'Když klesne počet připojených hráčů pod tuto hranici, turnaj se sám pozastaví a po návratu hráčů pokračuje. 0 = vypnuto.',
-  'settings.category.tournamentDeal': 'Turnaj: dohody (deal)',
   'settings.tournament.dealEnabled.label': 'Povolit dohodu (deal)',
   'settings.tournament.dealEnabled.help': 'Zbývající hráči se mohou dohodnout na rozdělení prize poolu. Platí jen při souhlasu všech.',
   'settings.tournament.dealIcm.label': 'Dohoda: ICM',
