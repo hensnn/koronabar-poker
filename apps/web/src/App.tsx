@@ -24,7 +24,7 @@ import { SoundHost } from './pages/sounds';
 import { useFeatures } from './features';
 import { TournamentResultHost } from './pages/tournament-result';
 import { BrandFavicon, BrandMark } from './brand';
-import { AssistantLauncher } from './pages/assistant';
+import { AssistantLauncher, AssistantMenuItem } from './pages/assistant';
 import { OfflineBanner } from './pwa';
 import { AnnouncerHost } from './announcer/host';
 import { PollPage, PollsPage } from './pages/polls';
@@ -175,6 +175,7 @@ function Shell({ me }: { me: Me }) {
           </button>
           <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} flex-wrap gap-2 md:order-first md:flex md:w-auto ${compact ? 'absolute inset-x-0 top-full z-40 mt-1 rounded-lg border border-line bg-surface p-2 shadow-lg md:static md:mt-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'w-full'}`}>
             <MainMenu groups={groups} isActive={isActive} path={path} />
+            {!blocked && features.assistant && <AssistantMenuItem onPick={() => setMenuOpen(false)} />}
             {compact && (
               <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
                 <SoundMenu />

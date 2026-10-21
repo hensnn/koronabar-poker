@@ -124,6 +124,30 @@ function ProposalCard({ p, onChange }: { p: Proposal; onChange: (p: Proposal) =>
   );
 }
 
+const OPEN_EVENT = 'kb:assistant-open';
+
+/** Položka asistenta v hlavní nabídce na telefonu (plovoucí tlačítko tam překáží); otevře okno asistenta. */
+export function AssistantMenuItem({ onPick }: { onPick?: () => void }) {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    get<Status>('/api/assistant/status')
+      .then((s) => setAvailable(s.available))
+      .catch(() => setAvailable(false));
+  }, []);
+  if (!available) return null;
+  return (
+    <button
+      className="rounded-md border border-line bg-surface px-3 py-1 md:hidden"
+      onClick={() => {
+        window.dispatchEvent(new Event(OPEN_EVENT));
+        onPick?.();
+      }}
+    >
+      🤖 {t('assistant.title')}
+    </button>
+  );
+}
+
 /** Okno asistenta ve stylu chatu s návrhy změn, které si uživatel potvrdí. */
 export function AssistantLauncher() {
   const { path } = useLocation();
@@ -143,6 +167,11 @@ export function AssistantLauncher() {
       .catch(() => setStatus(null));
   }, []);
   useEffect(() => loadStatus(), [loadStatus]);
+  useEffect(() => {
+    const openIt = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, openIt);
+    return () => window.removeEventListener(OPEN_EVENT, openIt);
+  }, []);
   useEffect(() => {
     if (!open) return;
     get<{ messages: Msg[] }>('/api/assistant/history')
@@ -200,12 +229,12 @@ export function AssistantLauncher() {
   return (
     <>
       <button
-        className="fixed bottom-4 right-4 z-40 rounded-full border border-line bg-primary px-3 py-2 text-on-primary shadow-lg sm:px-4"
+        className="fixed bottom-4 right-4 z-40 hidden rounded-full border border-line bg-primary px-3 py-2 text-on-primary shadow-lg md:block md:px-4"
         aria-label={t('assistant.open')}
         title={t('assistant.open')}
         onClick={() => setOpen((v) => !v)}
       >
-        🤖 <span className="hidden sm:inline">{t('assistant.title')}</span>
+        🤖 <span>{t('assistant.title')}</span>
       </button>
       {open && (
         <section role="dialog" aria-label={t('assistant.title')} className="fixed bottom-16 right-4 z-40 flex max-h-[70vh] w-[min(28rem,calc(100vw-2rem))] flex-col rounded-lg border border-line bg-surface shadow-lg">

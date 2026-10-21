@@ -90,7 +90,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
 
   return (
     <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" role="group" aria-label={t('table.actions')} title={hotkeys ? t('table.hotkeysHint', { fold: keys.fold.toUpperCase(), call: keys.call.toUpperCase(), bet: keys.bet.toUpperCase(), raise: keys.raise.toUpperCase(), allIn: keys.allIn.toUpperCase() }) : undefined}>
-      <div ref={sliderRow} className={`flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`} title={sliderOn ? t('table.wheelHint') : undefined}>
+      {legal && <div ref={sliderRow} className={`flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`} title={sliderOn ? t('table.wheelHint') : undefined}>
         {quick.map((q) => (
           <button key={q.label} className="rounded-md border border-line bg-raised px-2 py-1 text-sm" disabled={!sliderOn} onClick={() => setAmount(q.value)}>
             {q.label}
@@ -98,7 +98,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
         ))}
         <input aria-label={t('table.amount')} type="range" className="min-w-24 flex-1" disabled={!sliderOn} min={min} max={Math.max(min, max)} step={Math.max(1, Math.floor(info.smallBlind / 5) || 1)} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
         <input aria-label={t('table.amountExact')} type="number" className="w-24 rounded-sm border border-line bg-surface px-2 py-1 font-mono" disabled={!sliderOn} min={min} max={max} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-      </div>
+      </div>}
       {legal ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button className={`${base} tk-act-fold`} disabled={!legal.canFold} onClick={() => onAct({ type: 'fold' })}>
@@ -121,7 +121,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
           </button>
         </div>
       ) : (
-        <div className="flex min-h-10 flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted">{t('table.widget.plan')}:</span>
           <PlanBar view={view} onStraddle={onStraddle} />
         </div>
