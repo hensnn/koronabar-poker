@@ -641,6 +641,7 @@ export function TournamentPage({ id }: { id: string }) {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
+        <div className={view.results && view.summary && view.summary.length > 0 ? 'sm:col-span-2' : ''}>
         <Card title={view.results ? t('tournament.results') : t('tournament.standings')}>
           {view.results && view.summary && view.summary.length > 0 ? (
             <>
@@ -669,6 +670,7 @@ export function TournamentPage({ id }: { id: string }) {
             </DataTable>
           )}
         </Card>
+        </div>
         <Card title={t('tournament.payouts')}>
           {view.payouts.length === 0 ? (
             <p className="text-muted">{t('tournament.noPayouts')}</p>
