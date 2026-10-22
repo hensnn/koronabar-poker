@@ -760,6 +760,7 @@ const ui: SettingDef[] = [
   int('ui.sfxVolumePercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 60, 0, 100),
   bool('ui.sfxDeal', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.dealAnimation', { category: 'ui', mutability: A, scopes: USER }, true),
+  int('ui.tableSizePercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 40, 100),
   bool('ui.tableWaitInfo', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.tournamentWaitBanner', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.tableNotices', { category: 'ui', mutability: A, scopes: USER }, true),

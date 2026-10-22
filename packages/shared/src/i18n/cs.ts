@@ -333,6 +333,10 @@ export const cs: Record<string, string> = {
 
   // Osobní nastavení
   'settings.helpToggle': 'Ukázat nebo skrýt nápovědu',
+  'settings.ui.tableSizePercent.label': 'Velikost stolu',
+  'settings.ui.tableSizePercent.help': 'Jak velkou část dostupné šířky zabere stůl (40 až 100 %). Menší stůl nechá víc místa panelům a chatu; karty, žetony i texty se zmenší s ním. Jde ho měnit i posuvníkem přímo u stolu.',
+  'table.size': 'Velikost stolu',
+  'table.size.reset': 'Výchozí velikost',
   'settings.ui.tableWaitInfo.label': 'U stolu ukazovat, na co se čeká',
   'settings.ui.tableWaitInfo.help': 'Řádek pod stolem řekne, na co se čeká, s odpočtem: další handa, hlasování, rozhodování o ukázání karet, málo hráčů. Vypnuto: jen základní stav (pauza, handa běží).',
   'settings.ui.tournamentWaitBanner.label': 'Pruh turnaje u stolu',

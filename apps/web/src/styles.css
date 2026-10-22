@@ -87,7 +87,9 @@ h3,
   padding: calc(var(--spacing) * 3);
 }
 /* Karty a sedadla rostou s šířkou stolu (min. velikost je token), takže velký stůl nezůstane prázdný. */
+/* Velikost stolu (osobní nastavení): celý stůl i se sedadly a kartami se zmenší stejným poměrem. */
 .tk-table {
+  zoom: calc(var(--table-pct, 100) / 100);
   container-type: inline-size;
   aspect-ratio: var(--tk-table-aspect);
   border-radius: var(--tk-table-radius);

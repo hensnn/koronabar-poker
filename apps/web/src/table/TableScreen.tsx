@@ -112,6 +112,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const fx = useTournamentFx(tournamentId, view);
   const notices = useTableNotices(tableId);
   const waitInfo = useSettings().values['ui.tableWaitInfo'] !== false;
+  const savedSize = Number(useSettings().values['ui.tableSizePercent'] ?? 100);
+  const [liveSize, setLiveSize] = useState<number | null>(null);
+  const tableSize = liveSize ?? savedSize;
   const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
   useEffect(() => {
     if (pinnedSeat === null) return;
@@ -194,7 +197,27 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </div>
         )}
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
-        <div className="tk-table relative mx-auto w-full">
+        {!mobile && (
+          <label className="mb-1 ml-auto flex w-fit items-center gap-2 text-xs text-muted">
+            {t('table.size')}
+            <input
+              type="range"
+              className="w-28"
+              min={40}
+              max={100}
+              step={5}
+              value={tableSize}
+              aria-label={t('table.size')}
+              onChange={(e) => setLiveSize(Number(e.target.value))}
+              onPointerUp={() => liveSize !== null && void saveUserSetting('ui.tableSizePercent', liveSize).finally(() => setLiveSize(null))}
+              onKeyUp={() => liveSize !== null && void saveUserSetting('ui.tableSizePercent', liveSize).finally(() => setLiveSize(null))}
+              onDoubleClick={() => void saveUserSetting('ui.tableSizePercent', 100)}
+              title={t('table.size.reset')}
+            />
+            <span className="w-9 font-mono">{tableSize} %</span>
+          </label>
+        )}
+        <div className="tk-table relative mx-auto" style={{ '--table-pct': String(tableSize) } as CSSProperties}>
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
