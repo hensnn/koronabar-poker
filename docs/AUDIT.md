@@ -41,7 +41,7 @@ Procházelo se, jestli hráč vždy ví, co se u stolu děje, kde běží odpoč
 - **turnaj:** přestávka s odpočtem, pauza ředitelem, hand-for-hand na bublině a rozhodování o rebuy,
 - **7-2 bonus, bomb pot a jackpot** se ukážou nad stolem, ne jen v chatu.
 
-Všechny akce hráčů mají animaci (fold, check, call, bet, raise, re-raise, all-in). Zbývá: automatická akce po vypršení času (fold/check) se zobrazí stejně jako ruční, bez označení, že šlo o vypršení času.
+Všechny akce hráčů mají animaci (fold, check, call, bet, raise, re-raise, all-in). Když hráči vyprší čas a server za něj zahraje fold nebo check, ukáže se nad stolem oznámení. Všechna hlášení jdou vypnout v osobním nastavení (Vzhled a ovládání).
 
 ## Zbývající nedostatky a doporučení
 

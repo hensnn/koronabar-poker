@@ -111,6 +111,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   // Klepnutí (dotyk) na hráče kartu připne; zavře se klepnutím mimo hráče nebo znovu na něj.
   const fx = useTournamentFx(tournamentId, view);
   const notices = useTableNotices(tableId);
+  const waitInfo = useSettings().values['ui.tableWaitInfo'] !== false;
   const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
   useEffect(() => {
     if (pinnedSeat === null) return;
@@ -347,11 +348,11 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
       )}
       {!myTurn && !acting && (
         <p role="status" className="text-center text-sm text-muted">
-          {view.vote && view.vote.status === 'open' && !view.vote.canVote ? (
+          {waitInfo && view.vote && view.vote.status === 'open' && !view.vote.canVote ? (
             <>
               🗳️ {t('table.wait.vote', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={net.clockOffset} />
             </>
-          ) : view.choice ? (
+          ) : waitInfo && view.choice ? (
             <>
               🃏 {t('table.wait.choice', { n: view.choice.count })} · <Countdown deadline={view.choice.deadline} offset={net.clockOffset} />
             </>
@@ -359,11 +360,11 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
             `⏸ ${t('table.paused')}`
           ) : view.handId && view.winners === null && view.street !== null ? (
             t('table.handRunning')
-          ) : view.nextHandAt ? (
+          ) : waitInfo && view.nextHandAt ? (
             <>
               {t('table.wait.nextHand')} <Countdown deadline={view.nextHandAt} offset={net.clockOffset} />
             </>
-          ) : view.seats.filter((s) => s.status !== 'sittingOut').length < 2 ? (
+          ) : waitInfo && view.seats.filter((s) => s.status !== 'sittingOut').length < 2 ? (
             t('table.wait.players')
           ) : (
             t('table.waitingPlayers')

@@ -452,6 +452,11 @@ export async function buildServer(opts: ServerOptions = {}) {
       outHand(e, tables.settingsOf(tableId));
       if (e.type === 'seat' && e.change === 'join') void sounds?.jingle(e.userId, 'join', { kind: 'table', id: tableId }).catch(() => undefined);
       if (e.type === 'handStart') void eveningRef?.cashActivity(tableId).catch(() => undefined);
+      if (e.type === 'action' && e.timedOut) {
+        void nickOf(e.userId)
+          .then((nick) => io.to(`table:${tableId}`).emit('table:notice', { tableId, kind: 'timeout', text: t(e.action === 'check' ? 'table.notice.timeoutCheck' : 'table.notice.timeoutFold', { nick }) }))
+          .catch(() => undefined);
+      }
       const ts = tables.settingsOf(tableId);
       if (ts) stats.onTableEvent({ tableId, kind: 'cash', settings: ts, chipsPerUnit: Number(ts['cash.chipsPerCurrencyUnit']) || 1 }, e);
       if (e.type === 'bonus' || e.type === 'bombPot' || e.type === 'rabbit' || e.type === 'shown' || e.type === 'mucked') {
@@ -460,10 +465,10 @@ export async function buildServer(opts: ServerOptions = {}) {
           if (!channelId) return;
           if (e.type === 'bonus') {
             const text = t('chat.sys.sevenTwo', { nick: await nickOf(e.userId), amount: e.amount });
-            io.to(`table:${tableId}`).emit('table:notice', { tableId, text });
+            io.to(`table:${tableId}`).emit('table:notice', { tableId, kind: 'bonus', text });
             await chat.system(channelId, text);
           } else if (e.type === 'bombPot') {
-            io.to(`table:${tableId}`).emit('table:notice', { tableId, text: t('chat.sys.bombPot') });
+            io.to(`table:${tableId}`).emit('table:notice', { tableId, kind: 'bonus', text: t('chat.sys.bombPot') });
             await chat.system(channelId, t('chat.sys.bombPot'));
           }
           else if (e.type === 'shown') await chat.system(channelId, t(e.which === 'both' ? 'chat.sys.shown' : 'chat.sys.shownOne', { nick: await nickOf(e.userId) }));
@@ -482,7 +487,7 @@ export async function buildServer(opts: ServerOptions = {}) {
           if (!channelId) return;
           for (const p of e.payouts) {
             const text = t(e.kind === 'royalFlush' ? 'chat.sys.jackpotRoyal' : e.kind === 'highHand' ? 'chat.sys.jackpotHighHand' : 'chat.sys.jackpotBadBeat', { nick: await nickOf(p.userId), amount: p.amount });
-            io.to(`table:${tableId}`).emit('table:notice', { tableId, text });
+            io.to(`table:${tableId}`).emit('table:notice', { tableId, kind: 'bonus', text });
             await chat.system(channelId, text);
           }
         })().catch(() => undefined);

@@ -175,3 +175,15 @@ describe('čekání u stolu je vidět všem (odpočty)', () => {
     if (later.nextHandAt) expect(later.nextHandAt).toBeGreaterThanOrEqual(m2.clock.now());
   });
 });
+
+describe('automatická akce po vypršení času', () => {
+  it('událost ji označí jako vypršení času, aby ji klient mohl oznámit; automatický fold hráče v sit outu to není', () => {
+    const m = make();
+    const first = m.acting()!;
+    m.clock.advance(300_000);
+    const timed = m.events.filter((e) => e.type === 'action' && e.timedOut);
+    expect(timed.length).toBeGreaterThan(0);
+    expect(timed[0]).toMatchObject({ type: 'action', userId: first, auto: true, timedOut: true });
+    expect(m.events.filter((e) => e.type === 'action' && !e.auto).every((e) => !('timedOut' in e && e.timedOut))).toBe(true);
+  });
+});

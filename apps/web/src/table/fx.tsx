@@ -31,16 +31,20 @@ const SOUND: Partial<Record<FxEvent['type'], 'rebuy' | 'addon' | 'knockout' | 'l
 
 /** Krátká oznámení u stolu (7-2 bonus, bomb pot, jackpot): zobrazí se na pár sekund, aby je hráč nepřehlédl, i když má chat sbalený. */
 export function useTableNotices(tableId: string): { key: number; text: string }[] {
+  const values = useSettings().values;
+  const showBonus = values['ui.tableNotices'] !== false;
+  const showTimeout = values['ui.timeoutNotice'] !== false;
   const [list, setList] = useState<{ key: number; text: string }[]>([]);
   const counter = useRef(0);
   useEffect(() => {
-    return onSocket<{ tableId: string; text: string }>('table:notice', (m) => {
+    return onSocket<{ tableId: string; kind?: string; text: string }>('table:notice', (m) => {
       if (m.tableId !== tableId) return;
+      if (m.kind === 'timeout' ? !showTimeout : !showBonus) return;
       const item = { key: ++counter.current, text: m.text };
       setList((l) => [...l.slice(-2), item]);
       window.setTimeout(() => setList((l) => l.filter((x) => x.key !== item.key)), 5000);
     });
-  }, [tableId]);
+  }, [tableId, showBonus, showTimeout]);
   return list;
 }
 

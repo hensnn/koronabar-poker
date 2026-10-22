@@ -56,7 +56,7 @@ export interface HandRecordData {
 export type TableEvent =
   | { type: 'connection'; userId: string; connected: boolean }
   | { type: 'handStart'; handId: string; handNumber: number; buttonSeat: number | null; players: { seat: number; userId: string; stack: number }[] }
-  | { type: 'action'; handId: string; userId: string; seat: number; street: string; action: PlayerAction['type'] | 'timeout'; amount: number; auto: boolean; /** Nejvyšší sázka na ulici před akcí. */ facing: number }
+  | { type: 'action'; handId: string; userId: string; seat: number; street: string; action: PlayerAction['type'] | 'timeout'; amount: number; auto: boolean; /** Automatická akce kvůli vypršení času na tah (ne kvůli sit outu). */ timedOut?: boolean; /** Nejvyšší sázka na ulici před akcí. */ facing: number }
   | {
       type: 'handEnd';
       handId: string;
@@ -940,7 +940,7 @@ export class TableActor {
     return legal?.canCheck && !fold ? { type: 'check' } : { type: 'fold' };
   }
 
-  private apply(userId: string, action: PlayerAction, auto: boolean): void {
+  private apply(userId: string, action: PlayerAction, auto: boolean, timedOut = false): void {
     const before = this.adapter.state();
     const legal = this.adapter.legalActions(userId);
     const e = this.seats.get(userId);
@@ -961,6 +961,7 @@ export class TableActor {
       action: action.type,
       amount: action.type === 'bet' || action.type === 'raise' ? action.amount : action.type === 'call' ? (legal?.callAmount ?? 0) : action.type === 'allIn' ? (legal?.maxRaiseTo ?? 0) : 0,
       auto,
+      ...(timedOut ? { timedOut } : {}),
       facing: before.currentBet,
     });
     this.pipeline.run('afterAction', this.moduleCtx(), this.adapter.state(), { userId, action: action.type, auto });
@@ -1088,7 +1089,7 @@ export class TableActor {
     }
     const action = this.defaultAction(userId);
     this.bankActive = false;
-    this.apply(userId, action, true);
+    this.apply(userId, action, true, true);
   }
 
   /** Při jednání v time banku se odečte spotřebovaný čas. */

@@ -63,6 +63,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const infoSide = layout.right.includes('info') ? 'right' : 'left';
   const actionsInline = mobile || layout.hidden.includes('info') || layout.hiddenSides.includes(infoSide);
   const { me } = useSession();
+  const settings = useSettings();
   const features = useFeatures();
   const info = view?.info;
   const mine = view?.seats.find((s) => s.playerId === me?.user.id);
@@ -172,7 +173,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       {children}
       <AddonOfferDialog tour={tour} tournamentId={tournamentId} />
       <RebuyDecisionDialog tour={tour} tournamentId={tournamentId} />
-      <RebuyWaitBanner tour={tour} myId={me?.user.id} />
+      {settings.values['ui.tournamentWaitBanner'] !== false && <RebuyWaitBanner tour={tour} myId={me?.user.id} />}
     </WidgetsContext.Provider>
   );
 }

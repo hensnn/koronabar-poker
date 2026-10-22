@@ -333,6 +333,14 @@ export const cs: Record<string, string> = {
 
   // Osobní nastavení
   'settings.helpToggle': 'Ukázat nebo skrýt nápovědu',
+  'settings.ui.tableWaitInfo.label': 'U stolu ukazovat, na co se čeká',
+  'settings.ui.tableWaitInfo.help': 'Řádek pod stolem řekne, na co se čeká, s odpočtem: další handa, hlasování, rozhodování o ukázání karet, málo hráčů. Vypnuto: jen základní stav (pauza, handa běží).',
+  'settings.ui.tournamentWaitBanner.label': 'Pruh turnaje u stolu',
+  'settings.ui.tournamentWaitBanner.help': 'U stolu turnaje se nahoře ukáže pruh s přestávkou a odpočtem, pauzou ředitelem, hand-for-handem na bublině a hráčem, který se rozhoduje o rebuy. Vypnuto: pruh se neukazuje.',
+  'settings.ui.tableNotices.label': 'Oznámení nad stolem (bonus, bomb pot, jackpot)',
+  'settings.ui.tableNotices.help': 'Když padne 7-2 bonus, hraje se bomb pot nebo se vyplácí jackpot, objeví se nad stolem na pár sekund oznámení. Stejná zpráva jde vždy i do chatu u stolu. Vypnuto: nad stolem se neukáže.',
+  'settings.ui.timeoutNotice.label': 'Oznámit vypršení času hráče',
+  'settings.ui.timeoutNotice.help': 'Když hráči vyprší čas na tah a server za něj složí nebo checkne, ukáže se nad stolem krátké oznámení, aby bylo jasné, proč se tah stal. Vypnuto: oznámení se neukáže.',
   'settings.ui.density.label': 'Hustota zobrazení',
   'settings.ui.density.help': 'Jak těsně jsou rozmístěné karty, okna, tabulky, tlačítka a řádky nastavení. Úsporná se vejde víc obsahu na obrazovku, Volná je vzdušnější. Automaticky = úsporná na telefonu a tabletu, běžná na počítači. Pro telefon a počítač můžeš nastavit zvlášť v záložce pro daný typ zařízení.',
   'settings.ui.density.option.auto': 'Automaticky',
@@ -673,6 +681,8 @@ export const cs: Record<string, string> = {
   'templates.bulk.help': 'Vyberte šablony a změňte jedno nebo více nastavení. Změněné hodnoty se zapíšou do všech zaškrtnutých šablon, ostatní jejich nastavení zůstanou, jak jsou. Zobrazené hodnoty jsou z první vybrané šablony; do ostatních se zapíše jen to, co změníte. Už rozehrané hry se nemění.',
   'templates.bulk.which': 'Změnit v těchto šablonách',
   'templates.bulk.apply': 'Zapsat {n} změn do {m} šablon',
+  'table.notice.timeoutFold': 'Hráči {nick} vypršel čas, za něj se zahrál fold.',
+  'table.notice.timeoutCheck': 'Hráči {nick} vypršel čas, za něj se zahrál check.',
   'table.wait.vote': 'Hráči hlasují (hlasovalo {voted} z {total}).',
   'table.wait.choice': 'Hráči se rozhodují, zda ukážou karty ({n}).',
   'table.wait.nextHand': 'Další handa začne za',
