@@ -29,10 +29,13 @@ export function MainMenu({
   isActive,
   path,
   subBar = false,
+  lead = [],
 }: {
   groups: MenuGroup[];
   isActive: (to: string) => boolean;
   path: string;
+  /** Samostatná tlačítka před skupinami (např. Lobby). */
+  lead?: MenuItem[];
   /** Pod skupinami zůstane trvale vidět lišta položek aktivní skupiny se zvýrazněnou otevřenou položkou. */ subBar?: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -80,7 +83,12 @@ export function MainMenu({
         ref={box}
         className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:gap-1"
       >
-        {groups.map((g) => {
+        {lead.map((i) => (
+        <Link key={i.to} to={i.to} aria-current={isActive(i.to) ? 'page' : undefined} className={`flex w-full items-center rounded-md border px-3 py-1 md:w-auto ${isActive(i.to) ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
+          {i.label}
+        </Link>
+      ))}
+      {groups.map((g) => {
           const tone = TONE[g.tone];
           const current = g.items.some((i) => isActive(i.to));
           const isOpen = open === g.id;

@@ -24,7 +24,14 @@ export function MyTableButton({ path }: { path: string }) {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
   useEffect(() => setOpen(false), [path]);
-  if (seats.length === 0) return null;
+  // Tlačítko je v hlavičce vždy; bez stolu, ke kterému jde přejít, je šedé a nic nedělá.
+  if (seats.length === 0) {
+    return (
+      <button type="button" disabled className="rounded-md border border-line bg-surface px-3 py-1 text-muted opacity-60" title={t('nav.myTableNone')}>
+        🪑 {t('nav.myTable')}
+      </button>
+    );
+  }
   const first = seats[0]!;
   if (seats.length === 1) {
     return (

@@ -115,9 +115,9 @@ function Shell({ me }: { me: Me }) {
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/', 'nav.lobby'), item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls)] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls)] },
       { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp), item('/obchod', 'nav.shop', shopOn)] },
-      { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.settings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
+      { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.personalSettings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
     ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
   )
     .map((g) => ({ ...g, items: g.items.filter((i) => i.show).map(({ to, label }) => ({ to, label })) }))
@@ -172,8 +172,8 @@ function Shell({ me }: { me: Me }) {
           <button className="rounded-md border border-line bg-surface px-3 py-1 md:hidden" aria-expanded={menuOpen} aria-controls="hlavni-nabidka" onClick={() => setMenuOpen((v) => !v)}>
             ☰ {t('nav.menu')}
           </button>
-          <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} flex-wrap gap-2 md:order-first md:flex md:w-auto ${compact ? 'absolute inset-x-0 top-full z-40 mt-1 rounded-lg border border-line bg-surface p-2 shadow-lg md:static md:mt-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'w-full'}`}>
-            <MainMenu groups={groups} isActive={isActive} path={path} />
+          <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} flex-wrap gap-2 md:order-[-5000] md:flex md:w-auto ${compact ? 'absolute inset-x-0 top-full z-40 mt-1 rounded-lg border border-line bg-surface p-2 shadow-lg md:static md:mt-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'w-full'}`}>
+            <MainMenu groups={groups} isActive={isActive} path={path} lead={[{ to: '/', label: t('nav.lobby') }]} />
             {!blocked && features.assistant && <AssistantMenuItem onPick={() => setMenuOpen(false)} />}
             {compact && (
               <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
@@ -182,7 +182,9 @@ function Shell({ me }: { me: Me }) {
               </div>
             )}
           </div>
-          <MyTableButton path={path} />
+          <span className="order-first">
+            <MyTableButton path={path} />
+          </span>
           <NotificationBell />
           <span className={compact ? 'hidden md:inline-flex' : 'inline-flex'}>
             <SoundMenu />
