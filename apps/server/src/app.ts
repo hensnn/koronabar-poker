@@ -458,8 +458,14 @@ export async function buildServer(opts: ServerOptions = {}) {
         void (async () => {
           const channelId = await chat.channelIdByKey('table:' + tableId);
           if (!channelId) return;
-          if (e.type === 'bonus') await chat.system(channelId, t('chat.sys.sevenTwo', { nick: await nickOf(e.userId), amount: e.amount }));
-          else if (e.type === 'bombPot') await chat.system(channelId, t('chat.sys.bombPot'));
+          if (e.type === 'bonus') {
+            const text = t('chat.sys.sevenTwo', { nick: await nickOf(e.userId), amount: e.amount });
+            io.to(`table:${tableId}`).emit('table:notice', { tableId, text });
+            await chat.system(channelId, text);
+          } else if (e.type === 'bombPot') {
+            io.to(`table:${tableId}`).emit('table:notice', { tableId, text: t('chat.sys.bombPot') });
+            await chat.system(channelId, t('chat.sys.bombPot'));
+          }
           else if (e.type === 'shown') await chat.system(channelId, t(e.which === 'both' ? 'chat.sys.shown' : 'chat.sys.shownOne', { nick: await nickOf(e.userId) }));
           else if (e.type === 'mucked') await chat.system(channelId, t('chat.sys.mucked', { nick: await nickOf(e.userId) }));
           else await chat.system(channelId, t('chat.sys.rabbit', { cards: e.cards.join(' ') }));
@@ -474,7 +480,11 @@ export async function buildServer(opts: ServerOptions = {}) {
         void (async () => {
           const channelId = await chat.channelIdByKey('table:' + tableId);
           if (!channelId) return;
-          for (const p of e.payouts) await chat.system(channelId, t(e.kind === 'royalFlush' ? 'chat.sys.jackpotRoyal' : e.kind === 'highHand' ? 'chat.sys.jackpotHighHand' : 'chat.sys.jackpotBadBeat', { nick: await nickOf(p.userId), amount: p.amount }));
+          for (const p of e.payouts) {
+            const text = t(e.kind === 'royalFlush' ? 'chat.sys.jackpotRoyal' : e.kind === 'highHand' ? 'chat.sys.jackpotHighHand' : 'chat.sys.jackpotBadBeat', { nick: await nickOf(p.userId), amount: p.amount });
+            io.to(`table:${tableId}`).emit('table:notice', { tableId, text });
+            await chat.system(channelId, text);
+          }
         })().catch(() => undefined);
         return;
       }

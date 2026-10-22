@@ -63,6 +63,18 @@ Nastavení → Časovač tahu. Hráč má na rozhodnutí **Čas na tah** (`time.
 
 Odpojený hráč (zavřená aplikace, výpadek) dostane jen **prodlevu pro odpojeného** (`time.disconnectGraceSeconds`, 30 s) a rezerva se nepoužije. Pokud je zapnuté **zavolání času** (`time.callClockEnabled`), smí soupeř pomalému hráči odpočet zkrátit na `callClockSeconds`.
 
+## 4b. Když se u stolu čeká: co hráč vidí
+
+U stolu je pod stolem vždy řádek, který říká, na co se čeká, a kde to jde, s odpočtem:
+
+- **Jsi na tahu / někdo je na tahu:** odpočet času na tah (včetně time banku, zavolaného času).
+- **Hlasování** (run it twice): kdo hlasoval a kolik zbývá času; hlasující mají okno s tlačítky.
+- **Showdown:** „Hráči se rozhodují, zda ukážou karty“ s odpočtem; rozhodující mají okno Ukázat / Muck.
+- **Mezi handami:** „Další handa začne za N s“; při málo hráčích „Čeká se na další hráče“; při pauze „Hra je pozastavená“.
+- **Turnaj:** pruh nahoře u stolu ukazuje přestávku s odpočtem, pauzu ředitelem, hand-for-hand na bublině a rozhodování o rebuy (kdo, kolik zbývá, nebo že hra čeká na odpojeného).
+- **Zvláštní události** (7-2 bonus, bomb pot, jackpot) se na pár sekund objeví nad stolem a zároveň jdou do chatu u stolu.
+- **Akce hráčů** (fold, check, call, bet, raise, re-raise, all-in) mají každá vlastní animaci u sedadla; rozdávání, otočení karet, výhra a vyřazení také.
+
 ## 5. Po testování: vynulování
 
 **Správa → Údržba** (jen hlavní správce). Zaškrtni, co se má smazat všem hráčům: zavřít stoly a zrušit turnaje (žetony se vrátí), XP a úrovně, úspěchy, rating, statistiky a historie hand, peněženky na startovní zůstatek. Potvrzuje se slovem VYNULOVAT a je to nevratné (zápis v audit logu). Doporučený postup po zkušebním provozu: 1) zavřít hry, 2) vynulovat XP, úspěchy, rating a statistiky, 3) peněženky na startovní zůstatek. Zvlášť je **Nový start účetní knihy**: smaže historii všech transakcí a každému připíše počáteční zůstatek (jde jen bez otevřených stolů a běžících turnajů). Jednotlivému hráči vynuluješ XP, úspěchy a rating ve **Správa → Uživatelé** tlačítkem *Vynulovat XP a rating*. Rating navíc umí „měkký reset sezóny“ a přepočet z historie ve Statistiky → Rating (pro běžné sezóny bez mazání).

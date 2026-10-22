@@ -28,7 +28,7 @@ import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
-import { TableFx, useTournamentFx } from './fx';
+import { TableFx, useTableNotices, useTournamentFx } from './fx';
 import { DealButton, EntryActions } from './InfoCard';
 import { ShowdownPrefs } from './TablePanel';
 
@@ -110,6 +110,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const [hoverSeat, setHoverSeat] = useState<number | null>(null);
   // Klepnutí (dotyk) na hráče kartu připne; zavře se klepnutím mimo hráče nebo znovu na něj.
   const fx = useTournamentFx(tournamentId, view);
+  const notices = useTableNotices(tableId);
   const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
   useEffect(() => {
     if (pinnedSeat === null) return;
@@ -182,6 +183,15 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </div>
         )}
         {fx.length > 0 && <TableFx fx={fx} view={view} viewerSeat={view.viewerSeat ?? 0} />}
+        {notices.length > 0 && (
+          <div role="status" className="pointer-events-none absolute inset-x-0 top-2 z-20 flex flex-col items-center gap-1">
+            {notices.map((n) => (
+              <span key={n.key} className="tk-pop rounded-md border border-accent bg-surface px-3 py-1 text-sm font-semibold shadow-lg">
+                ✨ {n.text}
+              </span>
+            ))}
+          </div>
+        )}
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
         <div className="tk-table relative mx-auto w-full">
           {/* střed: board, pot, hlášky */}
@@ -335,7 +345,31 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </p>
         )
       )}
-      {!myTurn && !acting && <p className="text-center text-sm text-muted">{view.paused ? `⏸ ${t('table.paused')}` : view.handId && view.winners === null && view.street !== null ? t('table.handRunning') : t('table.waitingPlayers')}</p>}
+      {!myTurn && !acting && (
+        <p role="status" className="text-center text-sm text-muted">
+          {view.vote && view.vote.status === 'open' && !view.vote.canVote ? (
+            <>
+              🗳️ {t('table.wait.vote', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={net.clockOffset} />
+            </>
+          ) : view.choice ? (
+            <>
+              🃏 {t('table.wait.choice', { n: view.choice.count })} · <Countdown deadline={view.choice.deadline} offset={net.clockOffset} />
+            </>
+          ) : view.paused ? (
+            `⏸ ${t('table.paused')}`
+          ) : view.handId && view.winners === null && view.street !== null ? (
+            t('table.handRunning')
+          ) : view.nextHandAt ? (
+            <>
+              {t('table.wait.nextHand')} <Countdown deadline={view.nextHandAt} offset={net.clockOffset} />
+            </>
+          ) : view.seats.filter((s) => s.status !== 'sittingOut').length < 2 ? (
+            t('table.wait.players')
+          ) : (
+            t('table.waitingPlayers')
+          )}
+        </p>
+      )}
       </div>
 
       {mine && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} onStraddle={(want) => void run(table.straddle(tableId, want))} />}

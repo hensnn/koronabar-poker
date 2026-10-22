@@ -32,6 +32,8 @@ export interface ViewContext {
   vote?: VoteView | null;
   rabbit?: Card[] | null;
   bombPot?: boolean;
+  /** Kdy začne další handa (epoch ms), nebo null. */
+  nextHandAt?: number | null;
   /** Dobrovolně ukázané karty po handě podle sedadla. */
   exposed?: Map<number, (Card | null)[]>;
   /** Výsledky běhů run it twice (celé; viditelné se oříznou podle reveal.runs). */
@@ -157,6 +159,8 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     rabbit: h.finished ? (ctx.rabbit ?? null) : null,
     bombPot: ctx.bombPot ?? false,
     paused: ctx.paused ?? false,
+    nextHandAt: h.finished ? (ctx.nextHandAt ?? null) : null,
+    choice: ctx.deciding && ctx.deciding.size > 0 && ctx.choiceDeadline ? { deadline: ctx.choiceDeadline, count: ctx.deciding.size } : null,
     runs: ctx.runs && ctx.runs.length > 1 && (ctx.reveal.runs ?? 0) > 0 ? ctx.runs.slice(0, ctx.reveal.runs) : null,
     seats,
     pots,

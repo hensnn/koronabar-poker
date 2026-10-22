@@ -39,7 +39,7 @@ export function onSocket<T = unknown>(event: string, fn: (data: T) => void): () 
   return () => void set_!.delete(fn);
 }
 
-const FORWARDED = ['hello', 'wallet', 'settings:changed', 'permissions:changed', 'chat:message', 'chat:edited', 'chat:deleted', 'chat:reaction', 'chat:pinned', 'chat:typing', 'chat:mention', 'chat:channels-changed', 'tournament:changed', 'tournament:fx', 'tournament:result', 'notification', 'sound', 'progress:level', 'progress:achievement', 'poll:changed', 'announce', 'evening:changed', 'live:changed', 'bets:changed', 'hand:changed', 'looks:changed'];
+const FORWARDED = ['hello', 'wallet', 'settings:changed', 'permissions:changed', 'chat:message', 'chat:edited', 'chat:deleted', 'chat:reaction', 'chat:pinned', 'chat:typing', 'chat:mention', 'chat:channels-changed', 'tournament:changed', 'tournament:fx', 'tournament:result', 'table:notice', 'notification', 'sound', 'progress:level', 'progress:achievement', 'poll:changed', 'announce', 'evening:changed', 'live:changed', 'bets:changed', 'hand:changed', 'looks:changed'];
 
 const announceRooms = new Set<string>();
 /** Místnosti hlasatele (stránka turnaje nebo živé hry); po obnovení spojení se přihlásí znovu. */

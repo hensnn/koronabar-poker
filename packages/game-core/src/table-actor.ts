@@ -133,6 +133,8 @@ export class TableActor {
   private error: unknown = null;
   private handSettings: SettingValues;
   private pendingStart: (() => void) | null = null;
+  /** Kdy začne další handa (epoch ms); null = žádná se nechystá. Hráči u stolu vidí odpočet. */
+  private nextHandAt: number | null = null;
   /** Právě běží předěl mezi handami: události z něj (vyřazení hráče…) nesmí naplánovat další předěl. */
   private inBoundary = false;
   /** Během předělu někdo žádal o naplánování další handy: vyřídí se po něm, jen když handa nezačala. */
@@ -499,6 +501,7 @@ export class TableActor {
       wanted: this.opt.seatWanted ? new Map([...this.seats.values()].map((e) => [e.userId, this.opt.seatWanted!(e.userId)])) : undefined,
       reveal: this.reveal,
       mucked: this.mucked,
+      nextHandAt: this.pendingStart ? this.nextHandAt : null,
       deciding: this.choice?.seats,
       choiceDeadline: this.choice?.deadline ?? null,
       legal,
@@ -747,8 +750,10 @@ export class TableActor {
     }
     let delay = this.scaled(num(this.opt.settings(), 'time.betweenHandsMs'));
     if (this.phase === 'pause' && this.showCardsOpen()) delay = Math.max(delay, this.scaled(num(this.opt.settings(), 'time.showCardsMs')));
+    this.nextHandAt = this.opt.clock.now() + delay;
     const cancel = this.opt.clock.setTimeout(() => {
       this.pendingStart = null;
+      this.nextHandAt = null;
       if (this.phase === 'stopped') return;
       try {
         this.boundary();

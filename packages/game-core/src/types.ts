@@ -173,6 +173,10 @@ export interface TableView {
   bombPot: boolean;
   /** Stůl je pozastavený (pauza, přestávka): po dohrání handy se nerozdává. */
   paused?: boolean;
+  /** Kdy začne další handa (epoch ms) po skončené handě; null, když se žádná nechystá (málo hráčů, pauza). */
+  nextHandAt?: number | null;
+  /** Showdown: kolik hráčů se ještě rozhoduje, zda ukáže karty, a dokdy (vidí všichni u stolu). */
+  choice?: { deadline: number; count: number } | null;
   /** Běží hlasování (run it twice…), v němž může viewer hlasovat. */
   vote: VoteView | null;
   /** Run it twice/třikrát: boardy jednotlivých běhů a jejich výherci (jen odhalené běhy). */

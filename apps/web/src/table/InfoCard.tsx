@@ -13,6 +13,15 @@ import { formatAmount, tableMoney } from './format';
 
 export interface TournamentInfo {
   status: string;
+  /** Turnaj je pozastavený (ředitelem). */
+  paused?: boolean;
+  /** Bublina: hraje se hand-for-hand. */
+  bubble?: boolean;
+  /** Stoly turnaje (víc než jeden = turnaj na více stolech). */
+  tables?: unknown[];
+  /** Hodiny turnaje: level, nebo přestávka a kolik ms zbývá (stav k času serveru). */
+  clockKind?: 'level' | 'break' | null;
+  clockMs?: number | null;
   prizePool: number;
   players: number;
   alive: number;
@@ -328,29 +337,46 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
   );
 }
 
-/** Pruh u stolu: kdo právě rozhoduje o rebuy, kolik mu zbývá, a jestli kvůli tomu hra čeká (nebo čeká na odpojeného hráče). */
+/** Pruh u stolu: na co se v turnaji právě čeká (přestávka s odpočtem, pauza, hand-for-hand, rozhodování o rebuy), aby hráč vždy věděl, proč se nehraje. */
 export function RebuyWaitBanner({ tour, myId }: { tour: TournamentInfo | null; myId: string | undefined }) {
   const deciding = tour?.status === 'running' ? tour.standings.filter((p) => p.status === 'deciding' && p.userId !== myId) : [];
+  const onBreak = tour?.status === 'running' && tour.clockKind === 'break' && tour.clockMs !== null;
+  const paused = tour?.status === 'running' && !!tour.paused && !onBreak;
+  const bubble = tour?.status === 'running' && !!tour.bubble && !onBreak && !paused && deciding.length === 0 && (tour.tables?.length ?? 1) > 1;
+  const active = deciding.length > 0 || onBreak || paused || bubble;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    if (deciding.length === 0) return;
+    if (!active) return;
     const timer = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(timer);
-  }, [deciding.length]);
-  if (!tour || deciding.length === 0) return null;
-  const p = deciding[0]!;
-  const name = p.name ?? '?';
-  const left = p.decideUntil ? Math.max(0, Math.ceil((p.decideUntil - tour.serverTime - (now - fetchedAtOf(tour))) / 1000)) : null;
-  const text = p.decideFrozen
-    ? t('table.rebuyWait.offline', { name, minutes: Math.max(1, Math.round((tour.rebuy.offlineMaxSeconds ?? 0) / 60)) })
-    : left !== null
-      ? t('table.rebuyWait.deciding', { name, seconds: left })
-      : t('table.rebuyWait.waiting', { name });
+  }, [active]);
+  if (!tour || !active) return null;
+  const elapsed = now - fetchedAtOf(tour);
+  const lines: string[] = [];
+  if (onBreak) {
+    const ms = Math.max(0, (tour.clockMs ?? 0) - elapsed);
+    lines.push(t('table.break.running', { time: `${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, '0')}` }));
+  }
+  if (paused) lines.push(t('table.break.paused'));
+  if (bubble) lines.push(t('table.break.bubble'));
+  if (deciding.length > 0) {
+    const p = deciding[0]!;
+    const name = p.name ?? '?';
+    const left = p.decideUntil ? Math.max(0, Math.ceil((p.decideUntil - tour.serverTime - elapsed) / 1000)) : null;
+    const text = p.decideFrozen
+      ? t('table.rebuyWait.offline', { name, minutes: Math.max(1, Math.round((tour.rebuy.offlineMaxSeconds ?? 0) / 60)) })
+      : left !== null
+        ? t('table.rebuyWait.deciding', { name, seconds: left })
+        : t('table.rebuyWait.waiting', { name });
+    lines.push(
+      text + (deciding.length > 1 ? ` ${t('table.rebuyWait.more', { n: deciding.length - 1 })}` : '') + (tour.rebuy.holdsGame === false ? ` ${t('table.rebuyWait.continues')}` : ''),
+    );
+  }
   return (
-    <div role="status" className="sticky top-1 z-30 mx-auto w-fit max-w-full rounded-md border border-warning bg-surface px-3 py-1 text-sm shadow">
-      ⏳ {text}
-      {deciding.length > 1 && <span className="text-muted"> {t('table.rebuyWait.more', { n: deciding.length - 1 })}</span>}
-      {tour.rebuy.holdsGame === false && <span className="text-muted"> {t('table.rebuyWait.continues')}</span>}
+    <div role="status" className="sticky top-1 z-30 mx-auto flex w-fit max-w-full flex-col gap-0.5 rounded-md border border-warning bg-surface px-3 py-1 text-sm shadow">
+      {lines.map((l, i) => (
+        <span key={i}>⏳ {l}</span>
+      ))}
     </div>
   );
 }

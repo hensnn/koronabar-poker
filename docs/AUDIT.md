@@ -33,6 +33,16 @@ Simulace se spouští příkazem `pnpm --filter @kb/server exec tsx scripts/simu
 - **Typ zařízení:** v Nastavení → Osobní nastavení je volba „Typ tohoto zařízení“ (Automaticky / Telefon a tablet / Počítač).
 - **Vizuální kontrola:** skript `scripts/screenshots.mjs` uloží snímky hlavních stránek na počítači i mobilu (`LOGIN=... PASSWORD=... node scripts/screenshots.mjs složka`; vývojový server a web musí běžet). Přibyl test, který hlídá kolizi tříd herních karet s obecnými prvky.
 
+## Kontrola čekání a animací u stolu
+
+Procházelo se, jestli hráč vždy ví, co se u stolu děje, kde běží odpočet. Bylo doplněno:
+- odpočet **další handy** a zpráva „Čeká se na další hráče“ (dřív jen obecné „Čeká se na další handu“),
+- **hlasování** a **rozhodování o ukázání karet** je vidět všem u stolu (dřív jen tomu, kdo hlasuje nebo rozhoduje),
+- **turnaj:** přestávka s odpočtem, pauza ředitelem, hand-for-hand na bublině a rozhodování o rebuy,
+- **7-2 bonus, bomb pot a jackpot** se ukážou nad stolem, ne jen v chatu.
+
+Všechny akce hráčů mají animaci (fold, check, call, bet, raise, re-raise, all-in). Zbývá: automatická akce po vypršení času (fold/check) se zobrazí stejně jako ruční, bez označení, že šlo o vypršení času.
+
 ## Zbývající nedostatky a doporučení
 
 1. **Plné prohlížečové testy** (klikání ve vykreslené aplikaci) zatím chybí; snímky stránek se kontrolují ručně skriptem výše.

@@ -146,3 +146,32 @@ describe('showdown: ukázat, nebo odhodit karty (muck)', () => {
     expect(m.actor.viewFor(null).seats.every((s) => s.exposed === undefined)).toBe(true);
   });
 });
+
+describe('čekání u stolu je vidět všem (odpočty)', () => {
+  it('rozhodování o ukázání karet je veřejné s počtem a limitem; odpočet další handy je veřejný po skončené handě', () => {
+    let seenChoice = false;
+    for (let seed = 1; seed <= 12; seed++) {
+      const m = make({}, ASK, seed);
+      m.toShowdown();
+      const spectator = m.actor.viewFor(null);
+      if (spectator.choice) {
+        seenChoice = true;
+        expect(spectator.choice.count).toBeGreaterThan(0);
+        expect(spectator.choice.deadline).toBeGreaterThan(m.clock.now());
+        const deciding = spectator.seats.find((s) => s.reveal === 'deciding')!;
+        m.actor.showdownChoice(deciding.playerId, 'show');
+        break;
+      }
+    }
+    expect(seenChoice).toBe(true);
+    const m2 = make();
+    expect(m2.actor.viewFor(null).nextHandAt).toBeNull(); // během handy se žádná nechystá
+    m2.toShowdown();
+    const done = m2.actor.viewFor(null);
+    expect(done.choice ?? null).toBeNull();
+    // po dohrání showdownu naplánuje stůl další handu a ukáže kdy
+    for (let i = 0; i < 30 && !m2.actor.viewFor(null).nextHandAt && m2.actor.currentPhase() !== 'hand'; i++) m2.clock.advance(50);
+    const later = m2.actor.viewFor(null);
+    if (later.nextHandAt) expect(later.nextHandAt).toBeGreaterThanOrEqual(m2.clock.now());
+  });
+});

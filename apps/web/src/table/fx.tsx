@@ -29,6 +29,21 @@ export const FX_MS: Record<FxEvent['type'], number> = { rebuy: 2600, addon: 2800
 /** Která událost spouští který zvuk. */
 const SOUND: Partial<Record<FxEvent['type'], 'rebuy' | 'addon' | 'knockout' | 'level' | 'bubble'>> = { rebuy: 'rebuy', reentry: 'rebuy', addon: 'addon', knockout: 'knockout', level: 'level', bubble: 'bubble' };
 
+/** Krátká oznámení u stolu (7-2 bonus, bomb pot, jackpot): zobrazí se na pár sekund, aby je hráč nepřehlédl, i když má chat sbalený. */
+export function useTableNotices(tableId: string): { key: number; text: string }[] {
+  const [list, setList] = useState<{ key: number; text: string }[]>([]);
+  const counter = useRef(0);
+  useEffect(() => {
+    return onSocket<{ tableId: string; text: string }>('table:notice', (m) => {
+      if (m.tableId !== tableId) return;
+      const item = { key: ++counter.current, text: m.text };
+      setList((l) => [...l.slice(-2), item]);
+      window.setTimeout(() => setList((l) => l.filter((x) => x.key !== item.key)), 5000);
+    });
+  }, [tableId]);
+  return list;
+}
+
 /** Poslouchá animační události turnaje pro tento stůl; vrací právě běžící efekty. Vypnutelné osobním nastavením. */
 export function useTournamentFx(tournamentId: string | null, view: TableView | undefined): ActiveFx[] {
   const enabled = useSettings().values['ui.eventAnimations'] !== false;
