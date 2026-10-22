@@ -474,6 +474,7 @@ export class TableActor {
         ...(this.opt.tournamentId ? { tournamentId: this.opt.tournamentId } : {}),
         bettingLimit: String(s['table.bettingLimit']) as 'noLimit' | 'potLimit' | 'fixedLimit',
         callClock: !!s['time.callClockEnabled'],
+        timeBankMode: String(s['time.bankMode']),
         showCards: !!s['special.showCards'],
         rabbitHunt: !!s['special.rabbitHunt'],
         ante: num(s, 'table.ante') * this.rate(),

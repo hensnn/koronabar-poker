@@ -21,7 +21,7 @@ interface Clock {
   standings?: { userId: string; place: number; status: string }[];
 }
 
-const mmss = (ms: number) => {
+export const mmss = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
@@ -85,7 +85,7 @@ export function TournamentBanner({ tournamentId }: { tournamentId: string }) {
 }
 
 /** Hodiny turnaje: level, blindy, zbývající čas; data z turnaje, odpočet lokálně. */
-export function ClockWidget({ tournamentId }: { tournamentId: string }) {
+export function ClockWidget({ tournamentId, timeBank }: { tournamentId: string; /** Moje zbývající rezerva času v sekundách; undefined = nesedím nebo se rezerva nepoužívá. */ timeBank?: number }) {
   const [c, setC] = useState<(Clock & { fetchedAt: number }) | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const load = useCallback(() => {
@@ -125,6 +125,11 @@ export function ClockWidget({ tournamentId }: { tournamentId: string }) {
       <div className="text-xs text-muted">
         {c.alive}/{c.players}
       </div>
+      {timeBank !== undefined && (
+        <div className="text-sm" title={t('table.widget.timeBankHelp')}>
+          ⏱ {t('table.widget.timeBank')}: <span className="font-mono font-semibold">{mmss(timeBank * 1000)}</span>
+        </div>
+      )}
     </div>
   );
 }

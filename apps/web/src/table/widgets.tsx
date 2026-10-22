@@ -9,7 +9,7 @@ import { CardView } from './CardView';
 import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, RebuyWaitBanner, BountiesBody, InfoBody, useTournamentInfo } from './InfoCard';
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
-import { ClockWidget } from './TablePanel';
+import { ClockWidget, mmss } from './TablePanel';
 import { useMobileLayout } from './mobile';
 
 export interface WidgetDef {
@@ -77,7 +77,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       show: !!info,
       // Jeden widget o stole: v turnaji hodiny turnaje (level, blindy, čas), v cash game blindy, rozsah nákupu a rake.
       body: tournamentId ? (
-        <ClockWidget tournamentId={tournamentId} />
+        <ClockWidget tournamentId={tournamentId} timeBank={mine && info?.timeBankMode && info.timeBankMode !== 'none' ? mine.timeBank : undefined} />
       ) : (
         info && (
           <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
@@ -91,6 +91,14 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
                 <dd className="font-mono">
                   {formatAmount(info.minBuyIn, info, false)} – {formatAmount(info.maxBuyIn, info, false)}
                 </dd>
+              </>
+            )}
+            {mine && info.timeBankMode && info.timeBankMode !== 'none' && (
+              <>
+                <dt className="text-muted" title={t('table.widget.timeBankHelp')}>
+                  {t('table.widget.timeBank')}
+                </dt>
+                <dd className="font-mono">{mmss(mine.timeBank * 1000)}</dd>
               </>
             )}
             {info.rake && (

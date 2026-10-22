@@ -74,6 +74,7 @@ U stolu je pod stolem vždy řádek, který říká, na co se čeká, a kde to j
 - **Turnaj:** pruh nahoře u stolu ukazuje přestávku s odpočtem, pauzu ředitelem, hand-for-hand na bublině a rozhodování o rebuy (kdo, kolik zbývá, nebo že hra čeká na odpojeného).
 - **Zvláštní události** (7-2 bonus, bomb pot, jackpot) se na pár sekund objeví nad stolem a zároveň jdou do chatu u stolu.
 - **Vypršel čas hráči:** když server za něj zahraje fold nebo check, nad stolem se krátce ukáže, že šlo o vypršení času.
+- **Time bank:** v widgetu o stole (u turnaje v hodinách turnaje) je vidět, kolik rezervy času ti zbývá (pokud je rezerva zapnutá).
 - **Velikost stolu:** nad stolem je posuvník (40 až 100 %). Zmenší celý stůl i se sedadly a kartami; dvojklik vrátí 100 %. Je i v Osobním nastavení a jde nastavit zvlášť pro počítač a telefon.
 - **Akce hráčů** (fold, check, call, bet, raise, re-raise, all-in) mají každá vlastní animaci u sedadla; rozdávání, otočení karet, výhra a vyřazení také.
 

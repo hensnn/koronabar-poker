@@ -131,6 +131,8 @@ export interface TableInfo {
   bettingLimit?: 'noLimit' | 'potLimit' | 'fixedLimit';
   /** Hráči smějí zavolat čas na pomalého soupeře. */
   callClock?: boolean;
+  /** Režim rezervy času (pool, chips, chess…, none); podle něj klient ukáže zbývající time bank. */
+  timeBankMode?: string;
   /** Po handě lze ukázat karty / vyžádat rabbit hunt. */
   showCards?: boolean;
   rabbitHunt?: boolean;
