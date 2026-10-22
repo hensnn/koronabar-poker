@@ -82,49 +82,49 @@ export function LobbyPage() {
       </div>
       {error && <Notice kind="error">{error}</Notice>}
       {tables.length === 0 && <Notice>{t('lobby.empty')}</Notice>}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <ul className="flex flex-col gap-1">
         {tables.map((x) => (
-          <Card key={x.id} title={x.name}>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="primary">
-                  {x.seated}/{x.seats} {t('lobby.players')}
-                </Badge>
-                {x.playing && <Badge tone="success">{t('lobby.playing')}</Badge>}
-                {x.straddle !== 'off' && <Badge>{t(`lobby.straddle.${x.straddle}`)}</Badge>}
-                {x.bbAnte && <Badge>{t('lobby.bbAnte')}</Badge>}
-                {x.ante > 0 && !x.bbAnte && <Badge>{t('lobby.ante', { n: x.ante })}</Badge>}
-                {x.rakePercent > 0 && <Badge>{x.rakeCap > 0 ? t('table.rakeInfo', { percent: x.rakePercent, cap: x.rakeCap }) : t('table.rakeInfoNoCap', { percent: x.rakePercent })}</Badge>}
-                {x.jackpot !== null && <Badge tone="warning">{t('table.jackpot')}: {x.jackpot}</Badge>}
-              </div>
-              <p>
-                {t('lobby.blinds')}: <span className="font-mono">{x.smallBlind}/{x.bigBlind}</span> · {t('lobby.buyIn')}: <span className="font-mono">{x.minBuyInBb}–{x.maxBuyInBb} BB</span> · {t('lobby.turn')}: {x.turnSeconds} s
-              </p>
-              {x.owner && <p className="text-sm text-muted">{t('lobby.owner', { nick: x.owner })}</p>}
-              <div className="flex flex-wrap gap-2">
-                <Button variant="primary" onClick={() => navigate(`/stul/${x.id}`)}>
-                  {x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
+          <li key={x.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-line bg-surface px-3 py-2">
+            <strong className="min-w-32">{x.name}</strong>
+            <Badge tone="primary">
+              {x.seated}/{x.seats}
+            </Badge>
+            {x.playing && <Badge tone="success">{t('lobby.playing')}</Badge>}
+            <span className="text-sm">
+              <span className="font-mono">
+                {x.smallBlind}/{x.bigBlind}
+              </span>{' '}
+              · {t('lobby.buyIn')} <span className="font-mono">{x.minBuyInBb}–{x.maxBuyInBb} BB</span> · {x.turnSeconds} s
+            </span>
+            {x.straddle !== 'off' && <Badge>{t(`lobby.straddle.${x.straddle}`)}</Badge>}
+            {x.bbAnte && <Badge>{t('lobby.bbAnte')}</Badge>}
+            {x.ante > 0 && !x.bbAnte && <Badge>{t('lobby.ante', { n: x.ante })}</Badge>}
+            {x.rakePercent > 0 && <Badge>{x.rakeCap > 0 ? t('table.rakeInfo', { percent: x.rakePercent, cap: x.rakeCap }) : t('table.rakeInfoNoCap', { percent: x.rakePercent })}</Badge>}
+            {x.jackpot !== null && <Badge tone="warning">{t('table.jackpot')}: {x.jackpot}</Badge>}
+            {x.owner && <span className="text-xs text-muted">{t('lobby.owner', { nick: x.owner })}</span>}
+            <span className="ml-auto flex flex-wrap gap-1">
+              <Button variant="primary" onClick={() => navigate(`/stul/${x.id}`)}>
+                {x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
+              </Button>
+              <Button onClick={() => setDialog({ rules: x.id })}>{t('lobby.rules')}</Button>
+              <Button onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/stul/${x.id}`)}>{t('lobby.copyLink')}</Button>
+              {(x.ownerId === me?.user.id ? can(me, 'cash.upravit_vlastni') : can(me, 'cash.upravit_vse')) && <Button onClick={() => setDialog({ edit: x.id })}>{t('lobby.edit')}</Button>}
+              {(x.ownerId === me?.user.id ? can(me, 'cash.zrusit_vlastni') : can(me, 'cash.zrusit_vse')) && (
+                <Button
+                  variant="danger"
+                  onClick={async () => {
+                    if (!confirm(t('lobby.closeConfirm', { name: x.name }))) return;
+                    await del(`/api/lobby/tables/${x.id}`).catch((e) => setError(errorText(e)));
+                    reload();
+                  }}
+                >
+                  {t('lobby.close')}
                 </Button>
-                <Button onClick={() => setDialog({ rules: x.id })}>{t('lobby.rules')}</Button>
-                <Button onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/stul/${x.id}`)}>{t('lobby.copyLink')}</Button>
-                {(x.ownerId === me?.user.id ? can(me, 'cash.upravit_vlastni') : can(me, 'cash.upravit_vse')) && <Button onClick={() => setDialog({ edit: x.id })}>{t('lobby.edit')}</Button>}
-                {(x.ownerId === me?.user.id ? can(me, 'cash.zrusit_vlastni') : can(me, 'cash.zrusit_vse')) && (
-                  <Button
-                    variant="danger"
-                    onClick={async () => {
-                      if (!confirm(t('lobby.closeConfirm', { name: x.name }))) return;
-                      await del(`/api/lobby/tables/${x.id}`).catch((e) => setError(errorText(e)));
-                      reload();
-                    }}
-                  >
-                    {t('lobby.close')}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </Card>
+              )}
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
       {dialog === 'create' && <CreateDialog templates={data.templates} onClose={() => setDialog(null)} onCreated={(id) => navigate(`/stul/${id}`)} />}
       {dialog && typeof dialog === 'object' && 'edit' in dialog && <EditDialog tableId={dialog.edit} onClose={() => { setDialog(null); reload(); }} />}
       {dialog && typeof dialog === 'object' && 'rules' in dialog && <RulesDialog detailsPath={`/api/lobby/tables/${dialog.rules}`} kind="cash" onClose={() => setDialog(null)} />}

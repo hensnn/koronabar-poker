@@ -167,37 +167,34 @@ export function TournamentsPage() {
       )}
       {tab === 'series' && <SeriesPanel templates={data.templates} />}
       {tab === 'list' && list.length === 0 && <Notice>{t('tournament.empty')}</Notice>}
-      <div className={tab === 'list' ? 'grid gap-3 sm:grid-cols-2' : 'hidden'}>
+      <ul className={tab === 'list' ? 'flex flex-col gap-1' : 'hidden'}>
         {list.map((x) => (
-          <Card key={x.id} title={x.name}>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                <Badge tone={STATUS_TONE[x.status]}>{t(`tournament.status.${x.status}`)}</Badge>
-                <Badge tone="primary">
-                  {x.status === 'running' ? `${x.alive}/${x.players}` : `${x.players}/${x.seats}`} {t('lobby.players')}
-                </Badge>
-                {x.live && <Badge tone="warning">{t('live.badge')}</Badge>}
-              </div>
-              <p>
-                {t('tournament.buyIn')}: <span className="font-mono">{x.buyIn}</span>
-                {x.fee > 0 && (
-                  <>
-                    {' '}
-                    + {t('tournament.fee')} <span className="font-mono">{x.fee}</span>
-                  </>
-                )}{' '}
-                · {t('tournament.startingStack')}: <span className="font-mono">{x.startingStack}</span>
-              </p>
-              {x.owner && <p className="text-sm text-muted">{t('lobby.owner', { nick: x.owner })}</p>}
-              <div>
-                <Button variant="primary" onClick={() => navigate(`/turnaj/${x.id}`)}>
-                  {t('tournament.open')}
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <li key={x.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-line bg-surface px-3 py-2">
+            <strong className="min-w-32">{x.name}</strong>
+            <Badge tone={STATUS_TONE[x.status]}>{t(`tournament.status.${x.status}`)}</Badge>
+            <Badge tone="primary">
+              {x.status === 'running' ? `${x.alive}/${x.players}` : `${x.players}/${x.seats}`}
+            </Badge>
+            {x.live && <Badge tone="warning">{t('live.badge')}</Badge>}
+            <span className="text-sm">
+              {t('tournament.buyIn')} <span className="font-mono">{x.buyIn}</span>
+              {x.fee > 0 && (
+                <>
+                  {' '}
+                  + <span className="font-mono">{x.fee}</span>
+                </>
+              )}{' '}
+              · {t('tournament.startingStack')} <span className="font-mono">{x.startingStack}</span>
+            </span>
+            {x.owner && <span className="text-xs text-muted">{t('lobby.owner', { nick: x.owner })}</span>}
+            <span className="ml-auto">
+              <Button variant="primary" onClick={() => navigate(`/turnaj/${x.id}`)}>
+                {t('tournament.open')}
+              </Button>
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
       {scheduling && (
         <ScheduleDialog
           templates={data.templates}

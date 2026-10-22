@@ -114,6 +114,11 @@ export function DashboardPage() {
             💬 {t('lobby.chatLink')}
           </Link>
         )}
+        {features.polls && (
+          <Link to="/ankety" className="rounded-md border border-line bg-surface px-3 py-1">
+            🗳️ {t('lobby.pollsLink')}
+          </Link>
+        )}
       </div>
       {features.polls && <PollsPanel />}
       <div className="grid gap-3 sm:grid-cols-2">
