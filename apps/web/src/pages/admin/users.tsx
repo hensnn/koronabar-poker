@@ -3,7 +3,6 @@ import { t } from '@kb/shared';
 import { del, errorText, get, post } from '../../api';
 import { can, useSession } from '../../session';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Td, TextInput } from '../../ui';
-import { startViewAs } from '../../view-as';
 
 interface UserRow {
   id: string;
@@ -78,7 +77,6 @@ export function UsersPage() {
               <Td className="text-sm">{u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString('cs-CZ') : '–'}</Td>
               <Td>
                 <div className="flex flex-wrap gap-1">
-                  {can(me, 'uzivatel.zobrazit_jako') && u.id !== me?.user.id && <Button onClick={() => startViewAs({ id: u.id, nickname: u.nickname })}>{t('viewAs.start')}</Button>}
                   {can(me, 'role.prirazovat') && <Button onClick={() => setRolesFor(u)}>{t('admin.roles')}</Button>}
                   {can(me, 'uzivatel.blokovat') && (u.status === 'blocked' ? <Button onClick={() => void act(`/api/admin/users/${u.id}/unblock`)}>{t('admin.unblock')}</Button> : <Button onClick={() => setBlockFor(u)}>{t('admin.block')}</Button>)}
                   {can(me, 'uzivatel.overit_email') && !u.emailVerified && <Button onClick={() => void act(`/api/admin/users/${u.id}/verify-email`)}>{t('admin.verifyEmail')}</Button>}

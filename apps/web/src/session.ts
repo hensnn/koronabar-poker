@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { get, post, ApiError } from './api';
 import { connectSocket, disconnectSocket, onSocket } from './net';
-import { viewAs } from './view-as';
 
 export interface Me {
   user: { id: string; nickname: string; email: string | null; emailVerified: boolean; status: string; blockedReason: string | null; blockedUntil: string | null; avatar: string | null };
@@ -43,8 +42,7 @@ export async function refreshSession(): Promise<void> {
   try {
     const me = await get<Me>('/api/auth/me');
     set({ status: 'authenticated', me });
-    // Při zobrazení jako jiný uživatel se spojení se stoly nenavazuje (živá data by patřila správci, ne zobrazovanému hráči).
-    if (!viewAs()) connectSocket();
+    connectSocket();
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) {
       disconnectSocket();

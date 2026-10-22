@@ -121,8 +121,6 @@ declare module 'fastify' {
     user: SessionUser | null;
     sessionToken: string | undefined;
     apiAuth: TokenAuth | null;
-    /** Kdo se právě dívá očima jiného uživatele (jen čtení); `req.user` je pak zobrazovaný uživatel. */
-    viewAsActor: string | null;
   }
 }
 
@@ -134,7 +132,6 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.decorateRequest('user', null);
   app.decorateRequest('sessionToken', undefined);
   app.decorateRequest('apiAuth', null);
-  app.decorateRequest('viewAsActor', null);
 
   // Ochrana proti CSRF: změny stavu jen z povolených původů a jen jako JSON.
   app.addHook('onRequest', async (req, reply) => {
@@ -152,22 +149,6 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
         if (e.code === 'RATE_LIMIT') reply.header('retry-after', String(e.params.seconds));
         return reply.status(e.code === 'RATE_LIMIT' ? 429 : e.code === 'DISABLED' ? 503 : 401).send({ code: 'API_' + e.code, params: e.params });
       }
-    }
-    // Zobrazit aplikaci jako jiný uživatel: jen čtení, jen se zvláštním oprávněním, nikdy ne jako silnější role, nikdy ne citlivé adresy.
-    const viewAs = req.headers['x-view-as'];
-    if (typeof viewAs === 'string' && viewAs && req.user && !req.url.startsWith('/api/v1/') && req.url !== '/api/mcp') {
-      const actor = req.user;
-      if (!svc.perms.can(actor.id, 'uzivatel.zobrazit_jako').allowed) return reply.status(403).send({ code: 'FORBIDDEN' });
-      if (req.method !== 'GET' && req.method !== 'HEAD') return reply.status(403).send({ code: 'VIEW_AS_READONLY' });
-      const path = req.url.split('?')[0]!;
-      if (/token|session|secret|password/i.test(path) || (path.startsWith('/api/auth/') && path !== '/api/auth/me')) return reply.status(403).send({ code: 'VIEW_AS_BLOCKED' });
-      if (!id.safeParse(viewAs).success) return reply.status(400).send({ code: 'INVALID' });
-      const target = await svc.accounts.sessionUserById(viewAs);
-      if (!target) return reply.status(404).send({ code: 'NOT_FOUND' });
-      if (target.id !== actor.id && svc.perms.maxPower(target.id) > svc.perms.maxPower(actor.id)) return reply.status(403).send({ code: 'FORBIDDEN' });
-      req.user = target;
-      req.viewAsActor = actor.id;
-      if (path === '/api/auth/me' && target.id !== actor.id) await svc.audit.log({ actorId: actor.id, action: 'uzivatel.zobrazit_jako', targetType: 'user', targetId: target.id, ip: req.ip, source: 'ui' });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
       const origin = req.headers.origin;

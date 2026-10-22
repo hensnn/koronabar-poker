@@ -1,5 +1,4 @@
 import { t } from '@kb/shared';
-import { viewAs } from './view-as';
 
 /** Chyba z API: kód a parametry; text se překládá až při zobrazení. */
 export class ApiError extends Error {
@@ -33,15 +32,12 @@ export function errorText(e: unknown): string {
 }
 
 export async function api<T = unknown>(method: string, url: string, body?: unknown): Promise<T> {
-  const as = viewAs();
-  // V zobrazení jako jiný uživatel se nic neukládá; server to navíc hlídá sám.
-  if (as && method !== 'GET') throw new ApiError(403, 'VIEW_AS_READONLY');
   let res: Response;
   try {
     res = await fetch(url, {
       method,
       credentials: 'same-origin',
-      headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...(as ? { 'x-view-as': as.id } : {}) },
+      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
