@@ -184,35 +184,46 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
   // „Změněno“ = hodnotu nastavuje právě tato vrstva (globální nastavení, šablona, hra, stůl nebo osobní); jinak se dědí z nižší vrstvy nebo z vestavěné výchozí hodnoty.
   const changed = own;
   const when = WHEN[def.mutability] ?? WHEN.anytime!;
+  const isBool = def.type === 'bool';
+  const badge = (
+    <span className={`ml-2 inline-flex items-center gap-1 rounded-full border px-2 text-xs ${when.cls}`}>
+      <span aria-hidden="true">{when.icon}</span>
+      {t(`settings.mutability.${def.mutability}`)}
+    </span>
+  );
   return (
-    <div className={`rounded-md border p-3 ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={id} className="font-medium">
-          {def.dependsOn && <span aria-hidden="true" className="mr-1 text-muted">↳</span>}
-          {t(labelKey(def.key))}
-          {changed && <span className="ml-2 rounded-sm bg-accent px-1 text-xs font-normal text-on-act">{t('settings.changed')}</span>}
-        </label>
-        <span className={`text-sm ${own ? 'text-primary' : 'text-muted'}`}>
-          {unsaved && <span className="mr-2 rounded-sm bg-warning px-1 text-xs text-on-primary">{t('settings.unsaved')}</span>}
-          {t(`settings.origin.${origin}`)}
-          {own && (
-            <button className="ml-2 underline" onClick={() => onReset(def.key)}>
-              {t('settings.resetToInherited')}
-            </button>
-          )}
-        </span>
+    <div className={`rounded-md border px-3 py-2 ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>
+      <div className="flex items-start gap-2">
+        {isBool && <input id={id} type="checkbox" role="switch" className="mt-1" checked={Boolean(value)} onChange={(e) => onChange(def.key, e.target.checked)} />}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <label htmlFor={id} className="font-medium">
+              {def.dependsOn && <span aria-hidden="true" className="mr-1 text-muted">↳</span>}
+              {t(labelKey(def.key))}
+              {changed && <span className="ml-2 rounded-sm bg-accent px-1 text-xs font-normal text-on-act">{t('settings.changed')}</span>}
+            </label>
+            <span className={`text-sm ${own ? 'text-primary' : 'text-muted'}`}>
+              {unsaved && <span className="mr-2 rounded-sm bg-warning px-1 text-xs text-on-primary">{t('settings.unsaved')}</span>}
+              {t(`settings.origin.${origin}`)}
+              {own && (
+                <button className="ml-2 underline" onClick={() => onReset(def.key)}>
+                  {t('settings.resetToInherited')}
+                </button>
+              )}
+            </span>
+          </div>
+          <p className="text-sm text-muted">
+            {t(helpKey(def.key))}
+            {badge}
+          </p>
+        </div>
       </div>
-      <p className="text-sm text-muted">{t(helpKey(def.key))}</p>
-      <p className="mt-1">
-        <span className={`inline-flex items-center gap-1 rounded-full border px-2 text-xs ${when.cls}`}>
-          <span aria-hidden="true">{when.icon}</span>
-          {t(`settings.mutability.${def.mutability}`)}
-        </span>
-      </p>
-      <div className="mt-2">
-        <Control def={def} id={id} value={value} onChange={(v) => onChange(def.key, v)} />
-        {buyInInCurrency(def.key, Number(value), values) && <p className="mt-1 text-sm text-muted">= {buyInInCurrency(def.key, Number(value), values)}</p>}
-      </div>
+      {!isBool && (
+        <div className="mt-1">
+          <Control def={def} id={id} value={value} onChange={(v) => onChange(def.key, v)} />
+          {buyInInCurrency(def.key, Number(value), values) && <p className="mt-1 text-sm text-muted">= {buyInInCurrency(def.key, Number(value), values)}</p>}
+        </div>
+      )}
       {errs.map((e, i) => (
         <p key={i} role="alert" className="mt-1 text-danger">
           {t(e.messageKey, e.params)}

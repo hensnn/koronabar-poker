@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get } from '../api';
-import { Button, Card, DataTable, Notice, Spinner, Td } from '../ui';
+import { Button, Card, DataTable, Notice, Spinner, Tabs, Td } from '../ui';
 
 type Parts = Partial<Record<string, number>>;
 /** Pořadí složek ve sloupcích, shodné s tabulkou výsledků turnaje (Buy-in, Rebuy, Add-on, Výhra, Bounty). */
@@ -70,6 +70,7 @@ export function SettlementPanel() {
   const [to, setTo] = useState(Date.now());
   const [data, setData] = useState<Settlement | null>(null);
   const [error, setError] = useState('');
+  const [kind, setKind] = useState<'all' | 'cash' | 'tournament'>('all');
   const load = useCallback(() => {
     setData(null);
     get<Settlement>(`/api/settlement?from=${from}&to=${to}`)
@@ -80,6 +81,25 @@ export function SettlementPanel() {
       .catch((e) => setError(errorText(e)));
   }, [from, to]);
   useEffect(load, [load]);
+
+  // Filtr druhu hry: přepočítá se z rozpadu po hrách, takže tabulka hráčů ukazuje jen cash nebo jen turnaje.
+  const view = useMemo(() => {
+    if (!data) return null;
+    if (kind === 'all') return { players: data.players, games: data.games };
+    const games = data.games.filter((g) => g.kind === kind);
+    const byUser = new Map<string, { userId: string; cash: number; tournament: number; total: number; parts: Parts }>();
+    for (const g of games) {
+      for (const [uid, v] of Object.entries(g.results)) {
+        const row = byUser.get(uid) ?? { userId: uid, cash: 0, tournament: 0, total: 0, parts: {} };
+        if (g.kind === 'cash') row.cash += v;
+        else row.tournament += v;
+        row.total += v;
+        for (const [k, pv] of Object.entries(g.parts[uid] ?? {})) row.parts[k] = (row.parts[k] ?? 0) + (pv ?? 0);
+        byUser.set(uid, row);
+      }
+    }
+    return { players: [...byUser.values()], games };
+  }, [data, kind]);
 
   const preset = (start: number) => {
     setFrom(start);
@@ -101,26 +121,35 @@ export function SettlementPanel() {
           <Button onClick={() => preset(Date.now() - 24 * HOUR)}>{t('settlement.last24')}</Button>
           <Button onClick={() => preset(Date.now() - 7 * 24 * HOUR)}>{t('settlement.last7')}</Button>
         </div>
+        <Tabs
+          tabs={[
+            { id: 'all' as const, label: t('settlement.filter.all') },
+            { id: 'cash' as const, label: t('settlement.filter.cash') },
+            { id: 'tournament' as const, label: t('settlement.filter.tournament') },
+          ]}
+          value={kind}
+          onChange={setKind}
+        />
         {error && <Notice kind="error">{error}</Notice>}
         {!data && !error && <Spinner label={t('app.loading')} />}
-        {data && (
+        {view && data && (
           <>
-            {data.players.length === 0 ? (
+            {view.players.length === 0 ? (
               <p className="text-muted">{t('settlement.emptyPeriod')}</p>
             ) : (
               <>
-                <PartsTable rows={data.players} names={data.names} withSum />
+                <PartsTable rows={view.players} names={data.names} withSum />
                 <p className="text-sm text-muted">{t('settlement.partsHelp')}</p>
               </>
             )}
-            {data.house !== null && data.players.length > 0 && (
+            {kind === 'all' && data.house !== null && data.players.length > 0 && (
               <p className="text-sm text-muted">{t('settlement.house', { amount: data.house })}</p>
             )}
-            {data.games.length > 0 && (
+            {view.games.length > 0 && (
               <details open>
-                <summary className="cursor-pointer">{t('settlement.byGame', { n: data.games.length })}</summary>
+                <summary className="cursor-pointer">{t('settlement.byGame', { n: view.games.length })}</summary>
                 <div className="mt-2 flex flex-col gap-4">
-                  {data.games.map((g) => (
+                  {view.games.map((g) => (
                     <section key={g.id} className="flex flex-col gap-1">
                       <h4>
                         <strong>{g.name}</strong> <span className="text-sm text-muted">({g.kind === 'tournament' ? t('settlement.kindTournament') : t('settlement.kindCash')})</span>
@@ -131,6 +160,7 @@ export function SettlementPanel() {
                 </div>
               </details>
             )}
+            {kind !== 'all' && <p className="text-sm text-muted">{t('settlement.filter.transfersNote')}</p>}
             <h3 className="font-medium">{t('settlement.transfers')}</h3>
             {data.transfers.length === 0 ? (
               <p className="text-muted">{t('settlement.none')}</p>
