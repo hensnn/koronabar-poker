@@ -209,12 +209,12 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
 }
 
 /** Tlačítko v nástrojích stolu: otevře nastavení panelů (jediné místo, odkud jde vypnutý panel zase zapnout). */
-export function PanelSettingsButton() {
+export function PanelSettingsButton({ iconOnly = false }: { iconOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button onClick={() => setOpen(true)} title={t('table.panelSettings')}>
-        ⚙ {t('table.panelsButton')}
+      <Button className={iconOnly ? 'px-2' : ''} onClick={() => setOpen(true)} title={t('table.panelSettings')} aria-label={t('table.panelSettings')}>
+        ⚙{iconOnly ? '' : ` ${t('table.panelsButton')}`}
       </Button>
       {open && (
         <Modal title={t('table.panelSettings')} wide onClose={() => setOpen(false)}>

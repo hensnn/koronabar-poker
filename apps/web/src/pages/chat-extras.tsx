@@ -118,7 +118,7 @@ export function RichBody({ body }: { body: string }) {
 }
 
 /** Tlačítko „Sdílet v chatu“: pošle do hlavního kanálu kartu turnaje nebo stolu. */
-export function ShareToChat({ kind, id }: { kind: 'turnaj' | 'stul'; id: string }) {
+export function ShareToChat({ kind, id, iconOnly = false }: { kind: 'turnaj' | 'stul'; id: string; /** Jen ikona s popisem při najetí (úsporná lišta u stolu). */ iconOnly?: boolean }) {
   const { channels } = useChatStore();
   const [msg, setMsg] = useState('');
   const main = channels.find((c) => c.key === 'hospoda') ?? channels.find((c) => c.kind === 'public');
@@ -126,6 +126,9 @@ export function ShareToChat({ kind, id }: { kind: 'turnaj' | 'stul'; id: string 
   return (
     <>
       <Button
+        className={iconOnly ? 'px-2' : ''}
+        title={t('chat.share')}
+        aria-label={t('chat.share')}
         onClick={async () => {
           try {
             await sendMessage(main.id, `{{${kind}:${id}}}`);
@@ -135,7 +138,7 @@ export function ShareToChat({ kind, id }: { kind: 'turnaj' | 'stul'; id: string 
           }
         }}
       >
-        {t('chat.share')}
+        {iconOnly ? '💬' : t('chat.share')}
       </Button>
       {msg && (
         <span role="status" className="text-sm text-muted">

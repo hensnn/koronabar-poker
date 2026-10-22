@@ -155,39 +155,38 @@ export function TablePage({ tableId }: { tableId: string }) {
           ),
         }
       : undefined;
-  // Nástroje stolu: na širokém displeji v liště, na telefonu pod tlačítkem „⋯“.
-  const tools = (
-    <>
-      {!isTournament && features.chat && <ShareToChat kind="stul" id={tableId} />}
-      {!isTournament && <Button onClick={() => setShowSettlement(true)}>{t('table.settlement')}</Button>}
-      {features.polls && can(me, 'anketa.vytvorit') && <Button onClick={() => setPollOpen(true)}>{t('polls.tableCreate')}</Button>}
-      {meSitting && (
-        <Button onClick={() => void tableApi.sitIn(tableId).catch(() => undefined)} title={t('table.sitIn')}>
-          ⏸ {t('table.sittingOut')} · {t('table.sitIn')}
-        </Button>
-      )}
-      {othersSitting.length > 0 && (
-        <span className="rounded-md border border-warning px-2 py-1 text-sm" title={othersSitting.join(', ')}>
-          ⏸ {t('table.sitOutOthers', { names: othersSitting.join(', ') })}
-        </span>
-      )}
-      {canPause && view && (
-        <Button onClick={() => void togglePause()} aria-pressed={!!view.paused}>
-          {view.paused ? `▶ ${t('table.resume')}` : `⏸ ${t('table.pause')}`}
-        </Button>
-      )}
-      <Button onClick={() => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on', true).catch(() => undefined)} title={t('table.mobileDeviceHint')}>
-        {mobile ? t('table.mobileOff') : t('table.mobileOn')}
+  // Nástroje stolu: na širokém displeji v liště jen jako ikony s popisem při najetí, na telefonu pod tlačítkem „⋯“ s textem.
+  const renderTools = (iconOnly: boolean) => {
+    /** Jedno tlačítko lišty: ikona (a popisek v nabídce na telefonu), popis vždy i jako tooltip a pro čtečky. */
+    const tool = (icon: string, label: string, onClick: () => void, extra: { pressed?: boolean } = {}) => (
+      <Button className={iconOnly ? 'px-2' : ''} onClick={onClick} title={label} aria-label={label} aria-pressed={extra.pressed}>
+        {icon}
+        {iconOnly ? '' : ` ${label}`}
       </Button>
-      <PanelSettingsButton />
-      <Button onClick={() => setHistory(true)} title={t('table.history')}>
-        📜 {t('table.history')}
-      </Button>
-      <Button onClick={() => setFocus((v) => !v)} aria-pressed={focus} title={focus ? t('table.fullscreenExit') : t('table.fullscreen')}>
-        {focus ? '⤡' : '⛶'} {focus ? t('table.fullscreenExit') : t('table.fullscreen')}
-      </Button>
-    </>
-  );
+    );
+    return (
+      <>
+        {!isTournament && features.chat && <ShareToChat kind="stul" id={tableId} iconOnly={iconOnly} />}
+        {!isTournament && tool('🧾', t('table.settlement'), () => setShowSettlement(true))}
+        {features.polls && can(me, 'anketa.vytvorit') && tool('🗳️', t('polls.tableCreate'), () => setPollOpen(true))}
+        {meSitting && (
+          <Button onClick={() => void tableApi.sitIn(tableId).catch(() => undefined)} title={t('table.sitIn')} aria-label={t('table.sitIn')}>
+            ▶ {t('table.sitIn')}
+          </Button>
+        )}
+        {othersSitting.length > 0 && (
+          <span className="rounded-md border border-warning px-2 py-1 text-sm" title={t('table.sitOutOthers', { names: othersSitting.join(', ') })}>
+            💤 {othersSitting.length}
+          </span>
+        )}
+        {canPause && view && tool(view.paused ? '▶' : '⏸', view.paused ? t('table.resume') : t('table.pause'), () => void togglePause(), { pressed: !!view.paused })}
+        {tool(mobile ? '🖥️' : '📱', mobile ? t('table.mobileOff') : t('table.mobileOn'), () => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on', true).catch(() => undefined))}
+        <PanelSettingsButton iconOnly={iconOnly} />
+        {tool('📜', t('table.history'), () => setHistory(true))}
+        {tool(focus ? '⤡' : '⛶', focus ? t('table.fullscreenExit') : t('table.fullscreen'), () => setFocus((v) => !v), { pressed: focus })}
+      </>
+    );
+  };
   return (
     <TableWidgetsProvider view={view} tableId={tableId} inBb={inBb} chat={chatWidget}>
     <div className={`tk-tablepage ${hiddenSides.left ? 'tk-no-panel' : ''}`} style={pageStyle}>
@@ -239,12 +238,12 @@ export function TablePage({ tableId }: { tableId: string }) {
             </Button>
             {more && (
               <div ref={moreRef} role="menu" className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col gap-1 rounded-md border border-line bg-surface p-2 shadow-lg" onClick={() => setMore(false)}>
-                {tools}
+                {renderTools(false)}
               </div>
             )}
           </span>
           <span className="tk-tp-desktop flex flex-wrap items-center gap-2">
-            {tools}
+            {renderTools(true)}
             <SoundMenu />
           </span>
         </div>
