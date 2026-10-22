@@ -29,12 +29,12 @@ async function start(global: Record<string, number | boolean | string> = {}) {
 /** Klient s cookie jar nad `app.inject`. */
 function http(server: Server, origin = 'http://localhost') {
   let cookie = '';
-  const call = async (method: string, url: string, body?: unknown) => {
+  const call = async (method: string, url: string, body?: unknown, extra: Record<string, string> = {}) => {
     const res = await server.app.inject({
       method: method as 'GET',
       url,
       payload: body === undefined ? undefined : (body as object),
-      headers: { ...(cookie ? { cookie } : {}), ...(method !== 'GET' ? { origin } : {}) },
+      headers: { ...(cookie ? { cookie } : {}), ...(method !== 'GET' ? { origin } : {}), ...extra },
     });
     const set = res.headers['set-cookie'];
     const raw = Array.isArray(set) ? set[0] : set;
@@ -150,6 +150,34 @@ describe('HTTP API: správa', () => {
       expect((await anon.call('GET', url)).status, url).toBe(401);
       expect((await admin.call('GET', url)).status, url).toBe(200);
     }
+  });
+
+  it('zobrazit jako jiný uživatel: jen čtení, jen s oprávněním, ne jako silnější role, citlivé adresy zakázané, zapíše se do auditu', async () => {
+    const { admin, mk } = await seeded();
+    const hrac = await mk('Hrac');
+    const druhy = await mk('Druhy');
+    const as = (id: string) => ({ 'x-view-as': id });
+    // hráč bez oprávnění nic takového nesmí
+    expect((await hrac.c.call('GET', '/api/auth/me', undefined, as(druhy.id))).status).toBe(403);
+    // správce vidí aplikaci očima hráče: jeho identitu, oprávnění a zůstatek
+    const view = await admin.call('GET', '/api/auth/me', undefined, as(hrac.id));
+    expect(view.status).toBe(200);
+    expect(view.json.user.id).toBe(hrac.id);
+    expect(view.json.permissions).not.toContain('uzivatel.zobrazit_jako');
+    // správu vidí tak, jak ji vidí hráč (zakázaná)
+    expect((await admin.call('GET', '/api/admin/users', undefined, as(hrac.id))).status).toBe(403);
+    // jen čtení a citlivé adresy
+    expect((await admin.call('POST', '/api/admin/invites', {}, as(hrac.id))).json.code).toBe('VIEW_AS_READONLY');
+    expect((await admin.call('GET', '/api/me/tokens', undefined, as(hrac.id))).status).toBe(403);
+    expect((await admin.call('GET', '/api/auth/sessions', undefined, as(hrac.id))).json?.code).toBe('VIEW_AS_BLOCKED');
+    // nevalidní a neexistující cíl
+    expect((await admin.call('GET', '/api/auth/me', undefined, as('nesmysl'))).status).toBe(400);
+    expect((await admin.call('GET', '/api/auth/me', undefined, as('11111111-1111-4111-8111-111111111111'))).status).toBe(404);
+    // slabší správce nesmí vidět silnějšího
+    const slaby = await mk('Slaby', 'pokladnik');
+    expect((await slaby.c.call('GET', '/api/auth/me', undefined, as(hrac.id))).status).toBe(403);
+    const audit = (await admin.call('GET', '/api/admin/audit?limit=50')).json as { action: string; targetId: string }[];
+    expect(audit.some((a) => a.action === 'uzivatel.zobrazit_jako' && a.targetId === hrac.id)).toBe(true);
   });
 
   it('běžný hráč nemá přístup ke správě (403), administrátor ano', async () => {

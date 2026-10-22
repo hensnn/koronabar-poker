@@ -25,6 +25,7 @@ import { useFeatures } from './features';
 import { TournamentResultHost } from './pages/tournament-result';
 import { BrandFavicon, BrandMark } from './brand';
 import { AssistantLauncher, AssistantMenuItem } from './pages/assistant';
+import { stopViewAs, viewAs } from './view-as';
 import { OfflineBanner } from './pwa';
 import { AnnouncerHost } from './announcer/host';
 import { PollPage, PollsPage } from './pages/polls';
@@ -166,6 +167,14 @@ function Shell({ me }: { me: Me }) {
 
   return (
     <div className={`mx-auto flex min-h-screen flex-col gap-3 p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
+      {viewAs() && (
+        <div role="status" className="sticky top-0 z-50 flex flex-wrap items-center gap-2 rounded-md border border-warning bg-surface p-2 shadow-lg">
+          <strong className="flex-1">{t('viewAs.banner', { name: viewAs()!.nickname })}</strong>
+          <Button variant="primary" onClick={stopViewAs}>
+            {t('viewAs.stop')}
+          </Button>
+        </div>
+      )}
       <header className={`flex items-center justify-between gap-2 ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
         <BrandMark header />
         <BrandFavicon />
