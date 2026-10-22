@@ -128,6 +128,7 @@ Databáze se při startu migruje automaticky. Před větší aktualizací si po�
 Všechno se nastavuje v GUI. Vypínač a údaje najdeš v **Administrace → Nastavení → Napojení ven** (adresa a port MQTT brokeru, jméno, předpona témat, TLS) a hesla v **Administrace → Tajné údaje** (heslo k MQTT, adresa webhooku Discordu, podpisový klíč webhooků). Které události se kam posílají, vybereš zaškrtnutím v **Administrace → Napojení ven**. Skrytá herní data (cizí karty, balíček) se neposílají nikdy.
 
 ### Home Assistant přes MQTT
+Podrobný postup krok za krokem (síť, broker, nastavení, řešení problémů) je v `docs/HOME-ASSISTANT.md`. Stručně:
 1. V Home Assistantu zapni integraci **MQTT** (a doplněk Mosquitto broker, pokud ještě nemáš broker).
 2. V aplikaci zapni **Napojení ven** a **MQTT**, vyplň adresu brokeru, port, jméno a v tajných údajích heslo.
 3. V **Napojení ven** klikni na **Otestovat spojení**. V Home Assistantu se samy objeví entity: stav turnaje, název, level, počet hráčů, prize pool a poslední událost (MQTT Discovery).
