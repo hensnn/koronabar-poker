@@ -79,7 +79,9 @@ export function BalancesCard({ refreshKey = 0 }: { refreshKey?: number }) {
           <tr key={r.userId}>
             <Td>{r.nickname}</Td>
             <Td className={`font-mono ${r.balance < 0 ? 'text-danger' : ''}`}>{num(r.balance)}</Td>
-            <Td>{r.status === 'active' ? '' : <Badge tone="warning">{r.status}</Badge>}</Td>
+            <Td>
+              <Badge tone={r.status === 'active' ? 'success' : 'warning'}>{t(`cashier.status.${r.status}`) === `cashier.status.${r.status}` ? r.status : t(`cashier.status.${r.status}`)}</Badge>
+            </Td>
             <Td>{r.lastMoveAt ? new Date(r.lastMoveAt).toLocaleString('cs-CZ') : t('cashier.noMove')}</Td>
           </tr>
         ))}
