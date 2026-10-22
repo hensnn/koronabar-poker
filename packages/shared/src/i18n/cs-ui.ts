@@ -85,7 +85,6 @@ export const csUi: Record<string, string> = {
   'settings.ui.tableChatHeight.label': 'Výška chatu u stolu',
   'settings.ui.tableChatHeight.help': 'Výška seznamu zpráv v chatu v levém panelu. Mění se tažením za spodní okraj chatu.',
   'nav.group.play': 'Hrát',
-  'nav.group.community': 'Komunita',
   'nav.group.mine': 'Moje',
   'nav.group.account': 'Účet a správa',
   'nav.balance': 'Zůstatek v peněžence',
