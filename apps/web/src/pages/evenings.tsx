@@ -88,30 +88,27 @@ export function EveningsPage() {
       </div>
       {error && <Notice kind="error">{error}</Notice>}
       {data.evenings.length === 0 && <Notice>{t('evening.empty')}</Notice>}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <ul className="flex flex-col gap-1">
         {data.evenings.map((e) => (
-          <Card key={e.id} title={e.name}>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={e.status === 'open' ? 'success' : 'muted'}>{t(`evening.status.${e.status}`)}</Badge>
-                {e.games !== null && <Badge tone="primary">{t('evening.games', { n: e.games })}</Badge>}
-                {e.players !== null && <Badge tone="primary">{t('evening.players', { n: e.players })}</Badge>}
-                {e.mvp && (
-                  <Badge tone="warning">
-                    {t('evening.mvp')}: {e.mvp}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted">{when(e.startsAt)}</p>
-              <div>
-                <Button variant="primary" onClick={() => navigate(`/vecery/${e.id}`)}>
-                  {t('evening.open')}
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-line bg-surface px-3 py-2">
+            <strong className="min-w-32">{e.name}</strong>
+            <Badge tone={e.status === 'open' ? 'success' : 'muted'}>{t(`evening.status.${e.status}`)}</Badge>
+            {e.games !== null && <Badge tone="primary">{t('evening.games', { n: e.games })}</Badge>}
+            {e.players !== null && <Badge tone="primary">{t('evening.players', { n: e.players })}</Badge>}
+            {e.mvp && (
+              <Badge tone="warning">
+                {t('evening.mvp')}: {e.mvp}
+              </Badge>
+            )}
+            <span className="text-sm text-muted">{when(e.startsAt)}</span>
+            <span className="ml-auto">
+              <Button variant="primary" onClick={() => navigate(`/vecery/${e.id}`)}>
+                {t('evening.open')}
+              </Button>
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
       {creating && (
         <Modal title={t('evening.create')} onClose={() => setCreating(false)}>
           <div className="flex flex-col gap-3">

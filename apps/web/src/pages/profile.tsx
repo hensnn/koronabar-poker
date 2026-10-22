@@ -5,7 +5,7 @@ import { checkContrast, resolveTokens } from '@kb/tokens';
 import { useThemes } from '../theme/ThemeProvider';
 import { t, type SettingValue } from '@kb/shared';
 import { errorText, post } from '../api';
-import { useSession } from '../session';
+import { logout, useSession } from '../session';
 import { exportUserSettings, deviceId, importUserSettings, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
 import { SettingsForm } from '../settings/SettingsForm';
 import { Button, Card, Notice, Tabs, TextArea, TextInput } from '../ui';
@@ -104,7 +104,12 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="font-heading text-2xl font-bold">{t('settings.personal.title')}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-heading text-2xl font-bold">{t('settings.personal.title')}</h1>
+        <Button className="ml-auto" onClick={() => void logout()}>
+          {t('nav.logout')}
+        </Button>
+      </div>
       <Tabs tabs={[{ id: 'settings', label: t('guide.tab.settings') }, { id: 'guide', label: `📖 ${t('guide.tab.guide')}` }]} value={view} onChange={setView} />
       {view === 'guide' ? (
         <Guide />

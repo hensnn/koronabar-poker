@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
+import { t } from '@kb/shared';
 import { post } from './api';
 import { Link, matchPath, Redirect, useLocation } from './router';
-import { can, logout, refreshSession, useSession, type Me } from './session';
+import { can, refreshSession, useSession, type Me } from './session';
 import { clearSettings, loadSettings, useSettings } from './settings';
 import { ThemeProvider, type ColorMode } from './theme/ThemeProvider';
 import { loadThemes, resetThemes, useThemeStore } from './theme/themes-client';
@@ -115,8 +115,7 @@ function Shell({ me }: { me: Me }) {
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls)] },
-      { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp), item('/obchod', 'nav.shop', shopOn)] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.personalSettings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
     ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
   )
@@ -173,30 +172,26 @@ function Shell({ me }: { me: Me }) {
             ☰ {t('nav.menu')}
           </button>
           <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} flex-wrap gap-2 md:order-[-5000] md:flex md:w-auto ${compact ? 'absolute inset-x-0 top-full z-40 mt-1 rounded-lg border border-line bg-surface p-2 shadow-lg md:static md:mt-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'w-full'}`}>
-            <MainMenu groups={groups} isActive={isActive} path={path} lead={[{ to: '/', label: t('nav.lobby') }]} />
+            <MainMenu groups={groups} isActive={isActive} path={path} />
             {!blocked && features.assistant && <AssistantMenuItem onPick={() => setMenuOpen(false)} />}
             {compact && (
               <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
                 <SoundMenu />
-                <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
               </div>
             )}
           </div>
           <span className="order-first">
             <MyTableButton path={path} />
           </span>
+          <Link to="/" aria-current={path === '/' ? 'page' : undefined} className={`order-[-9000] flex items-center rounded-md border px-3 py-1 ${path === '/' ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
+            {t('nav.lobby')}
+          </Link>
           <NotificationBell />
           <span className={compact ? 'hidden md:inline-flex' : 'inline-flex'}>
             <SoundMenu />
           </span>
           <SoundHost />
           <AnnouncerHost />
-          <span className="rounded-md bg-raised px-3 py-1 font-mono" title={t('nav.balance')}>
-            {formatCurrency(me.balance, currencyFormsOf(settings.values))}
-          </span>
-          <span className={compact ? 'hidden md:inline-flex' : 'inline-flex'}>
-            <Button onClick={() => void logout()}>{t('nav.logout')}</Button>
-          </span>
         </nav>
       </header>
       {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}
