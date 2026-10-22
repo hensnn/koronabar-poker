@@ -4,7 +4,6 @@ import { decideChange, resolveSettings, scopeAllowed, t, validateValues, type Se
 import { del, errorText, get, patch, post } from '../api';
 import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
-import { useFeatures } from '../features';
 import { registry } from '../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../settings/SettingsForm';
 import { Badge, Button, Card, Modal, Notice, Spinner, TextInput } from '../ui';
@@ -62,19 +61,12 @@ export function LobbyPage() {
 
   const tables = useMemo(() => (data?.tables ?? []).filter((x) => x.name.toLowerCase().includes(query.toLowerCase()) && (!freeOnly || x.seated < x.seats)), [data, query, freeOnly]);
   const canCreate = can(me, 'cash.vytvorit_vlastni');
-  const features = useFeatures();
-  const chatOn = features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'));
 
   if (!data) return error ? <Notice kind="error">{error}</Notice> : <Spinner label={t('app.loading')} />;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3">
         <h1 className="font-heading text-2xl font-bold">{t('lobby.title')}</h1>
-        {chatOn && (
-          <Link to="/chat" className="rounded-md border border-line bg-surface px-3 py-1">
-            💬 {t('lobby.chatLink')}
-          </Link>
-        )}
         <div className="ml-auto flex flex-wrap items-end gap-3">
           <TextInput label={t('lobby.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
           <label className="flex items-center gap-2 pb-1">

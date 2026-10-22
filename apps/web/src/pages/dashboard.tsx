@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { get } from '../api';
 import { Link, navigate } from '../router';
-import { useSession } from '../session';
+import { can, useSession } from '../session';
 import { useSettings } from '../settings';
 import { useMySeats } from '../my-seat';
 import { Badge, Button, Card, Notice } from '../ui';
@@ -95,7 +95,14 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="sr-only">{t('nav.lobby')}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-heading text-2xl font-bold">{t('nav.lobby')}</h1>
+        {features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit')) && (
+          <Link to="/chat" className="rounded-md border border-line bg-surface px-3 py-1">
+            💬 {t('lobby.chatLink')}
+          </Link>
+        )}
+      </div>
       {features.polls && <PollsPanel />}
       <div className="grid gap-3 sm:grid-cols-2">
         <Card title={t('dashboard.account')}>
