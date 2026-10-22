@@ -89,9 +89,11 @@ export function TokensSection() {
             <fieldset className="flex flex-col gap-1">
               <legend className="text-sm text-muted">{t('tokens.scopes')}</legend>
               {data.allowed.map((s) => (
-                <label key={s} className="flex items-center gap-2">
-                  <input type="checkbox" checked={scopes.includes(s)} onChange={(e) => setScopes(e.target.checked ? [...scopes, s] : scopes.filter((x) => x !== s))} /> {t(`api.scope.${s}`)}
-                  <span className="font-mono text-xs text-muted">{s}</span>
+                <label key={s} className="flex items-start gap-2">
+                  <input type="checkbox" className="mt-1" checked={scopes.includes(s)} onChange={(e) => setScopes(e.target.checked ? [...scopes, s] : scopes.filter((x) => x !== s))} />
+                  <span className="min-w-0">
+                    {t(`api.scope.${s}`)} <span className="break-all font-mono text-xs text-muted">{s}</span>
+                  </span>
                 </label>
               ))}
             </fieldset>

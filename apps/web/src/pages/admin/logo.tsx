@@ -112,6 +112,8 @@ export function LogoAdminPage() {
           <AssetSlot settingKey="branding.logoAssetId" title={t('logo.slotMain')} present={!!brand?.logo} run={run} busy={busy} />
           <span className="text-xs text-muted">{t('logo.hint')}</span>
           <AssetSlot settingKey="branding.logoDarkAssetId" title={t('logo.slotDark')} help={t('logo.slotDarkHelp')} present={!!brand?.logoDark} run={run} busy={busy} />
+          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1">
           <Select label={t('settings.branding.darkLogoMode.label')} value={darkMode} disabled={busy} onChange={(e) => void save('branding.darkLogoMode', e.target.value)}>
             {(['invert', 'plate', 'none'] as const).map((m) => (
               <option key={m} value={m}>
@@ -120,6 +122,8 @@ export function LogoAdminPage() {
             ))}
           </Select>
           <p className="text-xs text-muted">{t('settings.branding.darkLogoMode.help')}</p>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
           <Select label={t('settings.branding.headerMode.label')} value={headerMode} disabled={busy} onChange={(e) => void save('branding.headerMode', e.target.value)}>
             {(['logo', 'name', 'none'] as const).map((m) => (
               <option key={m} value={m}>
@@ -128,6 +132,8 @@ export function LogoAdminPage() {
             ))}
           </Select>
           <p className="text-xs text-muted">{t('settings.branding.headerMode.help')}</p>
+          </div>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" role="switch" checked={showName} disabled={busy} onChange={(e) => void save('branding.showName', e.target.checked)} />
             {t('logo.showName')}
@@ -135,7 +141,7 @@ export function LogoAdminPage() {
           <label className="flex flex-col gap-1 text-sm">
             {t('logo.size')}
             <div className="flex items-center gap-2">
-              <input type="range" aria-label={t('logo.size')} min={40} max={400} step={10} value={percent} disabled={busy} onChange={(e) => void save('branding.logoHeightPercent', Number(e.target.value))} className="flex-1" />
+              <input type="range" aria-label={t('logo.size')} min={40} max={400} step={10} value={percent} disabled={busy} onChange={(e) => void save('branding.logoHeightPercent', Number(e.target.value))} className="min-w-0 flex-1" />
               <NumInput className="w-24" min={40} max={400} value={percent} onChange={(n) => void save('branding.logoHeightPercent', Math.min(400, Math.max(40, n)))} />
               <span className="text-muted">%</span>
             </div>
@@ -172,7 +178,7 @@ function LoginSettingsCard({ busy, run, save }: { busy: boolean; run: (fn: () =>
     <label className="flex flex-col gap-1 text-sm">
       {t(`settings.${key}.label`)}
       <div className="flex items-center gap-2">
-        <input type="range" aria-label={t(`settings.${key}.label`)} min={min} max={max} step={step} value={value} disabled={busy} onChange={(e) => void save(key, Number(e.target.value))} className="flex-1" />
+        <input type="range" aria-label={t(`settings.${key}.label`)} min={min} max={max} step={step} value={value} disabled={busy} onChange={(e) => void save(key, Number(e.target.value))} className="min-w-0 flex-1" />
         <NumInput className="w-20" min={min} max={max} value={value} onChange={(n) => void save(key, Math.min(max, Math.max(min, n)))} />
         <span className="text-muted">{unit}</span>
       </div>

@@ -17,9 +17,11 @@ function Events({ all, value, onChange }: { all: string[]; value: string[]; onCh
   return (
     <div className="grid gap-1 sm:grid-cols-2">
       {all.map((e) => (
-        <label key={e} className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={value.includes(e)} onChange={(x) => onChange(x.target.checked ? [...value, e] : value.filter((v) => v !== e))} />
-          {t(`integration.event.${e}`)} <span className="font-mono text-xs text-muted">{e}</span>
+        <label key={e} className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={value.includes(e)} onChange={(x) => onChange(x.target.checked ? [...value, e] : value.filter((v) => v !== e))} />
+          <span className="min-w-0">
+            {t(`integration.event.${e}`)} <span className="break-all font-mono text-xs text-muted">{e}</span>
+          </span>
         </label>
       ))}
     </div>
