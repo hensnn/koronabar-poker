@@ -24,6 +24,7 @@ import { SoundHost } from './pages/sounds';
 import { useFeatures } from './features';
 import { TournamentResultHost } from './pages/tournament-result';
 import { BrandFavicon, BrandMark } from './brand';
+import { useApplyDensity } from './density';
 import { AssistantLauncher, AssistantMenuItem } from './pages/assistant';
 import { OfflineBanner } from './pwa';
 import { AnnouncerHost } from './announcer/host';
@@ -69,6 +70,7 @@ export default function App() {
   const preview = useThemePreview();
   const custom = useMemo(() => store.themes.map((t) => t.theme), [store.themes]);
   const colorMode = settings.values['ui.colorMode'] as ColorMode;
+  useApplyDensity();
   return (
     <ThemeProvider themeId={themeId} fallbackId={defaultId} colorMode={colorMode} custom={custom} locked={store.locked} preview={preview.draft} previewMode={preview.mode}>
       <Router />
@@ -163,7 +165,7 @@ function Shell({ me }: { me: Me }) {
   if (off('/ankety', features.polls) || off('/chat', features.chat) || off('/vecery', features.evenings) || off('/postup', features.xp) || off('/obchod', features.shop)) page = <Redirect to="/" />;
 
   return (
-    <div className={`mx-auto flex min-h-screen flex-col gap-3 p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
+    <div className={`mx-auto tk-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
       <header className={`flex items-center justify-between gap-2 ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
         <BrandMark header />
         <BrandFavicon />

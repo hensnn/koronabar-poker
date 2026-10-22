@@ -1,3 +1,4 @@
+import { useDensity } from '../density';
 import { useEffect, useMemo, useState } from 'react';
 import { Button, NumInput } from '../ui';
 import {
@@ -185,6 +186,9 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
   const changed = own;
   const when = WHEN[def.mutability] ?? WHEN.anytime!;
   const isBool = def.type === 'bool';
+  // Nápověda je v úsporné hustotě sbalená a rozbalí se klepnutím na „?“; v ostatních hustotách je vidět hned.
+  const density = useDensity();
+  const [helpOpen, setHelpOpen] = useState(density !== 'compact');
   const badge = (
     <span className={`ml-2 inline-flex items-center gap-1 rounded-full border px-2 text-xs ${when.cls}`}>
       <span aria-hidden="true">{when.icon}</span>
@@ -192,7 +196,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
     </span>
   );
   return (
-    <div className={`rounded-md border px-3 py-2 ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>
+    <div className={`tk-row rounded-md border ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>
       <div className="flex items-start gap-2">
         {isBool && <input id={id} type="checkbox" role="switch" className="mt-1" checked={Boolean(value)} onChange={(e) => onChange(def.key, e.target.checked)} />}
         <div className="min-w-0 flex-1">
@@ -202,6 +206,14 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
               {t(labelKey(def.key))}
               {changed && <span className="ml-2 rounded-sm bg-accent px-1 text-xs font-normal text-on-act">{t('settings.changed')}</span>}
             </label>
+            {!helpOpen && (
+              <span className={`ml-2 text-xs ${when.cls.split(' ')[1] ?? ''}`} title={t(`settings.mutability.${def.mutability}`)} aria-label={t(`settings.mutability.${def.mutability}`)}>
+                {when.icon}
+              </span>
+            )}
+            <button type="button" className="ml-2 rounded-full border border-line px-1.5 text-xs text-muted" aria-expanded={helpOpen} aria-label={t('settings.helpToggle')} title={t('settings.helpToggle')} onClick={() => setHelpOpen((v) => !v)}>
+              ?
+            </button>
             <span className={`text-sm ${own ? 'text-primary' : 'text-muted'}`}>
               {unsaved && <span className="mr-2 rounded-sm bg-warning px-1 text-xs text-on-primary">{t('settings.unsaved')}</span>}
               {t(`settings.origin.${origin}`)}
@@ -212,10 +224,12 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
               )}
             </span>
           </div>
-          <p className="text-sm text-muted">
-            {t(helpKey(def.key))}
-            {badge}
-          </p>
+          {helpOpen && (
+            <p className="text-sm text-muted">
+              {t(helpKey(def.key))}
+              {badge}
+            </p>
+          )}
         </div>
       </div>
       {!isBool && (

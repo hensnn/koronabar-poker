@@ -1089,3 +1089,41 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 .tk-board-main .tk-board-top { background: color-mix(in srgb, var(--login-tone) 18%, var(--tk-color-surface)); }
 .tk-board-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: calc(var(--spacing) * 2); padding: calc(var(--spacing) * 1) calc(var(--spacing) * 3); border-radius: var(--tk-shape-radiusMd); background: var(--tk-color-surface); color: var(--tk-color-textMuted); font-size: 0.75rem; }
 .tk-board-preview { min-height: 0; max-height: 34rem; overflow: auto; border-radius: var(--tk-shape-radiusLg); border: var(--tk-shape-borderWidth) solid var(--tk-color-border); }
+
+/* Hustota zobrazení: odsazení karet, oken, tabulek, tlačítek a řádků nastavení z jedné sady proměnných (osobní nastavení „Hustota zobrazení“). */
+:root {
+  --d-card: calc(var(--spacing) * 4);
+  --d-modal: calc(var(--spacing) * 3);
+  --d-gap: calc(var(--spacing) * 3);
+  --d-cell-y: calc(var(--spacing) * 1);
+  --d-cell-x: calc(var(--spacing) * 2);
+  --d-btn-y: calc(var(--spacing) * 1);
+  --d-btn-x: calc(var(--spacing) * 3);
+  --d-row-y: calc(var(--spacing) * 2);
+}
+[data-density='compact'] {
+  --d-card: calc(var(--spacing) * 2.5);
+  --d-modal: calc(var(--spacing) * 2);
+  --d-gap: calc(var(--spacing) * 2);
+  --d-cell-y: calc(var(--spacing) * 0.5);
+  --d-cell-x: calc(var(--spacing) * 1.5);
+  --d-btn-y: calc(var(--spacing) * 0.5);
+  --d-btn-x: calc(var(--spacing) * 2.5);
+  --d-row-y: calc(var(--spacing) * 1);
+}
+[data-density='comfortable'] {
+  --d-card: calc(var(--spacing) * 5);
+  --d-modal: calc(var(--spacing) * 4);
+  --d-gap: calc(var(--spacing) * 4);
+  --d-cell-y: calc(var(--spacing) * 2);
+  --d-cell-x: calc(var(--spacing) * 3);
+  --d-btn-y: calc(var(--spacing) * 1.5);
+  --d-btn-x: calc(var(--spacing) * 4);
+  --d-row-y: calc(var(--spacing) * 3);
+}
+.tk-card { padding: var(--d-card); }
+.tk-modal { padding: var(--d-modal); }
+.tk-cell { padding: var(--d-cell-y) var(--d-cell-x); }
+.tk-btn { padding: var(--d-btn-y) var(--d-btn-x); }
+.tk-row { padding: var(--d-row-y) calc(var(--spacing) * 3); }
+.tk-page { gap: var(--d-gap); }

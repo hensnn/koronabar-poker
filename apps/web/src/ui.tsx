@@ -14,7 +14,7 @@ const VARIANT: Record<Variant, string> = {
 };
 
 export function Button({ variant = 'secondary', className = '', ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
-  return <button {...p} className={`rounded-md border px-3 py-1 font-medium disabled:opacity-50 ${VARIANT[variant]} ${className}`} />;
+  return <button {...p} className={`tk-btn rounded-md border font-medium disabled:opacity-50 ${VARIANT[variant]} ${className}`} />;
 }
 
 export const inputClass = 'w-full rounded-sm border border-line bg-surface px-2 py-1 text-text';
@@ -56,7 +56,7 @@ export function Select({ label, error, children, ...p }: SelectHTMLAttributes<HT
 
 export function Card({ title, children, actions }: { title?: string; children: ReactNode; actions?: ReactNode }) {
   return (
-    <section className="rounded-lg border border-line bg-surface p-4">
+    <section className="tk-card rounded-lg border border-line bg-surface">
       {(title || actions) && (
         <header className="mb-3 flex items-center justify-between gap-2">
           {title && <h2 className="font-heading text-lg font-bold">{title}</h2>}
@@ -191,7 +191,7 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
   // Okno se vykresluje přímo do <body>: uvnitř stolu (kontejner s containment) by `position: fixed` platilo jen vůči stolu a okno by se smrštilo.
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onMouseDown={() => (down.current = ref.current ? { w: ref.current.offsetWidth, h: ref.current.offsetHeight } : null)} onMouseUp={() => changedSince(down.current) && saveSize()} style={sizeKey ? sizeStyle(storedW, storedH) : undefined} className={`max-h-full ${sizeKey ? 'w-[32rem] max-w-full' : fit ? 'w-fit max-w-full' : `w-full ${wide ? 'max-w-4xl' : 'max-w-lg'}`} overflow-auto rounded-lg border border-line bg-surface p-3 shadow-lg ${sizeKey ? 'flex min-h-48 min-w-64 resize flex-col' : ''}`}>
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onMouseDown={() => (down.current = ref.current ? { w: ref.current.offsetWidth, h: ref.current.offsetHeight } : null)} onMouseUp={() => changedSince(down.current) && saveSize()} style={sizeKey ? sizeStyle(storedW, storedH) : undefined} className={`max-h-full ${sizeKey ? 'w-[32rem] max-w-full' : fit ? 'w-fit max-w-full' : `w-full ${wide ? 'max-w-4xl' : 'max-w-lg'}`} tk-modal overflow-auto rounded-lg border border-line bg-surface shadow-lg ${sizeKey ? 'flex min-h-48 min-w-64 resize flex-col' : ''}`}>
         <h2 className="mb-3 font-heading text-lg font-bold">{title}</h2>
         {sizeKey ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}
       </div>
@@ -236,7 +236,7 @@ export function DataTable({ head, children, sortable = true }: { head: ReactNode
         <thead>
           <tr>
             {head.map((h, i) => (
-              <th key={typeof h === 'string' ? `${i}:${h}` : i} className="border-b border-line px-2 py-1 font-medium text-muted">
+              <th key={typeof h === 'string' ? `${i}:${h}` : i} className="tk-cell border-b border-line font-medium text-muted">
                 {canSort && typeof h === 'string' && h.trim() !== '' ? (
                   <button className="underline decoration-dotted" onClick={() => click(i)} aria-label={t('cashier.ledger.sortBy', { col: h })}>
                     {h}
@@ -254,7 +254,7 @@ export function DataTable({ head, children, sortable = true }: { head: ReactNode
     </div>
   );
 }
-export const Td = ({ children, className = '' }: { children?: ReactNode; className?: string }) => <td className={`border-b border-line px-2 py-1 align-top ${className}`}>{children}</td>;
+export const Td = ({ children, className = '' }: { children?: ReactNode; className?: string }) => <td className={`tk-cell border-b border-line align-top ${className}`}>{children}</td>;
 
 /**
  * Číselné pole, které při psaní nevnucuje nulu: dokud je pole prázdné nebo rozepsané, drží si text,

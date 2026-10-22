@@ -720,6 +720,7 @@ const ui: SettingDef[] = [
     'dark',
     'auto',
   ]),
+  choice('ui.density', { category: 'ui', mutability: A, scopes: USER }, 'auto', ['auto', 'compact', 'normal', 'comfortable']),
   text('ui.themeId', { category: 'ui', mutability: A, scopes: USER }, 'classic-green', 60),
   text('ui.tablePanel', { category: 'ui', mutability: A, scopes: USER }, '', 400),
   text('ui.tableLayout', { category: 'ui', mutability: A, scopes: USER }, '', 1500),

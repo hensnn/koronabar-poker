@@ -332,6 +332,13 @@ export const cs: Record<string, string> = {
   'settings.odds.style.option.both': 'Obojí',
 
   // Osobní nastavení
+  'settings.helpToggle': 'Ukázat nebo skrýt nápovědu',
+  'settings.ui.density.label': 'Hustota zobrazení',
+  'settings.ui.density.help': 'Jak těsně jsou rozmístěné karty, okna, tabulky, tlačítka a řádky nastavení. Úsporná se vejde víc obsahu na obrazovku, Volná je vzdušnější. Automaticky = úsporná na telefonu a tabletu, běžná na počítači. Pro telefon a počítač můžeš nastavit zvlášť v záložce pro daný typ zařízení.',
+  'settings.ui.density.option.auto': 'Automaticky',
+  'settings.ui.density.option.compact': 'Úsporná',
+  'settings.ui.density.option.normal': 'Běžná',
+  'settings.ui.density.option.comfortable': 'Volná',
   'settings.ui.colorMode.label': 'Režim vzhledu',
   'settings.ui.colorMode.help': 'Světlý, tmavý, nebo automaticky podle systému.',
   'settings.ui.colorMode.option.light': 'Světlý',
