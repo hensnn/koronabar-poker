@@ -208,6 +208,7 @@ export const csUi: Record<string, string> = {
   'lobby.edit': 'Upravit',
   'lobby.close': 'Zrušit stůl',
   'lobby.closeConfirm': 'Opravdu zrušit stůl „{name}“? Hráčům se vrátí žetony do peněženek.',
+  'lobby.chatLink': 'Chat',
   'lobby.walletLink': 'Zůstatek a historii najdeš v peněžence.',
   'lobby.tableName': 'Název stolu',
   'lobby.template': 'Šablona hry',
