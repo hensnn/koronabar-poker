@@ -38,7 +38,13 @@ interface Row {
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 const tone = (n: number) => (n > 0 ? 'text-success' : n < 0 ? 'text-danger' : 'text-muted');
-const WHEN: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' };
+const WHEN: Intl.DateTimeFormatOptions = {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+};
 const TOP = 8;
 
 /** Hlavní stránka: kde hraju, můj zůstatek, otevřené cash stoly, plánované turnaje a žebříček hráčů. */
@@ -85,7 +91,13 @@ export function DashboardPage() {
 
   const upcoming = (tours ?? [])
     .filter((x) => x.status === 'registering' || x.status === 'running')
-    .sort((a, b) => (a.status === b.status ? (a.startAt ?? a.createdAt) - (b.startAt ?? b.createdAt) : a.status === 'running' ? -1 : 1))
+    .sort((a, b) =>
+      a.status === b.status
+        ? (a.startAt ?? a.createdAt) - (b.startAt ?? b.createdAt)
+        : a.status === 'running'
+          ? -1
+          : 1,
+    )
     .slice(0, 6);
   const board = Array.isArray(rows) ? rows : [];
   const myIndex = board.findIndex((r) => r.userId === me?.user.id);
@@ -113,7 +125,8 @@ export function DashboardPage() {
             <p className="text-sm text-muted">{t('dashboard.balance')}</p>
             {mine && (
               <p>
-                {t('dashboard.earnings')}: <strong className={`font-mono ${tone(mine.total)}`}>{signed(mine.total)}</strong>
+                {t('dashboard.earnings')}:{' '}
+                <strong className={`font-mono ${tone(mine.total)}`}>{signed(mine.total)}</strong>
                 <span className="text-muted"> · {t('dashboard.place', { n: myIndex + 1 })}</span>
               </p>
             )}
@@ -145,35 +158,87 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card
-        title={t('dashboard.tournaments')}
-        actions={
-          <Link to="/turnaje" className="underline">
-            {t('dashboard.allTournaments')}
-          </Link>
-        }
-      >
-        {tours === null ? (
-          <p className="text-muted">{t('app.loading')}</p>
-        ) : upcoming.length === 0 ? (
-          <p className="text-muted">{t('dashboard.noTournaments')}</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {upcoming.map((x) => (
-              <li key={x.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line px-3 py-1">
-                <strong>{x.name}</strong>
-                {x.status === 'running' ? <Badge tone="success">{t('dashboard.running')}</Badge> : <Badge>{x.startAt ? new Date(x.startAt).toLocaleString('cs-CZ', WHEN) : t('dashboard.registering')}</Badge>}
-                <span className="text-sm text-muted">
-                  {x.players} {t('lobby.players')} · {t('lobby.buyIn')} {x.buyIn}
-                  {x.fee > 0 ? `+${x.fee}` : ''}
-                </span>
-                <span className="ml-auto">
-                  <Button onClick={() => navigate(`/turnaj/${x.id}`)}>{x.status === 'registering' ? t('dashboard.signUp') : t('dashboard.open')}</Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <Card title={t('dashboard.tables')}>
+        <div className="flex flex-col gap-4">
+          <section className="flex flex-col gap-2 rounded-md border border-line border-l-8 border-l-info p-3">
+            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
+              <h3 className="font-heading text-lg font-bold">{t('dashboard.tournaments')}</h3>
+              <Link to="/turnaje" className="underline">
+                {t('dashboard.allTournaments')}
+              </Link>
+            </header>
+            {tours === null ? (
+              <p className="text-muted">{t('app.loading')}</p>
+            ) : upcoming.length === 0 ? (
+              <p className="text-muted">{t('dashboard.noTournaments')}</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {upcoming.map((x) => (
+                  <li
+                    key={x.id}
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-line px-3 py-1"
+                  >
+                    <strong>{x.name}</strong>
+                    {x.status === 'running' ? (
+                      <Badge tone="success">{t('dashboard.running')}</Badge>
+                    ) : (
+                      <Badge>
+                        {x.startAt
+                          ? new Date(x.startAt).toLocaleString('cs-CZ', WHEN)
+                          : t('dashboard.registering')}
+                      </Badge>
+                    )}
+                    <span className="text-sm text-muted">
+                      {x.players} {t('lobby.players')} · {t('lobby.buyIn')} {x.buyIn}
+                      {x.fee > 0 ? `+${x.fee}` : ''}
+                    </span>
+                    <span className="ml-auto">
+                      <Button onClick={() => navigate(`/turnaj/${x.id}`)}>
+                        {x.status === 'registering' ? t('dashboard.signUp') : t('dashboard.open')}
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section className="flex flex-col gap-2 rounded-md border border-line border-l-8 border-l-success p-3">
+            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
+              <h3 className="font-heading text-lg font-bold">{t('dashboard.cash')}</h3>
+              <Link to="/cash" className="underline">
+                {t('dashboard.allCash')}
+              </Link>
+            </header>
+            {tables === null ? (
+              <p className="text-muted">{t('app.loading')}</p>
+            ) : tables.length === 0 ? (
+              <p className="text-muted">{t('lobby.empty')}</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {tables.map((x) => (
+                  <li
+                    key={x.id}
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-line px-3 py-1"
+                  >
+                    <strong>{x.name}</strong>
+                    <span className="font-mono text-sm">
+                      {x.smallBlind}/{x.bigBlind}
+                    </span>
+                    <Badge tone="primary">
+                      {x.seated}/{x.seats}
+                    </Badge>
+                    {x.playing && <Badge tone="success">{t('lobby.playing')}</Badge>}
+                    <span className="ml-auto">
+                      <Button onClick={() => navigate(`/stul/${x.id}`)}>
+                        {x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </Card>
 
       <Card
@@ -200,46 +265,15 @@ export function DashboardPage() {
         )}
         <p className="mt-2 text-xs text-muted">{t('dashboard.earningsHelp')}</p>
       </Card>
-
-      <Card
-        title={t('dashboard.cash')}
-        actions={
-          <Link to="/cash" className="underline">
-            {t('dashboard.allCash')}
-          </Link>
-        }
-      >
-        {tables === null ? (
-          <p className="text-muted">{t('app.loading')}</p>
-        ) : tables.length === 0 ? (
-          <p className="text-muted">{t('lobby.empty')}</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {tables.map((x) => (
-              <li key={x.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line px-3 py-1">
-                <strong>{x.name}</strong>
-                <span className="font-mono text-sm">
-                  {x.smallBlind}/{x.bigBlind}
-                </span>
-                <Badge tone="primary">
-                  {x.seated}/{x.seats}
-                </Badge>
-                {x.playing && <Badge tone="success">{t('lobby.playing')}</Badge>}
-                <span className="ml-auto">
-                  <Button onClick={() => navigate(`/stul/${x.id}`)}>{x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}</Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
     </div>
   );
 }
 
 function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
   return (
-    <li className={`flex items-center gap-3 rounded-md border px-3 py-1 ${me ? 'border-primary bg-raised' : 'border-line'}`}>
+    <li
+      className={`flex items-center gap-3 rounded-md border px-3 py-1 ${me ? 'border-primary bg-raised' : 'border-line'}`}
+    >
       <span className="w-6 text-right font-mono text-muted">{place}.</span>
       <strong className="flex-1 truncate">{row.nickname}</strong>
       <span className={`font-mono ${tone(row.total)}`}>{signed(row.total)}</span>
