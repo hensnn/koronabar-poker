@@ -337,24 +337,19 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
   );
 }
 
-/** Pruh u stolu: na co se v turnaji právě čeká (přestávka s odpočtem, pauza, hand-for-hand, rozhodování o rebuy), aby hráč vždy věděl, proč se nehraje. */
-export function RebuyWaitBanner({ tour, myId }: { tour: TournamentInfo | null; myId: string | undefined }) {
-  const deciding = tour?.status === 'running' ? tour.standings.filter((p) => p.status === 'deciding' && p.userId !== myId) : [];
-  const onBreak = tour?.status === 'running' && tour.clockKind === 'break' && tour.clockMs !== null;
-  const paused = tour?.status === 'running' && !!tour.paused && !onBreak;
-  const bubble = tour?.status === 'running' && !!tour.bubble && !onBreak && !paused && deciding.length === 0 && (tour.tables?.length ?? 1) > 1;
-  const active = deciding.length > 0 || onBreak || paused || bubble;
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(timer);
-  }, [active]);
-  if (!tour || !active) return null;
-  const elapsed = now - fetchedAtOf(tour);
+/**
+ * Na co se v turnaji právě čeká (přestávka s odpočtem, pauza ředitelem, hand-for-hand na bublině, rozhodování o rebuy),
+ * jako věty pro řádek s názvem turnaje u stolu; prázdné pole = nic se nečeká. `elapsedMs` je čas od načtení stavu turnaje.
+ */
+export function tournamentWaitLines(tour: TournamentInfo | null, myId: string | undefined, elapsedMs: number): string[] {
+  if (!tour || tour.status !== 'running') return [];
+  const deciding = tour.standings.filter((p) => p.status === 'deciding' && p.userId !== myId);
+  const onBreak = tour.clockKind === 'break' && typeof tour.clockMs === 'number';
+  const paused = !!tour.paused && !onBreak;
+  const bubble = !!tour.bubble && !onBreak && !paused && deciding.length === 0 && (tour.tables?.length ?? 1) > 1;
   const lines: string[] = [];
   if (onBreak) {
-    const ms = Math.max(0, (tour.clockMs ?? 0) - elapsed);
+    const ms = Math.max(0, (tour.clockMs ?? 0) - elapsedMs);
     lines.push(t('table.break.running', { time: `${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, '0')}` }));
   }
   if (paused) lines.push(t('table.break.paused'));
@@ -362,34 +357,15 @@ export function RebuyWaitBanner({ tour, myId }: { tour: TournamentInfo | null; m
   if (deciding.length > 0) {
     const p = deciding[0]!;
     const name = p.name ?? '?';
-    const left = p.decideUntil ? Math.max(0, Math.ceil((p.decideUntil - tour.serverTime - elapsed) / 1000)) : null;
+    const left = p.decideUntil ? Math.max(0, Math.ceil((p.decideUntil - tour.serverTime - elapsedMs) / 1000)) : null;
     const text = p.decideFrozen
       ? t('table.rebuyWait.offline', { name, minutes: Math.max(1, Math.round((tour.rebuy.offlineMaxSeconds ?? 0) / 60)) })
       : left !== null
         ? t('table.rebuyWait.deciding', { name, seconds: left })
         : t('table.rebuyWait.waiting', { name });
-    lines.push(
-      text + (deciding.length > 1 ? ` ${t('table.rebuyWait.more', { n: deciding.length - 1 })}` : '') + (tour.rebuy.holdsGame === false ? ` ${t('table.rebuyWait.continues')}` : ''),
-    );
+    lines.push(text + (deciding.length > 1 ? ` ${t('table.rebuyWait.more', { n: deciding.length - 1 })}` : '') + (tour.rebuy.holdsGame === false ? ` ${t('table.rebuyWait.continues')}` : ''));
   }
-  return (
-    <div role="status" className="sticky top-1 z-30 mx-auto flex w-fit max-w-full flex-col gap-0.5 rounded-md border border-warning bg-surface px-3 py-1 text-sm shadow">
-      {lines.map((l, i) => (
-        <span key={i}>⏳ {l}</span>
-      ))}
-    </div>
-  );
-}
-
-const fetchedAt = new WeakMap<object, number>();
-/** Kdy dorazil tento stav turnaje (odhad uplynulého času od serverového údaje). */
-function fetchedAtOf(tour: TournamentInfo): number {
-  let at = fetchedAt.get(tour);
-  if (at === undefined) {
-    at = Date.now();
-    fetchedAt.set(tour, at);
-  }
-  return at;
+  return lines;
 }
 
 /** Vypadl jsem a běží čas na rebuy / nový vstup: okno s odpočtem hned u stolu, aby o šanci nikdo nepřišel, ani když má panely schované. */

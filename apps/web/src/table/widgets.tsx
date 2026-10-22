@@ -6,7 +6,7 @@ import { SoundPalette } from '../pages/sounds';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { CardView } from './CardView';
-import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, RebuyWaitBanner, BountiesBody, InfoBody, useTournamentInfo } from './InfoCard';
+import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, BountiesBody, InfoBody, useTournamentInfo } from './InfoCard';
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
 import { ClockWidget, mmss } from './TablePanel';
@@ -181,7 +181,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       {children}
       <AddonOfferDialog tour={tour} tournamentId={tournamentId} />
       <RebuyDecisionDialog tour={tour} tournamentId={tournamentId} />
-      {settings.values['ui.tournamentWaitBanner'] !== false && <RebuyWaitBanner tour={tour} myId={me?.user.id} />}
     </WidgetsContext.Provider>
   );
 }

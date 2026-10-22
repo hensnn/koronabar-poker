@@ -6,6 +6,7 @@ import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { setPlan, usePlan, type Plan } from './plan';
+import { tournamentWaitLines, type TournamentInfo } from './InfoCard';
 
 interface Clock {
   paused: boolean;
@@ -28,11 +29,12 @@ export const mmss = (ms: number) => {
 const blinds = (l: { smallBlind: number; bigBlind: number; ante: number } | null) => (l ? `${l.smallBlind}/${l.bigBlind}${l.ante ? ` (${l.ante})` : ''}` : '-');
 
 /**
- * Pruh nad stolem, který říká, že hraju turnaj: název, level, blindy, čas do dalšího levelu, kolik hráčů zbývá a moje místo.
+ * Pruh nad stolem, který říká, že hraju turnaj: název, na co se právě čeká (přestávka, pauza, rebuy), kolik hráčů zbývá a moje místo. Level, blindy a čas jsou v hodinách turnaje.
  * Totéž se píše do titulku záložky. Je vidět i při vypnutých panelech.
  */
 export function TournamentBanner({ tournamentId }: { tournamentId: string }) {
   const { me } = useSession();
+  const settings = useSettings();
   const [c, setC] = useState<(Clock & { fetchedAt: number }) | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const load = useCallback(() => {
@@ -63,22 +65,18 @@ export function TournamentBanner({ tournamentId }: { tournamentId: string }) {
     };
   }, [name, alive, total]);
   if (!c) return null;
-  const remaining = c.clockMs !== null ? (c.paused ? c.clockMs : c.clockMs - (now - c.fetchedAt)) : null;
   const place = c.standings?.find((p) => p.userId === me?.user.id)?.place;
+  const waits = settings.values['ui.tournamentWaitBanner'] !== false ? tournamentWaitLines(c as unknown as TournamentInfo, me?.user.id, now - c.fetchedAt) : [];
   return (
     <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md px-3 py-1 text-sm border border-accent bg-accent/10">
       <span aria-hidden="true">🏆</span>
       <strong className="truncate">{c.name}</strong>
-      <span>{t('tournament.level', { n: c.levelNumber })}</span>
-      <span className="font-mono">{blinds(c.level)}</span>
-      {remaining !== null && (
-        <span className="font-mono font-bold" role="timer">
-          {mmss(remaining)}
+      {waits.map((l, i) => (
+        <span key={i} className="font-semibold text-warning">
+          ⏳ {l}
         </span>
-      )}
-      {c.paused && <span className="font-semibold text-warning">{t('tournament.paused')}</span>}
-      {c.onBreak && <span className="font-semibold text-warning">{t('tournament.onBreak')}</span>}
-      <span className="text-muted">{t('table.tbanner.players', { alive: c.alive, total: c.players })}</span>
+      ))}
+      <span className="ml-auto text-muted">{t('table.tbanner.players', { alive: c.alive, total: c.players })}</span>
       {place !== undefined && <span>{t('table.tbanner.place', { n: place })}</span>}
     </div>
   );

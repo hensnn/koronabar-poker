@@ -71,7 +71,7 @@ U stolu je pod stolem vždy řádek, který říká, na co se čeká, a kde to j
 - **Hlasování** (run it twice): kdo hlasoval a kolik zbývá času; hlasující mají okno s tlačítky.
 - **Showdown:** „Hráči se rozhodují, zda ukážou karty“ s odpočtem; rozhodující mají okno Ukázat / Muck.
 - **Mezi handami:** „Další handa začne za N s“; při málo hráčích „Čeká se na další hráče“; při pauze „Hra je pozastavená“.
-- **Turnaj:** pruh nahoře u stolu ukazuje přestávku s odpočtem, pauzu ředitelem, hand-for-hand na bublině a rozhodování o rebuy (kdo, kolik zbývá, nebo že hra čeká na odpojeného).
+- **Turnaj:** řádek s názvem turnaje nad stolem ukazuje přestávku s odpočtem, pauzu ředitelem, hand-for-hand na bublině a rozhodování o rebuy (kdo, kolik zbývá, nebo že hra čeká na odpojeného).
 - **Zvláštní události** (7-2 bonus, bomb pot, jackpot) se na pár sekund objeví nad stolem a zároveň jdou do chatu u stolu.
 - **Vypršel čas hráči:** když server za něj zahraje fold nebo check, nad stolem se krátce ukáže, že šlo o vypršení času.
 - **Lišta nástrojů nad stolem** má jen ikony (po najetí myší se ukáže název): 💬 sdílet v chatu, 🧾 vyúčtování, 🗳️ anketa, ⏸/▶ pauza, 📱/🖥️ mobilní rozložení, ⚙ panely, 📜 historie, ⛶ celá obrazovka; 💤 s číslem znamená, kolik hráčů je v sit outu. Na telefonu jsou stejné nástroje s textem pod tlačítkem ⋯.
@@ -79,7 +79,7 @@ U stolu je pod stolem vždy řádek, který říká, na co se čeká, a kde to j
 - **Velikost stolu:** nad stolem je posuvník (40 až 100 %). Zmenší celý stůl i se sedadly a kartami; dvojklik vrátí 100 %. Je i v Osobním nastavení a jde nastavit zvlášť pro počítač a telefon.
 - **Akce hráčů** (fold, check, call, bet, raise, re-raise, all-in) mají každá vlastní animaci u sedadla; rozdávání, otočení karet, výhra a vyřazení také.
 
-Všechna tato hlášení si každý hráč vypne nebo zapne v **Nastavení → Osobní nastavení → Vzhled a ovládání**: *U stolu ukazovat, na co se čeká*, *Pruh turnaje u stolu*, *Oznámení nad stolem (bonus, bomb pot, jackpot)* a *Oznámit vypršení času hráče*. Správce může nastavit výchozí hodnoty pro všechny (Správa → Výchozí osobní nastavení).
+Všechna tato hlášení si každý hráč vypne nebo zapne v **Nastavení → Osobní nastavení → Vzhled a ovládání**: *U stolu ukazovat, na co se čeká*, *Čekání turnaje v řádku s názvem*, *Oznámení nad stolem (bonus, bomb pot, jackpot)* a *Oznámit vypršení času hráče*. Správce může nastavit výchozí hodnoty pro všechny (Správa → Výchozí osobní nastavení).
 
 ## 5. Po testování: vynulování
 
