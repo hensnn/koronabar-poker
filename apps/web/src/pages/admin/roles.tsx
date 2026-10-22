@@ -77,7 +77,7 @@ export function RolesPage() {
               <Td className="font-mono">{r.power}</Td>
               <Td>{r.isLocked ? t('roles.all') : r.permissions.filter((p) => p.effect === 'allow').length}</Td>
               <Td>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-nowrap gap-1 whitespace-nowrap">
                   {!r.isLocked && can(me, 'role.upravit') && r.power < (me?.power ?? 0) && <Button onClick={() => setEdit(toEdit(r))}>{t('roles.edit')}</Button>}
                   {!r.isLocked && can(me, 'role.vytvorit') && <Button onClick={() => setEdit(toEdit(r, true))}>{t('roles.duplicate')}</Button>}
                   {!r.isLocked && can(me, 'role.smazat') && r.power < (me?.power ?? 0) && (

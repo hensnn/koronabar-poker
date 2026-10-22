@@ -16,15 +16,16 @@ Pro majitele a organizátory. Nic tady není peníze: hraje se o **virtuální m
 
 **Živá hra** (Živý cash, živý turnaj): hrajete s opravdovými kartami u stolu a aplikace jen vede žetony, blindy, hodiny a vyúčtování. Ředitel zapisuje vyřazení a výsledky.
 
-## 2. Nastavení: tři vrstvy
+## 2. Nastavení: kde co je
 
-Každý parametr má výchozí hodnotu, kterou jde přepsat na třech místech. Platí vždy ta nejkonkrétnější:
+Rozhoduje, **co se týká celé aplikace** a **co se týká jedné hry**:
 
-1. **Globální** (Správa → Nastavení): výchozí pro všechny hry.
-2. **Šablona**: hotová sada hodnot (Klasika, Hluboké stacky, Freezeout, Rebuy, Turbo, Re-entry, Hyper, Deepstack, Winner takes all, Heads-up, Retro…).
-3. **Konkrétní stůl nebo turnaj**: při zakládání nebo později tlačítkem Upravit.
+1. **Správa → Nastavení (obecné)**: jen pravidla celé aplikace (limity, ekonomika, sázky, napojení ven, systém). Žádné herní nastavení tam není.
+2. **Šablona** (Správa → Šablony): hotová sada všech herních nastavení (Klasika, Hluboké stacky, Freezeout, Rebuy, Turbo, Re-entry, Hyper, Deepstack, Winner takes all, Heads-up, Retro…). Šablonu jde upravit celou, nebo **hromadně změnit** jedno nastavení ve více šablonách najednou (*Změnit nastavení ve více šablonách*).
+3. **Konkrétní stůl nebo turnaj**: při zakládání (Hra → Stoly) nebo později tlačítkem Upravit. Je tam úplně všechno; nahoře jsou **Hlavní nastavení** (buy-in, rebuy, add-on, bounty, dohoda, odměny na hlavu, výplaty, délka levelu) a **Speciální prvky**, zbytek je pod *Zobrazit rozšířené*.
+4. **Osobní nastavení** (Nastavení → Osobní nastavení): vzhled, zvuky, panely, hustota zobrazení. Jde nastavit zvlášť pro telefon a tablet a zvlášť pro počítač.
 
-Šablony spravuješ ve **Správa → Šablony**: vestavěné jsou jen ke čtení (tlačítko *Kopírovat jako vlastní* z nich udělá upravitelnou kopii), vlastní šablony zakládáš, upravuješ a mažeš. Úprava šablony platí pro nově založené hry – běžící stoly a turnaje si nesou hodnoty z doby založení. Hodnoty šablony vidíš a můžeš je přepsat i při zakládání stolu nebo turnaje (po výběru šablony se zobrazí formulář) a později tlačítkem **Upravit** u konkrétní hry; tlačítko **Pravidla** u stolu či turnaje ukáže, co přesně platí. Hodnota ze šablony má přednost před globálním nastavením.
+Šablony spravuješ ve **Správa → Šablony**: vestavěné jde upravit nebo smazat a kdykoli obnovit do původní podoby, vlastní šablony zakládáš, kopíruješ, upravuješ a mažeš. Změna šablony platí pro nově založené hry; běžící hry si nesou původní hodnoty.
 
 **Odhad délky turnaje** (v náhledu poplatků při zakládání) počítá podle struktury blindů a počtu žetonů ve hře: turnaj obvykle končí na levelu, kde velký blind dosáhne zhruba 1/20 všech žetonů; rozmezí odpovídá rychlému (1/30) a pomalému (1/12) průběhu, připočítají se přestávky a odhad rebuy/add-on žetonů. Je to orientační číslo, ne simulace.
 
@@ -32,7 +33,7 @@ U každého parametru je napsáno, **kdy jde měnit**: hned, od další handy, j
 
 ## 3. Jak založit turnaj
 
-**Turnaje → Založit turnaj** (hned) nebo **Naplánovat turnaj** (s datem; registrace se otevře sama, hráčům chodí připomínky).
+**Hra → Stoly → Založit turnaj** (hned) nebo **Naplánovat turnaj** (s datem; registrace se otevře sama, hráčům chodí připomínky).
 
 1. **Název a šablona.** Pro začátek: *Freezeout* (bez rebuy, klidné tempo), *Rebuy* (dokupování v první části), *Turbo* (rychlé levely na večer). Pod šablonou jsou tři karty s tím hlavním: **Peníze a výplaty**, **Rebuy, add-on a re-entry** a **Struktura blindů**; zbytek je pod „Upravit podrobné nastavení“.
 2. **Buy-in a poplatek** (`tournament.buyIn`, `tournament.fee`): buy-in jde do prize poolu, poplatek domu (volitelný). Dále část poolu do fondu nebo domu v procentech, garance (dům doplní, když se sejde málo hráčů).
@@ -70,18 +71,22 @@ Odpojený hráč (zavřená aplikace, výpadek) dostane jen **prodlevu pro odpoj
 
 | Chci | Kde |
 |---|---|
-| Výchozí blindy, místa, straddle, ante | Nastavení → Stůl |
-| Čas na tah, time bank, prodlevy animací | Nastavení → Časovač tahu, Časování průběhu handy |
-| Buy-in cash, hit-and-run, čekací listina | Nastavení → Cash game |
-| Rake, jackpoty, časový poplatek | Nastavení → Rake |
-| Levely, rebuy, výplaty, bounty, dohody, poplatky | Nastavení → Turnaj a podkategorie (rebuy, výplaty, bounty, dohody, poplatky a garance, plánování) |
-| Plánování, připomínky, série a ligy | Turnaje → Naplánovat, Série a ligy |
+| Blindy, místa, straddle, ante | Šablona nebo úprava stolu → Stůl |
+| Čas na tah, time bank, prodlevy animací | Šablona nebo úprava hry → Časovač tahu, Časování průběhu handy |
+| Buy-in cash, hit-and-run, čekací listina | Šablona nebo úprava stolu → Cash game |
+| Rake a časový poplatek | Šablona nebo úprava stolu → Rake |
+| Run it twice, bomb pot, jackpoty, rebuy, add-on, re-entry, bounty, dohoda, odměny na hlavu, sázky | Speciální prvky (rozdělené do podskupin); u turnaje také v hlavním nastavení nahoře |
+| Levely, výplaty, poplatky, plánování | Šablona nebo úprava turnaje → rozšířené nastavení → Turnaj a podkategorie |
+| Plánování, připomínky, série a ligy | Hra → Stoly → Naplánovat, Série a ligy |
+| Peněženka, žádosti o dobití, vyúčtování večera (filtr Vše / Cash / Turnaje) | Hra → Peněženka |
 | XP, hodnosti, úspěchy, rating | Nastavení → Zkušenosti a hodnosti, Herní rating |
-| Zvuky, hlasatel, TV | Profil (osobní), Správa → Hlasatel, Správa → TV |
+| Vzhled, hustota zobrazení, zvuky, panely, odhlášení | Nastavení → Osobní nastavení (Odhlásit je vpravo nahoře) |
+| Hlasatel, TV | Správa → Hlasatel, Správa → TV |
+| Home Assistant, Discord, webhooky | Správa → Napojení ven; postup v `docs/HOME-ASSISTANT.md` |
 | Kdo co smí | Správa → Role |
 | Peníze hráčům | Správa → Pokladna |
 | Co se stalo | Správa → Audit log, Finance |
-| Jak se mi daří (grafy zůstatku, výsledků, XP, ratingu) | Statistiky → Moje statistiky → Jak se mi daří |
-| Přehled a srovnání všech hráčů | Statistiky → Přehled hráčů (správce může vypnout: Nastavení → Statistiky) |
+| Jak se mi daří (grafy zůstatku, výsledků, XP, ratingu) | Hra → Statistiky → Moje statistiky → Jak se mi daří |
+| Přehled a srovnání všech hráčů | Hra → Statistiky → Přehled hráčů (správce může vypnout: Správa → Nastavení → Statistiky) |
 
 Tip: pro první večer stačí jeden cash stůl ze šablony Klasika a jeden turnaj Freezeout s výplatou *top3*. Zbytek dolaď, až uvidíš, jak se hraje.

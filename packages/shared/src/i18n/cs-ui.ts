@@ -454,7 +454,7 @@ export const csUi: Record<string, string> = {
   'admin.invite.expires': 'Platí do',
   'admin.invite.active': 'Platná',
   'admin.invite.inactive': 'Neplatná',
-  'admin.globalSettings.info': 'Globální výchozí hodnoty platí pro celou aplikaci, pokud je nepřepíše šablona nebo konkrétní stůl.',
+  'admin.globalSettings.info': 'Globální nastavení platí pro celou aplikaci a hráč ho nepřepíše. Nastavení her se řídí šablonou.',
   'roles.list': 'Seznam rolí',
   'roles.matrix': 'Matice oprávnění',
   'roles.new': 'Nová role',

@@ -490,7 +490,7 @@ export function TournamentPage({ id }: { id: string }) {
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
             <dt className="text-muted">{t('tournament.buyIn')}</dt>
             <dd className="font-mono">{view.buyIn}</dd>
-            <dt className="text-muted">{t('tournament.fee')}</dt>
+            <dt className="text-muted">{t('tournament.feeLabel')}</dt>
             <dd className="font-mono">{view.fee}</dd>
             <dt className="text-muted">{t('tournament.startingStack')}</dt>
             <dd className="font-mono">

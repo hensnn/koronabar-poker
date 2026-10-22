@@ -2,7 +2,7 @@
 
 Vlastní webová pokerová herna pro domácí hry přátel přes internet. Cash game i turnaje, virtuální měna **bez peněžní hodnoty** (žádné platby, směna ani výběry). Běží na tvém serveru pod tvou doménou (v návodu je jako příklad `poker.example.cz`).
 
-> Stav projektu: všech 12 fází ze zadání je hotových a pokrytých testy (cash i turnaje, plánování, chat, zvukové emotikony, XP a rating, ankety, statistiky, vzhled, živá hra a TV, hlasatel, večery, sázky, limity, kosmetika, Home Assistant a API, AI asistent a MCP, PWA). Podrobnosti a odložené drobnosti jsou v `docs/STAV.md`.
+> Stav projektu: všech 12 fází ze zadání je hotových a pokrytých testy (cash i turnaje, plánování, chat, zvukové emotikony, XP a rating, ankety, statistiky, vzhled, živá hra a TV, hlasatel, večery, sázky, limity, kosmetika, Home Assistant a API, AI asistent a MCP, PWA). Podrobnosti a odložené drobnosti jsou v `docs/STAV.md`, výsledek poslední kontroly (testy, simulace her, známé nedostatky) v `docs/AUDIT.md`.
 
 ## Co potřebuješ
 
@@ -67,7 +67,22 @@ Krátké vysvětlení logiky hry a nastavení turnajů je v `docs/NAVOD-HRA.md`.
 
 1. **Správa → Uživatelé / Pozvánky:** vytvoř pozvánky a pošli je kamarádům. Registrace je pouze na pozvánku.
 2. **Správa → Pokladna:** dobij hráčům virtuální měnu (jde o interní účetnictví, ne o peníze).
-3. **Lobby:** založte stůl z šablony nebo si uprav parametry.
+3. **Hra → Stoly:** založte turnaj nebo cash stůl z šablony, nebo si uprav parametry.
+
+## Orientace v aplikaci
+
+Nahoře v hlavičce zleva doprava:
+
+| Prvek | Co v něm je |
+|---|---|
+| **Ke stolu** | Vede ke stolu, u kterého sedíš (šedé, když nikde nesedíš). |
+| **Lobby** | Úvodní stránka: účet, kde hraješ, **Stoly** (nahoře turnaje, dole cash game), žebříček, ankety a odkazy na chat a ankety. |
+| **Hra** | Stoly, Živý cash, Večery, Chat, Ankety, Peněženka (včetně vyúčtování večera s filtrem Vše / Cash / Turnaje), Statistiky, Postup, Obchod. |
+| **Nastavení** | Osobní nastavení (vzhled, hustota zobrazení, zvuky, panely, **Odhlásit**), Profil a **Správa**. |
+
+Na telefonu jsou **Ke stolu** a **Lobby** vždy vidět, zbytek je pod tlačítkem **Nabídka** (tam je i asistent). Osobní nastavení jde mít zvlášť pro telefon a tablet a zvlášť pro počítač (druhá záložka v Nastavení). Jemnost rozmístění prvků ovládá **Hustota zobrazení** (Automaticky / Úsporná / Běžná / Volná).
+
+Herní nastavení (blindy, časování, rake, speciální prvky, vše kolem turnajů) se nastavuje v **šablonách** (Správa → Šablony, včetně hromadné změny více šablon najednou) a při zakládání hry. Obecné nastavení ve Správě obsahuje jen pravidla celé aplikace. Podrobnosti jsou v `docs/NAVOD-HRA.md`.
 
 ## E-mail (odesílání pozvánek a upozornění)
 
@@ -204,9 +219,9 @@ Připojení z Home Assistantu: přidej integraci **Model Context Protocol** (typ
 
 ## Instalace jako aplikace (PWA), zvuky a animace
 
-- **Instalace:** v Chrome nebo Edge se v **Profilu** objeví karta **Nainstalovat aplikaci** (nebo ikona instalace v adresním řádku). Na iPhonu a iPadu otevři v Safari nabídku **Sdílet → Přidat na plochu**. Aplikace pak běží v samostatném okně s vlastní ikonou a push upozornění chodí i při zavřeném prohlížeči (vyžaduje HTTPS, což zajišťuje Nginx Proxy Manager). Barvy úvodní obrazovky a lišty se berou z motivu v nastavení **Motiv instalované aplikace**.
+- **Instalace:** v Chrome nebo Edge se v **Nastavení** (osobní) objeví karta **Nainstalovat aplikaci** (nebo ikona instalace v adresním řádku). Na iPhonu a iPadu otevři v Safari nabídku **Sdílet → Přidat na plochu**. Aplikace pak běží v samostatném okně s vlastní ikonou a push upozornění chodí i při zavřeném prohlížeči (vyžaduje HTTPS, což zajišťuje Nginx Proxy Manager). Barvy úvodní obrazovky a lišty se berou z motivu v nastavení **Motiv instalované aplikace**.
 - **Bez připojení:** aplikace se po ztrátě sítě otevře a ukáže, že jsi offline. Hra samotná potřebuje živé spojení, proto se data ze serveru nikdy neukládají do paměti prohlížeče.
-- **Zvuky hry:** u stolu zní rozdání karet, žetony, check a fold, upozornění „jsi na tahu“, tikání před koncem času, začátek time banku, all-in a výhra. Každý zvuk i hlasitost si vypneš v **Profilu → osobní nastavení → zvuky hry** (zvukové emotikony se nastavují zvlášť). Na telefonu zavibruje, když jsi na tahu nebo ti dochází čas.
+- **Zvuky hry:** u stolu zní rozdání karet, žetony, check a fold, upozornění „jsi na tahu“, tikání před koncem času, začátek time banku, all-in a výhra. Každý zvuk i hlasitost si vypneš v **Nastavení → Osobní nastavení → zvuky hry** (zvukové emotikony se nastavují zvlášť). Na telefonu zavibruje, když jsi na tahu nebo ti dochází čas.
 - **Animace:** rozdávání karet, vsazení, vítěz a „+částka“ se řídí tokeny motivu (zapnutí a rychlost v editoru vzhledu) a vypínají se i systémovým nastavením „omezit pohyb“.
 - **Ikony** se generují příkazem `node scripts/make-icons.mjs` ze zdrojového obrázku v tomto skriptu.
 

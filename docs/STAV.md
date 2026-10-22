@@ -502,3 +502,6 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 
 - Majitel potvrdil, že Korony se používají i v jiných jeho hrách, a chce proto u peněženky „výběr / převod“. Pravidlo „žádné výběry“ z CLAUDE.md chápu tak, že se nesmí přidat skutečné platby, výplaty ani směna za peníze. Převod Koron do jiné aplikace je jen záznam v účetní knize (žádost, schválení pokladníkem, odepsání na účet `external:<cíl>`), bez peněz a bez automatického propojení.
 - Je to vypnuté (`economy.transferEnabled`), dokud to majitel nezapne. Pokud majitel chce pravidlo v CLAUDE.md upřesnit, je to na něm.
+
+## Audit (říjen 2026)
+Typy, lint, 1089 testů, produkční sestavení a simulace cash i turnajů prošly; vizuální průchod stránek našel a opravil kolizi tříd hustoty zobrazení a drobné chyby rozložení. Podrobnosti a seznam známých nedostatků jsou v `docs/AUDIT.md`.

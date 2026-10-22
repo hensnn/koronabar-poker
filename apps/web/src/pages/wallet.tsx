@@ -197,6 +197,7 @@ export function CashierPanel() {
             }
           }}
         >
+          <div className="grid gap-3 sm:grid-cols-3">
           <Select label={t('cashier.mode')} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
             {can(me, 'mena.dobit') && <option value="topup">{t('cashier.topup')}</option>}
             {can(me, 'mena.strhnout') && <option value="debit">{t('cashier.debit')}</option>}
@@ -210,9 +211,10 @@ export function CashierPanel() {
             ))}
           </Select>
           <TextInput label={t('wallet.amount')} type="number" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} hint={limits?.maxPerOperation ? t('cashier.limit', { n: limits.maxPerOperation }) : undefined} required />
+          </div>
           <TextArea label={t('cashier.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
           {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-          <Button variant="primary" type="submit">
+          <Button className="self-start" variant="primary" type="submit">
             {t('table.confirm')}
           </Button>
         </form>

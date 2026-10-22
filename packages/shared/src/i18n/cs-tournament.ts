@@ -1926,6 +1926,7 @@ export const csTournament: Record<string, string> = {
   'tournament.status.cancelled': 'Zrušen',
   'tournament.buyIn': 'Buy-in',
   'tournament.fee': 'poplatek',
+  'tournament.feeLabel': 'Poplatek',
   'tournament.startingStack': 'Startovní stack',
   'tournament.open': 'Otevřít',
   'tournament.name': 'Název turnaje',
