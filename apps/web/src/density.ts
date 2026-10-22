@@ -1,16 +1,12 @@
 import { useEffect } from 'react';
-import { useSettings } from './settings';
+import { deviceId, useSettings } from './settings';
 
 export type Density = 'compact' | 'normal' | 'comfortable';
 
 /** Zvolená hustota zobrazení; „auto“ = úsporná na dotykových zařízeních (telefon, tablet), běžná na počítači. */
 export function resolveDensity(value: unknown): Density {
   if (value === 'compact' || value === 'normal' || value === 'comfortable') return value;
-  try {
-    return window.matchMedia('(pointer: coarse)').matches ? 'compact' : 'normal';
-  } catch {
-    return 'normal';
-  }
+  return deviceId() === 'phone' ? 'compact' : 'normal';
 }
 
 export function useDensity(): Density {

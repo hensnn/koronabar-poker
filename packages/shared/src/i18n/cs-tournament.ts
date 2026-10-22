@@ -21,6 +21,7 @@ export const csTournament: Record<string, string> = {
   'settlement.byGame': 'Rozpad po hrách ({n})',
   'settlement.kindTournament': 'turnaj',
   'settlement.kindCash': 'cash',
+  'settlement.incompletePeriod': 'Zisk herny vyšel záporný, což obvykle znamená, že vybrané období začíná uprostřed hry: výběry u stolu jsou v něm, ale vklady byly dřív. Zvol období od začátku večera (Dnes, nebo ručně Od–Do), ať jsou započtené vklady i výběry.',
   'settlement.filter.all': 'Vše',
   'settlement.filter.cash': 'Cash',
   'settlement.filter.tournament': 'Turnaje',

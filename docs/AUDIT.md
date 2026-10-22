@@ -25,19 +25,24 @@ Simulace se spouští příkazem `pnpm --filter @kb/server exec tsx scripts/simu
 - **Popisky:** „poplatek“ s malým písmenem v informacích o turnaji, obecná hláška v nastavení, která už neplatila, dvojí vysvětlení u MQTT.
 - **Tlačítka v tabulce rolí** se zbytečně lámala do dvou řádků.
 
-## Známé nedostatky a doporučení
+## Opravy nedostatků z auditu
 
-1. **Velikost aplikace pro prohlížeč.** Hlavní soubor JavaScriptu má asi 1,4 MB (386 KB po zkomprimování), bez dělení na části. První načtení na pomalém mobilním připojení bude znatelné. Doporučení: rozdělit stránky správy a statistik do samostatných částí (načítání na požádání).
-2. **Chybí automatické testy vzhledu.** Typy, lint a testy logiky nezachytí rozbité rozložení, proto kolizi tříd našla až vizuální kontrola. Doporučení: doplnit pár prohlížečových testů (přihlášení a snímek hlavních stránek na počítači a mobilu).
-3. **Údržba, „Příprava na ostrý provoz“:** všechna zaškrtávátka jsou předem zaškrtnutá. Mazání je chráněné napsáním slova VYNULOVAT a zálohou, ale bezpečnější by bylo výchozí stav bez zaškrtnutí.
-4. **Vývojové přihlášení v repozitáři.** V `.claude/launch.json` je vývojové heslo majitele (`vyvoj-heslo-123`) pro lokální běh. Je to jen pro vývoj s prázdnou databází, nikdy ho nepoužívej na ostrém serveru.
-5. **Vyúčtování za období, které začíná uprostřed hry.** Zahrne jen pohyby, které spadají do zvoleného období. Když období obsahuje jen výběry ze stolu bez vkladů (vklad byl dřív), zisk herny vyjde záporný. Čísla jsou správně, jen je potřeba zvolit období celé hry (Dnes nebo ručně od–do).
-6. **Rebuy s držením hry.** Při zapnutém „drží hru“ a „čeká na odpojené“ může hra až desítky sekund stát (v simulaci asi 40 s). Je to nastavení, ne chyba, ale hráči u stolu to neuvidí jako odpočet.
-7. **Ověřeno jen proti náhradním službám:** MQTT/Home Assistant, Discord, webhooky, skuteční poskytovatelé AI (Gemini), push upozornění a instalace aplikace na telefon. Doporučení: vyzkoušet jednou ručně po nasazení (postupy jsou v README a `docs/HOME-ASSISTANT.md`).
-8. **Nasazení přes Docker nebylo v tomto auditu spuštěno.** Postup je v README a `docs/NASAZENI.md`; po prvním nasazení projdi Kontrolní seznam před prvním spuštěním.
-9. **Typ zařízení** pro osobní nastavení telefon/počítač se pozná automaticky podle dotyku. Tablet s myší se může zařadit jinak; ruční přepínač zatím není.
-10. **Odložené funkce** (viz `docs/STAV.md`): sázky a odměny na hlavu u cash stolů, sázky s pevnými kurzy, e-mail o sázkách, štítek hráče v historii hand.
+- **Velikost aplikace:** méně časté stránky a celá Správa se načítají až při otevření. Hlavní soubor se zmenšil přibližně o třetinu (z 1,4 MB na asi 0,5 MB a společnou část 0,5 MB); ostatní stránky se stáhnou, až je otevřeš.
+- **Údržba:** všechna zaškrtávátka jsou ve výchozím stavu **nezaškrtnutá**, přibyly tlačítka Vybrat vše a Zrušit výběr. Mazání dál chrání napsání slova a záloha.
+- **Vyúčtování:** když vyjde zisk herny záporný (období začíná uprostřed hry), ukáže se upozornění, jak zvolit období.
+- **Typ zařízení:** v Nastavení → Osobní nastavení je volba „Typ tohoto zařízení“ (Automaticky / Telefon a tablet / Počítač).
+- **Vizuální kontrola:** skript `scripts/screenshots.mjs` uloží snímky hlavních stránek na počítači i mobilu (`LOGIN=... PASSWORD=... node scripts/screenshots.mjs složka`; vývojový server a web musí běžet). Přibyl test, který hlídá kolizi tříd herních karet s obecnými prvky.
+
+## Zbývající nedostatky a doporučení
+
+1. **Plné prohlížečové testy** (klikání ve vykreslené aplikaci) zatím chybí; snímky stránek se kontrolují ručně skriptem výše.
+2. **Vývojové přihlášení v repozitáři.** V `.claude/launch.json` je vývojové heslo majitele (`vyvoj-heslo-123`) pro lokální běh s prázdnou databází. Na ostrém serveru ho nikdy nepoužívej.
+3. **Vyúčtování za období uprostřed hry** zahrne jen pohyby v období; upozornění je v aplikaci, volba celého období je na uživateli.
+4. **Rebuy s držením hry.** Při zapnutém „drží hru“ a „čeká na odpojené“ může hra až desítky sekund stát (v simulaci asi 40 s). Je to nastavení, ne chyba, hráči u stolu to ale nevidí jako odpočet.
+5. **Ověřeno jen proti náhradním službám:** MQTT/Home Assistant, Discord, webhooky, skuteční poskytovatelé AI (Gemini), push upozornění a instalace aplikace na telefon. Po nasazení vyzkoušej jednou ručně (postupy jsou v README a `docs/HOME-ASSISTANT.md`).
+6. **Nasazení přes Docker nebylo v tomto auditu spuštěno.** Postup je v README a `docs/NASAZENI.md`; po prvním nasazení projdi Kontrolní seznam před prvním spuštěním.
+7. **Odložené funkce** (viz `docs/STAV.md`): sázky a odměny na hlavu u cash stolů, sázky s pevnými kurzy, e-mail o sázkách, štítek hráče v historii hand.
 
 ## Co dělat po každé změně vzhledu
 
-Spustit `pnpm typecheck`, `pnpm lint`, `pnpm test`, potom aplikaci opravdu otevřít a projít hlavní stránky na počítači a na úzkém displeji. Nové obecné CSS třídy pojmenovat s vlastní předponou a před tím prohledat `apps/web/src/styles.css`.
+Spustit `pnpm typecheck`, `pnpm lint`, `pnpm test`, potom `scripts/screenshots.mjs` a snímky prohlédnout. Nové obecné CSS třídy pojmenovat s vlastní předponou a před tím prohledat `apps/web/src/styles.css`.

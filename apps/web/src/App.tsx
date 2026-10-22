@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
+import { lazyPage } from './lazy';
 import { t } from '@kb/shared';
 import { post } from './api';
 import { Link, matchPath, Redirect, useLocation } from './router';
@@ -8,18 +9,11 @@ import { ThemeProvider, type ColorMode } from './theme/ThemeProvider';
 import { loadThemes, resetThemes, useThemeStore } from './theme/themes-client';
 import { loadNotes, resetNotes } from './notes-client';
 import { useThemePreview } from './theme/preview';
-import { ThemeEditorPage } from './pages/theme-editor';
 import { Button, Notice, Spinner } from './ui';
 import { ForgotPage, LoginPage, RegisterPage, ResetPage, TokenPage } from './pages/auth';
 import { AdminRouter, isAdmin } from './pages/admin/index';
-import { ShopPage } from './pages/shop';
-import { ChatPage } from './pages/chat';
 import { TablesPage } from './pages/tables';
-import { ProfilePage, SettingsPage } from './pages/profile';
-import { GuidePage } from './pages/guide';
 import { TablePage } from './pages/table';
-import { WalletPage } from './pages/wallet';
-import { StatsPage } from './pages/stats';
 import { SoundHost } from './pages/sounds';
 import { useFeatures } from './features';
 import { TournamentResultHost } from './pages/tournament-result';
@@ -28,20 +22,33 @@ import { useApplyDensity } from './density';
 import { AssistantLauncher, AssistantMenuItem } from './pages/assistant';
 import { OfflineBanner } from './pwa';
 import { AnnouncerHost } from './announcer/host';
-import { PollPage, PollsPage } from './pages/polls';
-import { ProgressPage } from './pages/progress';
 import { LevelUpToast } from './progress-client';
 import { TournamentPage } from './pages/tournaments';
-import { LiveCashListPage, LiveCashPage } from './pages/live';
-import { TvPage } from './pages/tv';
 import { PublicBoardPage } from './pages/public-board';
-import { EveningPage, EveningsPage } from './pages/evenings';
 import { NotificationBell } from './notifications';
 import { SoundMenu } from './sound-menu';
 import { DashboardPage } from './pages/dashboard';
 import { MainMenu, type MenuGroup, type MenuItem, type MenuTone } from './main-menu';
 import { useTournamentAutoJoin } from './tournament-autojoin';
 import { MyTableButton } from './my-table-button';
+
+// Méně časté stránky se načítají až při otevření.
+const ThemeEditorPage = lazyPage(() => import('./pages/theme-editor'), 'ThemeEditorPage');
+const ShopPage = lazyPage(() => import('./pages/shop'), 'ShopPage');
+const ChatPage = lazyPage(() => import('./pages/chat'), 'ChatPage');
+const ProfilePage = lazyPage(() => import('./pages/profile'), 'ProfilePage');
+const SettingsPage = lazyPage(() => import('./pages/profile'), 'SettingsPage');
+const GuidePage = lazyPage(() => import('./pages/guide'), 'GuidePage');
+const WalletPage = lazyPage(() => import('./pages/wallet'), 'WalletPage');
+const StatsPage = lazyPage(() => import('./pages/stats'), 'StatsPage');
+const PollPage = lazyPage(() => import('./pages/polls'), 'PollPage');
+const PollsPage = lazyPage(() => import('./pages/polls'), 'PollsPage');
+const ProgressPage = lazyPage(() => import('./pages/progress'), 'ProgressPage');
+const LiveCashListPage = lazyPage(() => import('./pages/live'), 'LiveCashListPage');
+const LiveCashPage = lazyPage(() => import('./pages/live'), 'LiveCashPage');
+const TvPage = lazyPage(() => import('./pages/tv'), 'TvPage');
+const EveningPage = lazyPage(() => import('./pages/evenings'), 'EveningPage');
+const EveningsPage = lazyPage(() => import('./pages/evenings'), 'EveningsPage');
 
 const PUBLIC = ['/prihlaseni', '/registrace', '/zapomenute-heslo', '/obnova-hesla', '/overit-email', '/potvrdit-email'];
 
@@ -83,7 +90,7 @@ function Router() {
   const { path } = useLocation();
   const isPublic = PUBLIC.some((p) => path === p);
 
-  if (path === '/tv') return <TvPage />;
+  if (path === '/tv') return <Suspense fallback={<Spinner label={t('app.loading')} />}><TvPage /></Suspense>;
   if (path.startsWith('/verejne/')) return <PublicBoardPage token={path.slice('/verejne/'.length)} />;
   if (session.status === 'loading') {
     return (
@@ -201,7 +208,9 @@ function Shell({ me }: { me: Me }) {
       {features.xp && <LevelUpToast />}
       <OfflineBanner />
       {!me.user.emailVerified && !blocked && <VerifyBanner />}
-      <main className="flex-1">{page}</main>
+      <main className="flex-1">
+        <Suspense fallback={<Spinner label={t('app.loading')} />}>{page}</Suspense>
+      </main>
       {!blocked && features.assistant && <AssistantLauncher />}
     </div>
   );

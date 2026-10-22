@@ -23,11 +23,36 @@ function legacyDeviceId(): string | null {
  * Každý typ má u hráče vlastní profil osobního nastavení, který se použije automaticky na všech zařízeních toho typu.
  */
 export function deviceId(): 'phone' | 'desktop' {
+  const forced = deviceKindOverride();
+  if (forced !== 'auto') return forced;
   try {
     return window.matchMedia('(pointer: coarse)').matches ? 'phone' : 'desktop';
   } catch {
     return 'desktop';
   }
+}
+
+const KIND = 'kb.deviceKind';
+
+/** Ruční volba typu zařízení (Nastavení → Osobní nastavení); „auto“ = podle dotykového ovládání. */
+export function deviceKindOverride(): 'auto' | 'phone' | 'desktop' {
+  try {
+    const v = localStorage.getItem(KIND);
+    return v === 'phone' || v === 'desktop' ? v : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+/** Uloží ruční volbu typu zařízení a načte aplikaci znovu, aby se použil správný profil nastavení. */
+export function setDeviceKindOverride(v: 'auto' | 'phone' | 'desktop'): void {
+  try {
+    if (v === 'auto') localStorage.removeItem(KIND);
+    else localStorage.setItem(KIND, v);
+  } catch {
+    /* bez úložiště jde jen automatika */
+  }
+  window.location.reload();
 }
 
 interface State {

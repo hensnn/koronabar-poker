@@ -6,7 +6,7 @@ import { useThemes } from '../theme/ThemeProvider';
 import { t, type SettingValue } from '@kb/shared';
 import { errorText, post } from '../api';
 import { logout, useSession } from '../session';
-import { exportUserSettings, deviceId, importUserSettings, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
+import { exportUserSettings, deviceId, deviceKindOverride, setDeviceKindOverride, importUserSettings, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
 import { SettingsForm } from '../settings/SettingsForm';
 import { Button, Card, Notice, Tabs, TextArea, TextInput } from '../ui';
 import { Guide } from './guide';
@@ -116,6 +116,14 @@ export function SettingsPage() {
       ) : (
         <>
       <Notice>{t('settings.personal.sync')}</Notice>
+      <label className="flex flex-wrap items-center gap-2 text-sm">
+        {t('settings.personal.deviceKind')}
+        <select className="rounded-sm border border-line bg-surface px-2 py-1" value={deviceKindOverride()} onChange={(e) => setDeviceKindOverride(e.target.value as 'auto' | 'phone' | 'desktop')}>
+          <option value="auto">{t('settings.personal.kind.auto')}</option>
+          <option value="phone">{t('settings.personal.kind.phone')}</option>
+          <option value="desktop">{t('settings.personal.kind.desktop')}</option>
+        </select>
+      </label>
       <Tabs tabs={[{ id: 'user', label: t('settings.personal.all') }, { id: 'device', label: t('settings.personal.device', { kind: t(`settings.personal.kind.${deviceId()}`) }) }]} value={target} onChange={setTarget} />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       <ThemeChooser onPick={(id) => void saveUserSetting('ui.themeId', id, target === 'device').catch((e) => setMsg({ kind: 'error', text: errorText(e) }))} current={String(settings.values['ui.themeId'])} />

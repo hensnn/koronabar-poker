@@ -38,9 +38,9 @@ type LaunchArea = (typeof LAUNCH)[number];
 /** Správa → Údržba: vynulování po testování (XP, úspěchy, rating, statistiky, peněženky, otevřené hry). */
 export function MaintenancePage() {
   const [counts, setCounts] = useState<Counts | null>(null);
-  const [areas, setAreas] = useState<Record<Area, boolean>>({ games: false, xp: true, achievements: true, rating: true, stats: true, wallets: false });
+  const [areas, setAreas] = useState<Record<Area, boolean>>({ games: false, xp: false, achievements: false, rating: false, stats: false, wallets: false });
   const [word, setWord] = useState('');
-  const [launch, setLaunch] = useState<Record<LaunchArea, boolean>>({ games: true, progress: true, history: true, chat: true, notifications: true, wallets: true });
+  const [launch, setLaunch] = useState<Record<LaunchArea, boolean>>({ games: false, progress: false, history: false, chat: false, notifications: false, wallets: false });
   const [launchWord, setLaunchWord] = useState('');
   const [users, setUsers] = useState<UserRow[]>([]);
   const [delIds, setDelIds] = useState<string[]>([]);
@@ -162,6 +162,10 @@ export function MaintenancePage() {
         <div className="flex flex-col gap-3">
           <p className="text-sm">{t('launch.help')}</p>
           <p className="rounded-md border border-success px-2 py-1 text-sm">{t('launch.keeps')}</p>
+          <div className="flex gap-2">
+            <Button onClick={() => setLaunch(Object.fromEntries(LAUNCH.map((a) => [a, true])) as Record<LaunchArea, boolean>)}>{t('launch.selectAll')}</Button>
+            <Button onClick={() => setLaunch(Object.fromEntries(LAUNCH.map((a) => [a, false])) as Record<LaunchArea, boolean>)}>{t('launch.selectNone')}</Button>
+          </div>
           {LAUNCH.map((a) => (
             <label key={a} className="flex flex-col gap-0.5">
               <span className="flex items-center gap-2 font-medium">

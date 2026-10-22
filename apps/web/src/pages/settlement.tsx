@@ -145,6 +145,9 @@ export function SettlementPanel() {
             {kind === 'all' && data.house !== null && data.players.length > 0 && (
               <p className="text-sm text-muted">{t('settlement.house', { amount: data.house })}</p>
             )}
+            {kind === 'all' && data.house !== null && data.house < 0 && (
+              <Notice kind="warning">{t('settlement.incompletePeriod')}</Notice>
+            )}
             {view.games.length > 0 && (
               <details open>
                 <summary className="cursor-pointer">{t('settlement.byGame', { n: view.games.length })}</summary>

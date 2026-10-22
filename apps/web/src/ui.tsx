@@ -92,8 +92,8 @@ export function ErrorToast({ message, onClose, seconds = 10 }: { message: string
   );
 }
 
-export function Notice({ kind = 'info', children }: { kind?: 'info' | 'error' | 'success'; children: ReactNode }) {
-  const cls = kind === 'error' ? 'border-danger text-danger' : kind === 'success' ? 'border-success text-success' : 'border-line text-text';
+export function Notice({ kind = 'info', children }: { kind?: 'info' | 'error' | 'success' | 'warning'; children: ReactNode }) {
+  const cls = kind === 'error' ? 'border-danger text-danger' : kind === 'success' ? 'border-success text-success' : kind === 'warning' ? 'border-warning text-text' : 'border-line text-text';
   return (
     <p role={kind === 'error' ? 'alert' : 'status'} className={`rounded-md border bg-surface px-3 py-2 ${cls}`}>
       {children}

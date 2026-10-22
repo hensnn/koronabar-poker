@@ -1,25 +1,33 @@
 import type { ReactElement } from 'react';
+import { lazyPage } from '../../lazy';
 import { t } from '@kb/shared';
 import { Redirect, useLocation } from '../../router';
 import { MainMenu, type MenuGroup, type MenuTone } from '../../main-menu';
 import { can, useSession, type Me } from '../../session';
-import { CashierPanel } from '../wallet';
-import { ApprovalsPage, AuditPage, EmailPage, GlobalSettingsPage, SecretsPage } from './system';
-import { InvitesPage, UsersPage } from './users';
-import { RolesPage } from './roles';
-import { TablesPage } from './tables';
-import { TemplatesPage } from './templates';
-import { MaintenancePage } from './maintenance';
-import { HistoryPage } from './history';
-import { StructuresPage } from './structures';
-import { FinancePage } from './finance';
-import { TvAdminPage } from './tv';
-import { AnnouncerAdminPage } from './announcer';
-import { IntegrationsAdminPage } from './integrations';
-import { AssistantAdminPage } from './assistant';
-import { BoardsPage } from './boards';
-import { LogoAdminPage } from './logo';
-import { YearAdminPage } from './year';
+
+// Stránky správy se načítají až při otevření.
+const CashierPanel = lazyPage(() => import('../wallet'), 'CashierPanel');
+const ApprovalsPage = lazyPage(() => import('./system'), 'ApprovalsPage');
+const AuditPage = lazyPage(() => import('./system'), 'AuditPage');
+const EmailPage = lazyPage(() => import('./system'), 'EmailPage');
+const GlobalSettingsPage = lazyPage(() => import('./system'), 'GlobalSettingsPage');
+const SecretsPage = lazyPage(() => import('./system'), 'SecretsPage');
+const InvitesPage = lazyPage(() => import('./users'), 'InvitesPage');
+const UsersPage = lazyPage(() => import('./users'), 'UsersPage');
+const RolesPage = lazyPage(() => import('./roles'), 'RolesPage');
+const TablesPage = lazyPage(() => import('./tables'), 'TablesPage');
+const TemplatesPage = lazyPage(() => import('./templates'), 'TemplatesPage');
+const MaintenancePage = lazyPage(() => import('./maintenance'), 'MaintenancePage');
+const HistoryPage = lazyPage(() => import('./history'), 'HistoryPage');
+const StructuresPage = lazyPage(() => import('./structures'), 'StructuresPage');
+const FinancePage = lazyPage(() => import('./finance'), 'FinancePage');
+const TvAdminPage = lazyPage(() => import('./tv'), 'TvAdminPage');
+const AnnouncerAdminPage = lazyPage(() => import('./announcer'), 'AnnouncerAdminPage');
+const IntegrationsAdminPage = lazyPage(() => import('./integrations'), 'IntegrationsAdminPage');
+const AssistantAdminPage = lazyPage(() => import('./assistant'), 'AssistantAdminPage');
+const BoardsPage = lazyPage(() => import('./boards'), 'BoardsPage');
+const LogoAdminPage = lazyPage(() => import('./logo'), 'LogoAdminPage');
+const YearAdminPage = lazyPage(() => import('./year'), 'YearAdminPage');
 
 type AdminGroup = 'people' | 'game' | 'money' | 'system';
 
