@@ -301,3 +301,13 @@ describe('audit', () => {
     expect(json).toContain('"ok":1');
   });
 });
+
+describe('odstraněná oprávnění', () => {
+  it('uložená role s oprávněním, které už neexistuje, se dá dál upravit', async () => {
+    const { db, perms, role } = await setup();
+    const r = role('pokladnik');
+    await db.insert(schema.rolePermissions).values({ roleId: r.id, permission: 'uzivatel.neexistuje_uz', effect: 'allow' });
+    await perms.reload();
+    expect(perms.listRoles().find((x) => x.id === r.id)!.permissions.some((p) => p.permission === 'uzivatel.neexistuje_uz')).toBe(false);
+  });
+});

@@ -36,7 +36,6 @@ export const PERMISSIONS: PermissionDef[] = [
   p('uzivatel.smazat', 'uzivatele', { sensitive: true, approvalCapable: true }),
   p('uzivatel.overit_email', 'uzivatele'),
   p('uzivatel.vynutit_zmenu_hesla', 'uzivatele', { sensitive: true }),
-  p('uzivatel.zobrazit_jako', 'uzivatele', { sensitive: true }),
   // role
   p('role.zobrazit', 'role'),
   p('role.vytvorit', 'role', { sensitive: true, approvalCapable: true }),

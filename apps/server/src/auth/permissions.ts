@@ -120,6 +120,8 @@ export class PermissionService implements PermissionChecker {
     this.roles = new Map(roles.map((r) => [r.id, r]));
     this.rolePerms = new Map();
     for (const p of perms) {
+      // Oprávnění, které už v aplikaci neexistuje (odstraněná funkce), se v uložených rolích přeskočí, aby nebránilo úpravě role.
+      if (!permissionDef(p.permission)) continue;
       const list = this.rolePerms.get(p.roleId) ?? [];
       list.push({ ...p, effect: p.effect === 'deny' ? 'deny' : 'allow' });
       this.rolePerms.set(p.roleId, list);

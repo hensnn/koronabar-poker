@@ -38,7 +38,6 @@ export const csPermissions: Record<string, string> = {
   ...perm('uzivatel.smazat', 'Smazat uživatele', 'Trvale odstranit účet.'),
   ...perm('uzivatel.overit_email', 'Ručně ověřit e-mail', 'Označit e-mail uživatele jako ověřený.'),
   ...perm('uzivatel.vynutit_zmenu_hesla', 'Vynutit změnu hesla', 'Odhlásit uživatele a vyžádat nové heslo.'),
-  ...perm('uzivatel.zobrazit_jako', 'Zobrazit aplikaci jako uživatel', 'Náhled aplikace očima jiného uživatele (jen čtení).'),
   ...perm('role.zobrazit', 'Zobrazit role', 'Vidět role a jejich oprávnění.'),
   ...perm('role.vytvorit', 'Vytvářet role', 'Zakládat nové role (jen s nižší silou, než mám já).'),
   ...perm('role.upravit', 'Upravovat role', 'Měnit oprávnění, sílu, barvu a ikonu rolí s nižší silou.'),
