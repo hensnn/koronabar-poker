@@ -875,7 +875,7 @@ export class TournamentManager {
       .filter((p) => !p.refunded)
       .reduce((a, p) => a + Number(s[p.kind === 'turnaj_buyin' ? 'tournament.startingStack' : p.kind === 'turnaj_rebuy' ? 'tournament.rebuyChips' : 'tournament.addonChips']), 0);
     const aliveNow = st.players.filter((p) => p.status === 'playing' || p.status === 'deciding').length;
-    const standings = live.standings().map((p) => ({ ...p, chips: isLive ? null : p.chips, seat: st.players.find((x) => x.userId === p.userId)?.seat ?? null, tableNo: ((tb) => (tb ? this.tableNo(id, tb) : null))(st.players.find((x) => x.userId === p.userId)?.tableId), payout: results?.find((r) => r.userId === p.userId)?.payout ?? null, head: live.headOf(p.userId), bounty: st.players.find((x) => x.userId === p.userId)?.bountyEarned ?? 0, entries: st.players.find((x) => x.userId === p.userId)?.entries ?? 1, rebuys: st.players.find((x) => x.userId === p.userId)?.rebuys ?? 0, addon: st.players.find((x) => x.userId === p.userId)?.addon ?? false }));
+    const standings = live.standings().map((p) => ({ ...p, chips: isLive ? null : p.chips, seat: st.players.find((x) => x.userId === p.userId)?.seat ?? null, tableNo: ((tb) => (tb ? this.tableNo(id, tb) : null))(st.players.find((x) => x.userId === p.userId)?.tableId), payout: results?.find((r) => r.userId === p.userId)?.payout ?? null, head: live.headOf(p.userId), bounty: st.players.find((x) => x.userId === p.userId)?.bountyEarned ?? 0, decideUntil: st.players.find((x) => x.userId === p.userId)?.decideUntil ?? null, decideFrozen: st.players.find((x) => x.userId === p.userId)?.decideLeftMs !== undefined, entries: st.players.find((x) => x.userId === p.userId)?.entries ?? 1, rebuys: st.players.find((x) => x.userId === p.userId)?.rebuys ?? 0, addon: st.players.find((x) => x.userId === p.userId)?.addon ?? false }));
     return {
       id,
       name: row.name,
@@ -906,7 +906,7 @@ export class TournamentManager {
       clockMs: live.clockRemainingMs(),
       lateRegLevels: Number(s['tournament.lateRegLevels']),
       lateRegOpen: live.lateRegOpen(),
-      rebuy: { enabled: !!s['tournament.rebuyEnabled'], untilLevel: Number(s['tournament.rebuyUntilLevel']), cost: Number(s['tournament.rebuyCost']), chips: Number(s['tournament.rebuyChips']), max: Number(s['tournament.rebuyMax']) },
+      rebuy: { enabled: !!s['tournament.rebuyEnabled'], untilLevel: Number(s['tournament.rebuyUntilLevel']), cost: Number(s['tournament.rebuyCost']), chips: Number(s['tournament.rebuyChips']), max: Number(s['tournament.rebuyMax']), holdsGame: !!s['tournament.rebuyHoldsGame'], offlineMaxSeconds: s['tournament.rebuyWaitsForOffline'] ? Number(s['tournament.rebuyOfflineMaxSeconds']) : 0 },
       addon: { enabled: !!s['tournament.addonEnabled'], fromLevel: Number(s['tournament.addonFromLevel']), untilLevel: Number(s['tournament.addonUntilLevel']), cost: Number(s['tournament.addonCost']), chips: Number(s['tournament.addonChips']) },
       reentry: { enabled: !!s['tournament.reentryEnabled'], max: Number(s['tournament.reentryMax']) },
       breakEveryLevels: Number(s['tournament.breakEveryLevels']),
@@ -1131,7 +1131,7 @@ export interface TournamentView {
   clockMs: number | null;
   lateRegLevels: number;
   lateRegOpen: boolean;
-  rebuy: { enabled: boolean; untilLevel: number; cost: number; chips: number; max: number };
+  rebuy: { enabled: boolean; untilLevel: number; cost: number; chips: number; max: number; holdsGame?: boolean; offlineMaxSeconds?: number };
   addon: { enabled: boolean; fromLevel: number; untilLevel: number; cost: number; chips: number };
   reentry: { enabled: boolean; max: number };
   breakEveryLevels: number;
@@ -1147,7 +1147,7 @@ export interface TournamentView {
   deal: { enabled: boolean; open: boolean; done: { method: string; keep: number } | null; blocked: string | null };
   /** Bounty: typ, podíl z buy-inu, zůstatek na účtu bounty (hlavy hráčů a nevyplacené odměny). */
   bounty: { type: string; percent: number; pkoCash: number; payout: string; bank: number };
-  standings: { userId: string; name: string; chips: number | null; seat: number | null; tableNo: number | null; place: number; status: string; payout: number | null; head: number | null; bounty: number; entries?: number; rebuys?: number; addon?: boolean }[];
+  standings: { userId: string; name: string; chips: number | null; seat: number | null; tableNo: number | null; place: number; status: string; payout: number | null; head: number | null; bounty: number; entries?: number; rebuys?: number; addon?: boolean; /** Konec času na rozhodnutí o rebuy (kdo právě rozhoduje), jinak null. */ decideUntil?: number | null; /** Odpočet stojí, protože je hráč odpojený. */ decideFrozen?: boolean }[];
   /** Živá hra: žetony v oběhu, průměrný stack a zda smí uživatel zapisovat za hráče; jinak null. */
   live: { chipsInPlay: number; avgStack: number | null; director: boolean; suggestions: { userId: string; name: string; fromNo: number; toTable: string; toNo: number; reason: 'balance' | 'break' }[] } | null;
   /** Stoly turnaje a hráči u nich (u živého turnaje a před startem prázdné). */

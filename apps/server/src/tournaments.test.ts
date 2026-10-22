@@ -96,6 +96,37 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     expect((await s.server.audit.list({ action: 'turnaj.vytvorit' }))[0]!.targetId).toBe(id);
   });
 
+  it('rebuy: kdo právě rozhoduje a dokdy je vidět všem ve stavu turnaje (pruh u stolu)', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const ps = [await s.user(), await s.user(), await s.user()];
+    const { id } = await s.server.tournaments.create(org, { name: 'Rozhodování', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 5, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyDecisionSeconds': 60 } });
+    for (const p of ps) await s.server.tournaments.register(p, id);
+    await s.server.tournaments.start(org, id);
+    const rnd = seededRandom(5);
+    const actor = s.server.tables.actors.get(id)!;
+    let deciding: string | undefined;
+    for (let i = 0; i < 30_000 && !deciding; i++) {
+      const v = actor.viewFor(null);
+      if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
+        const p = v.seats.find((x) => x.seat === v.actingSeat)!;
+        const legal = actor.viewFor(p.playerId).legal;
+        if (legal) actor.act(p.playerId, randomLegalAction(legal, rnd));
+      }
+      s.clock.advance(Math.floor(rnd() * 3000));
+      await Promise.resolve();
+      deciding = s.server.tournaments.get(id)!.state().players.find((p) => p.status === 'deciding')?.userId;
+    }
+    expect(deciding).toBeDefined();
+    const other = ps.find((p) => p !== deciding)!;
+    const view = await s.server.tournaments.view(id, other);
+    const row = view.standings.find((x) => x.userId === deciding)!;
+    expect(row.status).toBe('deciding');
+    expect(row.decideUntil).toBeGreaterThan(s.clock.now());
+    expect(row.decideFrozen).toBe(false);
+    expect(view.rebuy.holdsGame).toBe(true);
+  });
+
   it('celý turnaj: přihlášky, start, hra botů, výplaty z poolu, dům dostane poplatky', async () => {
     const s = await start();
     const org = await s.user('organizator');

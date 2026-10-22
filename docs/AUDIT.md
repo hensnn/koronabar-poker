@@ -38,7 +38,7 @@ Simulace se spouští příkazem `pnpm --filter @kb/server exec tsx scripts/simu
 1. **Plné prohlížečové testy** (klikání ve vykreslené aplikaci) zatím chybí; snímky stránek se kontrolují ručně skriptem výše.
 2. **Vývojové přihlášení v repozitáři.** V `.claude/launch.json` je vývojové heslo majitele (`vyvoj-heslo-123`) pro lokální běh s prázdnou databází. Na ostrém serveru ho nikdy nepoužívej.
 3. **Vyúčtování za období uprostřed hry** zahrne jen pohyby v období; upozornění je v aplikaci, volba celého období je na uživateli.
-4. **Rebuy s držením hry.** Při zapnutém „drží hru“ a „čeká na odpojené“ může hra až desítky sekund stát (v simulaci asi 40 s). Je to nastavení, ne chyba, hráči u stolu to ale nevidí jako odpočet.
+4. **Rebuy s držením hry** může hru zastavit až o desítky sekund (v simulaci asi 40 s). U stolu je teď vidět pruh „Hráč X se rozhoduje o rebuy, zbývá N s“ (u odpojeného hráče „hra na něj čeká“). Délku čekání ovládají nastavení Čas na rozhodnutí, Hra čeká a Nejdéle čekat na odpojeného.
 5. **Ověřeno jen proti náhradním službám:** MQTT/Home Assistant, Discord, webhooky, skuteční poskytovatelé AI (Gemini), push upozornění a instalace aplikace na telefon. Po nasazení vyzkoušej jednou ručně (postupy jsou v README a `docs/HOME-ASSISTANT.md`).
 6. **Nasazení přes Docker nebylo v tomto auditu spuštěno.** Postup je v README a `docs/NASAZENI.md`; po prvním nasazení projdi Kontrolní seznam před prvním spuštěním.
 7. **Odložené funkce** (viz `docs/STAV.md`): sázky a odměny na hlavu u cash stolů, sázky s pevnými kurzy, e-mail o sázkách, štítek hráče v historii hand.

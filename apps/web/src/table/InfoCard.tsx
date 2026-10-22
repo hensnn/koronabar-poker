@@ -21,12 +21,12 @@ export interface TournamentInfo {
   buyIn: number;
   fee: number;
   serverTime: number;
-  rebuy: { enabled: boolean; cost: number; chips: number; max?: number; untilLevel?: number };
+  rebuy: { enabled: boolean; cost: number; chips: number; max?: number; untilLevel?: number; holdsGame?: boolean; offlineMaxSeconds?: number };
   levelNumber?: number;
   addon: { enabled: boolean; cost: number; chips: number };
   me: { status: string | null; decideUntil: number | null; canRebuy: boolean; canAddon: boolean; addonOfferUntil?: number | null; canReenter: boolean };
   reentry: { enabled: boolean };
-  standings: { userId: string; place: number; chips: number | null; status: string; entries?: number; rebuys?: number; addon?: boolean; head?: number | null; bounty?: number }[];
+  standings: { userId: string; name?: string; decideUntil?: number | null; decideFrozen?: boolean; place: number; chips: number | null; status: string; entries?: number; rebuys?: number; addon?: boolean; head?: number | null; bounty?: number }[];
   deal: { enabled: boolean; open: boolean; done: unknown | null };
 }
 
@@ -326,6 +326,44 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
       </div>
     </Modal>
   );
+}
+
+/** Pruh u stolu: kdo právě rozhoduje o rebuy, kolik mu zbývá, a jestli kvůli tomu hra čeká (nebo čeká na odpojeného hráče). */
+export function RebuyWaitBanner({ tour, myId }: { tour: TournamentInfo | null; myId: string | undefined }) {
+  const deciding = tour?.status === 'running' ? tour.standings.filter((p) => p.status === 'deciding' && p.userId !== myId) : [];
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (deciding.length === 0) return;
+    const timer = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(timer);
+  }, [deciding.length]);
+  if (!tour || deciding.length === 0) return null;
+  const p = deciding[0]!;
+  const name = p.name ?? '?';
+  const left = p.decideUntil ? Math.max(0, Math.ceil((p.decideUntil - tour.serverTime - (now - fetchedAtOf(tour))) / 1000)) : null;
+  const text = p.decideFrozen
+    ? t('table.rebuyWait.offline', { name, minutes: Math.max(1, Math.round((tour.rebuy.offlineMaxSeconds ?? 0) / 60)) })
+    : left !== null
+      ? t('table.rebuyWait.deciding', { name, seconds: left })
+      : t('table.rebuyWait.waiting', { name });
+  return (
+    <div role="status" className="sticky top-1 z-30 mx-auto w-fit max-w-full rounded-md border border-warning bg-surface px-3 py-1 text-sm shadow">
+      ⏳ {text}
+      {deciding.length > 1 && <span className="text-muted"> {t('table.rebuyWait.more', { n: deciding.length - 1 })}</span>}
+      {tour.rebuy.holdsGame === false && <span className="text-muted"> {t('table.rebuyWait.continues')}</span>}
+    </div>
+  );
+}
+
+const fetchedAt = new WeakMap<object, number>();
+/** Kdy dorazil tento stav turnaje (odhad uplynulého času od serverového údaje). */
+function fetchedAtOf(tour: TournamentInfo): number {
+  let at = fetchedAt.get(tour);
+  if (at === undefined) {
+    at = Date.now();
+    fetchedAt.set(tour, at);
+  }
+  return at;
 }
 
 /** Vypadl jsem a běží čas na rebuy / nový vstup: okno s odpočtem hned u stolu, aby o šanci nikdo nepřišel, ani když má panely schované. */
