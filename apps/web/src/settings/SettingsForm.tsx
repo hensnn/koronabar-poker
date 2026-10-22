@@ -196,7 +196,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
     </span>
   );
   return (
-    <div className={`tk-row rounded-md border ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>
+    <div className={`kd-row rounded-md border ${def.dependsOn ? 'ml-4' : ''} ${changed ? 'border-accent bg-accent/10' : 'border-line bg-surface'} ${rowClass}`}>
       <div className="flex items-start gap-2">
         {isBool && <input id={id} type="checkbox" role="switch" className="mt-1" checked={Boolean(value)} onChange={(e) => onChange(def.key, e.target.checked)} />}
         <div className="min-w-0 flex-1">

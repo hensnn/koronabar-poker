@@ -1121,9 +1121,9 @@ label:has(> select) { min-width: 0; max-width: 100%; }
   --d-btn-x: calc(var(--spacing) * 4);
   --d-row-y: calc(var(--spacing) * 3);
 }
-.tk-card { padding: var(--d-card); }
-.tk-modal { padding: var(--d-modal); }
-.tk-cell { padding: var(--d-cell-y) var(--d-cell-x); }
-.tk-btn { padding: var(--d-btn-y) var(--d-btn-x); }
-.tk-row { padding: var(--d-row-y) calc(var(--spacing) * 3); }
-.tk-page { gap: var(--d-gap); }
+.kd-card { padding: var(--d-card); }
+.kd-modal { padding: var(--d-modal); }
+.kd-cell { padding: var(--d-cell-y) var(--d-cell-x); }
+.kd-btn { padding: var(--d-btn-y) var(--d-btn-x); }
+.kd-row { padding: var(--d-row-y) calc(var(--spacing) * 3); }
+.kd-page { gap: var(--d-gap); }
