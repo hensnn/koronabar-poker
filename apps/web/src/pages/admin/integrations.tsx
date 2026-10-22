@@ -56,7 +56,7 @@ function ChannelCard({ title, channel, ov, selected, testLabel, okText, missing,
   return (
     <Card title={title}>
       <div className="flex flex-col gap-3">
-        {missing && <Notice>{channel === 'discord' ? t('integrations.discordMissing') : t('integrations.switchesHelp')}</Notice>}
+        {missing && <Notice>{channel === 'discord' ? t('integrations.discordMissing') : t('integrations.mqttMissing')}</Notice>}
         <EventPicker all={ov.events} value={events} onChange={setEvents} />
         <div className="flex flex-wrap gap-2">
           <Button

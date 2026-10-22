@@ -270,7 +270,8 @@ export function NumInput({ value, onChange, className = '', ...p }: Omit<InputHT
     <input
       {...p}
       type="number"
-      className={`${inputClass} font-mono ${className}`}
+      // Zadaná šířka (w-24…) nahradí výchozí celou šířku; jinak by obě platily a pole by roztáhlo řádek na úkor posuvníku vedle něj.
+      className={`${/(^| )w-/.test(className) ? inputClass.replace('w-full ', '') + ' shrink-0' : inputClass} font-mono ${className}`}
       value={text}
       onFocus={(e) => {
         setFocused(true);

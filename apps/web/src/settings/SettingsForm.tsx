@@ -201,6 +201,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
         {isBool && <input id={id} type="checkbox" role="switch" className="mt-1" checked={Boolean(value)} onChange={(e) => onChange(def.key, e.target.checked)} />}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
+            <span className="min-w-0">
             <label htmlFor={id} className="font-medium">
               {def.dependsOn && <span aria-hidden="true" className="mr-1 text-muted">↳</span>}
               {t(labelKey(def.key))}
@@ -214,7 +215,8 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
             <button type="button" className="ml-2 rounded-full border border-line px-1.5 text-xs text-muted" aria-expanded={helpOpen} aria-label={t('settings.helpToggle')} title={t('settings.helpToggle')} onClick={() => setHelpOpen((v) => !v)}>
               ?
             </button>
-            <span className={`text-sm ${own ? 'text-primary' : 'text-muted'}`}>
+            </span>
+            <span className={`shrink-0 text-sm ${own ? 'text-primary' : 'text-muted'}`}>
               {unsaved && <span className="mr-2 rounded-sm bg-warning px-1 text-xs text-on-primary">{t('settings.unsaved')}</span>}
               {t(`settings.origin.${origin}`)}
               {own && (

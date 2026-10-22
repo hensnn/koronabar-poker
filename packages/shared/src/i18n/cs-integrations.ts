@@ -98,6 +98,7 @@ export const csIntegrations: Record<string, string> = {
   'integrations.switches': 'Obecné nastavení',
   'integrations.switchesHelp': 'Vypínač, MQTT broker, Discord a časování se mění v administraci v části Nastavení, kategorie Napojení ven. Hesla a adresy Discordu se zadávají mezi tajnými údaji.',
   'integrations.events': 'Události',
+  'integrations.mqttMissing': 'MQTT broker ještě není nastavený. Vyplň jeho adresu v Nastavení, kategorie Napojení ven, a heslo mezi tajnými údaji.',
   'integrations.mqtt': 'MQTT (Home Assistant)',
   'integrations.mqttTest': 'Otestovat spojení',
   'integrations.mqttOk': 'Spojení s brokerem funguje, stav i Discovery jsou odeslané.',
