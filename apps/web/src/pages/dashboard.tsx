@@ -146,39 +146,6 @@ export function DashboardPage() {
       </div>
 
       <Card
-        title={t('dashboard.cash')}
-        actions={
-          <Link to="/cash" className="underline">
-            {t('dashboard.allCash')}
-          </Link>
-        }
-      >
-        {tables === null ? (
-          <p className="text-muted">{t('app.loading')}</p>
-        ) : tables.length === 0 ? (
-          <p className="text-muted">{t('lobby.empty')}</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {tables.map((x) => (
-              <li key={x.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line px-3 py-1">
-                <strong>{x.name}</strong>
-                <span className="font-mono text-sm">
-                  {x.smallBlind}/{x.bigBlind}
-                </span>
-                <Badge tone="primary">
-                  {x.seated}/{x.seats}
-                </Badge>
-                {x.playing && <Badge tone="success">{t('lobby.playing')}</Badge>}
-                <span className="ml-auto">
-                  <Button onClick={() => navigate(`/stul/${x.id}`)}>{x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}</Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card
         title={t('dashboard.tournaments')}
         actions={
           <Link to="/turnaje" className="underline">
@@ -232,6 +199,39 @@ export function DashboardPage() {
           </ol>
         )}
         <p className="mt-2 text-xs text-muted">{t('dashboard.earningsHelp')}</p>
+      </Card>
+
+      <Card
+        title={t('dashboard.cash')}
+        actions={
+          <Link to="/cash" className="underline">
+            {t('dashboard.allCash')}
+          </Link>
+        }
+      >
+        {tables === null ? (
+          <p className="text-muted">{t('app.loading')}</p>
+        ) : tables.length === 0 ? (
+          <p className="text-muted">{t('lobby.empty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {tables.map((x) => (
+              <li key={x.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line px-3 py-1">
+                <strong>{x.name}</strong>
+                <span className="font-mono text-sm">
+                  {x.smallBlind}/{x.bigBlind}
+                </span>
+                <Badge tone="primary">
+                  {x.seated}/{x.seats}
+                </Badge>
+                {x.playing && <Badge tone="success">{t('lobby.playing')}</Badge>}
+                <span className="ml-auto">
+                  <Button onClick={() => navigate(`/stul/${x.id}`)}>{x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}</Button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );
