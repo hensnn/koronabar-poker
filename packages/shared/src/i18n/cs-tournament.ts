@@ -1910,7 +1910,6 @@ export const csTournament: Record<string, string> = {
 
 
   // ----- obrazovky turnajů -----
-  'nav.tournaments': 'Turnaje',
   'table.chipsShort': 'žet.',
   'tournament.backToTournament': '← Zpět na turnaj',
   'tournament.title': 'Turnaje',

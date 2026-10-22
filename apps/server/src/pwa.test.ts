@@ -24,7 +24,7 @@ describe('PWA', () => {
     expect(m).toMatchObject({ name: 'KoronaBar Poker', short_name: 'KoronaBar', lang: 'cs', display: 'standalone', start_url: '/', scope: '/', id: '/' });
     const sizes = m.icons.map((i: { sizes: string; purpose: string }) => `${i.sizes}:${i.purpose}`);
     expect(sizes).toEqual(expect.arrayContaining(['192x192:any', '512x512:any', '512x512:maskable']));
-    expect(m.shortcuts.map((s: { url: string }) => s.url)).toEqual(['/', '/turnaje', '/chat']);
+    expect(m.shortcuts.map((s: { url: string }) => s.url)).toEqual(['/', '/stoly', '/chat']);
     // každá ikona z manifestu skutečně existuje
     for (const i of m.icons) expect(existsSync(join(PUBLIC, i.src.slice(1))), i.src).toBe(true);
   });

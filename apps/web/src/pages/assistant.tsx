@@ -44,7 +44,7 @@ function contextOf(path: string): { context: string; targetId?: string } {
   if (turnaj) return { context: 'planning', targetId: turnaj.id };
   if (path.startsWith('/admin')) return { context: 'admin' };
   if (path === '/vzhled') return { context: 'theme' };
-  if (path === '/turnaje') return { context: 'planning' };
+  if (path === '/stoly') return { context: 'planning' };
   if (path === '/nastaveni' || path === '/profil') return { context: 'rules' };
   return { context: 'lobby' };
 }

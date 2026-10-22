@@ -14,7 +14,7 @@ import { ForgotPage, LoginPage, RegisterPage, ResetPage, TokenPage } from './pag
 import { AdminRouter, isAdmin } from './pages/admin/index';
 import { ShopPage } from './pages/shop';
 import { ChatPage } from './pages/chat';
-import { LobbyPage } from './pages/lobby';
+import { TablesPage } from './pages/tables';
 import { ProfilePage, SettingsPage } from './pages/profile';
 import { GuidePage } from './pages/guide';
 import { TablePage } from './pages/table';
@@ -30,7 +30,7 @@ import { AnnouncerHost } from './announcer/host';
 import { PollPage, PollsPage } from './pages/polls';
 import { ProgressPage } from './pages/progress';
 import { LevelUpToast } from './progress-client';
-import { TournamentPage, TournamentsPage } from './pages/tournaments';
+import { TournamentPage } from './pages/tournaments';
 import { LiveCashListPage, LiveCashPage } from './pages/live';
 import { TvPage } from './pages/tv';
 import { PublicBoardPage } from './pages/public-board';
@@ -115,7 +115,7 @@ function Shell({ me }: { me: Me }) {
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/cash', 'nav.cash'), item('/turnaje', 'nav.tournaments'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls)] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls)] },
       { id: 'mine', label: t('nav.group.mine'), tone: 'warning', items: [item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.personalSettings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
     ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
@@ -132,19 +132,19 @@ function Shell({ me }: { me: Me }) {
   const zivyCash = matchPath('/zivy-cash/:id', path);
   const vecer = matchPath('/vecery/:id', path);
 
-  const isActive = (to: string) => (to === '/' ? path === '/' : to === '/turnaje' ? path.startsWith('/turnaj') : path.startsWith(to));
+  const isActive = (to: string) => (to === '/' ? path === '/' : to === '/stoly' ? path.startsWith('/stoly') || path.startsWith('/turnaj') : path.startsWith(to));
 
   let page;
   if (blocked) page = <BlockedPage me={me} />;
   else if (stul) page = <TablePage tableId={stul.id!} />;
   else if (turnaj) page = <TournamentPage id={turnaj.id!} />;
-  else if (path === '/turnaje') page = <TournamentsPage />;
+  else if (path === '/stoly') page = <TablesPage />;
+  else if (path === '/turnaje' || path === '/cash') page = <Redirect to="/stoly" />;
   else if (vecer) page = <EveningPage id={vecer.id!} />;
   else if (path === '/vecery') page = <EveningsPage />;
   else if (zivyCash) page = <LiveCashPage id={zivyCash.id!} />;
   else if (path === '/zivy-cash') page = <LiveCashListPage />;
   else if (path === '/') page = <DashboardPage />;
-  else if (path === '/cash') page = <LobbyPage />;
   else if (path === '/chat') page = <ChatPage />;
   else if (path === '/penezenka') page = <WalletPage />;
   else if (path === '/statistiky') page = <StatsPage />;

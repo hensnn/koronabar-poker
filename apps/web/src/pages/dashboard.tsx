@@ -163,7 +163,7 @@ export function DashboardPage() {
           <section className="flex flex-col gap-2 rounded-md border border-line border-l-8 border-l-info p-3">
             <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
               <h3 className="font-heading text-lg font-bold">{t('dashboard.tournaments')}</h3>
-              <Link to="/turnaje" className="underline">
+              <Link to="/stoly" className="underline">
                 {t('dashboard.allTournaments')}
               </Link>
             </header>
@@ -205,7 +205,7 @@ export function DashboardPage() {
           <section className="flex flex-col gap-2 rounded-md border border-line border-l-8 border-l-success p-3">
             <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
               <h3 className="font-heading text-lg font-bold">{t('dashboard.cash')}</h3>
-              <Link to="/cash" className="underline">
+              <Link to="/stoly" className="underline">
                 {t('dashboard.allCash')}
               </Link>
             </header>

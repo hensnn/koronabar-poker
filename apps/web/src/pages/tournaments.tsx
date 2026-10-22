@@ -379,7 +379,7 @@ export function TournamentPage({ id }: { id: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/turnaje" className="underline">
+        <Link to="/stoly" className="underline">
           {t('tournament.back')}
         </Link>
         <h1 className="font-heading text-2xl font-bold">{view.name}</h1>

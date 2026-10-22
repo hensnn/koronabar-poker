@@ -32,7 +32,7 @@ export function buildManifest(themeId: string): Record<string, unknown> {
     ],
     shortcuts: [
       { name: t('nav.lobby'), url: '/' },
-      { name: t('nav.tournaments'), url: '/turnaje' },
+      { name: t('nav.tables'), url: '/stoly' },
       { name: t('nav.chat'), url: '/chat' },
     ].map((s) => ({ ...s, icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] })),
   };
