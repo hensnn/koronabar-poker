@@ -144,10 +144,11 @@ Když se u stolu objeví nabídka, kterou chceš přijmout (okno buy-inu a dokou
 - **Moje odpověď na hlasování** si nastavíš v informacích o hře (widget O hře, volba **Run it**): *ask* (zeptat se), *never* (nikdy, odpověď „ne“ se pošle sama) nebo *always* (vždy souhlasit). Dotaz se pak vůbec neukáže.
 - **Rabbit hunt:** po handě bez celého boardu zůstane stůl aspoň **dobu na rabbit hunt** (nastavení → Speciální prvky → Rabbit hunt, pod přepínačem Rabbit hunt; viditelné jen když je rabbit hunt zapnutý; výchozí 8 s); po vyžádání zbývá na prohlédnutí aspoň tato doba, takže další handa nezačne dřív.
 
-## Sdílení osobního nastavení
+## Správa nastavení (sady)
 
-V **Nastavení** (dole, karta **Sdílení nastavení**) můžeš své osobní nastavení (vzhled, zvuky, volby pro telefon, plánované tahy a další) předat ostatním a převzít jejich:
-- **Kód:** *Zkopírovat můj kód* vytvoří text, který pošleš třeba v chatu. Kdo ho vloží do pole a klikne na *Zobrazit, co se změní*, uvidí seznam změn (stará → nová hodnota) a teprve potom ho převezme. Zahrnuje i nastavení pro telefon nebo počítač (volitelné).
-- **Veřejné profily:** *Zveřejnit moje nastavení* uloží profil pod názvem do seznamu; kdokoli si ho tlačítkem *Převzít* přes stejný náhled vezme. Smazat ho může autor a správce. Počet profilů na hráče určuje nastavení správce *Sdílené profily nastavení: nejvíc na hráče* (výchozí 10).
-- **Převzít** nic jinému hráči nemění, jen tvoje nastavení. Volba *Nahradit moje nastavení* vrátí na výchozí vše, co v profilu není, takže bude přesně jako v profilu.
-- **Nastavení od správce:** správce nastavuje výchozí hodnoty pro všechny; tvoje osobní úpravy je přebíjejí. Tlačítko *Vrátit vše na výchozí* je smaže a platí zase nastavení správce.
+V **Nastavení** (dole, karta **Správa nastavení**) je tvoje osobní nastavení rozdělené do sad: **Stůl: počítač**, **Stůl: telefon**, **Zvuky**, **Vzhled** a **Upozornění**. Stůl na počítači a na telefonu mají každý vlastní sadu, takže si je můžeš nastavit nezávisle (i z jiného zařízení). U každé sady jsou tři tlačítka:
+- **Obnovit výchozí** smaže tvoje úpravy z té sady a platí zase nastavení od správce. Ostatní sady a druhý druh zařízení se nemění.
+- **Sdílené (n)** ukáže sady, které zveřejnili ostatní hráči. *Zobrazit změny* ukáže, co se u tebe změní (stará → nová hodnota), a teprve *Převzít sadu* ji použije (sada se převezme celá: co v ní chybí, se vrátí na výchozí). Stejně funguje vložení kódu od někoho jiného (musí být od stejné sady).
+- **Sdílet** vytvoří kód ke zkopírování (pošli ho třeba v chatu) nebo sadu zveřejní v seznamu pod názvem a popisem. Smazat ji může autor a správce. Počet zveřejněných sad na hráče určuje nastavení správce *Sdílené profily nastavení: nejvíc na hráče* (výchozí 10).
+
+Převzetí sady nic jinému hráči nemění, jen tvoje nastavení. Správce nastavuje výchozí hodnoty pro všechny a tvoje osobní úpravy je přebíjejí.

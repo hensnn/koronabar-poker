@@ -1315,6 +1315,8 @@ export const settingsProfiles = pgTable(
     description: text('description').notNull().default(''),
     /** Druh zařízení, pro které jsou hodnoty v `data.device` (phone / desktop), jinak null. */
     deviceKind: text('device_kind'),
+    /** Sada osobního nastavení (viz `SETTING_SETS`), ke které profil patří; null = celé nastavení. */
+    setId: text('set_id'),
     data: jsonb('data').$type<{ user: Record<string, string | number | boolean>; device: Record<string, string | number | boolean> }>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

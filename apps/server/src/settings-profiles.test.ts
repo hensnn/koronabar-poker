@@ -36,14 +36,14 @@ async function start(over: Record<string, unknown> = {}) {
 describe('sdílené profily osobního nastavení', () => {
   it('uložení, seznam, převzetí cizím hráčem; neplatné a neosobní klíče se vyřadí', async () => {
     const c = await start();
-    const save = await c.call(c.hrac, 'POST', '/api/settings-profiles', { name: 'Můj telefon', description: 'bez ruky', data: { user: { 'ui.sfxEnabled': false, 'economy.currencyName': 'X', nesmysl: 1 }, device: { 'ui.mobileBest': false }, deviceKind: 'phone' } });
+    const save = await c.call(c.hrac, 'POST', '/api/settings-profiles', { name: 'Můj telefon', description: 'bez ruky', data: { user: { 'ui.sfxEnabled': false, 'economy.currencyName': 'X', nesmysl: 1 }, device: { 'ui.mobileBest': false }, deviceKind: 'phone', set: 'tablePhone' } });
     expect(save.statusCode).toBe(200);
     const id = save.json().id as string;
     const list = (await c.call(c.druhy, 'GET', '/api/settings-profiles')).json().profiles as { id: string; name: string; author: string; count: number; mine: boolean; canDelete: boolean }[];
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ id, name: 'Můj telefon', author: 'Hrac', count: 2, mine: false, canDelete: false });
+    expect(list[0]).toMatchObject({ id, name: 'Můj telefon', author: 'Hrac', count: 2, mine: false, canDelete: false, set: 'tablePhone' });
     const got = (await c.call(c.druhy, 'GET', `/api/settings-profiles/${id}`)).json();
-    expect(got.data).toEqual({ user: { 'ui.sfxEnabled': false }, device: { 'ui.mobileBest': false }, deviceKind: 'phone' });
+    expect(got.data).toEqual({ user: { 'ui.sfxEnabled': false }, device: { 'ui.mobileBest': false }, deviceKind: 'phone', set: 'tablePhone' });
     expect((await c.call(c.druhy, 'GET', `/api/settings-profiles/${crypto.randomUUID()}`)).statusCode).toBe(404);
   });
 

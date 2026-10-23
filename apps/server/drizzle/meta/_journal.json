@@ -274,6 +274,13 @@
       "when": 1792757067350,
       "tag": "0038_profily_nastaveni",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792757544015,
+      "tag": "0039_profily_sada",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { createDefaultRegistry, resolveSettings, sanitizeSettingsProfile, type SettingsProfileData, type SettingValue, type SettingValues } from '@kb/shared';
+import { createDefaultRegistry, resolveSettings, keysOfSet, sanitizeSettingsProfile, setById, type SettingsProfileData, type SettingValue, type SettingValues } from '@kb/shared';
 import { del, get, put } from './api';
 import { onSocket } from './net';
 
@@ -216,65 +216,108 @@ export async function resetUserSetting(key: string, deviceOnly = false): Promise
   }
 }
 
-/** Moje osobní nastavení ke sdílení: hodnoty pro všechna zařízení a pro druh zařízení, na kterém právě jsem. */
-export function currentProfile(): SettingsProfileData {
-  return { user: state.user as Record<string, SettingValue>, device: state.device as Record<string, SettingValue>, deviceKind: deviceId() };
+type Kind = 'phone' | 'desktop';
+type Layers = { user: Record<string, SettingValue>; device: Record<string, SettingValue> };
+
+/** Vrstvy hodnot hráče pro druh zařízení: pro to, na kterém jsem, z paměti, pro druhé se stáhnou ze serveru. */
+async function layersFor(kind: Kind): Promise<Layers> {
+  if (kind === deviceId()) return { user: { ...(state.user as Record<string, SettingValue>) }, device: { ...(state.device as Record<string, SettingValue>) } };
+  const r = await get<Layers>(`/api/me/settings?device=${kind}`);
+  return { user: r.user, device: r.device };
 }
 
-export interface ProfileChange {
+/** Hodnota, která platí bez mých úprav (výchozí z registru nebo od správce). */
+function inherited(key: string): SettingValue | undefined {
+  return resolveSettings(registry, [{ scope: 'global', values: state.global }]).values[key] as SettingValue | undefined;
+}
+
+const putLayer = (key: string, value: SettingValue, kind: Kind | null) => put('/api/me/settings', { key, value, device: kind ?? undefined });
+const delLayer = (key: string, kind: Kind | null) => del(`/api/me/settings/${encodeURIComponent(key)}${kind ? `?device=${kind}` : ''}`);
+
+/** Moje hodnoty ze sady (jen to, co jsem upravil), pro druh zařízení sady. */
+export async function exportSet(setId: string): Promise<SettingsProfileData> {
+  const def = setById(setId);
+  if (!def) throw new Error('UNKNOWN_SET');
+  const kind = def.kind ?? deviceId();
+  const layers = await layersFor(kind);
+  const keys = new Set(keysOfSet(registry, setId));
+  const merged: Record<string, SettingValue> = {};
+  for (const [k, v] of Object.entries({ ...layers.user, ...layers.device })) if (keys.has(k)) merged[k] = v;
+  return def.kind ? { user: {}, device: merged, deviceKind: def.kind, set: setId } : { user: merged, device: {}, deviceKind: null, set: setId };
+}
+
+export interface SetChange {
   key: string;
-  layer: 'user' | 'device';
-  /** Hodnota, která u mě platí teď (včetně zděděné), a hodnota z profilu. */
   from: SettingValue | undefined;
   to: SettingValue;
 }
 
-export interface ProfileOptions {
-  /** Převzít i hodnoty pro druh zařízení (telefon / počítač). */
-  includeDevice: boolean;
-  /** Nejdřív zrušit mé vlastní úpravy, které v profilu nejsou (nastavení bude přesně jako v profilu). */
-  replace: boolean;
+/** Hodnoty, které ze sady platí u mě teď (včetně zděděných) pro druh zařízení sady. */
+async function effectiveFor(setId: string): Promise<Record<string, SettingValue | undefined>> {
+  const def = setById(setId);
+  const layers = await layersFor(def?.kind ?? deviceId());
+  return resolveSettings(registry, [
+    { scope: 'global', values: state.global },
+    { scope: 'user', values: layers.user },
+    { scope: 'userDevice', values: layers.device },
+  ]).values as Record<string, SettingValue | undefined>;
 }
 
-/** Co by převzetí profilu změnilo: jen hodnoty, které se liší od těch, co mám; neplatné klíče jsou v `dropped`. */
-export function previewProfile(data: SettingsProfileData, opts: ProfileOptions): { changes: ProfileChange[]; removed: string[]; dropped: string[] } {
+/** Co by převzetí sady změnilo: hodnoty, které se liší od těch, co platí u mě; u sady se nechá jen to, co do ní patří. */
+export async function previewSet(data: SettingsProfileData): Promise<{ setId: string; changes: SetChange[]; toDefault: string[]; dropped: number }> {
+  const setId = data.set ?? '';
+  if (!setById(setId)) throw new Error('INVALID_CODE');
   const { data: clean, dropped } = sanitizeSettingsProfile(registry, data);
-  const now = resolveFor().values as Record<string, SettingValue>;
-  const changes: ProfileChange[] = [];
-  for (const [key, to] of Object.entries(clean.user)) if (now[key] !== to) changes.push({ key, layer: 'user', from: now[key], to });
-  if (opts.includeDevice) for (const [key, to] of Object.entries(clean.device)) if (now[key] !== to) changes.push({ key, layer: 'device', from: now[key], to });
-  const removed = opts.replace ? [...Object.keys(state.user).filter((k) => !(k in clean.user)), ...(opts.includeDevice ? Object.keys(state.device).filter((k) => !(k in clean.device)) : [])] : [];
-  return { changes, removed, dropped };
+  const keys = new Set(keysOfSet(registry, setId));
+  const incoming: Record<string, SettingValue> = {};
+  for (const [k, v] of Object.entries({ ...clean.user, ...clean.device })) if (keys.has(k)) incoming[k] = v;
+  const now = await effectiveFor(setId);
+  const changes: SetChange[] = [];
+  for (const [k, to] of Object.entries(incoming)) if (now[k] !== to) changes.push({ key: k, from: now[k], to });
+  // Sada se převezme celá: co v ní není, se vrátí na výchozí.
+  const toDefault = [...keys].filter((k) => !(k in incoming) && now[k] !== inherited(k));
+  return { setId, changes, toDefault, dropped: dropped.length + Object.keys({ ...clean.user, ...clean.device }).filter((k) => !keys.has(k)).length };
 }
 
-/** Převezme profil (z kódu nebo od jiného hráče): uloží platné hodnoty do mého osobního nastavení. */
-export async function applyProfile(data: SettingsProfileData, opts: ProfileOptions): Promise<{ applied: number; removed: number; dropped: number }> {
-  const { data: clean, dropped } = sanitizeSettingsProfile(registry, data);
+/** Obnoví sadu na výchozí: moje úpravy se smažou a platí nastavení od správce. Sada stolu se týká jen svého druhu zařízení. */
+export async function resetSet(setId: string): Promise<void> {
+  const def = setById(setId);
+  if (!def) throw new Error('UNKNOWN_SET');
+  const keys = keysOfSet(registry, setId);
+  if (def.kind) {
+    const layers = await layersFor(def.kind);
+    for (const k of keys) {
+      if (k in layers.device) await delLayer(k, def.kind);
+      // Hodnota společná všem zařízením se druhému druhu zařízení nemění: tady ji přebije výslovná výchozí hodnota.
+      if (k in layers.user) await putLayer(k, inherited(k) as SettingValue, def.kind);
+    }
+  } else {
+    const [phone, desktop] = await Promise.all([layersFor('phone'), layersFor('desktop')]);
+    for (const k of keys) {
+      if (k in phone.user) await delLayer(k, null);
+      if (k in phone.device) await delLayer(k, 'phone');
+      if (k in desktop.device) await delLayer(k, 'desktop');
+    }
+  }
+  await loadSettings();
+}
+
+/** Převezme sadu (z kódu nebo od jiného hráče): nejdřív obnoví výchozí a pak uloží její hodnoty. */
+export async function applySet(data: SettingsProfileData): Promise<{ applied: number }> {
+  const setId = data.set ?? '';
+  const def = setById(setId);
+  if (!def) throw new Error('INVALID_CODE');
+  const { data: clean } = sanitizeSettingsProfile(registry, data);
+  const keys = new Set(keysOfSet(registry, setId));
+  await resetSet(setId);
   let applied = 0;
-  for (const [k, v] of Object.entries(clean.user)) {
-    await saveUserSetting(k, v);
+  for (const [k, v] of Object.entries({ ...clean.user, ...clean.device })) {
+    if (!keys.has(k)) continue;
+    await putLayer(k, v, def.kind);
     applied++;
   }
-  if (opts.includeDevice) {
-    for (const [k, v] of Object.entries(clean.device)) {
-      await saveUserSetting(k, v, true);
-      applied++;
-    }
-  }
-  let removed = 0;
-  if (opts.replace) {
-    for (const k of Object.keys(state.user).filter((x) => !(x in clean.user))) {
-      await resetUserSetting(k);
-      removed++;
-    }
-    if (opts.includeDevice) {
-      for (const k of Object.keys(state.device).filter((x) => !(x in clean.device))) {
-        await resetUserSetting(k, true);
-        removed++;
-      }
-    }
-  }
-  return { applied, removed, dropped: dropped.length };
+  await loadSettings();
+  return { applied };
 }
 
 // Změna na jiném zařízení téhož hráče se projeví hned.

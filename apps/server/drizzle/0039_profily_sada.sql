@@ -1,0 +1,1 @@
+ALTER TABLE "settings_profiles" ADD COLUMN "set_id" text;

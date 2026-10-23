@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { decodeSettingsCode, encodeSettingsCode, labelKey, optionKey, t, type SettingsProfileData, type SettingValue } from '@kb/shared';
+import { decodeSettingsCode, encodeSettingsCode, labelKey, optionKey, SETTING_SETS, t, type SettingsProfileData, type SettingValue } from '@kb/shared';
 import { del, errorText, get, post } from './api';
-import { applyProfile, currentProfile, deviceId, previewProfile, registry, resetUserSetting, useSettings } from './settings';
+import { applySet, exportSet, previewSet, registry, resetSet, type SetChange } from './settings';
 import { Button, Card, Notice, TextArea, TextInput } from './ui';
 
 interface PublicProfile {
@@ -9,6 +9,7 @@ interface PublicProfile {
   name: string;
   description: string;
   deviceKind: 'phone' | 'desktop' | null;
+  set: string | null;
   author: string;
   count: number;
   createdAt: number;
@@ -25,201 +26,234 @@ function valueText(key: string, v: SettingValue | undefined): string {
   return String(v);
 }
 
-/** Karta „Sdílení nastavení“: kód ke zkopírování, převzetí kódu nebo veřejného profilu s náhledem změn a seznam veřejných profilů. */
+type Panel = { set: string; mode: 'share' | 'take' } | null;
+type Incoming = { title: string; data: SettingsProfileData; changes: SetChange[]; toDefault: string[]; dropped: number };
+
+/**
+ * Správa osobního nastavení po sadách (stůl na počítači, stůl na telefonu, zvuky, vzhled, upozornění):
+ * u každé sady jde obnovit výchozí hodnoty, sdílet ji (kód nebo veřejný profil) a převzít sdílenou od jiného hráče, vždy s náhledem změn.
+ */
 export function SettingsShare() {
-  const settings = useSettings();
-  const [code, setCode] = useState('');
-  const [incoming, setIncoming] = useState<{ title: string; data: SettingsProfileData } | null>(null);
-  const [includeDevice, setIncludeDevice] = useState(true);
-  const [replace, setReplace] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [profiles, setProfiles] = useState<PublicProfile[]>([]);
+  const [code, setCode] = useState('');
+  const [incoming, setIncoming] = useState<Incoming | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const reload = () => void get<{ profiles: PublicProfile[] }>('/api/settings-profiles').then((r) => setProfiles(r.profiles)).catch(() => undefined);
   useEffect(reload, []);
   const fail = (e: unknown) => setMsg({ kind: 'error', text: e instanceof Error && e.message === 'INVALID_CODE' ? t('share.invalidCode') : errorText(e) });
-
-  const mine = (): SettingsProfileData => {
-    const data = currentProfile();
-    return { ...data, device: includeDevice ? data.device : {} };
+  const open = (set: string, mode: 'share' | 'take') => {
+    setPanel(panel?.set === set && panel.mode === mode ? null : { set, mode });
+    setCode('');
+    setIncoming(null);
+    setMsg(null);
   };
-  const copy = async () => {
-    const text = encodeSettingsCode(currentProfile());
-    setCode(text);
+  const show = async (title: string, data: SettingsProfileData, set: string) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setMsg({ kind: 'success', text: t('share.copied') });
-    } catch {
-      setMsg({ kind: 'success', text: t('share.copyManual') });
-    }
-  };
-  const readCode = () => {
-    try {
-      setIncoming({ title: t('share.fromCode'), data: decodeSettingsCode(code) });
+      if (data.set !== set) throw new Error('INVALID_CODE');
+      setIncoming({ title, data, ...(await previewSet(data)) });
       setMsg(null);
     } catch (e) {
       fail(e);
     }
   };
-  const take = async (p: PublicProfile) => {
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
     try {
-      const r = await get<{ name: string; data: SettingsProfileData }>(`/api/settings-profiles/${p.id}`);
-      setIncoming({ title: t('share.fromProfile', { name: r.name, author: p.author }), data: r.data });
-      setMsg(null);
+      await fn();
     } catch (e) {
       fail(e);
-    }
-  };
-  const publish = async () => {
-    try {
-      await post('/api/settings-profiles', { name, description, data: mine() });
-      setName('');
-      setDescription('');
-      setMsg({ kind: 'success', text: t('share.published') });
-      reload();
-    } catch (e) {
-      fail(e);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const preview = incoming ? previewProfile(incoming.data, { includeDevice, replace }) : null;
-  const hasDevice = !!incoming && Object.keys(incoming.data.device).length > 0;
   return (
     <Card title={t('share.title')}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <Notice>{t('share.intro')}</Notice>
         {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-
-        <section className="flex flex-col gap-2">
-          <h3 className="font-semibold">{t('share.codeTitle')}</h3>
-          <TextArea label={t('share.code')} value={code} onChange={(e) => setCode(e.target.value)} hint={t('share.codeHint')} />
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void copy()}>{t('share.copy')}</Button>
-            <Button onClick={readCode} disabled={code.trim() === ''}>
-              {t('share.read')}
-            </Button>
-          </div>
-        </section>
-
-        {incoming && preview && (
-          <section className="flex flex-col gap-2 rounded-md border-2 border-primary p-3" aria-live="polite">
-            <h3 className="font-semibold">{incoming.title}</h3>
-            {hasDevice && (
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" role="switch" checked={includeDevice} onChange={(e) => setIncludeDevice(e.target.checked)} />
-                {t('share.includeDevice', { kind: t(`settings.personal.kind.${incoming.data.deviceKind ?? deviceId()}`) })}
-              </label>
-            )}
-            <label className="flex items-center gap-2 text-sm" title={t('share.replaceHelp')}>
-              <input type="checkbox" role="switch" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
-              {t('share.replace')}
-            </label>
-            {preview.changes.length === 0 && preview.removed.length === 0 ? (
-              <p className="text-sm text-muted">{t('share.nothingToChange')}</p>
-            ) : (
-              <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto text-sm">
-                {preview.changes.map((c) => (
-                  <li key={`${c.layer}:${c.key}`}>
-                    <span className="font-medium">{t(labelKey(c.key))}</span>: <span className="text-muted">{valueText(c.key, c.from)}</span> → <span className="font-semibold">{valueText(c.key, c.to)}</span>
-                    {c.layer === 'device' && <span className="ml-1 text-xs text-muted">({t('share.deviceOnly')})</span>}
-                  </li>
-                ))}
-                {preview.removed.map((k) => (
-                  <li key={`rm:${k}`}>
-                    <span className="font-medium">{t(labelKey(k))}</span>: <span className="text-muted">{t('share.backToDefault')}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {preview.dropped.length > 0 && <p className="text-xs text-muted">{t('share.dropped', { n: preview.dropped.length })}</p>}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="primary"
-                disabled={preview.changes.length === 0 && preview.removed.length === 0}
-                onClick={async () => {
-                  try {
-                    const r = await applyProfile(incoming.data, { includeDevice, replace });
-                    setMsg({ kind: 'success', text: t('share.applied', { n: r.applied, removed: r.removed }) });
-                    setIncoming(null);
-                  } catch (e) {
-                    fail(e);
-                  }
-                }}
-              >
-                {t('share.apply')}
-              </Button>
-              <Button onClick={() => setIncoming(null)}>{t('table.cancel')}</Button>
-            </div>
-          </section>
-        )}
-
-        <section className="flex flex-col gap-2">
-          <h3 className="font-semibold">{t('share.publicTitle')}</h3>
-          {profiles.length === 0 ? (
-            <p className="text-sm text-muted">{t('share.publicNone')}</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {profiles.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface p-2">
+        <ul className="flex flex-col gap-3">
+          {SETTING_SETS.map((s) => {
+            const mine = panel?.set === s.id ? panel : null;
+            const list = profiles.filter((p) => p.set === s.id);
+            return (
+              <li key={s.id} className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold">{p.name}</div>
-                    <div className="text-xs text-muted">
-                      {t('share.by', { author: p.author })} · {t('share.count', { n: p.count })}
-                      {p.deviceKind && ` · ${t(`settings.personal.kind.${p.deviceKind}`)}`}
-                    </div>
-                    {p.description && <div className="text-sm">{p.description}</div>}
+                    <h3 className="font-semibold">{t(`sets.${s.id}`)}</h3>
+                    <p className="text-sm text-muted">{t(`sets.${s.id}.help`)}</p>
                   </div>
-                  <Button onClick={() => void take(p)}>{t('share.take')}</Button>
-                  {p.canDelete && (
-                    <Button
-                      variant="danger"
-                      onClick={async () => {
-                        if (!confirm(t('share.deleteConfirm', { name: p.name }))) return;
-                        await del(`/api/settings-profiles/${p.id}`).catch(fail);
-                        reload();
-                      }}
-                    >
-                      {t('share.delete')}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex flex-col gap-2 border-t border-line pt-2">
-            <h4 className="text-sm font-semibold">{t('share.publishTitle')}</h4>
-            <TextInput label={t('share.name')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-            <TextInput label={t('share.description')} value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} />
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" role="switch" checked={includeDevice} onChange={(e) => setIncludeDevice(e.target.checked)} />
-              {t('share.includeDevice', { kind: t(`settings.personal.kind.${deviceId()}`) })}
-            </label>
-            <div>
-              <Button variant="primary" disabled={name.trim() === ''} onClick={() => void publish()}>
-                {t('share.publish')}
-              </Button>
-            </div>
-          </div>
-        </section>
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        if (!confirm(t('share.resetConfirm', { name: t(`sets.${s.id}`) }))) return;
+                        await resetSet(s.id);
+                        setMsg({ kind: 'success', text: t('share.resetDone', { name: t(`sets.${s.id}`) }) });
+                      })
+                    }
+                  >
+                    {t('share.reset')}
+                  </Button>
+                  <Button aria-pressed={mine?.mode === 'take'} onClick={() => open(s.id, 'take')}>
+                    {t('share.takeShared', { n: list.length })}
+                  </Button>
+                  <Button aria-pressed={mine?.mode === 'share'} onClick={() => open(s.id, 'share')}>
+                    {t('share.share')}
+                  </Button>
+                </div>
 
-        <section className="flex flex-col gap-2 border-t border-line pt-2">
-          <h3 className="font-semibold">{t('share.resetTitle')}</h3>
-          <p className="text-sm text-muted">{t('share.resetHelp')}</p>
-          <div>
-            <Button
-              onClick={async () => {
-                if (!confirm(t('share.resetConfirm'))) return;
-                for (const k of Object.keys(settings.user)) await resetUserSetting(k).catch(() => undefined);
-                for (const k of Object.keys(settings.device)) await resetUserSetting(k, true).catch(() => undefined);
-                setMsg({ kind: 'success', text: t('share.resetDone') });
-              }}
-            >
-              {t('share.reset')}
-            </Button>
-          </div>
-        </section>
+                {mine?.mode === 'share' && (
+                  <div className="flex flex-col gap-2 border-t border-line pt-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() =>
+                          void run(async () => {
+                            const text = encodeSettingsCode(await exportSet(s.id));
+                            setCode(text);
+                            try {
+                              await navigator.clipboard.writeText(text);
+                              setMsg({ kind: 'success', text: t('share.copied') });
+                            } catch {
+                              setMsg({ kind: 'success', text: t('share.copyManual') });
+                            }
+                          })
+                        }
+                      >
+                        {t('share.copy')}
+                      </Button>
+                    </div>
+                    {code && <TextArea label={t('share.code')} value={code} readOnly onFocus={(e) => e.currentTarget.select()} />}
+                    <TextInput label={t('share.name')} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+                    <TextInput label={t('share.description')} value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} />
+                    <div>
+                      <Button
+                        variant="primary"
+                        disabled={busy || name.trim() === ''}
+                        onClick={() =>
+                          void run(async () => {
+                            await post('/api/settings-profiles', { name, description, data: await exportSet(s.id) });
+                            setName('');
+                            setDescription('');
+                            setMsg({ kind: 'success', text: t('share.published') });
+                            reload();
+                          })
+                        }
+                      >
+                        {t('share.publish')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {mine?.mode === 'take' && (
+                  <div className="flex flex-col gap-3 border-t border-line pt-2">
+                    {list.length === 0 ? (
+                      <p className="text-sm text-muted">{t('share.publicNone')}</p>
+                    ) : (
+                      <ul className="flex flex-col gap-2">
+                        {list.map((p) => (
+                          <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold">{p.name}</div>
+                              <div className="text-xs text-muted">
+                                {t('share.by', { author: p.author })} · {t('share.count', { n: p.count })}
+                              </div>
+                              {p.description && <div className="text-sm">{p.description}</div>}
+                            </div>
+                            <Button
+                              onClick={() =>
+                                void run(async () => {
+                                  const r = await get<{ name: string; data: SettingsProfileData }>(`/api/settings-profiles/${p.id}`);
+                                  await show(t('share.fromProfile', { name: r.name, author: p.author }), r.data, s.id);
+                                })
+                              }
+                            >
+                              {t('share.take')}
+                            </Button>
+                            {p.canDelete && (
+                              <Button
+                                variant="danger"
+                                onClick={() =>
+                                  void run(async () => {
+                                    if (!confirm(t('share.deleteConfirm', { name: p.name }))) return;
+                                    await del(`/api/settings-profiles/${p.id}`);
+                                    reload();
+                                  })
+                                }
+                              >
+                                {t('share.delete')}
+                              </Button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      <TextArea label={t('share.pasteCode')} value={code} onChange={(e) => setCode(e.target.value)} hint={t('share.codeHint')} />
+                      <div>
+                        <Button
+                          disabled={busy || code.trim() === ''}
+                          onClick={() =>
+                            void run(async () => {
+                              await show(t('share.fromCode'), decodeSettingsCode(code), s.id);
+                            })
+                          }
+                        >
+                          {t('share.read')}
+                        </Button>
+                      </div>
+                    </div>
+                    {incoming && (
+                      <section className="flex flex-col gap-2 rounded-md border-2 border-primary p-3" aria-live="polite">
+                        <h4 className="font-semibold">{incoming.title}</h4>
+                        {incoming.changes.length === 0 && incoming.toDefault.length === 0 ? (
+                          <p className="text-sm text-muted">{t('share.nothingToChange')}</p>
+                        ) : (
+                          <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto text-sm">
+                            {incoming.changes.map((c) => (
+                              <li key={c.key}>
+                                <span className="font-medium">{t(labelKey(c.key))}</span>: <span className="text-muted">{valueText(c.key, c.from)}</span> → <span className="font-semibold">{valueText(c.key, c.to)}</span>
+                              </li>
+                            ))}
+                            {incoming.toDefault.map((k) => (
+                              <li key={`d:${k}`}>
+                                <span className="font-medium">{t(labelKey(k))}</span>: <span className="text-muted">{t('share.backToDefault')}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {incoming.dropped > 0 && <p className="text-xs text-muted">{t('share.dropped', { n: incoming.dropped })}</p>}
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="primary"
+                            disabled={busy || (incoming.changes.length === 0 && incoming.toDefault.length === 0)}
+                            onClick={() =>
+                              void run(async () => {
+                                const r = await applySet(incoming.data);
+                                setMsg({ kind: 'success', text: t('share.applied', { n: r.applied, name: t(`sets.${s.id}`) }) });
+                                setIncoming(null);
+                                setCode('');
+                              })
+                            }
+                          >
+                            {t('share.apply')}
+                          </Button>
+                          <Button onClick={() => setIncoming(null)}>{t('table.cancel')}</Button>
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </Card>
   );

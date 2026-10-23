@@ -6,7 +6,7 @@ const reg = createDefaultRegistry();
 
 describe('sdílení osobního nastavení', () => {
   it('kód projde tam a zpět včetně české diakritiky', () => {
-    const data = { user: { 'ui.themeId': 'světlé-čaj' }, device: { 'ui.mobileBest': false }, deviceKind: 'phone' as const };
+    const data = { user: { 'ui.themeId': 'světlé-čaj' }, device: { 'ui.mobileBest': false }, deviceKind: 'phone' as const, set: 'tablePhone' };
     const code = encodeSettingsCode(data);
     expect(code.startsWith('KBS1.')).toBe(true);
     expect(decodeSettingsCode(code)).toEqual(data);
