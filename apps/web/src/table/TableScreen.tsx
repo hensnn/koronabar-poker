@@ -25,6 +25,8 @@ import { useActionBubbles, type Bubble } from './actions-feed';
 import { MobileMid } from './mobile-ui';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
 import { ErrorToast, isConfirmKey, Modal } from '../ui';
+import { ChipStack } from './Chips';
+import { ChipSweeps, useChipSweeps } from './chip-fx';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
@@ -77,6 +79,18 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const runItPref = String(useSettings().values['ui.runItResponse'] ?? 'ask');
   const winnerPref = String(useSettings().values['ui.showdownWinning'] ?? 'never');
   const mobile = useMobileLayout();
+  const betChips = useSettings().values['ui.betChips'] !== false;
+  // Pohyb žetonů: konec ulice (sázky do potu) a konec handy (pot k výherci); polohy se počítají jako u sedadel a sázek.
+  const sweepSeat = () => {
+    const v = view!;
+    const mineSeat = v.seats.find((s) => s.playerId === userId)?.seat;
+    return { viewer: rotate ? (v.viewerSeat ?? mineSeat ?? 0) : 0, count: v.info.seatCount };
+  };
+  const sweeps = useChipSweeps(view, betChips, {
+    bet: (seat) => betPosition(seat, sweepSeat().viewer, sweepSeat().count, mobile),
+    seat: (seat) => seatPosition(seat, sweepSeat().viewer, sweepSeat().count),
+    pot: { left: 50, top: 52 },
+  });
   usePlanExecutor(view, tableId);
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<{ kind: 'join'; seat: number } | { kind: 'topUp' } | null>(null);
@@ -161,8 +175,14 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
 
   // Run it: pot leží nad řádky jednotlivých běhů, aby se s nimi a s mými kartami nepřekrýval.
   const multiRun = !!view.runs && view.runs.length >= 1;
+  const settledPot = view.pots.reduce((n, p) => n + p.amount, 0);
   const potEl = (
     <div className="tk-pot" aria-label={t('table.pot')}>
+      {betChips && settledPot > 0 && (
+        <div className="flex justify-center">
+          <ChipStack amount={settledPot} unit={info.smallBlind} />
+        </div>
+      )}
       {t('table.pot')}: {formatAmount(view.totalPot, info, inBb)}
       {view.bombPot && <span className="ml-2 rounded-md bg-accent px-2 text-on-act">{t('table.bombPot')}</span>}
     </div>
@@ -274,11 +294,19 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
               const p = betPosition(s.seat, viewerSeat, info.seatCount, mobile);
               const from = seatPosition(s.seat, viewerSeat, info.seatCount);
               return (
-                <div key={`bet-${s.seat}-${s.bet}`} className="tk-bet tk-chip-fly absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${p.left}%`, top: `${p.top}%`, ['--from-left' as string]: `${from.left}%`, ['--from-top' as string]: `${from.top}%` }}>
-                  <Amount amount={s.bet} text={formatAmount(s.bet, info, inBb)} />
+                <div key={`bet-${s.seat}-${s.bet}`} className={`tk-chip-fly absolute -translate-x-1/2 -translate-y-1/2 ${betChips ? 'tk-bet-wrap flex flex-col items-center gap-0.5' : 'tk-bet'}`} style={{ left: `${p.left}%`, top: `${p.top}%`, ['--from-left' as string]: `${from.left}%`, ['--from-top' as string]: `${from.top}%` }}>
+                  {betChips ? (
+                    <>
+                      <ChipStack amount={s.bet} unit={info.smallBlind} />
+                      <span className="tk-bet">{formatAmount(s.bet, info, inBb)}</span>
+                    </>
+                  ) : (
+                    <Amount amount={s.bet} text={formatAmount(s.bet, info, inBb)} />
+                  )}
                 </div>
               );
             })}
+          {betChips && <ChipSweeps sweeps={sweeps} unit={info.smallBlind} />}
 
           {/* sedadla po obvodu */}
           {seatNumbers.map((n) => {

@@ -16,7 +16,7 @@ export const SETTING_SETS = [
 export type SettingSetId = (typeof SETTING_SETS)[number]['id'];
 export type DeviceKind = 'phone' | 'desktop';
 
-const TABLE = /^(ui\.(table|compactHeader|show|rotateToMe|hideMyCards|quickBets|dealAnimation|eventAnimations|dealCardMs|warnSeconds|noteWindow|hotkey|plan|runItResponse|autoJoin|timeoutNotice|tournamentWait|mobile)|chat\.show)/;
+const TABLE = /^(ui\.(table|betChips|compactHeader|show|rotateToMe|hideMyCards|quickBets|dealAnimation|eventAnimations|dealCardMs|warnSeconds|noteWindow|hotkey|plan|runItResponse|autoJoin|timeoutNotice|tournamentWait|mobile)|chat\.show)/;
 const MOBILE = /^ui\.mobile/;
 const SOUNDS = /^(ui\.(sfx|sound|vibrate)|sounds\.|announcer\.)/;
 const LOOK = /^ui\.(colorMode|density|themeId|fontScalePercent|reducedMotion)$/;

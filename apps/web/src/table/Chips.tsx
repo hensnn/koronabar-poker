@@ -52,3 +52,48 @@ export function Amount({ amount, text, className = '' }: { amount: number; text:
     );
   return <span className={`font-mono ${className}`}>{text}</span>;
 }
+
+/** Žetony podle hodnot v násobcích základní jednotky stolu (malý blind): bílý 1×, červený 5×, zelený 25×, modrý 100×, černý 500×. */
+const STACK_TIERS = [
+  { ratio: 500, cls: 'bg-chip-black' },
+  { ratio: 100, cls: 'bg-chip-blue' },
+  { ratio: 25, cls: 'bg-chip-green' },
+  { ratio: 5, cls: 'bg-chip-red' },
+  { ratio: 1, cls: 'bg-chip-white' },
+];
+
+/** Rozklad částky na sloupce žetonů (od nejvyšší hodnoty); nejvýš `maxChips` žetonů celkem, aspoň jeden, když je částka kladná. */
+export function chipColumns(amount: number, unit: number, maxChips = 14): { cls: string; count: number }[] {
+  const u = Math.max(1, unit);
+  let left = Math.max(0, Math.floor(amount / u));
+  const cols: { cls: string; count: number }[] = [];
+  let used = 0;
+  for (const tier of STACK_TIERS) {
+    const n = Math.min(Math.floor(left / tier.ratio), maxChips - used);
+    if (n > 0) {
+      cols.push({ cls: tier.cls, count: n });
+      left -= n * tier.ratio;
+      used += n;
+    }
+  }
+  if (cols.length === 0 && amount > 0) cols.push({ cls: STACK_TIERS[STACK_TIERS.length - 1]!.cls, count: 1 });
+  return cols;
+}
+
+/** Sloupečky žetonů z boku (sázka nebo pot na stole); nové žetony po sobě „spadnou“ s malou prodlevou. */
+export function ChipStack({ amount, unit }: { amount: number; unit: number }) {
+  const cols = chipColumns(amount, unit);
+  if (cols.length === 0) return null;
+  let n = 0;
+  return (
+    <span className="tk-chipstack" aria-hidden>
+      {cols.map((col, ci) => (
+        <span key={ci} className="tk-chipcol">
+          {Array.from({ length: col.count }, (_, i) => (
+            <span key={i} className={`tk-disc ${col.cls}`} style={{ ['--tk-disc-i' as string]: n++ }} />
+          ))}
+        </span>
+      ))}
+    </span>
+  );
+}

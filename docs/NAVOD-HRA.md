@@ -152,3 +152,7 @@ V **Nastavení** (dole, karta **Správa nastavení**) je tvoje osobní nastaven�
 - **Sdílet** vytvoří kód ke zkopírování (pošli ho třeba v chatu) nebo sadu zveřejní v seznamu pod názvem a popisem. Smazat ji může autor a správce. Počet zveřejněných sad na hráče určuje nastavení správce *Sdílené profily nastavení: nejvíc na hráče* (výchozí 10).
 
 Převzetí sady nic jinému hráči nemění, jen tvoje nastavení. Správce nastavuje výchozí hodnoty pro všechny a tvoje osobní úpravy je přebíjejí.
+
+## Žetony na stole
+
+Sázky se u stolu ukazují jako **žetony**: u každého hráče, který vsadil (včetně malého a velkého blindu hned po rozdání), se objeví hromádka žetonů a pod ní částka. Když hráč přisype, žetony přibudou (spadnou na hromádku). Sázky zůstanou na stole, dokud kolo sázení neskončí; potom se **shrábnou do potu** uprostřed (pot je vidět jako žetony nad nápisem Pot) a na konci handy **pot odletí k výherci**. Barvy žetonů odpovídají hodnotě: bílý = malý blind, červený 5×, zelený 25×, modrý 100×, černý 500× (barvy jsou v motivu). Vypnout jde v informacích o hře (Stůl) volbou **Žetony sázek a potu na stole** (nastavení `ui.betChips`, zvlášť pro počítač a telefon); omezení pohybu animace vypne taky.

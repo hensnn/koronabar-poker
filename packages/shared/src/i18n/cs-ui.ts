@@ -72,6 +72,8 @@ export const csUi: Record<string, string> = {
   'settings.ui.showdownLosing.option.show': 'Ukázat',
   'settings.ui.showdownLosing.option.ask': 'Zeptat se',
   'settings.ui.showdownLosing.option.muck': 'Odhodit (muck)',
+  'settings.ui.betChips.label': 'Žetony sázek a potu na stole',
+  'settings.ui.betChips.help': 'U každé sázky (i malého a velkého blindu) se ukážou žetony, které po sobě přibývají, zůstanou na stole do konce kola sázení a pak se shrábnou do potu; pot na konci handy odletí k výherci. Vypnuto: jen číslo sázky.',
   'settings.ui.runItResponse.label': 'Run it twice: odpověď na hlasování',
   'settings.ui.runItResponse.help': 'Když se u stolu hlasuje o rozehrání all-inu víckrát: zeptat se tě, vždy souhlasit, nebo vždy odmítnout (bez dotazu, odpověď se pošle sama). Platí jen pro tebe.',
   'settings.ui.runItResponse.option.ask': 'Zeptat se',

@@ -1193,3 +1193,28 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 
 /* Proužek šance na výhru u sedadla (styl ukazatele „proužek“ nebo „obojí“). */
 .tk-odds-bar { width: 2.5rem; height: 0.4rem; accent-color: currentColor; }
+
+/* ---------- žetony na stole: sázky, pot a jejich pohyb ---------- */
+.tk-chipstack { display: inline-flex; align-items: flex-end; gap: calc(var(--spacing) * 0.5); }
+.tk-chipcol { display: flex; flex-direction: column-reverse; align-items: center; }
+.tk-bet-wrap { z-index: 3; font-family: var(--tk-font-mono, inherit); }
+.tk-disc {
+  display: block;
+  width: calc(var(--spacing) * 6);
+  height: calc(var(--spacing) * 2);
+  margin-top: calc(var(--spacing) * -0.5);
+  border-radius: 9999px;
+  border: var(--tk-shape-borderWidth) solid var(--tk-color-border);
+  box-shadow: var(--tk-shape-shadow);
+  animation: tk-disc-drop calc(0.3s / var(--tk-anim-speed)) ease-out both;
+  animation-delay: calc(var(--tk-disc-i, 0) * 0.04s / var(--tk-anim-speed));
+}
+@keyframes tk-disc-drop { from { transform: translateY(calc(var(--spacing) * -4)); opacity: 0; } }
+.tk-chip-sweep {
+  position: absolute;
+  z-index: 15;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: tk-chip-sweep calc(0.55s / var(--tk-anim-speed)) ease-in-out both;
+}
+@keyframes tk-chip-sweep { to { left: var(--to-left); top: var(--to-top); opacity: 0.2; transform: translate(-50%, -50%) scale(0.7); } }
