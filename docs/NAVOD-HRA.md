@@ -142,4 +142,4 @@ Když se u stolu objeví nabídka, kterou chceš přijmout (okno buy-inu a dokou
 
 - **Hlasování o run it twice** proběhne **před otočením karet**: nikdo ještě nevidí soupeřovy karty ani šance na výhru, takže hlasuje naslepo. Teprve po rozhodnutí se karty otočí a doloží se board.
 - **Moje odpověď na hlasování** si nastavíš v informacích o hře (widget O hře, volba **Run it**): *ask* (zeptat se), *never* (nikdy, odpověď „ne“ se pošle sama) nebo *always* (vždy souhlasit). Dotaz se pak vůbec neukáže.
-- **Rabbit hunt:** po handě bez celého boardu zůstane stůl aspoň **dobu na rabbit hunt** (nastavení stolu → časování, výchozí 8 s); po vyžádání zbývá na prohlédnutí aspoň tato doba, takže další handa nezačne dřív.
+- **Rabbit hunt:** po handě bez celého boardu zůstane stůl aspoň **dobu na rabbit hunt** (nastavení → Speciální prvky → Rabbit hunt, pod přepínačem Rabbit hunt; viditelné jen když je rabbit hunt zapnutý; výchozí 8 s); po vyžádání zbývá na prohlédnutí aspoň tato doba, takže další handa nezačne dřív.

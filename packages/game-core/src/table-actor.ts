@@ -763,7 +763,7 @@ export class TableActor {
     let delay = this.scaled(num(this.opt.settings(), 'time.betweenHandsMs'));
     if (this.phase === 'pause' && this.showCardsOpen()) delay = Math.max(delay, this.scaled(num(this.opt.settings(), 'time.showCardsMs')));
     // Rabbit hunt: po handě bez celého boardu zůstane čas, aby si hráči mohli stůl prohlédnout.
-    if (this.phase === 'pause' && this.rabbitOpen()) delay = Math.max(delay, this.scaled(num(this.opt.settings(), 'time.rabbitHuntMs')));
+    if (this.phase === 'pause' && this.rabbitOpen()) delay = Math.max(delay, this.scaled(num(this.opt.settings(), 'special.rabbitHuntSeconds') * 1000));
     delay = Math.max(delay, this.scaled(minDelayMs));
     this.nextHandAt = this.opt.clock.now() + delay;
     const cancel = this.opt.clock.setTimeout(() => {
@@ -1208,11 +1208,11 @@ export class TableActor {
       this.rabbit = cards;
       this.opt.onEvent?.({ type: 'rabbit', cards });
       // Od vyžádání zbývá aspoň nastavená doba na prohlédnutí; rozdání další handy se případně odloží.
-      const viewMs = this.scaled(num(s, 'time.rabbitHuntMs'));
+      const viewMs = this.scaled(num(s, 'special.rabbitHuntSeconds') * 1000);
       if (this.nextHandAt !== null && this.nextHandAt - this.opt.clock.now() < viewMs) {
         this.pendingStart?.();
         this.pendingStart = null;
-        this.scheduleNextHand(true, num(s, 'time.rabbitHuntMs'));
+        this.scheduleNextHand(true, num(s, 'special.rabbitHuntSeconds') * 1000);
       }
       this.changed();
     });

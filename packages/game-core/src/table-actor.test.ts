@@ -162,7 +162,7 @@ describe('TableActor: průběh handy', () => {
   });
 
   it('rabbit hunt: stůl zůstane aspoň nastavenou dobu a po vyžádání zbývá čas na prohlédnutí', () => {
-    const m = make({ 'special.rabbitHunt': true, 'time.rabbitHuntMs': 8000, 'time.betweenHandsMs': 1000, 'special.rabbitHuntWho': 'anyone' });
+    const m = make({ 'special.rabbitHunt': true, 'special.rabbitHuntSeconds': 8, 'time.betweenHandsMs': 1000, 'special.rabbitHuntWho': 'anyone' });
     seatTwo(m);
     startHand(m);
     m.actor.act(acting(m)!, { type: 'fold' });

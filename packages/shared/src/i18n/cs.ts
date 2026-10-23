@@ -241,8 +241,8 @@ export const cs: Record<string, string> = {
   // Časování handy
   'settings.time.dealMs.label': 'Čas na rozdání karet',
   'settings.time.dealMs.help': 'Prodleva, o kterou je první tah handy delší, aby hráč stihl vidět rozdávání karet. Nastavení u hráčů s vypnutou animací nic nemění.',
-  'settings.time.rabbitHuntMs.label': 'Doba na rabbit hunt',
-  'settings.time.rabbitHuntMs.help': 'Jak dlouho po handě bez celého boardu zůstane stůl, aby si hráči mohli nechat ukázat, jaké karty by ještě přišly, a prohlédnout si je. Pauza před další handou se na tuto dobu prodlouží; po vyžádání rabbit hunt zbývá aspoň tato doba na prohlédnutí.',
+  'settings.special.rabbitHuntSeconds.label': 'Doba na rabbit hunt',
+  'settings.special.rabbitHuntSeconds.help': 'Jak dlouho po handě bez celého boardu zůstane stůl, aby si hráči mohli nechat ukázat, jaké karty by ještě přišly, a prohlédnout si je. Pauza před další handou se na tuto dobu prodlouží; po vyžádání rabbit hunt zbývá aspoň tato doba na prohlédnutí.',
   'settings.time.showCardsMs.label': 'Doba na ukázání karet',
   'settings.time.showCardsMs.help': 'Jak dlouho po handě, která skončila bez showdownu (všichni ostatní složili), smí hráč dobrovolně ukázat karty. Pauza před další handou se na tuto dobu prodlouží, pokud je kratší. Nula = jen běžná pauza mezi handami.',
   'settings.time.betweenHandsMs.label': 'Pauza mezi handami',
