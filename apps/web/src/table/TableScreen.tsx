@@ -322,6 +322,12 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
                     {t('table.sit')}
                   </button>
                 )}
+                {/* Dealer button na prázdném sedadle (hráč odešel, button zůstal na jeho místě): musí být vidět i tam. */}
+                {!seat && view.buttonSeat === n && (
+                  <span className="tk-dealer" title={t('table.dealer')}>
+                    D
+                  </span>
+                )}
               </div>
             );
           })}
