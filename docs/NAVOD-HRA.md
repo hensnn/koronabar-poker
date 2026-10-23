@@ -98,7 +98,7 @@ Na telefonu (úzký displej, nebo telefon na šířku) je stůl samostatná obra
 - **☰ Nabídka stolu:** sdílet v chatu, vyúčtování, anketa, přepnutí rozložení, celá obrazovka a **Zvuk a Vibrace** (vibrace jdou vypnout);
 - **uprostřed stůl** přes celou šířku;
 - **pod stolem (na výšku):** pruh času s time bankem, **moje kombinace** (název, např. „Dvojice devítek“), **poslední události** (kdo co sázel, výhra, nová handa) a volitelně **řádek zvukových emotikonů** (oblíbené ikony a tlačítko s paletou). Každou z těchto částí i upozornění na můj tah (spodní tlačítka pulzují) si zapneš nebo vypneš zaškrtávátky v kartě **O hře** (ℹ️), nebo v Osobním nastavení. Na šířku se tato část neukazuje. Platí jednoduché pravidlo: **co je zaškrtnuté, ukazuje se pod stolem a v ℹ️ se to neopakuje; co odškrtneš, najdeš v ℹ️**. Pořadí v ℹ️ je Můj stůl (u turnaje hodiny turnaje), pak O hře (sit out, akce a tato zaškrtávátka) a potom ostatní widgety;
-- **pod stolem pevná výška s tlačítky:** když nejsi na tahu, **plánované tahy** (Fold, Check/Fold, Check, Call, Straddle); když jsi na tahu, tlačítka akcí a posuvník sázky. Dokud jsi v sit outu, je tam velké tlačítko **Vrátit se do hry**.
+- **pod stolem pevná výška s tlačítky:** když nejsi na tahu, **plánované tahy** (Fold, Check/Fold, Check, Call, All-in, Straddle; které z nich se ukazují, vybereš v informacích o hře → Plánované tahy, zvlášť pro telefon a počítač); když jsi na tahu, tlačítka akcí a posuvník sázky. Dokud jsi v sit outu, je tam velké tlačítko **Vrátit se do hry**.
 
 Panely se na telefonu nepoužívají, proto tam není ani nastavení panelů. Starší „klasický“ vzhled stolu na telefonu jsem zrušil; na počítači se nic nemění.
 

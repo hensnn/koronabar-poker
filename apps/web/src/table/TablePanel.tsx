@@ -5,7 +5,7 @@ import { get } from '../api';
 import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
-import { setPlan, usePlan, type Plan } from './plan';
+import { PLAN_OPTIONS, setPlan, usePlan } from './plan';
 import { tournamentWaitLines, type TournamentInfo } from './InfoCard';
 
 interface Clock {
@@ -135,7 +135,8 @@ export function ClockWidget({ tournamentId, timeBank }: { tournamentId: string; 
 /** Plánovaný tah: zvolí se dopředu, provede se automaticky na tahu. */
 export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí dobrovolného straddle (jen u stolu s dobrovolným straddle). */ onStraddle?: (want: boolean) => void }) {
   const plan = usePlan();
-  const opts: Plan[] = ['fold', 'checkFold', 'check', 'call'];
+  const values = useSettings().values;
+  const opts = PLAN_OPTIONS.filter((o) => values[o.setting] !== false).map((o) => o.plan);
   return (
     <div className="tk-planbar flex flex-wrap items-center gap-1" role="group" aria-label={t('table.widget.plan')} title={t('table.plan.help')}>
       {opts.map((p) => (
@@ -162,6 +163,17 @@ export function ShowdownPrefs() {
   ];
   return (
     <>
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted" title={t('table.plan.showHelp')}>{t('table.plan.show')}</summary>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          {PLAN_OPTIONS.map((o) => (
+            <label key={o.setting} className="flex items-center gap-1" title={t(`settings.${o.setting}.help`)}>
+              <input type="checkbox" role="switch" checked={settings.values[o.setting] !== false} onChange={(e) => void saveUserSetting(o.setting, e.target.checked, true).catch(() => undefined)} />
+              {t(`table.plan.${o.plan}`)}
+            </label>
+          ))}
+        </div>
+      </details>
       {rows.map((r) => (
         <label key={r.key} className="flex items-center gap-1 text-xs" title={r.title}>
           <span className="text-muted">{r.label}</span>

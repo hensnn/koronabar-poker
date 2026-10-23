@@ -116,16 +116,18 @@ export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: Ta
 /** Zaškrtávátka v kartě „O hře“: co se na telefonu ukazuje mezi stolem a tlačítky a zda se upozorní na můj tah. */
 export function MobileOptions() {
   const v = useSettings().values;
-  const row = (key: string) => (
+  const row = (key: string, def = true) => (
     <label key={key} className="flex items-start gap-2 text-sm" title={t(`settings.${key}.help`)}>
-      <input type="checkbox" role="switch" className="mt-1" checked={v[key] !== false} onChange={(e) => void saveUserSetting(key, e.target.checked, true).catch(() => undefined)} />
+      <input type="checkbox" role="switch" className="mt-1" checked={def ? v[key] !== false : v[key] === true} onChange={(e) => void saveUserSetting(key, e.target.checked, true).catch(() => undefined)} />
       <span>{t(`settings.${key}.label`)}</span>
     </label>
   );
   return (
     <fieldset className="flex flex-col gap-1 border-t border-line pt-2">
       <legend className="text-xs font-semibold text-muted">{t('table.m.options')}</legend>
-      {['ui.mobileBest', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileSounds', 'ui.mobileTurnAlert'].map(row)}
+      {['ui.mobileBest', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileTurnAlert'].map((k) => row(k))}
+      {row('ui.mobileSounds', false)}
+      {row('ui.hideMyCards', false)}
     </fieldset>
   );
 }

@@ -15,6 +15,11 @@ describe('plánovaný tah', () => {
     expect(resolvePlan('call', legal({ callAmount: 20 }))).toEqual({ type: 'call' });
     expect(resolvePlan('call', legal({ canCheck: true }))).toEqual({ type: 'check' });
   });
+  it('all-in jen když je co sázet nebo dorovnat', () => {
+    expect(resolvePlan('allIn', legal({ canRaise: true }))).toEqual({ type: 'allIn' });
+    expect(resolvePlan('allIn', legal({ callAmount: 20 }))).toEqual({ type: 'allIn' });
+    expect(resolvePlan('allIn', legal())).toBeNull();
+  });
   it('fold vždy, pokud je dovolený', () => {
     expect(resolvePlan('fold', legal())).toEqual({ type: 'fold' });
     expect(resolvePlan('fold', legal({ canFold: false }))).toBeNull();
