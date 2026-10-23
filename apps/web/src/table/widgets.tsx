@@ -10,8 +10,9 @@ import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, BountiesBod
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
 import { ClockWidget, mmss } from './TablePanel';
-import { MobileOptions } from './mobile-ui';
+import { InfoSlot, MobileOptions } from './mobile-ui';
 import { useActionLog } from './actions-feed';
+import { InlineCards } from './mini-cards';
 import { useMobileLayout } from './mobile';
 
 export interface WidgetDef {
@@ -35,7 +36,7 @@ interface Ctx {
   setInfoSlot: (el: HTMLElement | null) => void;
   infoSlot: HTMLElement | null;
   /** Poslední události u stolu (akce hráčů, výhra, nová handa); zdroj pro widget Poslední akce i přehled na telefonu. */
-  actionLog: { key: number; text: string }[];
+  actionLog: { key: number; text: string; cards?: string[] }[];
   /** Akce se ukazují v pruhu pod stolem (telefon, vypnutý panel nebo skrytý widget „O hře“). */
   actionsInline: boolean;
   view: TableView | undefined;
@@ -63,7 +64,7 @@ function useLayoutState(): [Layout, (next: Layout) => void] {
 }
 
 /** Historie událostí u stolu s posuvníkem; drží se dole (nejnovější), dokud hráč neposune výš. */
-function EventsList({ log }: { log: { key: number; text: string }[] }) {
+function EventsList({ log }: { log: { key: number; text: string; cards?: string[] }[] }) {
   const ref = useRef<HTMLUListElement>(null);
   const stick = useRef(true);
   useEffect(() => {
@@ -82,7 +83,9 @@ function EventsList({ log }: { log: { key: number; text: string }[] }) {
       }}
     >
       {log.map((l) => (
-        <li key={l.key}>{l.text}</li>
+        <li key={l.key}>
+          {l.text} {l.cards && <InlineCards list={l.cards} />}
+        </li>
       ))}
     </ul>
   );
@@ -152,10 +155,10 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       show: !!mine && !(mobile && settings.values['ui.mobileBest'] !== false),
       body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
-    // Na telefonu mají poslední události vlastní řádek pod stolem (zapíná se v kartě „O hře“), v informacích by byly dvakrát.
+    // Na telefonu platí: co je zaškrtnuté v kartě „O hře“, ukazuje se pod stolem a v informacích se neopakuje; odškrtnuté se ukáže tady.
     events: {
       title: t('table.widget.events'),
-      show: !!view && !mobile,
+      show: !!view && !(mobile && settings.values['ui.mobileEvents'] !== false),
       body: actionLog.length === 0 ? <p className="text-muted">{t('table.widget.eventsNone')}</p> : <EventsList log={actionLog} />,
     },
     players: {
@@ -187,6 +190,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       body: view && (
         <div className="flex flex-col gap-2">
           <InfoBody view={view} tour={tour} tournamentId={tournamentId} inBb={inBb} />
+          {mobile && <InfoSlot />}
           {!actionsInline && <div ref={setToolsSlot} />}
           {mobile && <MobileOptions />}
         </div>

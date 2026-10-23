@@ -3,6 +3,7 @@ import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
 import { Link } from '../router';
 import { CardView } from './CardView';
+import { InlineCards } from './mini-cards';
 import { formatAmount } from './format';
 import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
@@ -84,7 +85,7 @@ export function InfoSlot() {
  * Prostor mezi stolem a tlačítky na telefonu: moje ruka (velké karty, kombinace, stack), poslední události a pruh času.
  * Každá část se zapíná v kartě „O hře“ (osobní nastavení), aby si každý nechal jen to, co potřebuje.
  */
-export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
+export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string; cards?: string[] }[]; tableId: string }) {
   const v = useSettings().values;
   const hand = v['ui.mobileHandStrip'] !== false;
   const events = v['ui.mobileEvents'] !== false;
@@ -118,7 +119,7 @@ export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: Ta
         <ul className="flex flex-col gap-0.5 rounded-md bg-raised px-2 py-1 text-xs text-muted" aria-label={t('table.m.events')}>
           {log.map((l) => (
             <li key={l.key} className="truncate">
-              {l.text}
+              {l.text} {l.cards && <InlineCards list={l.cards} />}
             </li>
           ))}
         </ul>

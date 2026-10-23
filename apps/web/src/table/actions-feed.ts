@@ -94,23 +94,28 @@ export function useActionBubbles(view: TableView | undefined, inBb: boolean, ttl
 }
 
 /** Poslední události u stolu (akce hráčů, výhra, nová handa) jako krátké věty; pro přehled na telefonu. */
-export function useActionLog(view: TableView | undefined, inBb: boolean, max = 3): { key: number; text: string }[] {
+export function useActionLog(view: TableView | undefined, inBb: boolean, max = 3): { key: number; text: string; cards?: string[] }[] {
   const prev = useRef<TableView | null>(null);
   const counter = useRef(0);
-  const [log, setLog] = useState<{ key: number; text: string }[]>([]);
+  const [log, setLog] = useState<{ key: number; text: string; cards?: string[] }[]>([]);
   useEffect(() => {
     if (!view) return;
     const p = prev.current;
     prev.current = view;
     const nameOf = (seat: number) => view.seats.find((s) => s.seat === seat)?.name ?? '?';
-    const lines: string[] = [];
-    if (view.handId && p?.handId !== view.handId) lines.push(t('table.log.newHand', { n: view.handNumber }));
-    for (const a of detectActions(p, view)) lines.push(`${nameOf(a.seat)}: ${actionLabel(a, view, inBb)}`);
+    const lines: { text: string; cards?: string[] }[] = [];
+    if (view.handId && p?.handId !== view.handId) lines.push({ text: t('table.log.newHand', { n: view.handNumber }) });
+    for (const a of detectActions(p, view)) lines.push({ text: `${nameOf(a.seat)}: ${actionLabel(a, view, inBb)}` });
+    // Nové karty na stole: ulice a celý board, aby bylo z historie vidět, co bylo na stole, když se akce odehrály.
+    if (p && p.handId === view.handId && view.board.length > p.board.length) {
+      const street = view.board.length >= 5 ? 'river' : view.board.length === 4 ? 'turn' : 'flop';
+      lines.push({ text: t(`table.log.${street}`), cards: view.board });
+    }
     if (view.winners && view.winners.length > 0 && !p?.winners) {
       const w = view.winners[0]!;
-      lines.push(`${nameOf(w.seat)} ${t('table.log.wins', { amount: formatAmount(w.amount, view.info, inBb) })}`);
+      lines.push({ text: `${nameOf(w.seat)} ${t('table.log.wins', { amount: formatAmount(w.amount, view.info, inBb) })}` });
     }
-    if (lines.length > 0) setLog((l) => [...l, ...lines.map((text) => ({ key: ++counter.current, text }))].slice(-max));
+    if (lines.length > 0) setLog((l) => [...l, ...lines.map((x) => ({ key: ++counter.current, ...x }))].slice(-max));
   }, [view, inBb, max]);
   return log;
 }

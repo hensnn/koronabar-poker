@@ -13,10 +13,10 @@ import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
-import { Panel, PanelSettingsButton } from '../table/Panel';
+import { Panel, PanelSettingsButton, MobileInfoPanel } from '../table/Panel';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
-import { InfoSlot, MobileBar } from '../table/mobile-ui';
+import { MobileBar } from '../table/mobile-ui';
 import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
@@ -307,11 +307,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             {drawer === 'chat' ? (
               channel && <ChatPanel channel={channel} compact fill />
             ) : drawer === 'info' ? (
-              <>
-                <InfoSlot />
-                <Panel side="left" hide={['chat']} />
-                <Panel side="right" />
-              </>
+              <MobileInfoPanel />
             ) : drawer === 'menu' ? (
               <>
                 <div className="flex flex-wrap gap-2">{renderTools(false)}</div>

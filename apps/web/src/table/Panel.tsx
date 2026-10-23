@@ -179,6 +179,23 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
   );
 }
 
+/**
+ * Panel s informacemi na telefonu (zásuvka ℹ️): hodiny turnaje (Můj stůl), pak O hře (s akcemi) a potom ostatní widgety.
+ * Co je zapnuté pod stolem (kombinace, události, zvukové emotikony), se tady neopakuje; po vypnutí se objeví tady.
+ */
+export function MobileInfoPanel() {
+  const { layout, setLayout, defs } = useTableWidgets();
+  const shown = (id: WidgetId) => defs[id].show && !layout.hidden.includes(id) && id !== 'chat';
+  const order = [...new Set<WidgetId>(['table', 'info', ...WIDGET_IDS])].filter(shown);
+  return (
+    <>
+      {order.map((id) => (
+        <Frame key={id} id={id} def={defs[id]} layout={layout} setLayout={setLayout} />
+      ))}
+    </>
+  );
+}
+
 /** Tlačítko v nástrojích stolu: otevře nastavení panelů (jediné místo, odkud jde vypnutý panel zase zapnout). */
 export function PanelSettingsButton({ iconOnly = false }: { iconOnly?: boolean }) {
   const [open, setOpen] = useState(false);
