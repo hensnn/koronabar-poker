@@ -10,7 +10,9 @@ import { useTableWidgets, type WidgetDef } from './widgets';
 
 /** Rámeček jednoho widgetu: sbalitelná hlavička s volitelnými doplňky. */
 function Frame({ id, def, layout, setLayout, extra }: { id: WidgetId; def: WidgetDef; layout: Layout; setLayout: (l: Layout) => void; extra?: ReactNode }) {
-  const collapsed = layout.collapsed.includes(id);
+  // Na telefonu je „O hře“ (a v něm akce, dokoupení a odchod od stolu) vždy rozbalené.
+  const mobile = useMobileLayout();
+  const collapsed = layout.collapsed.includes(id) && !(mobile && id === 'info');
   return (
     <section className="tk-widget">
       <div className="tk-widget-head">
@@ -161,37 +163,6 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
   // Vypnutý panel se nevykreslí (zapnout ho jde v nastavení panelů, tlačítko je v nástrojích stolu).
   if (layout.hiddenSides.includes(side)) return null;
 
-  // Telefon, pravý panel: akce hned, ostatní widgety sbalené do jednoho řádku; celé se otevřou v okně.
-  if (mobile && side === 'right') {
-    const inWindow = visible;
-    const position = positionText(tour, me?.user.id);
-    const summary = [view ? (tournamentId && tour ? `${tour.alive}/${tour.players}` : `${view.seats.length}/${view.info.seatCount}`) : null, position, wanted.length > 0 ? `⚑ ${wanted.length}` : null].filter(Boolean).join(' · ');
-    return (
-      <>
-        {settingsModal}
-        {inWindow.length > 0 && (
-          <button className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1 text-left text-xs" aria-haspopup="dialog" onClick={() => setExpanded(true)}>
-            <span className="shrink-0 whitespace-nowrap font-semibold">{t('table.info.title')}</span>
-            <span className="truncate font-mono">{summary}</span>
-          </button>
-        )}
-        {expanded && (
-          <Modal title={t('table.info.title')} onClose={() => setExpanded(false)}>
-            <div className="flex flex-col gap-2">
-              {inWindow.map((id) => (
-                <section key={id} className="tk-widget">
-                  <div className="tk-widget-head">{defs[id].title}</div>
-                  <div className="tk-widget-body">{defs[id].body}</div>
-                </section>
-              ))}
-              <div className="flex justify-end">{gear}</div>
-            </div>
-          </Modal>
-        )}
-      </>
-    );
-  }
-
   return (
     <>
       {settingsModal}
@@ -202,7 +173,7 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
         </div>
       )}
       {visible.map((id) => (
-        <Frame key={id} id={id} def={defs[id]} layout={stored} setLayout={setLayout} extra={id === visible[0] ? gear : null} />
+        <Frame key={id} id={id} def={defs[id]} layout={stored} setLayout={setLayout} extra={id === visible[0] && !mobile ? gear : null} />
       ))}
     </>
   );

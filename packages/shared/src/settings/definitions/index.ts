@@ -741,7 +741,6 @@ const ui: SettingDef[] = [
   text('ui.hotkeyBet', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'b', 1),
   text('ui.hotkeyRaise', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'r', 1),
   text('ui.hotkeyAllIn', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'a', 1),
-  choice('ui.mobileStyle', { category: 'ui', mutability: A, scopes: USER }, 'modern', ['modern', 'classic']),
   choice('ui.mobileLayout', { category: 'ui', mutability: A, scopes: USER }, 'auto', ['auto', 'on', 'off']),
   int('ui.tablePanelWidth', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 272, 160, 640),
   int('ui.tablePanelHeight', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 3000),

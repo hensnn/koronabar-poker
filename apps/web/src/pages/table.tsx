@@ -16,7 +16,7 @@ import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
-import { InfoSlot, MobileBar, ToolsSlot } from '../table/mobile-ui';
+import { InfoSlot, MobileBar } from '../table/mobile-ui';
 import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
@@ -62,7 +62,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [more, setMore] = useState(false);
   const moreRef = useKeepInView<HTMLDivElement>(more);
   const mobile = useMobileLayout();
-  const modern = mobile && String(settings.values['ui.mobileStyle'] ?? 'modern') !== 'classic';
+  const modern = mobile;
   useMobileAttribute(mobile, modern);
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true, chipLabel: settings.values['ui.showChipLabelAtTable'] !== false });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
@@ -187,7 +187,6 @@ export function TablePage({ tableId }: { tableId: string }) {
         {!modern && canPause && view && tool(view.paused ? '▶' : '⏸', view.paused ? t('table.resume') : t('table.pause'), () => void togglePause(), { pressed: !!view.paused })}
         {tool(mobile ? '🖥️' : '📱', mobile ? t('table.mobileOff') : t('table.mobileOn'), () => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on', true).catch(() => undefined))}
         {!mobile && <TableSizeButton iconOnly={iconOnly} />}
-        {mobile && tool('🔀', modern ? t('table.m.toClassic') : t('table.m.toModern'), () => void saveUserSetting('ui.mobileStyle', modern ? 'classic' : 'modern', true).catch(() => undefined))}
         {!modern && <PanelSettingsButton iconOnly={iconOnly} />}
         {!modern && tool('📜', t('table.history'), () => setHistory(true))}
         {tool(focus ? '⤡' : '⛶', focus ? t('table.fullscreenExit') : t('table.fullscreen'), () => setFocus((v) => !v), { pressed: focus })}
@@ -290,7 +289,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           quickPre={String(settings.values['ui.quickBetsPreflop'])}
           modern={modern}
           extra={
-            seated ? (
+            seated && !modern ? (
               <span className="tk-tp-mobile">
                 <SoundPalette target={{ kind: 'table', id: tableId }} />
               </span>
@@ -316,7 +315,13 @@ export function TablePage({ tableId }: { tableId: string }) {
             ) : drawer === 'menu' ? (
               <>
                 <div className="flex flex-wrap gap-2">{renderTools(false)}</div>
-                <ToolsSlot />
+                <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface p-2">
+                  <SoundMenu />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" role="switch" checked={settings.values['ui.vibrate'] !== false} onChange={(e) => void saveUserSetting('ui.vibrate', e.target.checked, true).catch(() => undefined)} />
+                    {t('table.m.vibrate')}
+                  </label>
+                </div>
               </>
             ) : (
               <Panel side="left" hide={['chat']} />

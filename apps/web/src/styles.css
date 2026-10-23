@@ -1165,3 +1165,7 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 
 /* Tlačítko Vrátit se do hry místo akční lišty, dokud jsem v sit outu (nový mobilní vzhled). */
 [data-mobile-modern] .tk-sitin { min-height: 7.5rem; width: 100%; font-size: 1.1rem; }
+
+/* Stavový řádek má pevnou výšku (nejvýš dva řádky menšího písma), takže se okno nehýbe podle délky textu. */
+[data-mobile-modern] .tk-turn-row { height: 2.6rem; min-height: 0; overflow: hidden; }
+[data-mobile-modern] .tk-turn-row > p, [data-mobile-modern] .tk-turn-row > div { font-size: 0.8rem; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; }

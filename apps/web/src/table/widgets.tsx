@@ -65,7 +65,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const mobile = useMobileLayout();
   // „O hře“ (a v něm akce) je vidět jen když není skrytý ani jeho panel; jinak se akce ukážou pod stolem.
   const infoSide = layout.right.includes('info') ? 'right' : 'left';
-  const actionsInline = mobile || layout.hidden.includes('info') || layout.hiddenSides.includes(infoSide);
+  const actionsInline = layout.hidden.includes('info') || layout.hiddenSides.includes(infoSide);
   const { me } = useSession();
   const settings = useSettings();
   const features = useFeatures();
