@@ -143,6 +143,9 @@ export interface TableInfo {
   /** Ante (v žetonech; 0 = bez ante) a zda ho platí jen big blind. */
   ante?: number;
   bbAnte?: boolean;
+  /** Šance na výhru: počet desetinných míst a styl ukazatele (číslo, proužek, obojí). */
+  oddsDecimals?: number;
+  oddsStyle?: 'number' | 'bar' | 'both';
   /** Speciální varianty: kolikrát se dokládá board při run it (0 = vypnuto), bomb pot každou N-tou handu (0 = vypnuto), 7-2 bonus v bb (0 = vypnuto). */
   runIt?: number;
   bombPotEvery?: number;

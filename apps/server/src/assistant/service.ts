@@ -401,6 +401,8 @@ export class AssistantService {
       if (this.disabledTools().includes(tool.name)) continue;
       // Při vysvětlování se návrhy změn neposílají: menší sada nástrojů je kratší prompt a rychlejší odpověď.
       if (ctx && EXPLAIN_CONTEXTS.includes(ctx) && tool.kind === 'propose') continue;
+      // Správce může návrhy změn vypnout: asistent pak jen vysvětluje a hledá.
+      if (tool.kind === 'propose' && !this.s()['assistant.suggestEnabled']) continue;
       if (tool.permission && !this.can(userId, tool.permission)) continue;
       out.push({ name: tool.name, description: await this.promptText(`tool.${tool.name}`), parameters: translateSchema(tool.parameters) });
     }
@@ -423,7 +425,7 @@ export class AssistantService {
   /** Spustí nástroj; čtecí vrací data, navrhující vytvoří (nebo v pískovišti jen spočítá) návrh. */
   async runTool(env: ToolEnv, name: string, args: Record<string, unknown>): Promise<string> {
     const def = this.toolDef(name);
-    if (!def || this.disabledTools().includes(name)) return JSON.stringify({ ok: false, error: t('assistant.denied.tool', { tool: name }) });
+    if (!def || this.disabledTools().includes(name) || (def.kind === 'propose' && !this.s()['assistant.suggestEnabled'])) return JSON.stringify({ ok: false, error: t('assistant.denied.tool', { tool: name }) });
     if (def.permission && !this.can(env.userId, def.permission)) return JSON.stringify({ ok: false, error: t('assistant.denied.permission') });
     try {
       switch (name) {

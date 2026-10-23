@@ -152,6 +152,8 @@ export class TableActor {
   private bombPotHand: string | null = null;
   /** Čas navíc pro první tah handy (rozdávání); spotřebuje se při prvním spuštění časovače. */
   private dealGraceMs = 0;
+  /** Ulice, pro kterou už se hráči na tahu připsal čas na odhalení karet (aby se nepřipisoval při každém tahu). */
+  private graceStreet: string | null = null;
   /** Přepočítaný výsledek handy (run it twice): výherci, které engine nezná, a jednotlivé běhy. */
   private override: { handId: string; winners: NonNullable<HandState['winners']>; engineWinners: HandState['winners']; runs: RunResult[] } | null = null;
   private highHand: { userId: string; score: number } | null = null;
@@ -479,6 +481,8 @@ export class TableActor {
         rabbitHunt: !!s['special.rabbitHunt'],
         ante: num(s, 'table.ante') * this.rate(),
         bbAnte: !!s['table.bbAnte'],
+        oddsDecimals: num(s, 'odds.decimals'),
+        oddsStyle: String(s['odds.style']) as 'number' | 'bar' | 'both',
         runIt: s['special.runItTwice'] ? num(s, 'special.runItTimes') : 0,
         bombPotEvery: s['special.bombPot'] ? num(s, 'special.bombPotEveryHands') : 0,
         sevenTwoBb: s['special.sevenTwoBonus'] ? num(s, 'special.sevenTwoAmountBb') : 0,
@@ -880,6 +884,7 @@ export class TableActor {
     if (plan.bombPot) this.bombPotHand = h.handId;
     // Rozdávání karet u stolu chvíli trvá: první hráč na tahu dostane čas o tolik delší, aby ho animace nepřipravila o vteřiny.
     this.dealGraceMs = num(this.opt.settings(), 'time.dealMs');
+    this.graceStreet = 'PREFLOP';
     this.phase = 'hand';
     this.showHand = true;
     this.oddsCache = null;
@@ -1009,8 +1014,14 @@ export class TableActor {
     const userId = this.actingUser;
     const e = this.seats.get(userId);
     this.clockCalled = false;
-    const dealGrace = this.dealGraceMs;
+    let dealGrace = this.dealGraceMs;
     this.dealGraceMs = 0;
+    // Odhalení nových karet u stolu chvíli trvá: první hráč na tahu v nové ulici dostane čas o tolik delší.
+    const street = this.adapter.state().street;
+    if (street !== this.graceStreet) {
+      this.graceStreet = street;
+      dealGrace += street === 'FLOP' ? 3 * num(s, 'time.flopRevealMs') : street === 'TURN' ? num(s, 'time.turnRevealDelayMs') : street === 'RIVER' ? num(s, 'time.riverRevealDelayMs') : 0;
+    }
     const grace = num(s, 'time.disconnectGraceSeconds') * 1000;
     if (this.isClockMode() && e) {
       const reserve = Math.max(num(s, 'time.minTurnSeconds'), e.timeBank) * 1000;

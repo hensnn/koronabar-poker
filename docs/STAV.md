@@ -508,3 +508,8 @@ Typy, lint, 1089 testů, produkční sestavení a simulace cash i turnajů proš
 
 ## Návod pro asistenta
 Návod v aplikaci má nové kapitoly Telefon a Na co se u stolu čeká, aktualizované kapitoly o menu, panelech a nastavení a klíčová slova kapitol. Model asistenta dostal nástroj `search_guide` (hledání v návodu), jednoduché otázky se dál zodpovídají z návodu bez AI.
+
+## Revize nastavení (říjen 2026)
+- Statická kontrola: každý z ~580 parametrů je v kódu skutečně použit. Dosud nepoužité se doplnily: velikost písma (`ui.fontScalePercent`), desetinná místa a styl šancí na výhru (`odds.decimals`, `odds.style`), vypnutí návrhů asistenta (`assistant.suggestEnabled`, výchozí zapnuto) a čas navíc při odhalení flopu, turnu a riveru (`time.flopRevealMs`, `time.turnRevealDelayMs`, `time.riverRevealDelayMs`). Odstraněny duplicity a nepodporované funkce: `ui.soundEnabled`, `ui.soundVolumePercent`, `cash.waitingListEnabled`, `time.dealCardMs`.
+- Nový test `settings-sweep.test.ts`: každý parametr stolu se přepne na krajní hodnoty a jinou volbu a hra s nahodilými boty musí proběhnout bez chyby a se sedícími žetony. Společná část fuzz testů je v `fuzz-harness.ts`.
+- Serverové testy se při velké zátěži počítače občas zastaví na časovém limitu 5 s; spouštěj je s omezením souběhu (`--maxWorkers=2`).

@@ -123,7 +123,6 @@ const time: SettingDef[] = [
   int('time.dealMs', { category: 'timing', mutability: A, unit: 'ms' }, 1500, 0, 10000, 100),
   int('time.betweenHandsMs', { category: 'timing', mutability: A, unit: 'ms' }, 3000, 0, 60000, 100),
     int('time.showCardsMs', { category: 'timing', mutability: A, unit: 'ms', dependsOn: { key: 'special.showCards', truthy: true } }, 5000, 0, 60000, 100),
-  int('time.dealCardMs', { category: 'timing', mutability: A, unit: 'ms' }, 150, 0, 5000),
   int('time.flopRevealMs', { category: 'timing', mutability: A, unit: 'ms' }, 300, 0, 5000),
   int('time.turnRevealDelayMs', { category: 'timing', mutability: A, unit: 'ms' }, 600, 0, 10000),
   int('time.riverRevealDelayMs', { category: 'timing', mutability: A, unit: 'ms' }, 600, 0, 10000),
@@ -165,7 +164,6 @@ const cash: SettingDef[] = [
     1,
     1440,
   ),
-  bool('cash.waitingListEnabled', { category: 'cash', mutability: A, appliesTo: 'cash' }, true),
 ];
 
 /** Měna a ekonomika. */
@@ -291,7 +289,7 @@ const themeSettings: SettingDef[] = [
   text('assistant.autoKeys', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, '', 1000),
   text('assistant.disabledTools', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, '', 300),
   int('assistant.proposalMinutes', { category: 'assistant', mutability: ADM, scopes: GLOBAL, unit: 'min' }, 30, 1, 1440),
-  bool('assistant.suggestEnabled', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, false),
+  bool('assistant.suggestEnabled', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, true),
   bool('assistant.voiceInput', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, false),
   bool('assistant.voiceOutput', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, false),
   text('mcp.disabledTools', { category: 'assistant', mutability: ADM, scopes: GLOBAL }, '', 300),
@@ -756,8 +754,6 @@ const ui: SettingDef[] = [
   text('ui.quickBetsPostflop', { category: 'ui', mutability: A, scopes: USER }, '33,50,75,100', 40),
   text('ui.quickBetsPreflop', { category: 'ui', mutability: A, scopes: USER }, '2.5,3,4', 40),
   bool('ui.showInBb', { category: 'ui', mutability: A, scopes: USER }, false),
-  bool('ui.soundEnabled', { category: 'ui', mutability: A, scopes: USER }, true),
-  int('ui.soundVolumePercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 70, 0, 100),
   text('pwa.themeId', { category: 'system', mutability: ADM, scopes: GLOBAL }, 'classic-green', 60),
   bool('ui.sfxEnabled', { category: 'ui', mutability: A, scopes: USER }, true),
   int('ui.sfxVolumePercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 60, 0, 100),

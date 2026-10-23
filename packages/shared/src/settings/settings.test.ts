@@ -76,20 +76,20 @@ describe('vrstvy a dědičnost', () => {
 
   it('vrstva nesmí přepsat parametr mimo své povolené rozsahy', () => {
     const r = resolveSettings(reg, [
-      { scope: 'table', values: { 'ui.soundEnabled': false } },
+      { scope: 'table', values: { 'ui.sfxEnabled': false } },
       { scope: 'user', values: { 'table.bigBlind': 999 } },
     ]);
-    expect(r.values['ui.soundEnabled']).toBe(true);
+    expect(r.values['ui.sfxEnabled']).toBe(true);
     expect(r.values['table.bigBlind']).toBe(10);
   });
 
   it('osobní vrstva a zařízení přepisují v tomto pořadí', () => {
     const r = resolveSettings(reg, [
-      { scope: 'userDevice', values: { 'ui.soundVolumePercent': 20 } },
-      { scope: 'user', values: { 'ui.soundVolumePercent': 80 } },
+      { scope: 'userDevice', values: { 'ui.sfxVolumePercent': 20 } },
+      { scope: 'user', values: { 'ui.sfxVolumePercent': 80 } },
     ]);
-    expect(r.values['ui.soundVolumePercent']).toBe(20);
-    expect(r.origins['ui.soundVolumePercent']).toBe('userDevice');
+    expect(r.values['ui.sfxVolumePercent']).toBe(20);
+    expect(r.origins['ui.sfxVolumePercent']).toBe('userDevice');
     expect(SCOPES.indexOf('user')).toBeLessThan(SCOPES.indexOf('userDevice'));
   });
 

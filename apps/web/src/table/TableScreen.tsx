@@ -528,7 +528,8 @@ function Seat({
   // Sit out (i ten, který začne po dohrání handy) musí být u stolu na první pohled vidět: šedé sedadlo a výrazný odznak.
   const out = seat.status === 'sittingOut' || seat.sitOut === true;
   const dim = seat.status === 'folded' || seat.status === 'sittingOut' || seat.status === 'waiting';
-  const pct = oddsPct ? `${(oddsPct.win * 100).toFixed(1)} %` : null;
+  const oddsStyle = view.info.oddsStyle ?? 'both';
+  const pct = oddsPct ? `${(oddsPct.win * 100).toFixed(view.info.oddsDecimals ?? 1)} %` : null;
   // Co hráč s kartami udělal: ukázal obě / jednu (po handě bez showdownu), odhodil je (muck), nebo se ještě rozhoduje.
   const shownCount = seat.exposed ? seat.exposed.filter((c) => c !== null).length : 0;
   const revealLabel = seat.reveal === 'deciding' ? t('table.deciding') : seat.reveal === 'muck' ? (seat.cards ? t('table.muck') : null) : shownCount === 2 ? t('table.shownBoth') : shownCount === 1 ? t('table.shownOne') : null;
@@ -615,7 +616,12 @@ function Seat({
               ☠ {seat.bounty}
             </span>
           )}
-          {pct && <span className="rounded-md bg-info px-1 font-mono text-xs text-on-act">{pct}</span>}
+          {pct && oddsPct && (
+            <span className="flex items-center gap-1 rounded-md bg-info px-1 font-mono text-xs text-on-act">
+              {oddsStyle !== 'number' && <progress className="tk-odds-bar" max={100} value={Math.round(oddsPct.win * 100)} aria-hidden />}
+              {oddsStyle !== 'bar' && pct}
+            </span>
+          )}
         </div>
       )}
     </div>

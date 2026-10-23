@@ -202,14 +202,14 @@ describe('HTTP API: správa', () => {
     const a = await mk('Alice');
     const b = await mk('Bob');
     expect((await a.c.call('PUT', '/api/me/settings', { key: 'ui.colorMode', value: 'dark' })).status).toBe(200);
-    expect((await a.c.call('PUT', '/api/me/settings', { key: 'ui.soundVolumePercent', value: 20, device: 'mobil' })).status).toBe(200);
+    expect((await a.c.call('PUT', '/api/me/settings', { key: 'ui.sfxVolumePercent', value: 20, device: 'mobil' })).status).toBe(200);
     const mine = (await a.c.call('GET', '/api/me/settings?device=mobil')).json;
     expect(mine.user['ui.colorMode']).toBe('dark');
-    expect(mine.device['ui.soundVolumePercent']).toBe(20);
+    expect(mine.device['ui.sfxVolumePercent']).toBe(20);
     expect((await b.c.call('GET', '/api/me/settings')).json.user).toEqual({});
     // herní parametr do osobní vrstvy nepatří, neplatná hodnota se odmítne
     expect((await a.c.call('PUT', '/api/me/settings', { key: 'table.bigBlind', value: 50 })).json.code).toBe('SETTINGS_SCOPE_NOT_ALLOWED');
-    expect((await a.c.call('PUT', '/api/me/settings', { key: 'ui.soundVolumePercent', value: 500 })).json.code).toBe('SETTINGS_INVALID');
+    expect((await a.c.call('PUT', '/api/me/settings', { key: 'ui.sfxVolumePercent', value: 500 })).json.code).toBe('SETTINGS_INVALID');
     expect((await a.c.call('DELETE', '/api/me/settings/ui.colorMode')).status).toBe(200);
     expect((await a.c.call('GET', '/api/me/settings')).json.user).toEqual({});
   });

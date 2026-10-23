@@ -108,7 +108,7 @@ describe('AI asistent: návrhy a potvrzení', { timeout: 90_000 }, () => {
   it('asistent smí jen to, co smí uživatel: hráč nezmění globální nastavení, vlastní ano', async () => {
     const sp = scripted([
       call('propose_settings_change', { target: { kind: 'global' }, changes: [{ key: 'cosmetics.discountPercent', value: '50' }] }),
-      call('propose_settings_change', { target: { kind: 'user' }, changes: [{ key: 'ui.soundVolumePercent', value: '30' }] }),
+      call('propose_settings_change', { target: { kind: 'user' }, changes: [{ key: 'ui.sfxVolumePercent', value: '30' }] }),
       say('hotovo'),
     ]);
     const c = await start({}, sp.provider);
@@ -120,7 +120,7 @@ describe('AI asistent: návrhy a potvrzení', { timeout: 90_000 }, () => {
     expect(results[1]).toMatchObject({ ok: true });
     expect(res.proposals).toHaveLength(1);
     await c.server.assistant.apply(u, res.proposals[0]!.id);
-    expect(c.server.settings.layer('user', u)['ui.soundVolumePercent']).toBe(30);
+    expect(c.server.settings.layer('user', u)['ui.sfxVolumePercent']).toBe(30);
     expect(c.server.settings.resolve()['cosmetics.discountPercent']).toBe(0);
   });
 
@@ -171,7 +171,7 @@ describe('AI asistent: návrhy a potvrzení', { timeout: 90_000 }, () => {
   });
 
   it('při potvrzení se oprávnění ověří znovu a návrh patří jen tomu, kdo ho vyvolal', async () => {
-    const sp = scripted([call('propose_settings_change', { target: { kind: 'user' }, changes: [{ key: 'ui.soundVolumePercent', value: '10' }] }), say('ok')]);
+    const sp = scripted([call('propose_settings_change', { target: { kind: 'user' }, changes: [{ key: 'ui.sfxVolumePercent', value: '10' }] }), say('ok')]);
     const c = await start({}, sp.provider);
     const u = await c.user();
     const other = await c.user();
@@ -181,7 +181,7 @@ describe('AI asistent: návrhy a potvrzení', { timeout: 90_000 }, () => {
     const roleId = await c.server.perms.createRole(c.admin, { key: 'bezasistenta', name: 'Bez asistenta', power: 5, permissions: [{ key: 'asistent.pouzivat', effect: 'deny' }] });
     await c.server.perms.assignRole(c.admin, u, roleId);
     expect(await code(c.server.assistant.apply(u, p.id))).toBe('FORBIDDEN');
-    expect(c.server.settings.layer('user', u)['ui.soundVolumePercent']).toBeUndefined();
+    expect(c.server.settings.layer('user', u)['ui.sfxVolumePercent']).toBeUndefined();
   });
 
   it('stůl: náhled ukáže kdy změna začne platit, změnu provede služba stolu s auditem; cizí stůl nejde', async () => {
@@ -216,14 +216,14 @@ describe('AI asistent: návrhy a potvrzení', { timeout: 90_000 }, () => {
 describe('AI asistent: další návrhy, limity, prompty, pískoviště', { timeout: 90_000 }, () => {
   it('drobné změny ze seznamu bez potvrzení se provedou hned, globální nikdy', async () => {
     const sp = scripted([
-      call('propose_settings_change', { target: { kind: 'user' }, changes: [{ key: 'ui.soundVolumePercent', value: '20' }] }),
+      call('propose_settings_change', { target: { kind: 'user' }, changes: [{ key: 'ui.sfxVolumePercent', value: '20' }] }),
       call('propose_settings_change', { target: { kind: 'global' }, changes: [{ key: 'cosmetics.maxTrophies', value: '7' }] }),
       say('hotovo'),
     ]);
-    const c = await start({ 'assistant.autoKeys': 'ui.soundVolumePercent, cosmetics.maxTrophies' }, sp.provider);
+    const c = await start({ 'assistant.autoKeys': 'ui.sfxVolumePercent, cosmetics.maxTrophies' }, sp.provider);
     const res = await c.server.assistant.chat(c.admin, { text: 'ztlum to a uprav trofeje' });
     expect(res.proposals.map((p) => p.status)).toEqual(['applied', 'pending']);
-    expect(c.server.settings.layer('user', c.admin)['ui.soundVolumePercent']).toBe(20);
+    expect(c.server.settings.layer('user', c.admin)['ui.sfxVolumePercent']).toBe(20);
     expect(c.server.settings.resolve()['cosmetics.maxTrophies']).toBe(5);
   });
 

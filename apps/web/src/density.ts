@@ -16,6 +16,16 @@ export function useDensity(): Density {
 /** Zapíše hustotu na kořen stránky; velikosti odsazení jsou pak v CSS proměnných (styles.css). */
 export function useApplyDensity(): void {
   const density = useDensity();
+  const scale = Number(useSettings().values['ui.fontScalePercent'] ?? 100);
+  // Velikost písma: všechny rozměry jsou v rem, takže stačí změnit základ na kořeni stránky.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (scale === 100) root.style.removeProperty('font-size');
+    else root.style.setProperty('font-size', `${scale}%`);
+    return () => {
+      root.style.removeProperty('font-size');
+    };
+  }, [scale]);
   useEffect(() => {
     document.documentElement.dataset.density = density;
   }, [density]);

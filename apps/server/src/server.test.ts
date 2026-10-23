@@ -195,7 +195,7 @@ describe('server: Socket.IO brána s účty a oprávněními', () => {
     a2.on('permissions:changed', () => got.push({ type: 'permissions' }));
     a2.on('wallet', (m) => got.push({ type: 'wallet', ...m }));
     await server.settings.set(pa.userId, 'user', pa.userId, 'ui.colorMode', 'dark');
-    await server.settings.set(pa.userId, 'userDevice', pa.userId + ':mobil', 'ui.soundVolumePercent', 10);
+    await server.settings.set(pa.userId, 'userDevice', pa.userId + ':mobil', 'ui.sfxVolumePercent', 10);
     const [admin] = server.perms.mainAdminIds();
     await server.perms.assignRole(admin!, pa.userId, server.perms.roleByKey('moderator')!.id);
     server.cash.mint(pa.userId, 5, 'bonus');
@@ -203,7 +203,7 @@ describe('server: Socket.IO brána s účty a oprávněními', () => {
     await until(() => got.some((g) => g.type === 'wallet'));
     expect(got).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: 'settings', scope: 'user', key: 'ui.colorMode', value: 'dark', device: null }),
-      expect.objectContaining({ type: 'settings', scope: 'userDevice', key: 'ui.soundVolumePercent', value: 10, device: 'mobil' }),
+      expect.objectContaining({ type: 'settings', scope: 'userDevice', key: 'ui.sfxVolumePercent', value: 10, device: 'mobil' }),
       expect.objectContaining({ type: 'permissions' }),
     ]));
   });

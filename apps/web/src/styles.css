@@ -1185,3 +1185,6 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 [data-mobile-modern][data-landscape] .tk-planbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--spacing) * 1); }
 [data-mobile-modern][data-landscape] .tk-planbar > label { grid-column: 1 / -1; }
 [data-mobile-modern][data-landscape] .tk-plan-btn { min-height: 2.75rem; padding-block: calc(var(--spacing) * 1.5); }
+
+/* Proužek šance na výhru u sedadla (styl ukazatele „proužek“ nebo „obojí“). */
+.tk-odds-bar { width: 2.5rem; height: 0.4rem; accent-color: currentColor; }

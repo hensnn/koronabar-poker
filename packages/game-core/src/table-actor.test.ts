@@ -178,6 +178,32 @@ describe('TableActor: průběh handy', () => {
     expect(m.actor.viewFor(null).handNumber).toBe(2);
   });
 
+  it('odhalení karet: hráč na tahu v nové ulici dostane čas navíc podle nastavení (flop 3×, turn, river)', () => {
+    const m = make({ 'time.turnSeconds': 20, 'time.flopRevealMs': 1000, 'time.turnRevealDelayMs': 2000, 'time.riverRevealDelayMs': 500 });
+    seatTwo(m);
+    startHand(m);
+    const left = () => m.actor.viewFor(null).deadline! - m.clock.now();
+    const base = left();
+    expect(base).toBeGreaterThanOrEqual(19_999);
+    const call = () => {
+      const p = acting(m)!;
+      const l = m.actor.viewFor(p).legal!;
+      m.actor.act(p, l.canCheck ? { type: 'check' } : { type: 'call' });
+    };
+    call();
+    call();
+    expect(m.actor.viewFor(null).street).toBe('FLOP');
+    expect(left()).toBe(23_000);
+    call();
+    call();
+    expect(left()).toBe(22_000);
+    call();
+    call();
+    expect(left()).toBe(20_500);
+    call();
+    expect(left()).toBe(20_000); // druhý hráč v téže ulici nic navíc nedostane
+  });
+
   it('vypršení času: nejdřív time bank, pak automatický fold, po N vypršeních sit out', () => {
     const m = make({ 'time.turnSeconds': 10, 'time.timeBankSeconds': 20, 'time.timeoutsToSitOut': 2 });
     seatTwo(m);
