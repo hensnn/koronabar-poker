@@ -1177,3 +1177,9 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Upozornění na můj tah: spodní tlačítka se orámují a pulzují. */
 @keyframes tk-dock-alert { 0%, 100% { box-shadow: 0 0 0 0 var(--tk-color-turnGlow); } 50% { box-shadow: 0 0 0 calc(var(--spacing) * 1.5) var(--tk-color-turnGlow); } }
 [data-mobile-modern][data-turn-alert] .tk-actionbar[data-turn='mine'] { border-color: var(--tk-color-turnGlow); border-width: 2px; animation: tk-dock-alert calc(1.4s / var(--tk-anim-speed)) ease-in-out infinite; }
+
+/* Telefon na šířku: plánované tahy a akční tlačítka jsou ve stejné mřížce 2 × 2 a mají stejnou výšku; posuvník sázky si drží místo i mimo můj tah, takže se nic nehýbe. */
+[data-mobile-modern][data-landscape] .tk-actionbar[data-turn='wait'] .tk-slider-row { display: flex; visibility: hidden; }
+[data-mobile-modern][data-landscape] .tk-planbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--spacing) * 1); }
+[data-mobile-modern][data-landscape] .tk-planbar > label { grid-column: 1 / -1; }
+[data-mobile-modern][data-landscape] .tk-plan-btn { min-height: 2.75rem; padding-block: calc(var(--spacing) * 1.5); }

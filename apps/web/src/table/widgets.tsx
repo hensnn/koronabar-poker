@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode, useRef } from 'react';
 import type { TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { useFeatures } from '../features';
@@ -62,6 +62,32 @@ function useLayoutState(): [Layout, (next: Layout) => void] {
   return [layout, set];
 }
 
+/** Historie událostí u stolu s posuvníkem; drží se dole (nejnovější), dokud hráč neposune výš. */
+function EventsList({ log }: { log: { key: number; text: string }[] }) {
+  const ref = useRef<HTMLUListElement>(null);
+  const stick = useRef(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  }, [log]);
+  return (
+    <ul
+      ref={ref}
+      className="flex max-h-48 flex-col gap-0.5 overflow-y-auto pr-1 text-sm"
+      tabIndex={0}
+      aria-label={t('table.widget.events')}
+      onScroll={() => {
+        const el = ref.current;
+        if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+      }}
+    >
+      {log.map((l) => (
+        <li key={l.key}>{l.text}</li>
+      ))}
+    </ul>
+  );
+}
+
 export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { view: TableView | undefined; tableId: string; inBb: boolean; chat?: { body: ReactNode; unread: number; actions: ReactNode }; children: ReactNode }) {
   const [layout, setLayout] = useLayoutState();
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
@@ -77,7 +103,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const mine = view?.seats.find((s) => s.playerId === me?.user.id);
   const tournamentId = info?.tournament ? (info.tournamentId ?? tableId) : null;
   const tour = useTournamentInfo(tournamentId);
-  const actionLog = useActionLog(view, inBb, 12);
+  const actionLog = useActionLog(view, inBb, 80);
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
 
   const defs: Record<WidgetId, WidgetDef> = {
@@ -125,19 +151,11 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       show: !!mine,
       body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
+    // Na telefonu mají poslední události vlastní řádek pod stolem (zapíná se v kartě „O hře“), v informacích by byly dvakrát.
     events: {
       title: t('table.widget.events'),
-      show: !!view,
-      body:
-        actionLog.length === 0 ? (
-          <p className="text-muted">{t('table.widget.eventsNone')}</p>
-        ) : (
-          <ul className="flex flex-col gap-0.5 text-sm">
-            {actionLog.map((l) => (
-              <li key={l.key}>{l.text}</li>
-            ))}
-          </ul>
-        ),
+      show: !!view && !mobile,
+      body: actionLog.length === 0 ? <p className="text-muted">{t('table.widget.eventsNone')}</p> : <EventsList log={actionLog} />,
     },
     players: {
       title: t('table.widget.players'),
