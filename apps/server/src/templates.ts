@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { builtinTemplates, fillTemplate, scopeAllowed, validateValues, type PermissionChecker, type SettingsRegistry, type SettingsTemplate, type SettingValue, type SettingValues, type TemplateKind, type ValidationIssue } from '@kb/shared';
+import { builtinTemplates, fillTemplate, RETIRED_SETTING_KEYS, scopeAllowed, validateValues, type PermissionChecker, type SettingsRegistry, type SettingsTemplate, type SettingValue, type SettingValues, type TemplateKind, type ValidationIssue } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 
@@ -117,6 +117,7 @@ export class TemplateService {
     const issues: ValidationIssue[] = [];
     for (const [k, v] of Object.entries(values)) {
       const def = this.deps.registry.get(k);
+      if (!def && RETIRED_SETTING_KEYS.has(k)) continue;
       if (!def || def.secret || !scopeAllowed(def.scopes, 'template')) {
         issues.push({ keys: [k], messageKey: 'validation.unknownKey', params: { key: k } });
         continue;

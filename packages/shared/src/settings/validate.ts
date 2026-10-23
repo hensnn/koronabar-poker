@@ -1,6 +1,12 @@
 import type { SettingsRegistry } from './registry.js';
 import type { SettingValues } from './types.js';
 
+/**
+ * Parametry, které už neexistují, ale mohou být uložené ve starších šablonách, stolech nebo turnajích.
+ * Tiše se přeskakují (nejsou chybou), aby se kvůli nim nedala zablokovat práce se šablonou. Nový odstraněný klíč se přidá sem.
+ */
+export const RETIRED_SETTING_KEYS: ReadonlySet<string> = new Set(['ui.soundEnabled', 'ui.soundVolumePercent', 'cash.waitingListEnabled', 'time.dealCardMs']);
+
 export interface ValidationIssue {
   keys: string[];
   /** Překladový klíč hlášky + parametry. */
@@ -16,6 +22,7 @@ export function validateValues(
   const issues: ValidationIssue[] = [];
   for (const [key, val] of Object.entries(values)) {
     const def = reg.get(key);
+    if (!def && RETIRED_SETTING_KEYS.has(key)) continue;
     if (!def) {
       issues.push({ keys: [key], messageKey: 'validation.unknownKey', params: { key } });
       continue;

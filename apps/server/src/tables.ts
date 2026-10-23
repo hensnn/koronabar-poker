@@ -4,6 +4,7 @@ import { CashService } from '@kb/ledger';
 import { TableActor, type Clock, type PersistedTable, type TableEvent } from '@kb/game-core';
 import {
   decideChange,
+  RETIRED_SETTING_KEYS,
   scopeAllowed,
   validateValues,
   type PermissionChecker,
@@ -168,6 +169,7 @@ export class TableManager {
     const clean: Record<string, SettingValue> = {};
     for (const [k, v] of Object.entries(values)) {
       const def = this.deps.registry.get(k);
+      if (!def && RETIRED_SETTING_KEYS.has(k)) continue;
       if (!def || !scopeAllowed(def.scopes, 'table') || def.secret) {
         issues.push({ keys: [k], messageKey: 'validation.unknownKey', params: { key: k } });
         continue;

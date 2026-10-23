@@ -225,4 +225,9 @@ describe('šablony', () => {
     const tpl = fillTemplate(secretReg, { id: 'x', name: 'x', description: '', kind: 'cash', tags: [], values: { 'ai.apiKey': 'tajne' } });
     expect(exportTemplate(secretReg, tpl)).not.toContain('tajne');
   });
+
+  it('odstraněné klíče ve starých šablonách nejsou chyba (tiše se přeskočí), neznámé ano', () => {
+    expect(validateValues(reg, { 'cash.waitingListEnabled': true, 'time.dealCardMs': 300 })).toEqual([]);
+    expect(validateValues(reg, { 'neexistuje.vubec': 1 })).toHaveLength(1);
+  });
 });
