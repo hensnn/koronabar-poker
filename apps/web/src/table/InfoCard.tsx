@@ -341,7 +341,7 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
  * Na co se v turnaji právě čeká (přestávka s odpočtem, pauza ředitelem, hand-for-hand na bublině, rozhodování o rebuy),
  * jako věty pro řádek s názvem turnaje u stolu; prázdné pole = nic se nečeká. `elapsedMs` je čas od načtení stavu turnaje.
  */
-export function tournamentWaitLines(tour: TournamentInfo | null, myId: string | undefined, elapsedMs: number): string[] {
+export function tournamentWaitLines(tour: TournamentInfo | null, myId: string | undefined, elapsedMs: number, handRunning = false): string[] {
   if (!tour || tour.status !== 'running') return [];
   const deciding = tour.standings.filter((p) => p.status === 'deciding' && p.userId !== myId);
   const onBreak = tour.clockKind === 'break' && typeof tour.clockMs === 'number';
@@ -352,7 +352,8 @@ export function tournamentWaitLines(tour: TournamentInfo | null, myId: string | 
     const ms = Math.max(0, (tour.clockMs ?? 0) - elapsedMs);
     lines.push(t('table.break.running', { time: `${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, '0')}` }));
   }
-  if (paused) lines.push(t('table.break.paused'));
+  // Pauza platí hned, ale rozehraná handa se dohraje; kdo hraje, ví, že se zastaví až po ní.
+  if (paused) lines.push(handRunning ? t('table.break.pausedAfterHand') : t('table.break.paused'));
   if (bubble) lines.push(t('table.break.bubble'));
   if (deciding.length > 0) {
     const p = deciding[0]!;

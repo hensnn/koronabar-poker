@@ -32,7 +32,7 @@ const blinds = (l: { smallBlind: number; bigBlind: number; ante: number } | null
  * Pruh nad stolem, který říká, že hraju turnaj: název, na co se právě čeká (přestávka, pauza, rebuy), kolik hráčů zbývá a moje místo. Level, blindy a čas jsou v hodinách turnaje.
  * Totéž se píše do titulku záložky. Je vidět i při vypnutých panelech.
  */
-export function TournamentBanner({ tournamentId }: { tournamentId: string }) {
+export function TournamentBanner({ tournamentId, handRunning = false }: { tournamentId: string; /** U stolu právě běží handa (pauza turnaje začne až po jejím dohrání). */ handRunning?: boolean }) {
   const { me } = useSession();
   const settings = useSettings();
   const [c, setC] = useState<(Clock & { fetchedAt: number }) | null>(null);
@@ -66,7 +66,7 @@ export function TournamentBanner({ tournamentId }: { tournamentId: string }) {
   }, [name, alive, total]);
   if (!c) return null;
   const place = c.standings?.find((p) => p.userId === me?.user.id)?.place;
-  const waits = settings.values['ui.tournamentWaitBanner'] !== false ? tournamentWaitLines(c as unknown as TournamentInfo, me?.user.id, now - c.fetchedAt) : [];
+  const waits = settings.values['ui.tournamentWaitBanner'] !== false ? tournamentWaitLines(c as unknown as TournamentInfo, me?.user.id, now - c.fetchedAt, handRunning) : [];
   return (
     <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md px-3 py-1 text-sm border border-accent bg-accent/10">
       <span aria-hidden="true">🏆</span>

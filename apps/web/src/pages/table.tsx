@@ -280,7 +280,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             }}
           />
         )}
-        {isTournament && <TournamentBanner tournamentId={tournamentId} />}
+        {isTournament && <TournamentBanner tournamentId={tournamentId} handRunning={!!(view?.handId && view.winners === null && view.street !== null)} />}
         {isTournament && <DealPanel id={tournamentId} onlyOpen />}
         <TableScreen
           tableId={tableId}
