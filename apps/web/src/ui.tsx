@@ -17,6 +17,23 @@ export function Button({ variant = 'secondary', className = '', ...p }: ButtonHT
   return <button {...p} className={`kd-btn rounded-md border font-medium disabled:opacity-50 ${VARIANT[variant]} ${className}`} />;
 }
 
+/**
+ * Enter nebo mezerník, který má potvrdit nabídku: ne při psaní do textu, výběru či tlačítka (to má vlastní chování) a ne s modifikátory.
+ * Enter se navíc nebere v poli uvnitř formuláře, který se odešle sám.
+ */
+export function isConfirmKey(e: KeyboardEvent): boolean {
+  if ((e.key !== 'Enter' && e.key !== ' ') || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return false;
+  const el = e.target as HTMLElement | null;
+  const tag = el?.tagName;
+  if (tag === 'BUTTON' || tag === 'A' || tag === 'SELECT' || tag === 'TEXTAREA' || el?.isContentEditable) return false;
+  if (tag === 'INPUT') {
+    if (e.key === ' ' || el?.closest('form')) return false;
+    const type = (el as HTMLInputElement).type;
+    if (type === 'checkbox' || type === 'radio' || type === 'range' || type === 'file') return false;
+  }
+  return true;
+}
+
 export const inputClass = 'w-full rounded-sm border border-line bg-surface px-2 py-1 text-text';
 
 /** Popisek + pole + chyba. Pole je propojené s popiskem a chybou kvůli čtečkám. */
@@ -140,7 +157,17 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+      else if (isConfirmKey(e)) {
+        // Enter nebo mezerník potvrdí hlavní (výrazné) tlačítko okna, pokud se právě nepíše do pole a nic jiného nemá fokus.
+        const ok = ref.current?.querySelector<HTMLButtonElement>('button.bg-primary:not(:disabled)');
+        if (ok) {
+          e.preventDefault();
+          ok.click();
+        }
+      }
+    };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);

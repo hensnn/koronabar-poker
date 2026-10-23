@@ -24,7 +24,7 @@ import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
 import { MobileMid } from './mobile-ui';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
-import { ErrorToast, Modal } from '../ui';
+import { ErrorToast, isConfirmKey, Modal } from '../ui';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
@@ -91,6 +91,18 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
     return () => window.removeEventListener('kb:topup', open);
   }, []);
 
+  // Nabídky přes stůl (ukázat karty, souhlas s run it twice): Enter nebo mezerník zvolí hlavní odpověď.
+  const prompt = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!prompt.current || !isConfirmKey(e) || document.querySelector('[aria-modal="true"]')) return;
+      e.preventDefault();
+      prompt.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   useEffect(() => {
     if (net.status === 'online') void table.subscribe(tableId);
   }, [net.status, tableId]);
@@ -137,6 +149,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
     setError(r.ok ? '' : t(`error.${r.code}`, r.params));
     return r.ok;
   };
+  prompt.current = !mine || dialog ? null : view.showdownChoice ? () => void run(table.showdown(tableId, 'show')) : view.vote?.kind === 'runit' && view.vote.status === 'open' && view.vote.canVote && view.vote.myVote !== true ? () => void run(table.vote(tableId, true)) : null;
 
   // Run it: pot leží nad řádky jednotlivých běhů, aby se s nimi a s mými kartami nepřekrýval.
   const multiRun = !!view.runs && view.runs.length >= 1;

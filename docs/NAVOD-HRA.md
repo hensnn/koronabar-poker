@@ -133,3 +133,7 @@ Tip: pro první večer stačí jeden cash stůl ze šablony Klasika a jeden turn
 ## Sady zvuků u stolu
 
 Zvuky hry u stolu (rozdání, žetony, tah, výhra, události turnaje) mají pět sad: **Klasická**, **Jemná** (měkké tóny), **Retro** (hranatý zvuk), **Kasino** (jiskřivé žetony a výhry) a **Dřevo** (tupé klepání). Sadu vybereš v nabídce 🔊 v záhlaví (po výběru se ozve ukázka) nebo v osobním nastavení; platí jen pro tebe a zvlášť pro každé zařízení lze zapnout či vypnout jednotlivé druhy zvuků.
+
+## Potvrzení z klávesnice
+
+Když se u stolu objeví nabídka, kterou chceš přijmout (okno buy-inu a dokoupení žetonů, nabídka add-onu, „Ukázat karty?“, souhlas s run it twice), stačí **Enter** nebo **mezerník**: zvolí se hlavní (výrazné) tlačítko. **Esc** nabídku zavře. Neplatí to, když píšeš do pole, nebo když má fokus jiné tlačítko (to se řídí vlastním chováním). Rebuy, add-on a nový vstup do turnaje se potvrzují systémovým oknem prohlížeče, kde Enter potvrzuje také.
