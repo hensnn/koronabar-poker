@@ -76,7 +76,7 @@ U stolu je pod stolem vždy řádek, který říká, na co se čeká, a kde to j
 - **Vypršel čas hráči:** když server za něj zahraje fold nebo check, nad stolem se krátce ukáže, že šlo o vypršení času.
 - **Lišta nástrojů nad stolem** má jen ikony (po najetí myší se ukáže název): 💬 sdílet v chatu, 🧾 vyúčtování, 🗳️ anketa, ⏸/▶ pauza, 📱/🖥️ mobilní rozložení, ⚙ panely, 📜 historie, ⛶ celá obrazovka; 💤 s číslem znamená, kolik hráčů je v sit outu. Na telefonu jsou stejné nástroje s textem pod tlačítkem ⋯.
 - **Time bank:** v widgetu o stole (u turnaje v hodinách turnaje) je vidět, kolik rezervy času ti zbývá (pokud je rezerva zapnutá).
-- **Velikost stolu:** nad stolem je posuvník (40 až 100 %). Zmenší celý stůl i se sedadly a kartami; dvojklik vrátí 100 %. Je i v Osobním nastavení a jde nastavit zvlášť pro počítač a telefon.
+- **Velikost stolu:** v liště nástrojů je tlačítko 📐 se dvěma posuvníky, **Šířka** a **Výška** plochy, na které je stůl (50 až 100 %). Hodí se, když nechceš mít stůl přes celé okno prohlížeče; stůl se přizpůsobí menší z obou hodnot. Je i v Osobním nastavení a jde nastavit zvlášť pro počítač a telefon.
 - **Akce hráčů** (fold, check, call, bet, raise, re-raise, all-in) mají každá vlastní animaci u sedadla; rozdávání, otočení karet, výhra a vyřazení také.
 
 Všechna tato hlášení si každý hráč vypne nebo zapne v **Nastavení → Osobní nastavení → Vzhled a ovládání**: *U stolu ukazovat, na co se čeká*, *Čekání turnaje v řádku s názvem*, *Oznámení nad stolem (bonus, bomb pot, jackpot)* a *Oznámit vypršení času hráče*. Správce může nastavit výchozí hodnoty pro všechny (Správa → Výchozí osobní nastavení).

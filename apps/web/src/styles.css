@@ -85,11 +85,12 @@ h3,
   background-position: center;
   border-radius: var(--tk-shape-radiusLg);
   padding: calc(var(--spacing) * 3);
+  /* Šířka plochy se stolem (osobní nastavení Velikost stolu; 100 = celá dostupná šířka). */
+  width: calc(100% * var(--room-w, 100) / 100);
+  margin-inline: auto;
 }
 /* Karty a sedadla rostou s šířkou stolu (min. velikost je token), takže velký stůl nezůstane prázdný. */
-/* Velikost stolu (osobní nastavení): celý stůl i se sedadly a kartami se zmenší stejným poměrem. */
 .tk-table {
-  zoom: calc(var(--table-pct, 100) / 100);
   container-type: inline-size;
   aspect-ratio: var(--tk-table-aspect);
   border-radius: var(--tk-table-radius);
@@ -793,7 +794,7 @@ h3,
 .tk-drawer-body { flex: 1; overflow: auto; padding: calc(var(--spacing) * 3); }
 /* Na širokém displeji se stůl vejde nad akční lištu i na nižší monitor. */
 @media (min-width: 64rem) {
-  .tk-table { width: min(100%, calc(var(--tk-table-vh, max(22rem, calc(100vh - 22rem))) * var(--tk-table-aspect))); }
+  .tk-table { width: min(100%, calc(var(--tk-table-vh, max(22rem, calc(100vh - 22rem))) * var(--tk-table-aspect) * var(--room-h, 100) / 100)); }
 }
 /* Telefon: vyšší ovál, menší karty, prázdná sedadla jen jako tečka. */
 @media (max-width: 40rem) {
@@ -855,7 +856,7 @@ h3,
   }
   [data-focus] .tk-tp-panel { max-height: 100%; }
   [data-focus] .tk-tp-main { height: 100%; overflow: hidden; }
-  [data-focus] .tk-table { width: min(100%, calc((100vh - 21rem) * var(--tk-table-aspect))); }
+  [data-focus] .tk-table { width: min(100%, calc((100vh - 21rem) * var(--tk-table-aspect) * var(--room-h, 100) / 100)); }
 }
 
 /* ---------- mobilní rozložení stolu (data-mobile na <html>): vše v okně bez posuvníků ---------- */
@@ -873,7 +874,7 @@ h3,
 [data-mobile] > body > #root > div > main { min-height: 0; display: flex; flex-direction: column; }
 [data-mobile] .tk-tablepage { flex: 1; min-height: 0; gap: calc(var(--spacing) * 1); }
 [data-mobile] .tk-tp-main { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; gap: calc(var(--spacing) * 1); }
-[data-mobile] .tk-room { padding: calc(var(--spacing) * 1) calc(var(--spacing) * 5); }
+[data-mobile] .tk-room { width: auto; padding: calc(var(--spacing) * 1) calc(var(--spacing) * 5); }
 /* Výška oválu je omezená místem, které zbyde po liště, stavovém řádku a akční liště; na šířku nikdy nepřeteče. */
 [data-mobile] .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 21rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
 /* Telefon: menší karty (vlastní, soupeřů i board), moje sedadlo posunuté níž k okraji, aby nezakrývalo plátno. */

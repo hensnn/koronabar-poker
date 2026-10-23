@@ -15,6 +15,7 @@ import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
 import { TournamentBanner } from '../table/TablePanel';
+import { TableSizeButton } from '../table/size';
 import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
@@ -181,6 +182,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {canPause && view && tool(view.paused ? '▶' : '⏸', view.paused ? t('table.resume') : t('table.pause'), () => void togglePause(), { pressed: !!view.paused })}
         {tool(mobile ? '🖥️' : '📱', mobile ? t('table.mobileOff') : t('table.mobileOn'), () => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on', true).catch(() => undefined))}
+        {!mobile && <TableSizeButton iconOnly={iconOnly} />}
         <PanelSettingsButton iconOnly={iconOnly} />
         {tool('📜', t('table.history'), () => setHistory(true))}
         {tool(focus ? '⤡' : '⛶', focus ? t('table.fullscreenExit') : t('table.fullscreen'), () => setFocus((v) => !v), { pressed: focus })}

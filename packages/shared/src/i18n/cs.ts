@@ -333,11 +333,16 @@ export const cs: Record<string, string> = {
 
   // Osobní nastavení
   'settings.helpToggle': 'Ukázat nebo skrýt nápovědu',
-  'settings.ui.tableSizePercent.label': 'Velikost stolu',
-  'settings.ui.tableSizePercent.help': 'Jak velkou část dostupné šířky zabere stůl (40 až 100 %). Menší stůl nechá víc místa panelům a chatu; karty, žetony i texty se zmenší s ním. Jde ho měnit i posuvníkem přímo u stolu.',
+  'settings.ui.tableWidthPercent.label': 'Šířka plochy se stolem',
+  'settings.ui.tableWidthPercent.help': 'Jak velkou část dostupné šířky okna zabere čtverec, na kterém je stůl (50 až 100 %). Menší plocha nechá víc místa panelům a chatu, hodí se, když nechceš mít stůl přes celé okno prohlížeče.',
+  'settings.ui.tableHeightPercent.label': 'Výška plochy se stolem',
+  'settings.ui.tableHeightPercent.help': 'Jak velká je plocha se stolem na výšku (50 až 100 % toho, co se vejde do okna). Stůl se přizpůsobí menší z obou hodnot; karty, žetony i texty se zmenší s ním.',
   'table.widget.timeBank': 'Time bank',
   'table.widget.timeBankHelp': 'Rezerva času navíc, která se čerpá, když vyprší základní čas na tah.',
   'table.size': 'Velikost stolu',
+  'table.size.width': 'Šířka',
+  'table.size.height': 'Výška',
+  'table.size.help': 'Velikost plochy, na které je stůl. Menší plocha nezabere celé okno prohlížeče.',
   'table.size.reset': 'Výchozí velikost',
   'settings.ui.tableWaitInfo.label': 'U stolu ukazovat, na co se čeká',
   'settings.ui.tableWaitInfo.help': 'Řádek pod stolem řekne, na co se čeká, s odpočtem: další handa, hlasování, rozhodování o ukázání karet, málo hráčů. Vypnuto: jen základní stav (pauza, handa běží).',

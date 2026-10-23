@@ -29,6 +29,7 @@ import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
 import { TableFx, useTableNotices, useTournamentFx } from './fx';
+import { useTableSize } from './size';
 import { DealButton, EntryActions } from './InfoCard';
 import { ShowdownPrefs } from './TablePanel';
 
@@ -112,9 +113,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
   const fx = useTournamentFx(tournamentId, view);
   const notices = useTableNotices(tableId);
   const waitInfo = useSettings().values['ui.tableWaitInfo'] !== false;
-  const savedSize = Number(useSettings().values['ui.tableSizePercent'] ?? 100);
-  const [liveSize, setLiveSize] = useState<number | null>(null);
-  const tableSize = liveSize ?? savedSize;
+  const roomSize = useTableSize();
   const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
   useEffect(() => {
     if (pinnedSeat === null) return;
@@ -162,7 +161,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
 
   return (
     <div className={`tk-screen flex flex-col gap-2 ${layout.hiddenSides.includes('right') ? 'tk-no-extra' : ''}`}>
-      <div className="tk-room relative" {...myLook}>
+      <div className="tk-room relative" style={{ '--room-w': String(roomSize.w), '--room-h': String(roomSize.h) } as CSSProperties} {...myLook}>
         {mine && (showBar || canRabbit) && (
           <div role="group" aria-label={t('table.widget.reveal')} className="tk-pop absolute bottom-1 right-1 z-20 flex flex-wrap items-center gap-1.5 rounded-md border border-info bg-surface p-1.5 shadow-lg">
             {showBar && (
@@ -197,27 +196,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           </div>
         )}
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
-        {!mobile && (
-          <label className="mb-1 ml-auto flex w-fit items-center gap-2 text-xs text-muted">
-            {t('table.size')}
-            <input
-              type="range"
-              className="w-28"
-              min={40}
-              max={100}
-              step={5}
-              value={tableSize}
-              aria-label={t('table.size')}
-              onChange={(e) => setLiveSize(Number(e.target.value))}
-              onPointerUp={() => liveSize !== null && void saveUserSetting('ui.tableSizePercent', liveSize).finally(() => setLiveSize(null))}
-              onKeyUp={() => liveSize !== null && void saveUserSetting('ui.tableSizePercent', liveSize).finally(() => setLiveSize(null))}
-              onDoubleClick={() => void saveUserSetting('ui.tableSizePercent', 100)}
-              title={t('table.size.reset')}
-            />
-            <span className="w-9 font-mono">{tableSize} %</span>
-          </label>
-        )}
-        <div className="tk-table relative mx-auto" style={{ '--table-pct': String(tableSize) } as CSSProperties}>
+        <div className="tk-table relative mx-auto">
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
