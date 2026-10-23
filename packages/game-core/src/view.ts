@@ -169,8 +169,14 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     seats,
     pots,
     totalPot,
+    // Výhry z hlavního a vedlejších potů téhož hráče se sloučí do jednoho součtu (oznámení „Jméno: +částka“ ukazuje jedno číslo).
     winners: winnersVisible && h.winners
-        ? h.winners.map(({ seat, amount, cards }) => ({ seat, amount, hand: showdown && cards ? describeHand(cards) : null }))
+        ? [...h.winners.reduce((m, { seat, amount, cards }) => {
+            const hand = showdown && cards ? describeHand(cards) : null;
+            const cur = m.get(seat);
+            m.set(seat, { seat, amount: (cur?.amount ?? 0) + amount, hand: cur?.hand ?? hand });
+            return m;
+          }, new Map<number, { seat: number; amount: number; hand: HandDescription | null }>()).values()]
         : null,
     legal: viewer && ctx.legal ? ctx.legal : null,
     showdownChoice: viewer && ctx.deciding?.has(viewer.seat) && ctx.choiceDeadline ? { deadline: ctx.choiceDeadline } : null,

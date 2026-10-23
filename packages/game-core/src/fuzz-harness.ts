@@ -89,6 +89,11 @@ export function run(seed: number, over: Record<string, number | boolean | string
     sim.clock.advance(Math.floor(rnd() * 2000));
     checkInvariants(sim);
     for (const tb of sim.tables) expect(tb.actor.hasError()).toBeNull();
+    // Oznámení o výhře ukazuje každého výherce jednou (výhry z více potů se sčítají).
+    for (const tb of sim.tables) {
+      const seats = (tb.actor.viewFor(null).winners ?? []).map((w) => w.seat);
+      expect(new Set(seats).size).toBe(seats.length);
+    }
   }
   return { sim, hands: handsSeen.size };
 }
