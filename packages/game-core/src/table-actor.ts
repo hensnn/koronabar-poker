@@ -152,6 +152,8 @@ export class TableActor {
   private bombPotHand: string | null = null;
   /** Čas navíc pro první tah handy (rozdávání); spotřebuje se při prvním spuštění časovače. */
   private dealGraceMs = 0;
+  /** Sedadlo s dealer buttonem v poslední rozehrané handě: mezi handami zůstává vidět u stolu. */
+  private lastButton: number | null = null;
   /** Ulice, pro kterou už se hráči na tahu připsal čas na odhalení karet (aby se nepřipisoval při každém tahu). */
   private graceStreet: string | null = null;
   /** Přepočítaný výsledek handy (run it twice): výherci, které engine nezná, a jednotlivé běhy. */
@@ -521,6 +523,7 @@ export class TableActor {
       legal,
       odds: showOdds ? this.oddsCache : null,
       extraSeats: this.extraSeats(h),
+      lastButton: this.lastButton,
       statusOverride: new Map([...this.seats.values()].filter((e) => e.fresh).map((e) => [e.userId, 'waiting' as const])),
       sitOuts: new Set([...this.seats.values()].filter((e) => e.mode === 'out').map((e) => e.userId)),
       paused: this.held,
@@ -664,7 +667,7 @@ export class TableActor {
         bet: 0,
         status: e.mode === 'in' ? 'waiting' : 'sittingOut',
         sitOut: e.mode === 'out',
-        isDealer: false,
+        isDealer: this.lastButton === e.seat,
         cards: null,
         hasCards: false,
         timeBank: e.timeBank,
@@ -896,6 +899,7 @@ export class TableActor {
     this.revealedBoard = 0;
     this.lastState = h;
     this.reveal = { boardCards: h.board.length, holeCards: false, winners: false };
+    this.lastButton = h.buttonSeat;
     this.opt.onEvent?.({
       type: 'handStart',
       handId: h.handId,

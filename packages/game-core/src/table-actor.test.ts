@@ -204,6 +204,32 @@ describe('TableActor: průběh handy', () => {
     expect(left()).toBe(20_000); // druhý hráč v téže ulici nic navíc nedostane
   });
 
+  it('dealer button zůstane vidět i u hráče v sit outu a mezi handami', () => {
+    const m = make();
+    m.fund('c');
+    seatTwo(m);
+    m.actor.join('c', 'Carl', 2, 1000);
+    startHand(m);
+    const btn = m.actor.viewFor(null).buttonSeat!;
+    const owner = m.actor.playersSeated().find((e) => e.seat === btn)!.userId;
+    const dealerSeats = () => m.actor.viewFor(null).seats.filter((x) => x.isDealer).map((x) => x.seat);
+    expect(dealerSeats()).toEqual([btn]);
+    m.actor.sitOut(owner); // dealer jde do sit outu uprostřed handy
+    expect(dealerSeats()).toEqual([btn]);
+    for (let i = 0; i < 6 && m.actor.currentPhase() === 'hand'; i++) {
+      const p = acting(m);
+      if (!p) break;
+      m.actor.act(p, { type: 'fold' });
+    }
+    // mezi handami (a po sit outu dealera) je button pořád u stolu
+    expect(m.actor.viewFor(null).buttonSeat).toBe(btn);
+    expect(dealerSeats()).toEqual([btn]);
+    // další handa s dealerem v sit outu: button je pořád právě u jednoho sedadla
+    startHand(m);
+    expect(dealerSeats()).toHaveLength(1);
+    expect(m.actor.viewFor(null).buttonSeat).toBe(dealerSeats()[0]);
+  });
+
   it('vypršení času: nejdřív time bank, pak automatický fold, po N vypršeních sit out', () => {
     const m = make({ 'time.turnSeconds': 10, 'time.timeBankSeconds': 20, 'time.timeoutsToSitOut': 2 });
     seatTwo(m);

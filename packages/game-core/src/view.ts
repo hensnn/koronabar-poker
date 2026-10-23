@@ -31,6 +31,8 @@ export interface ViewContext {
   clockCalled?: boolean;
   vote?: VoteView | null;
   rabbit?: Card[] | null;
+  /** Sedadlo s dealer buttonem z poslední handy (zobrazí se i mezi handami). */
+  lastButton?: number | null;
   bombPot?: boolean;
   /** Kdy začne další handa (epoch ms), nebo null. */
   nextHandAt?: number | null;
@@ -79,7 +81,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       handNumber: 0,
       street: null,
       board: [],
-      buttonSeat: null,
+      buttonSeat: ctx.lastButton ?? null,
       straddleSeat: null,
       actingSeat: null,
       deadline: null,

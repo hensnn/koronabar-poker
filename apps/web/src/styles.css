@@ -590,7 +590,9 @@ h3,
   text-shadow: 0 1px 2px var(--tk-color-vignette);
   transition: opacity calc(200ms / var(--tk-anim-speed));
 }
-.tk-seat-dim { opacity: 0.55; }
+.tk-seat-dim { opacity: 1; }
+/* Odznaky dealera a straddlu se u složeného hráče nebo hráče v sit outu nezašednou: button musí být u stolu vždy dobře vidět. */
+.tk-seat-dim > *:not(.tk-dealer):not(.tk-straddle) { opacity: 0.55; }
 /* Co hráč udělal s kartami po handě (ukázal / muck / rozhoduje se): štítek přes spodní okraj karet. */
 .tk-seat-reveal {
   position: absolute;
@@ -610,7 +612,7 @@ h3,
 }
 /* Hráč v sit outu: šedé sedadlo a výrazný odznak (odznak zůstává plně čitelný). */
 .tk-seat-out { opacity: 1; }
-.tk-seat-out > * { opacity: 0.5; filter: grayscale(0.85); }
+.tk-seat-out > *:not(.tk-dealer):not(.tk-straddle) { opacity: 0.5; filter: grayscale(0.85); }
 
 .tk-seat-cards {
   border-radius: var(--tk-shape-cardRadius);
