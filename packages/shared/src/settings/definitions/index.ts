@@ -758,6 +758,7 @@ const ui: SettingDef[] = [
   text('pwa.themeId', { category: 'system', mutability: ADM, scopes: GLOBAL }, 'classic-green', 60),
   bool('ui.sfxEnabled', { category: 'ui', mutability: A, scopes: USER }, true),
   int('ui.sfxVolumePercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 60, 0, 100),
+  choice('ui.sfxTheme', { category: 'ui', mutability: A, scopes: USER }, 'classic', ['classic', 'soft', 'retro', 'casino', 'wood']),
   bool('ui.sfxDeal', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.dealAnimation', { category: 'ui', mutability: A, scopes: USER }, true),
   int('ui.tableAreaWidthPercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 50, 100),

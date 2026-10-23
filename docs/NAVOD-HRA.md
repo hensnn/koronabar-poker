@@ -129,3 +129,7 @@ Panely se na telefonu nepoužívají, proto tam není ani nastavení panelů. St
 | Přehled a srovnání všech hráčů | Hra → Statistiky → Přehled hráčů (správce může vypnout: Správa → Nastavení → Statistiky) |
 
 Tip: pro první večer stačí jeden cash stůl ze šablony Klasika a jeden turnaj Freezeout s výplatou *top3*. Zbytek dolaď, až uvidíš, jak se hraje.
+
+## Sady zvuků u stolu
+
+Zvuky hry u stolu (rozdání, žetony, tah, výhra, události turnaje) mají pět sad: **Klasická**, **Jemná** (měkké tóny), **Retro** (hranatý zvuk), **Kasino** (jiskřivé žetony a výhry) a **Dřevo** (tupé klepání). Sadu vybereš v nabídce 🔊 v záhlaví (po výběru se ozve ukázka) nebo v osobním nastavení; platí jen pro tebe a zvlášť pro každé zařízení lze zapnout či vypnout jednotlivé druhy zvuků.

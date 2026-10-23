@@ -2,6 +2,7 @@ import { useKeepInView } from './keep-in-view';
 import { useEffect, useRef, useState } from 'react';
 import { labelKey, t } from '@kb/shared';
 import { saveUserSetting, useSettings } from './settings';
+import { playSfx, SFX_THEMES } from './table/sfx';
 
 /** Přepínače zvuku v nabídce 🔊: každý řádek je osobní nastavení, které se uloží hned. */
 const ROWS: { key: string; def: boolean; invert?: boolean; label?: string }[] = [
@@ -61,6 +62,24 @@ export function SoundMenu() {
               {t(r.label ?? labelKey(r.key))}
             </label>
           ))}
+          <label className="flex items-center gap-2 text-sm" title={t('settings.ui.sfxTheme.help')}>
+            {t('settings.ui.sfxTheme.label')}
+            <select
+              className="rounded-md border border-line bg-surface px-1 py-0.5 text-sm"
+              value={String(settings.values['ui.sfxTheme'] ?? 'classic')}
+              onChange={(e) => {
+                void saveUserSetting('ui.sfxTheme', e.target.value).catch(() => undefined);
+                // Ukázka nové sady po uložení (nastavení se promítne až po chvíli, proto s malým zpožděním).
+                window.setTimeout(() => playSfx('chip', Number(settings.values['ui.sfxVolumePercent'] ?? 60) / 100), 300);
+              }}
+            >
+              {SFX_THEMES.map((th) => (
+                <option key={th} value={th}>
+                  {t(`settings.ui.sfxTheme.option.${th}`)}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex gap-2 border-t border-line pt-2">
             <button type="button" className="rounded-md border border-line bg-surface px-2 py-1 text-sm" onClick={() => setAll(false)}>
               {t('sound.allOff')}

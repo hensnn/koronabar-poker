@@ -81,11 +81,45 @@ function context(): AudioContext | null {
 }
 
 /** Přehraje jeden zvuk s danou hlasitostí (0 až 1). */
+/** Sady zvuků u stolu: klasická, jemná (sinusové tóny), retro (čtvercová vlna), kasino (jiskřivé žetony a výhry), dřevo (tupé klepání). */
+export const SFX_THEMES = ['classic', 'soft', 'retro', 'casino', 'wood'] as const;
+export type SfxTheme = (typeof SFX_THEMES)[number];
+
+type Def = { tones?: Tone[]; noise?: Noise; noises?: Noise[] };
+const scale = (d: Def, o: { type?: OscillatorType; tone: number; noise: number; freq?: number }): Def => ({
+  tones: d.tones?.map((x) => ({ ...x, type: o.type ?? x.type, gain: x.gain * o.tone })),
+  noise: d.noise && { ...d.noise, gain: d.noise.gain * o.noise, freq: d.noise.freq * (o.freq ?? 1) },
+  noises: d.noises?.map((x) => ({ ...x, gain: x.gain * o.noise, freq: x.freq * (o.freq ?? 1) })),
+});
+const CASINO: Partial<Record<Sfx | 'warning', Def>> = {
+  chip: { tones: [2637, 3136, 3951, 3136, 4186].map((f, i) => ({ f, at: i * 0.035, len: 0.06, gain: 0.2, type: 'triangle' as const })), noise: { at: 0, len: 0.03, gain: 0.15, freq: 5000 } },
+  win: { tones: [784, 988, 1175, 1568, 1976].map((f, i) => ({ f, at: i * 0.07, len: 0.18, gain: 0.25, type: 'triangle' as const })) },
+  winMe: { tones: [784, 988, 1175, 1568, 1976, 2349].map((f, i) => ({ f, at: i * 0.08, len: i === 5 ? 0.5 : 0.2, gain: 0.3, type: 'triangle' as const })) },
+  check: { tones: [{ f: 1200, at: 0, len: 0.04, gain: 0.3, type: 'square' }] },
+};
+const WOOD: Partial<Record<Sfx | 'warning', Def>> = {
+  check: { tones: [{ f: 240, to: 150, at: 0, len: 0.06, gain: 0.5, type: 'triangle' }], noise: { at: 0, len: 0.025, gain: 0.3, freq: 700 } },
+  chip: { tones: [{ f: 900, to: 700, at: 0, len: 0.03, gain: 0.3, type: 'sine' }, { f: 1100, to: 800, at: 0.05, len: 0.03, gain: 0.25, type: 'sine' }], noise: { at: 0, len: 0.02, gain: 0.25, freq: 1500 } },
+  fold: { noise: { at: 0, len: 0.12, gain: 0.2, freq: 500 } },
+  dealCard: { noise: { at: 0, len: 0.06, gain: 0.3, freq: 1200 } },
+};
+
+/** Zvuk podle zvolené sady. */
+function defFor(name: Sfx | 'warning'): Def {
+  const theme = String((resolveFor().values as Record<string, unknown>)['ui.sfxTheme'] ?? 'classic');
+  const base = DEF[name];
+  if (theme === 'soft') return scale(base, { type: 'sine', tone: 0.7, noise: 0.8, freq: 0.6 });
+  if (theme === 'retro') return scale(base, { type: 'square', tone: 0.55, noise: 0.7 });
+  if (theme === 'casino') return CASINO[name] ?? base;
+  if (theme === 'wood') return WOOD[name] ?? scale(base, { type: 'sine', tone: 0.7, noise: 0.8, freq: 0.6 });
+  return base;
+}
+
 export function playSfx(name: Sfx | 'warning', volume: number): void {
   const c = context();
   if (!c || volume <= 0) return;
   if (c.state === 'suspended') void c.resume().catch(() => undefined);
-  const def = DEF[name];
+  const def = defFor(name);
   const t0 = c.currentTime + 0.01;
   for (const tone of def.tones ?? []) {
     const osc = c.createOscillator();
