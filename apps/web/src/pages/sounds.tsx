@@ -581,3 +581,22 @@ export function SoundLibrary() {
     </Card>
   );
 }
+
+/** Řádek ikon oblíbených zvukových emotikonů (jedno klepnutí zvuk pošle) a tlačítko s celou paletou; pro telefon. */
+export function SoundStrip({ target }: { target: { kind: 'table' | 'channel'; id: string } }) {
+  const st = useSoundState();
+  const settings = useSettings();
+  if (settings.values['sounds.enabled'] === false) return null;
+  const usable = st.sounds.filter((s) => s.status === 'shared' || s.mine);
+  const quick = [...usable.filter((s) => s.favorite), ...usable.filter((s) => !s.favorite && s.lastUsedAt).sort(byRecent)].slice(0, 6);
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label={t('sounds.palette')}>
+      {quick.map((s) => (
+        <button key={s.id} className="rounded-md border border-line bg-surface px-2 py-1 text-lg" title={s.name} aria-label={s.name} onClick={() => void playSound(s.id, target).catch(() => undefined)}>
+          {s.emoji}
+        </button>
+      ))}
+      <SoundPalette target={target} />
+    </div>
+  );
+}

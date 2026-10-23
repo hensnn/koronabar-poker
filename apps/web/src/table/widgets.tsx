@@ -11,6 +11,7 @@ import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } fr
 import { formatAmount } from './format';
 import { ClockWidget, mmss } from './TablePanel';
 import { MobileOptions } from './mobile-ui';
+import { useActionLog } from './actions-feed';
 import { useMobileLayout } from './mobile';
 
 export interface WidgetDef {
@@ -33,6 +34,8 @@ interface Ctx {
   /** Mobilní zásuvka s informacemi o stole: místo pro sit out a volbu karet po handě. */
   setInfoSlot: (el: HTMLElement | null) => void;
   infoSlot: HTMLElement | null;
+  /** Poslední události u stolu (akce hráčů, výhra, nová handa); zdroj pro widget Poslední akce i přehled na telefonu. */
+  actionLog: { key: number; text: string }[];
   /** Akce se ukazují v pruhu pod stolem (telefon, vypnutý panel nebo skrytý widget „O hře“). */
   actionsInline: boolean;
   view: TableView | undefined;
@@ -74,6 +77,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const mine = view?.seats.find((s) => s.playerId === me?.user.id);
   const tournamentId = info?.tournament ? (info.tournamentId ?? tableId) : null;
   const tour = useTournamentInfo(tournamentId);
+  const actionLog = useActionLog(view, inBb, 12);
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
 
   const defs: Record<WidgetId, WidgetDef> = {
@@ -121,6 +125,20 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       show: !!mine,
       body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
+    events: {
+      title: t('table.widget.events'),
+      show: !!view,
+      body:
+        actionLog.length === 0 ? (
+          <p className="text-muted">{t('table.widget.eventsNone')}</p>
+        ) : (
+          <ul className="flex flex-col gap-0.5 text-sm">
+            {actionLog.map((l) => (
+              <li key={l.key}>{l.text}</li>
+            ))}
+          </ul>
+        ),
+    },
     players: {
       title: t('table.widget.players'),
       show: !!view,
@@ -159,10 +177,10 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   };
 
   const value = useMemo<Ctx>(
-    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setInfoSlot, infoSlot, actionsInline, view, tour }),
+    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setInfoSlot, infoSlot, actionLog, actionsInline, view, tour }),
     // defs se staví při každém vykreslení; kontext se tedy obnovuje s ním
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, setLayout, defs, toolsSlot, infoSlot, actionsInline, view, tour],
+    [layout, setLayout, defs, toolsSlot, infoSlot, actionLog, actionsInline, view, tour],
   );
   void WIDGET_IDS;
   return (

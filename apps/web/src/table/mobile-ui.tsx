@@ -6,6 +6,7 @@ import { CardView } from './CardView';
 import { formatAmount } from './format';
 import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
+import { SoundStrip } from '../pages/sounds';
 import { useTableWidgets } from './widgets';
 
 /**
@@ -83,12 +84,14 @@ export function InfoSlot() {
  * Prostor mezi stolem a tlačítky na telefonu: moje ruka (velké karty, kombinace, stack), poslední události a pruh času.
  * Každá část se zapíná v kartě „O hře“ (osobní nastavení), aby si každý nechal jen to, co potřebuje.
  */
-export function MobileMid({ view, mine, inBb, offset, log }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[] }) {
+export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
   const v = useSettings().values;
   const hand = v['ui.mobileHandStrip'] !== false;
   const events = v['ui.mobileEvents'] !== false;
   const timer = v['ui.mobileTimerBar'] !== false;
-  if (!hand && !events && !timer) return null;
+  const best = v['ui.mobileBest'] !== false;
+  const sounds = v['ui.mobileSounds'] === true;
+  if (!hand && !events && !timer && !best && !sounds) return null;
   const acting = view.actingSeat !== null;
   return (
     <div className="tk-mid flex flex-col gap-1.5">
@@ -99,11 +102,18 @@ export function MobileMid({ view, mine, inBb, offset, log }: { view: TableView; 
             {mine.hasCards && mine.cards ? mine.cards.map((c, i) => <CardView key={`${view.handId}-${i}`} card={c} still />) : <span className="text-sm text-muted">{t('table.notInHand')}</span>}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</div>
+            {best && <div className="truncate font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</div>}
             <div className="font-mono text-xs text-muted">{formatAmount(mine.stack, view.info, inBb)}</div>
           </div>
         </div>
       )}
+      {!hand && best && mine && (
+        <div className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
+          <span className="text-muted">{t('table.widget.best')}: </span>
+          <span className="font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</span>
+        </div>
+      )}
+      {sounds && mine && <SoundStrip target={{ kind: 'table', id: tableId }} />}
       {events && log.length > 0 && (
         <ul className="flex flex-col gap-0.5 rounded-md bg-raised px-2 py-1 text-xs text-muted" aria-label={t('table.m.events')}>
           {log.map((l) => (
@@ -129,7 +139,7 @@ export function MobileOptions() {
   return (
     <fieldset className="flex flex-col gap-1 border-t border-line pt-2">
       <legend className="text-xs font-semibold text-muted">{t('table.m.options')}</legend>
-      {['ui.mobileHandStrip', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileTurnAlert'].map(row)}
+      {['ui.mobileHandStrip', 'ui.mobileBest', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileSounds', 'ui.mobileTurnAlert'].map(row)}
     </fieldset>
   );
 }
