@@ -5,18 +5,20 @@ import { Button } from '../ui';
 
 const W = 'ui.tableWidthPercent';
 const H = 'ui.tableHeightPercent';
+const A = 'ui.tableAreaWidthPercent';
+const ALIGN = 'ui.tableAreaAlign';
 
 /** Rozpracovaná hodnota při tažení posuvníku (náhled hned, na server se uloží až po puštění). */
-let live: { w?: number; h?: number } = {};
+let live: { w?: number; h?: number; a?: number } = {};
 const listeners = new Set<() => void>();
 const publish = (next: typeof live) => {
   live = next;
   listeners.forEach((l) => l());
 };
-const field = (key: string): 'w' | 'h' => (key === W ? 'w' : 'h');
+const field = (key: string): 'w' | 'h' | 'a' => (key === W ? 'w' : key === H ? 'h' : 'a');
 
 /** Šířka a výška čtverce, na kterém je stůl, v procentech dostupného místa (100 = celé okno). */
-export function useTableSize(): { w: number; h: number } {
+export function useTableSize(): { w: number; h: number; a: number } {
   const values = useSettings().values;
   const l = useSyncExternalStore(
     (fn) => {
@@ -25,13 +27,14 @@ export function useTableSize(): { w: number; h: number } {
     },
     () => live,
   );
-  return { w: l.w ?? Number(values[W] ?? 100), h: l.h ?? Number(values[H] ?? 100) };
+  return { w: l.w ?? Number(values[W] ?? 100), h: l.h ?? Number(values[H] ?? 100), a: l.a ?? Number(values[A] ?? 100) };
 }
 
 /** Tlačítko 📐 v liště stolu: otevře malé okno se dvěma posuvníky (šířka a výška plochy se stolem). */
 export function TableSizeButton({ iconOnly }: { iconOnly: boolean }) {
   const [open, setOpen] = useState(false);
   const size = useTableSize();
+  const align = String(useSettings().values[ALIGN] ?? 'center');
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -71,12 +74,22 @@ export function TableSizeButton({ iconOnly }: { iconOnly: boolean }) {
       {open && (
         <div role="dialog" aria-label={t('table.size')} className="absolute left-0 top-full z-30 mt-1 flex w-max flex-col gap-2 rounded-md border border-line bg-surface p-3 shadow-lg">
           <p className="max-w-64 text-xs text-muted">{t('table.size.help')}</p>
+          {slider(A, t('table.size.area'))}
+          <div role="group" aria-label={t('settings.ui.tableAreaAlign.label')} className="flex gap-1">
+            {(['left', 'center', 'right'] as const).map((a) => (
+              <Button key={a} className={align === a ? 'border-primary bg-raised' : ''} aria-pressed={align === a} onClick={() => void saveUserSetting(ALIGN, a)}>
+                {t(`table.size.align.${a}`)}
+              </Button>
+            ))}
+          </div>
           {slider(W, t('table.size.width'))}
           {slider(H, t('table.size.height'))}
           <Button
             onClick={() => {
               void saveUserSetting(W, 100);
               void saveUserSetting(H, 100);
+              void saveUserSetting(A, 100);
+              void saveUserSetting(ALIGN, 'center');
             }}
           >
             {t('table.size.reset')}

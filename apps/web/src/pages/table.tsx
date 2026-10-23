@@ -15,7 +15,7 @@ import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
 import { TournamentBanner } from '../table/TablePanel';
-import { TableSizeButton } from '../table/size';
+import { TableSizeButton, useTableSize } from '../table/size';
 import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
@@ -95,7 +95,9 @@ export function TablePage({ tableId }: { tableId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored, dragging]);
   const keep = (key: string, value: number | boolean) => void saveUserSetting(key, value).catch(() => undefined);
-  const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px' };
+  const area = useTableSize();
+  const areaAlign = String(useSettings().values['ui.tableAreaAlign'] ?? 'center');
+  const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px', ['--area-w' as string]: String(area.a) };
   // Výška panelu je výchozí podle herní oblasti; ruční výška (tažení za spodní okraj) ji přepíše.
   const panelStyle: CSSProperties | undefined = size.ph > 0 ? { height: size.ph, alignSelf: 'start' } : undefined;
   const view = net.views[tableId];
@@ -191,7 +193,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
   return (
     <TableWidgetsProvider view={view} tableId={tableId} inBb={inBb} chat={chatWidget}>
-    <div className={`tk-tablepage ${hiddenSides.left ? 'tk-no-panel' : ''}`} style={pageStyle}>
+    <div className={`tk-tablepage ${hiddenSides.left ? 'tk-no-panel' : ''}`} data-area={areaAlign} style={pageStyle}>
       {!hiddenSides.left && (
       <Resizable
         as="aside"

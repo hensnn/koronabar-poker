@@ -752,6 +752,10 @@ h3,
   .tk-tp-panel { display: flex; flex-direction: column; gap: calc(var(--spacing) * 2); grid-area: panel; position: relative; align-self: stretch; min-height: 20rem; }
   .tk-tp-main { grid-area: main; min-width: 0; }
   .tk-tp-mobile { display: none; }
+  /* Plocha hry (panely + stůl) může zabrat jen část okna a stát vlevo, uprostřed nebo vpravo (osobní nastavení). */
+  .tk-tablepage { width: calc(100% * var(--area-w, 100) / 100); margin-inline: auto; }
+  .tk-tablepage[data-area='left'] { margin-inline: 0 auto; }
+  .tk-tablepage[data-area='right'] { margin-inline: auto 0; }
   /* Bez levého panelu zabírá hlavní část celou šířku. */
   .tk-tablepage.tk-no-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'main'; }
 }
