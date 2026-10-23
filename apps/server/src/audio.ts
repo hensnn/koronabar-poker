@@ -181,5 +181,17 @@ export function builtinSounds(): BuiltinSound[] {
     mk('buben', 'Bubnování', '🥁', 'napeti', join2(...Array.from({ length: 8 }, (_, i) => join2(noise(0.08, 11 + i), gap(0.04))))),
     mk('svist', 'Svist', '💨', 'efekt', noise(0.6, 99, true)),
     mk('boing', 'Boing', '🦘', 'efekt', tone(220, 0.5, { slide: 3, gain: 0.5 })),
+    mk('tada', 'Tadá', '🎉', 'oslava', join2(tone(392, 0.1, { gain: 0.45 }), tone(523, 0.1, { gain: 0.45 }), tone(659, 0.1, { gain: 0.45 }), tone(784, 0.1, { gain: 0.45 }), tone(1047, 0.7, { gain: 0.55 }))),
+    mk('kasa', 'Kasa', '💰', 'oslava', join2(noise(0.05, 7), tone(2093, 0.08, { gain: 0.4 }), tone(3136, 0.9, { gain: 0.4 }))),
+    mk('potlesk', 'Potlesk', '👏', 'oslava', join2(...Array.from({ length: 22 }, (_, i) => join2(noise(0.035 + (i % 3) * 0.01, 31 + i * 7), gap(0.02 + ((i * 5) % 7) * 0.008))))),
+    mk('smich', 'Smích', '😂', 'reakce', join2(...Array.from({ length: 4 }, (_, i) => join2(tone(520 - i * 30, 0.14, { slide: 0.8, wave: 'square', gain: 0.3 }), gap(0.07))))),
+    mk('wow', 'Wow', '😮', 'reakce', tone(300, 0.6, { slide: 3, gain: 0.5 })),
+    mk('zlyhani', 'Zlyhání', '📉', 'smutek', join2(tone(311, 0.25, { slide: 0.95, gain: 0.5 }), tone(293, 0.25, { slide: 0.95, gain: 0.5 }), tone(277, 0.25, { slide: 0.95, gain: 0.5 }), tone(233, 0.9, { slide: 0.7, gain: 0.5 }))),
+    mk('prohra', 'Prohra', '💀', 'smutek', join2(tone(196, 0.3, { gain: 0.5 }), tone(147, 0.3, { gain: 0.5 }), tone(110, 0.9, { slide: 0.85, gain: 0.55 }))),
+    mk('poplach', 'Poplach', '🚨', 'upozorneni', join2(...Array.from({ length: 4 }, (_, i) => tone(i % 2 === 0 ? 880 : 660, 0.2, { wave: 'square', gain: 0.3 })))),
+    mk('zetony', 'Cinkání žetonů', '🪙', 'efekt', join2(...Array.from({ length: 5 }, (_, i) => join2(tone(2400 + (i % 3) * 400, 0.05, { gain: 0.35 }), noise(0.02, 5 + i), gap(0.04 + (i % 2) * 0.03))))),
+    mk('karty', 'Rozdávání karet', '🃏', 'efekt', join2(...Array.from({ length: 4 }, (_, i) => join2(noise(0.09, 71 + i * 13, true), gap(0.12))))),
+    mk('bomba', 'Bomba', '💣', 'efekt', join2(tone(90, 0.8, { slide: 0.4, gain: 0.7 }), noise(0.5, 3))),
+    mk('laser', 'Laser', '🔫', 'efekt', join2(tone(2200, 0.25, { slide: 0.1, wave: 'square', gain: 0.3 }), gap(0.05), tone(2200, 0.25, { slide: 0.1, wave: 'square', gain: 0.3 }))),
   ];
 }
