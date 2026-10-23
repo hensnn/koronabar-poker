@@ -10,6 +10,7 @@ import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, BountiesBod
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
 import { ClockWidget, mmss } from './TablePanel';
+import { MobileOptions } from './mobile-ui';
 import { useMobileLayout } from './mobile';
 
 export interface WidgetDef {
@@ -167,6 +168,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
         <div className="flex flex-col gap-2">
           <InfoBody view={view} tour={tour} tournamentId={tournamentId} inBb={inBb} />
           {!actionsInline && <div ref={setToolsSlot} />}
+          {mobile && <MobileOptions />}
         </div>
       ),
     },

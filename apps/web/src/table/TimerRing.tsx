@@ -51,3 +51,16 @@ export function Countdown({ deadline, offset }: { deadline: number | null; offse
   if (deadline === null) return null;
   return <span className="font-mono">{Math.max(0, Math.ceil((deadline - (now + offset)) / 1000))} s</span>;
 }
+
+/** Tenký pruh přes celou šířku: ubývá s časem hráče na tahu; při time banku mění barvu. Vedle je moje zbývající rezerva. */
+export function TimeStrip({ deadline, offset, bank, reserve }: { deadline: number | null; offset: number; bank: boolean; reserve?: string }) {
+  const frac = useFraction(deadline, offset);
+  return (
+    <div className="flex items-center gap-2" aria-hidden>
+      <div className="tk-timer-bar tk-timer-strip flex-1" data-bank={bank}>
+        <span style={{ ['--p' as string]: String(frac ?? 0) }} />
+      </div>
+      {reserve && <span className="font-mono text-xs text-muted">⏱ {reserve}</span>}
+    </div>
+  );
+}

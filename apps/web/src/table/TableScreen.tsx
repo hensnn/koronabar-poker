@@ -21,7 +21,8 @@ import { Amount } from './Chips';
 import { Countdown, TimerBar } from './TimerRing';
 import { useThemeToken } from '../theme/ThemeProvider';
 import { useTableSfx } from './sfx';
-import { useActionBubbles, type Bubble } from './actions-feed';
+import { useActionBubbles, useActionLog, type Bubble } from './actions-feed';
+import { MobileMid } from './mobile-ui';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
 import { ErrorToast, Modal } from '../ui';
 import { usePlanExecutor } from './plan';
@@ -72,6 +73,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const myLook = useMyTableLook();
   const deal = useDealAnimation(view);
   const actionBubbles = useActionBubbles(view, inBb);
+  const actionLog = useActionLog(view, inBb);
   const rotate = useSettings().values['ui.rotateToMe'] !== false;
   const winnerPref = String(useSettings().values['ui.showdownWinning'] ?? 'never');
   const mobile = useMobileLayout();
@@ -317,6 +319,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
 
         </div>
       </div>
+
+      {modern && <MobileMid view={view} mine={mine} inBb={inBb} offset={net.clockOffset} log={actionLog} />}
 
       {/* Vše vedle stolu (stav tahu, akční lišta, akce, widgety) je v jednom obalu: na šířku telefonu tvoří vlastní posuvný sloupec, jinde je obal průhledný. */}
       <div className="tk-side-col">

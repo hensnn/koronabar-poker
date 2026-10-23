@@ -1141,7 +1141,7 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 [data-mobile-modern] .tk-tp-main { overflow: hidden; }
 [data-mobile-modern] .tk-screen { flex: 1; min-height: 0; }
 /* Stůl má stejný tvar jako dosud (osobní tvar oválu ui.mobileTableAspect) a přes celou šířku; stavový řádek a tlačítka jsou přitisknuté ke spodnímu okraji, kam dosáhne palec. */
-[data-mobile-modern]:not([data-landscape]) .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 15rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
+[data-mobile-modern]:not([data-landscape]) .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 22rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
 [data-mobile-modern]:not([data-landscape]) .tk-screen > .tk-side-col, [data-mobile-modern]:not([data-landscape]) .tk-screen { min-height: 0; }
 /* Stálá výška spodní části: plánované tahy a akce zabírají stejné místo, takže se stůl ani okno při změně stavu neposouvají. Vše se vejde do okna. */
 [data-mobile-modern]:not([data-landscape]) .tk-actionbar { min-height: 7.5rem; justify-content: center; }
@@ -1169,3 +1169,11 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Stavový řádek má pevnou výšku (nejvýš dva řádky menšího písma), takže se okno nehýbe podle délky textu. */
 [data-mobile-modern] .tk-turn-row { height: 2.6rem; min-height: 0; overflow: hidden; }
 [data-mobile-modern] .tk-turn-row > p, [data-mobile-modern] .tk-turn-row > div { font-size: 0.8rem; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; }
+
+/* Prostor mezi stolem a tlačítky na telefonu (moje ruka, události, pruh času); na šířku se nezobrazuje. */
+[data-mobile-modern]:not([data-landscape]) .tk-mid { padding: calc(var(--spacing) * 1) calc(var(--spacing) * 1); }
+[data-mobile-modern][data-landscape] .tk-mid { display: none; }
+[data-mobile-modern] .tk-timer-strip { position: static; width: 100%; height: calc(var(--spacing) * 1.5); border-radius: 9999px; background: var(--tk-color-surfaceRaised); overflow: hidden; }
+/* Upozornění na můj tah: spodní tlačítka se orámují a pulzují. */
+@keyframes tk-dock-alert { 0%, 100% { box-shadow: 0 0 0 0 var(--tk-color-turnGlow); } 50% { box-shadow: 0 0 0 calc(var(--spacing) * 1.5) var(--tk-color-turnGlow); } }
+[data-mobile-modern][data-turn-alert] .tk-actionbar[data-turn='mine'] { border-color: var(--tk-color-turnGlow); border-width: 2px; animation: tk-dock-alert calc(1.4s / var(--tk-anim-speed)) ease-in-out infinite; }
