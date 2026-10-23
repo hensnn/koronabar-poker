@@ -60,7 +60,7 @@ export const csGuide: Record<string, string> = {
   'guide.s.mobile.title': 'Telefon',
   'guide.s.mobile.keys': 'telefon mobil mobilní tablet dotyk zásuvka lišta ikony vibrace naležato na výšku bez panelů',
   'guide.s.mobile.1': 'Na telefonu (úzký displej nebo telefon na šířku) je stůl samostatná obrazovka bez rolování. Nahoře je lišta s ikonami: ← zpět, blindy, 📜 historie, ⏸ pauza, 💬 chat, ℹ️ informace a ☰ nabídka.',
-  'guide.s.mobile.2': 'Pod stolem na výšku: pruh času s time bankem, moje ruka (velké karty a stack), moje kombinace, poslední události (akce hráčů, flop, turn, river, výhra) a volitelně řádek zvukových emotikonů. Dole jsou plánované tahy nebo akční tlačítka v pevné výšce, takže se nic nehýbe.',
+  'guide.s.mobile.2': 'Pod stolem na výšku: pruh času s time bankem, moje ruka (velké karty a stack), moje kombinace, poslední události (akce hráčů, výhra) a volitelně řádek zvukových emotikonů. Dole jsou plánované tahy nebo akční tlačítka v pevné výšce, takže se nic nehýbe.',
   'guide.s.mobile.3': 'Zaškrtávátka v kartě O hře (ℹ️) určují, co se ukazuje pod stolem: co je zaškrtnuté, je pod stolem a v ℹ️ se to neopakuje; co odškrtneš, najdeš v ℹ️. Je tam i Upozornění na můj tah (spodní tlačítka pulzují).',
   'guide.s.mobile.4': 'ℹ️ Informace o stole: nejdřív Můj stůl (u turnaje hodiny turnaje), pak O hře (sit out, volba karet po handě Win a Lose, dokoupit žetony, odejít od stolu, zavolat čas, dohoda, rebuy), potom ostatní widgety.',
   'guide.s.mobile.5': '☰ Nabídka stolu: sdílet v chatu, vyúčtování, anketa u stolu, přepnutí mobilního rozložení, celá obrazovka, zvuk a vibrace (vibrace jdou vypnout).',
@@ -77,7 +77,7 @@ export const csGuide: Record<string, string> = {
   'guide.s.wait.6': 'Všechna tato hlášení jdou vypnout v osobním nastavení: U stolu ukazovat, na co se čeká; Čekání turnaje v řádku s názvem; Oznámení nad stolem; Oznámit vypršení času hráče.',
 
   'guide.s.panels.title': 'Panely a vzhled',
-  'guide.s.panels.1': 'Levý a pravý panel jsou složené z widgetů (Můj stůl nebo hodiny turnaje, Moje kombinace, Hráči, Poslední akce, Chat, Zvukové emotikony, O hře, Odměny). Tlačítko ⚙ Panely nad stolem otevře jejich nastavení. Widget Poslední akce ukazuje, kdo co sázel, flop, turn, river a výhry, a jde v něm rolovat do historie.',
+  'guide.s.panels.1': 'Levý a pravý panel jsou složené z widgetů (Můj stůl nebo hodiny turnaje, Moje kombinace, Hráči, Poslední akce, Chat, Zvukové emotikony, O hře, Odměny). Tlačítko ⚙ Panely nad stolem otevře jejich nastavení. Widget Poslední akce ukazuje, kdo co sázel a výhry, a jde v něm rolovat do historie.',
   'guide.s.panels.2': 'V nastavení panelů můžeš widgety přesouvat mezi panely, měnit pořadí, skrývat je i vypnout celý levý nebo pravý panel.',
   'guide.s.panels.3': 'Widget O hře obsahuje akce: dokoupit, odejít, sit out, volby ukázání karet, rebuy, add-on, dohodu. Barevné tlačítko jde použít, šedé teď ne.',
   'guide.s.panels.4': 'Celá obrazovka schová vše mimo stůl. Plochu hry (panely se stolem) jde zúžit a umístit vlevo, na střed nebo vpravo tlačítkem 📐 Velikost stolu, aby hra nezabírala celé okno prohlížeče; tam se nastavuje i šířka a výška samotného stolu. Na telefonu panely nejsou, viz kapitola Telefon.',

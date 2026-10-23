@@ -12,7 +12,6 @@ import { formatAmount } from './format';
 import { ClockWidget, mmss } from './TablePanel';
 import { InfoSlot, MobileOptions } from './mobile-ui';
 import { useActionLog } from './actions-feed';
-import { InlineCards } from './mini-cards';
 import { useMobileLayout } from './mobile';
 
 export interface WidgetDef {
@@ -83,9 +82,7 @@ function EventsList({ log }: { log: { key: number; text: string; cards?: string[
       }}
     >
       {log.map((l) => (
-        <li key={l.key}>
-          {l.text} {l.cards && <InlineCards list={l.cards} />}
-        </li>
+        <li key={l.key}>{l.text}</li>
       ))}
     </ul>
   );

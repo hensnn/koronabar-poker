@@ -28,7 +28,8 @@ const STREET_CARDS: Record<string, number> = { PREFLOP: 0, FLOP: 3, TURN: 4, RIV
 
 /** Přehrávač handy po akcích; cizí karty se ukážou jen, když je server poslal. */
 export function HandReplayBody({ d, me }: { d: HandDetail; me: string }) {
-  const [step, setStep] = useState(0);
+  // Přehrávač začíná na konci handy: hned je vidět celý stůl (flop, turn, river) a všechny akce; tlačítkem Zpět se jde po akcích zpátky.
+  const [step, setStep] = useState(d.actions.length);
   const name = useMemo(() => new Map(d.players.map((p) => [p.userId, p.nickname])), [d]);
   const unit = (n: number) => (d.chipsPerUnit > 1 ? Math.round((n / d.chipsPerUnit) * 100) / 100 : n);
   return (
@@ -40,8 +41,15 @@ export function HandReplayBody({ d, me }: { d: HandDetail; me: string }) {
           const full = step >= d.actions.length;
           const cards = full ? d.board : d.board.slice(0, shown);
           return (
-            <div className="flex flex-wrap items-center gap-1" aria-label={t('stats.board')}>
-              {[0, 1, 2, 3, 4].map((i) => (cards[i] ? <CardView key={i} card={cards[i]!} small /> : <span key={i} className="inline-block h-10 w-7 rounded-sm border border-dashed border-line" />))}
+            <div className="flex flex-wrap items-end gap-4" aria-label={t('stats.board')}>
+              {([['flop', [0, 1, 2]], ['turn', [3]], ['river', [4]]] as const).map(([street, idx]) => (
+                <div key={street} className="flex flex-col gap-0.5">
+                  <span className="text-xs text-muted">{t(`table.log.${street}`)}</span>
+                  <div className="flex gap-1">
+                    {idx.map((i) => (cards[i] ? <CardView key={i} card={cards[i]!} small /> : <span key={i} className="inline-block h-10 w-7 rounded-sm border border-dashed border-line" />))}
+                  </div>
+                </div>
+              ))}
             </div>
           );
         })()}

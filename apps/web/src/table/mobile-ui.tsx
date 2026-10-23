@@ -3,7 +3,6 @@ import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
 import { Link } from '../router';
 import { CardView } from './CardView';
-import { InlineCards } from './mini-cards';
 import { formatAmount } from './format';
 import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
@@ -119,7 +118,7 @@ export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: Ta
         <ul className="flex flex-col gap-0.5 rounded-md bg-raised px-2 py-1 text-xs text-muted" aria-label={t('table.m.events')}>
           {log.map((l) => (
             <li key={l.key} className="truncate">
-              {l.text} {l.cards && <InlineCards list={l.cards} />}
+              {l.text}
             </li>
           ))}
         </ul>
