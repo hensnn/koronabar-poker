@@ -159,6 +159,7 @@ export function ShowdownPrefs() {
   const settings = useSettings();
   const rows: { key: string; label: string; title: string; options: [string, string][]; def: string }[] = [
     { key: 'ui.showdownWinning', label: t('table.plan.win'), title: t('table.plan.showWinning'), options: [['never', 'muck'], ['ask', 'ask'], ['always', 'show']], def: 'never' },
+    { key: 'ui.runItResponse', label: t('table.plan.runIt'), title: t('table.plan.showRunIt'), options: [['ask', 'ask'], ['never', 'never'], ['always', 'always']], def: 'ask' },
     { key: 'ui.showdownLosing', label: t('table.plan.lose'), title: t('table.plan.showLosing'), options: [['show', 'show'], ['ask', 'ask'], ['muck', 'muck']], def: 'show' },
   ];
   return (

@@ -74,6 +74,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const deal = useDealAnimation(view);
   const actionBubbles = useActionBubbles(view, inBb);
   const rotate = useSettings().values['ui.rotateToMe'] !== false;
+  const runItPref = String(useSettings().values['ui.runItResponse'] ?? 'ask');
   const winnerPref = String(useSettings().values['ui.showdownWinning'] ?? 'never');
   const mobile = useMobileLayout();
   usePlanExecutor(view, tableId);
@@ -90,6 +91,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
     window.addEventListener('kb:topup', open);
     return () => window.removeEventListener('kb:topup', open);
   }, []);
+
+  // Osobní odpověď na hlasování o run it twice (vždy / nikdy): pošle se sama, bez dotazu.
+  const vote = view?.vote;
+  const autoVote = vote?.kind === 'runit' && vote.status === 'open' && vote.canVote && (vote.myVote === null || vote.myVote === undefined) && runItPref !== 'ask';
+  useEffect(() => {
+    if (autoVote) void table.vote(tableId, runItPref === 'always');
+  }, [autoVote, runItPref, tableId]);
 
   // Nabídky přes stůl (ukázat karty, souhlas s run it twice): Enter nebo mezerník zvolí hlavní odpověď.
   const prompt = useRef<(() => void) | null>(null);
@@ -149,7 +157,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
     setError(r.ok ? '' : t(`error.${r.code}`, r.params));
     return r.ok;
   };
-  prompt.current = !mine || dialog ? null : view.showdownChoice ? () => void run(table.showdown(tableId, 'show')) : view.vote?.kind === 'runit' && view.vote.status === 'open' && view.vote.canVote && view.vote.myVote !== true ? () => void run(table.vote(tableId, true)) : null;
+  prompt.current = !mine || dialog ? null : view.showdownChoice ? () => void run(table.showdown(tableId, 'show')) : view.vote?.kind === 'runit' && runItPref === 'ask' && view.vote.status === 'open' && view.vote.canVote && view.vote.myVote !== true ? () => void run(table.vote(tableId, true)) : null;
 
   // Run it: pot leží nad řádky jednotlivých běhů, aby se s nimi a s mými kartami nepřekrýval.
   const multiRun = !!view.runs && view.runs.length >= 1;
@@ -292,7 +300,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
         </div>
         {/* Hlasování a rozhodnutí o ukázání karet leží přes stůl, aby byly vidět i na celé obrazovce a na telefonu. */}
         <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 p-2">
-      {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && (
+      {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && runItPref === 'ask' && (
         <div role="dialog" aria-label={t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })} className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
           <strong>{t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })}</strong>
           <p>{t('table.runIt.text', { times: String((view.vote.payload as { times: number }).times) })}</p>

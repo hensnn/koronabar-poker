@@ -161,6 +161,23 @@ describe('TableActor: průběh handy', () => {
     expect(m.actor.viewFor(null).handNumber).toBe(2);
   });
 
+  it('rabbit hunt: stůl zůstane aspoň nastavenou dobu a po vyžádání zbývá čas na prohlédnutí', () => {
+    const m = make({ 'special.rabbitHunt': true, 'time.rabbitHuntMs': 8000, 'time.betweenHandsMs': 1000, 'special.rabbitHuntWho': 'anyone' });
+    seatTwo(m);
+    startHand(m);
+    m.actor.act(acting(m)!, { type: 'fold' });
+    const left = () => m.actor.viewFor(null).nextHandAt! - m.clock.now();
+    expect(left()).toBe(8000);
+    m.clock.advance(7000);
+    m.actor.rabbitHunt('a');
+    expect(m.actor.viewFor('a').rabbit).not.toBeNull();
+    expect(left()).toBe(8000);
+    m.clock.advance(7999);
+    expect(m.actor.viewFor(null).handNumber).toBe(1);
+    m.clock.advance(2);
+    expect(m.actor.viewFor(null).handNumber).toBe(2);
+  });
+
   it('vypršení času: nejdřív time bank, pak automatický fold, po N vypršeních sit out', () => {
     const m = make({ 'time.turnSeconds': 10, 'time.timeBankSeconds': 20, 'time.timeoutsToSitOut': 2 });
     seatTwo(m);

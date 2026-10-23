@@ -730,6 +730,13 @@ export class TableActor {
   }
 
   /** `force`: po skončené handě se vždy provede předěl (zapsání výsledků do registru), i když se nebude hrát dál. */
+  /** Smí se po skončené handě ještě vyžádat rabbit hunt (zapnutý, board není celý)? */
+  private rabbitOpen(): boolean {
+    if (!this.opt.settings()['special.rabbitHunt'] || !this.hasHand()) return false;
+    const h = this.adapter.state();
+    return h.finished && h.board.length < 5;
+  }
+
   /** Skončila handa bez showdownu, u které smí hráč dobrovolně ukázat karty? */
   private showCardsOpen(): boolean {
     if (!this.opt.settings()['special.showCards'] || !this.hasHand()) return false;
@@ -737,7 +744,7 @@ export class TableActor {
     return h.finished && !wentToShowdown(h);
   }
 
-  private scheduleNextHand(force = false): void {
+  private scheduleNextHand(force = false, minDelayMs = 0): void {
     if (this.phase !== 'idle' && this.phase !== 'pause') return;
     if (this.inBoundary) {
       this.scheduleAfterBoundary = true;
@@ -755,6 +762,9 @@ export class TableActor {
     }
     let delay = this.scaled(num(this.opt.settings(), 'time.betweenHandsMs'));
     if (this.phase === 'pause' && this.showCardsOpen()) delay = Math.max(delay, this.scaled(num(this.opt.settings(), 'time.showCardsMs')));
+    // Rabbit hunt: po handě bez celého boardu zůstane čas, aby si hráči mohli stůl prohlédnout.
+    if (this.phase === 'pause' && this.rabbitOpen()) delay = Math.max(delay, this.scaled(num(this.opt.settings(), 'time.rabbitHuntMs')));
+    delay = Math.max(delay, this.scaled(minDelayMs));
     this.nextHandAt = this.opt.clock.now() + delay;
     const cancel = this.opt.clock.setTimeout(() => {
       this.pendingStart = null;
@@ -1140,8 +1150,9 @@ export class TableActor {
   private startRunItVote(h: HandState, s: SettingValues): void {
     this.pendingFinish = h;
     this.phase = 'runout';
-    this.reveal = { boardCards: this.revealedBoard, holeCards: true, winners: false };
-    this.computeOddsNow(h, this.revealedBoard);
+    // Hlasování proběhne dřív, než se otočí karty (ani šance na výhru se zatím neukazují): kdo hlasuje, neví, jak to dopadne.
+    this.reveal = { boardCards: this.revealedBoard, holeCards: false, winners: false };
+    this.oddsCache = null;
     const times = num(s, 'special.runItTimes');
     const vote = this.voting.propose({
       kind: 'runit',
@@ -1196,6 +1207,13 @@ export class TableActor {
       if (cards.length < 5 - h.board.length) throw new GameError('NOT_ALLOWED');
       this.rabbit = cards;
       this.opt.onEvent?.({ type: 'rabbit', cards });
+      // Od vyžádání zbývá aspoň nastavená doba na prohlédnutí; rozdání další handy se případně odloží.
+      const viewMs = this.scaled(num(s, 'time.rabbitHuntMs'));
+      if (this.nextHandAt !== null && this.nextHandAt - this.opt.clock.now() < viewMs) {
+        this.pendingStart?.();
+        this.pendingStart = null;
+        this.scheduleNextHand(true, num(s, 'time.rabbitHuntMs'));
+      }
       this.changed();
     });
   }

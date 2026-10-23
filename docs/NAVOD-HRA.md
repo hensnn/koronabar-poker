@@ -137,3 +137,9 @@ Zvuky hry u stolu (rozdání, žetony, tah, výhra, události turnaje) mají pě
 ## Potvrzení z klávesnice
 
 Když se u stolu objeví nabídka, kterou chceš přijmout (okno buy-inu a dokoupení žetonů, nabídka add-onu, „Ukázat karty?“, souhlas s run it twice), stačí **Enter** nebo **mezerník**: zvolí se hlavní (výrazné) tlačítko. **Esc** nabídku zavře. Neplatí to, když píšeš do pole, nebo když má fokus jiné tlačítko (to se řídí vlastním chováním). Rebuy, add-on a nový vstup do turnaje se potvrzují systémovým oknem prohlížeče, kde Enter potvrzuje také.
+
+## Run it twice a rabbit hunt
+
+- **Hlasování o run it twice** proběhne **před otočením karet**: nikdo ještě nevidí soupeřovy karty ani šance na výhru, takže hlasuje naslepo. Teprve po rozhodnutí se karty otočí a doloží se board.
+- **Moje odpověď na hlasování** si nastavíš v informacích o hře (widget O hře, volba **Run it**): *ask* (zeptat se), *never* (nikdy, odpověď „ne“ se pošle sama) nebo *always* (vždy souhlasit). Dotaz se pak vůbec neukáže.
+- **Rabbit hunt:** po handě bez celého boardu zůstane stůl aspoň **dobu na rabbit hunt** (nastavení stolu → časování, výchozí 8 s); po vyžádání zbývá na prohlédnutí aspoň tato doba, takže další handa nezačne dřív.

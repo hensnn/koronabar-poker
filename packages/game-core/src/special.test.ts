@@ -51,6 +51,9 @@ describe('run it twice/třikrát', () => {
       expect(v.vote).toMatchObject({ kind: 'runit', canVote: true, status: 'open' });
       expect(v.board).toHaveLength(0); // preflop all-in: nic z boardu se zatím neukázalo
       expect(v.winners).toBeNull();
+      // hlasuje se dřív, než se otočí karty: soupeřovy karty ani šance na výhru se zatím neukazují
+      expect(v.seats.find((q) => q.playerId === 'b')!.cards).toBeNull();
+      expect(v.odds).toBeNull();
       expect(m.actor.viewFor('b').vote!.myVote).toBeNull();
       m.actor.voteRunIt('a', true);
       m.actor.voteRunIt('b', true);

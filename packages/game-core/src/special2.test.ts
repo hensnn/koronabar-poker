@@ -108,7 +108,7 @@ describe('ukázání karet a rabbit hunt', () => {
     expect(new Set(cards).size).toBe(5);
     expect(m.actor.viewFor('b').rabbit).toEqual(cards);
     expect(() => m.actor.rabbitHunt(f)).toThrowError(expect.objectContaining({ code: 'NOT_ALLOWED' }));
-    m.clock.advance(4000);
+    m.clock.advance(9000);
     expect(m.actor.viewFor(null).rabbit).toBeNull();
     const off = make({ 'special.rabbitHunt': false });
     const f2 = foldOut(off);
