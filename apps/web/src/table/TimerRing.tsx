@@ -58,7 +58,7 @@ export function TimeStrip({ deadline, offset, bank, reserve }: { deadline: numbe
   return (
     <div className="flex items-center gap-2" aria-hidden>
       <div className="tk-timer-bar tk-timer-strip flex-1" data-bank={bank}>
-        <span style={{ ['--p' as string]: String(frac ?? 0) }} />
+        {frac !== null && <span style={{ ['--p' as string]: String(frac) }} />}
       </div>
       {reserve && <span className="font-mono text-xs text-muted">⏱ {reserve}</span>}
     </div>
