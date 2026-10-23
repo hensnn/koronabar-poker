@@ -50,6 +50,7 @@ export interface ViewContext {
   /** Nový hráč čekající na big blind se zobrazí jako „čeká“, ne jako sit out. */
   myStraddle?: boolean;
   returnStack?: number;
+  topUpRoom?: number;
   statusOverride?: Map<string, SeatView['status']>;
   /** Hráči v sit outu podle registru (příznak `sitOut` u sedadla). */
   sitOuts?: Set<string>;
@@ -97,6 +98,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       viewerSeat: (ctx.extraSeats ?? []).find((x) => x.playerId === ctx.viewerId)?.seat ?? null,
       myStraddle: ctx.myStraddle ?? false,
       returnStack: ctx.returnStack ?? 0,
+      topUpRoom: ctx.topUpRoom ?? 0,
       odds: null,
     };
   }
@@ -173,6 +175,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     viewerSeat: viewer?.seat ?? (ctx.extraSeats ?? []).find((x) => x.playerId === ctx.viewerId)?.seat ?? null,
     myStraddle: ctx.myStraddle ?? false,
     returnStack: ctx.returnStack ?? 0,
+    topUpRoom: ctx.topUpRoom ?? 0,
     odds: ctx.odds,
     myBest: myBestHand(viewer, h.board.slice(0, ctx.reveal.boardCards)),
   };

@@ -192,6 +192,8 @@ export interface TableView {
   myStraddle: boolean;
   /** Hráč, který nesedí, ale nedávno od stolu odešel s větším stackem: s kolika žetony se musí vrátit (ochrana „hit and run“), jinak 0. Smí přesáhnout maximální buy-in. */
   returnStack: number;
+  /** Hráč u stolu: kolik žetonů ještě může dokoupit (maximální buy-in minus stack a čekající žetony), jinak 0. */
+  topUpRoom: number;
   /** Šance na výhru (jen když to nastavení dovolí a nikdo už nemůže ovlivnit hru). */
   odds: { pot: number; amount: number; entries: { seat: number; win: number; tie: number }[] }[] | null;
   /** Nejlepší kombinace vlastních karet a odhaleného boardu (jen pro viewera, od flopu), jinak null. */

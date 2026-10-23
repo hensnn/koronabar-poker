@@ -449,6 +449,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       {dialog && (
         <AmountDialog
           title={dialog.kind === 'join' ? t('table.buyIn') : t('table.topUp')}
+          topUp={dialog.kind === 'topUp'}
           error={error}
           view={view}
           balance={me?.balance ?? 0}
@@ -613,14 +614,15 @@ function Seat({
   );
 }
 
-function AmountDialog({ title, view, balance, error, onCancel, onOk }: { title: string; view: TableView; balance: number; /** Chyba z posledního pokusu (např. ochrana hit and run): ukáže se přímo v dialogu. */ error?: string; onCancel: () => void; onOk: (currency: number) => void }) {
+function AmountDialog({ title, topUp, view, balance, error, onCancel, onOk }: { title: string; /** Dokoupení: nejvýš do maximálního buy-inu (počítá se se současným stackem). */ topUp?: boolean; view: TableView; balance: number; /** Chyba z posledního pokusu (např. ochrana hit and run): ukáže se přímo v dialogu. */ error?: string; onCancel: () => void; onOk: (currency: number) => void }) {
   const info = view.info;
   const rate = info.chipsPerCurrencyUnit;
   // Kdo nedávno odešel s větším stackem než je maximum, se smí vrátit se stejným stackem (nad maximální buy-in).
   const back = Math.ceil((view.returnStack ?? 0) / rate);
-  const min = Math.max(Math.ceil(info.minBuyIn / rate), back);
-  const max = Math.min(Math.max(Math.floor(info.maxBuyIn / rate), back), balance);
-  const [v, setV] = useState(Math.min(max, Math.max(min, Math.floor((min + max) / 2))));
+  const min = topUp ? 1 : Math.max(Math.ceil(info.minBuyIn / rate), back);
+  const max = topUp ? Math.min(Math.floor((view.topUpRoom ?? 0) / rate), balance) : Math.min(Math.max(Math.floor(info.maxBuyIn / rate), back), balance);
+  const [v, setV] = useState(topUp ? Math.max(min, max) : Math.min(max, Math.max(min, Math.floor((min + max) / 2))));
+  const none = max < min;
   return (
     <Modal title={title} onClose={onCancel}>
       {back > 0 && <p className="rounded-md border border-warning px-2 py-1 text-sm">{t('table.returnHint', { amount: tableMoney(back, info) })}</p>}
@@ -634,13 +636,14 @@ function AmountDialog({ title, view, balance, error, onCancel, onOk }: { title: 
         <input aria-label={t('table.amount')} type="range" className="flex-1" min={min} max={Math.max(min, max)} value={v} onChange={(e) => setV(Number(e.target.value))} />
         <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono" min={min} max={max} value={v} onChange={(e) => setV(Number(e.target.value))} />
       </div>
+      {none && <p className="rounded-md border border-warning px-2 py-1 text-sm">{t(topUp ? 'table.topUpFull' : 'table.buyInNone')}</p>}
       {error && (
         <p role="alert" className="rounded-md border-2 border-danger px-2 py-1 text-sm text-danger">
           {error}
         </p>
       )}
       <div className="flex gap-2">
-        <button className={btnPrimary} onClick={() => onOk(v)}>
+        <button className={btnPrimary} disabled={none} onClick={() => onOk(v)}>
           {t('table.confirm')}
         </button>
         <button className={btn} onClick={onCancel}>

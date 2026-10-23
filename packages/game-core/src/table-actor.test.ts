@@ -81,6 +81,16 @@ describe('TableActor: peníze u stolu', () => {
     expect(m.ledger.balance(accounts.table('t1'))).toBe(1000);
   });
 
+  it('view říká, kolik jde dokoupit: maximum minus stack (klient podle toho nabídne částku)', () => {
+    const m = make({ 'cash.maxBuyInBb': 100 });
+    m.fund('a');
+    m.actor.join('a', 'A', 0, 900);
+    expect(m.actor.viewFor('a').topUpRoom).toBe(100);
+    m.actor.topUp('a', 100);
+    expect(m.actor.viewFor('a').topUpRoom).toBe(0);
+    expect(m.actor.viewFor('b').topUpRoom).toBe(0);
+  });
+
   it('hit and run: kdo odešel s větším stackem, než je maximální buy-in, se smí vrátit se stejným stackem', () => {
     const m = make({ 'cash.hitAndRunProtection': true, 'cash.hitAndRunMinutes': 30, 'cash.maxBuyInBb': 100 });
     m.fund('a');

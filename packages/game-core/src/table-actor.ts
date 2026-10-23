@@ -487,6 +487,10 @@ export class TableActor {
       },
       myStraddle: userId ? (this.seats.get(userId)?.wantsStraddle ?? false) : false,
       returnStack: userId && !this.seats.has(userId) && !this.opt.tournament ? this.hitAndRunFloor(userId, s) : 0,
+      topUpRoom: (() => {
+        const e = userId ? this.seats.get(userId) : undefined;
+        return e && !this.opt.tournament ? Math.max(0, num(s, 'cash.maxBuyInBb') * num(s, 'table.bigBlind') - this.currentChips(e) - e.pendingChips) : 0;
+      })(),
       viewerId: userId,
       deadline: this.deadline,
       bankActive: this.bankActive,

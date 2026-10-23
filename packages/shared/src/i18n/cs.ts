@@ -958,6 +958,8 @@ export const cs: Record<string, string> = {
   'table.widget.actions': 'Akce',
   'table.widget.tools': 'Akce u stolu',
   'table.widget.reveal': 'Ukázat karty',
+  'table.topUpFull': 'Dokoupit nejde: se současným stackem už jsi na maximálním buy-inu stolu (nebo ti nezbývá nic v peněžence).',
+  'table.buyInNone': 'Sednout si nejde: v peněžence nemáš dost na minimální buy-in tohoto stolu.',
   'table.returnHint': 'Nedávno jsi od stolu odešel s větším stackem: vracíš se minimálně se stejným stackem ({amount}), i když přesahuje maximální buy-in.',
   'fx.rebuy': 'REBUY',
   'fx.addon': 'ADD-ON',
