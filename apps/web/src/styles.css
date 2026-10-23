@@ -1140,8 +1140,10 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 [data-mobile-modern] .tk-mbar-btn { min-width: 2.75rem; min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; }
 [data-mobile-modern] .tk-tp-main { overflow: hidden; }
 [data-mobile-modern] .tk-screen { flex: 1; min-height: 0; }
-/* Stůl vyplní výšku okna nad akční lištou (tvar oválu se přizpůsobí telefonu), místo aby nechával prázdno pod sebou. */
-[data-mobile-modern]:not([data-landscape]) .tk-table { aspect-ratio: auto; width: 100%; height: clamp(14rem, calc(100dvh - 15.5rem), 40rem); }
+/* Stůl má stejný tvar jako dosud (osobní tvar oválu ui.mobileTableAspect) a přes celou šířku; stavový řádek a tlačítka jsou přitisknuté ke spodnímu okraji, kam dosáhne palec. */
+[data-mobile-modern]:not([data-landscape]) .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 15rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
+[data-mobile-modern]:not([data-landscape]) .tk-screen > .tk-side-col, [data-mobile-modern]:not([data-landscape]) .tk-screen { min-height: 0; }
+[data-mobile-modern]:not([data-landscape]) .tk-turn-row { margin-top: auto; }
 /* Mimo můj tah se ukazují jen plánované tahy, velké a dobře trefitelné; posuvník sázky je schovaný, dokud nejsem na tahu. */
 [data-mobile-modern] .tk-actionbar[data-turn='wait'] .tk-slider-row { display: none; }
 [data-mobile-modern] .tk-planbar { width: 100%; flex-wrap: nowrap; gap: calc(var(--spacing) * 1.5); }
