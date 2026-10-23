@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@pokertools/engine': 722aaa0c67e0e8ee49b1c2e0f912a01ea32c18f929e3dbda9ace4679997e7628
+  '@pokertools/engine': e27805f666fce50a15fdc762620ab3272e04829e12435212b142f2e21d2a766f
 
 importers:
 
@@ -159,7 +159,7 @@ importers:
         version: link:../shared
       '@pokertools/engine':
         specifier: ^2.1.0
-        version: 2.1.0(patch_hash=722aaa0c67e0e8ee49b1c2e0f912a01ea32c18f929e3dbda9ace4679997e7628)(@pokertools/evaluator@2.1.0)(@pokertools/types@2.1.0)
+        version: 2.1.0(patch_hash=e27805f666fce50a15fdc762620ab3272e04829e12435212b142f2e21d2a766f)(@pokertools/evaluator@2.1.0)(@pokertools/types@2.1.0)
       '@pokertools/evaluator':
         specifier: ^2.1.0
         version: 2.1.0
@@ -3532,7 +3532,7 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
-  '@pokertools/engine@2.1.0(patch_hash=722aaa0c67e0e8ee49b1c2e0f912a01ea32c18f929e3dbda9ace4679997e7628)(@pokertools/evaluator@2.1.0)(@pokertools/types@2.1.0)':
+  '@pokertools/engine@2.1.0(patch_hash=e27805f666fce50a15fdc762620ab3272e04829e12435212b142f2e21d2a766f)(@pokertools/evaluator@2.1.0)(@pokertools/types@2.1.0)':
     dependencies:
       '@pokertools/evaluator': 2.1.0
       '@pokertools/types': 2.1.0

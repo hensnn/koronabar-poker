@@ -1,5 +1,5 @@
 diff --git a/dist/actions/dealing.js b/dist/actions/dealing.js
-index f088081b6c4e647e5574e1e4c6d3c64ae12d42c3..aee33b02991e61927b658af26c41e8246943711a 100644
+index f088081b6c4e647e5574e1e4c6d3c64ae12d42c3..5a93efbbf993adc53eef9ab8b8e2b7ca922390a1 100644
 --- a/dist/actions/dealing.js
 +++ b/dist/actions/dealing.js
 @@ -225,6 +225,47 @@ function handleDeal(state, action) {
@@ -70,11 +70,42 @@ index f088081b6c4e647e5574e1e4c6d3c64ae12d42c3..aee33b02991e61927b658af26c41e824
      return {
          ...newState,
          actionTo: firstToAct,
+@@ -289,6 +330,18 @@ function moveButton(state) {
+         }
+         return 0;
+     }
++    // KoronaBar patch: živý button (config.liveButton) se posouvá na dalšího hráče, který dostane karty (žádná prázdná pozice).
++    if (state.config.liveButton) {
++        const isTournament = !!state.config.blindStructure;
++        let seat = (0, positioning_1.getNextSeat)(state.buttonSeat, state.maxPlayers);
++        for (let i = 0; i < state.maxPlayers; i++) {
++            const p = state.players[seat];
++            if (p && p.stack + (p.pendingAddOn || 0) > 0 && p.status !== types_1.PlayerStatus.RESERVED && (isTournament || !p.isSittingOut || p.sitInOption === 'WAIT_FOR_BB')) {
++                return seat;
++            }
++            seat = (0, positioning_1.getNextSeat)(seat, state.maxPlayers);
++        }
++    }
+     // Dead Button: advance to next seat index regardless of occupancy.
+     return (0, positioning_1.getNextSeat)(state.buttonSeat, state.maxPlayers);
+ }
 diff --git a/dist/rules/blinds.js b/dist/rules/blinds.js
-index 28d55e39e0a5929d93c9230f44d7f7e083f89a45..c3c36022b5fbc5b0333a98bcb6a52a6bf1795cbf 100644
+index 28d55e39e0a5929d93c9230f44d7f7e083f89a45..22b2efe9ef50598565233d2b7a6655a9dac4efda 100644
 --- a/dist/rules/blinds.js
 +++ b/dist/rules/blinds.js
-@@ -60,7 +60,8 @@ function getNextActiveOrOccupiedSeat(currentSeat, players, maxPlayers, isTournam
+@@ -36,7 +36,10 @@ function getBlindPositions(state) {
+     }
+     // Normal Play (Dead Button / Dead Small Blind Logic)
+     // 1. SB is ALWAYS the immediate next seat, even if empty
+-    const sbSeat = (0, positioning_1.getNextSeat)(buttonSeat, state.maxPlayers);
++    // KoronaBar patch: s živým buttonem (config.liveButton) je SB další hráč po buttonu, ne prázdná pozice.
++    const sbSeat = state.config.liveButton
++        ? (getNextActiveOrOccupiedSeat(buttonSeat, state.players, state.maxPlayers, isTournament) ?? (0, positioning_1.getNextSeat)(buttonSeat, state.maxPlayers))
++        : (0, positioning_1.getNextSeat)(buttonSeat, state.maxPlayers);
+     // 2. BB is the next ACTIVE player after the SB position
+     // In cash games, skip sitting-out players
+     // In tournaments, include sitting-out players (they must post blinds)
+@@ -60,7 +63,8 @@ function getNextActiveOrOccupiedSeat(currentSeat, players, maxPlayers, isTournam
          if (player !== null && player.stack > 0) {
              // In tournaments, include sitting-out players (they must blind off)
              // In cash games, skip sitting-out players

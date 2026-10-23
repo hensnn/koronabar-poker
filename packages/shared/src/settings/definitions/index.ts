@@ -57,6 +57,7 @@ const table: SettingDef[] = [
   int('table.smallBlind', { category: 'table', appliesTo: 'cash', mutability: H, unit: 'currency' }, 5, 1, 1_000_000_000),
   int('table.bigBlind', { category: 'table', appliesTo: 'cash', mutability: H, unit: 'currency' }, 10, 1, 1_000_000_000),
   int('table.ante', { category: 'table', appliesTo: 'cash', mutability: H, unit: 'currency' }, 0, 0, 1_000_000_000),
+  bool('table.deadButton', { category: 'table', mutability: H, retroDefault: false }, false),
   bool('table.bbAnte', { category: 'table', appliesTo: 'cash', mutability: H, retroDefault: false }, false),
   bool('table.straddleEnabled', { category: 'table', appliesTo: 'cash', mutability: H, retroDefault: false }, false),
   choice(

@@ -850,6 +850,7 @@ export class TableActor {
     const regulars = [...this.seats.values()].filter((e) => e.mode === 'in' && e.chips > 0 && !e.fresh).length;
     if (regulars < 2) for (const e of this.seats.values()) e.fresh = false;
     // Big blind ante řeší modul jako mrtvé peníze, engine proto dostává ante 0.
+    this.adapter.setDeadButton(!!s['table.deadButton']);
     this.adapter.setBlinds(num(s, 'table.smallBlind'), num(s, 'table.bigBlind'), s['table.bbAnte'] ? 0 : num(s, 'table.ante'));
     this.adapter.setLimit(String(s['table.bettingLimit']) as 'noLimit' | 'potLimit' | 'fixedLimit', num(s, 'table.limitMaxBets'));
     const ctx = this.moduleCtx();

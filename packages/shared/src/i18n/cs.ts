@@ -205,6 +205,8 @@ export const cs: Record<string, string> = {
   'settings.table.bigBlind.help': 'Výše velkého blindu. Od ní se odvíjejí buy-iny a minimální sázka.',
   'settings.table.ante.label': 'Ante',
   'settings.table.ante.help': 'Povinná sázka od každého hráče před rozdáním. 0 = bez ante. U big blind ante je to částka, kterou za celý stůl platí hráč na big blindu (0 = velikost big blindu).',
+  'settings.table.deadButton.label': 'Mrtvý button (pravidlo kasin)',
+  'settings.table.deadButton.help': 'Vypnuto (výchozí): button se posouvá na dalšího hráče u stolu a blindy platí vždy dva hráči hned za ním, prázdná místa se nepoužijí. Zapnuto: kasinové pravidlo mrtvého buttonu: button se posouvá o jedno sedadlo i přes prázdné, malý blind může zůstat nezaplacený a velký blind může platit tentýž hráč víckrát za sebou. Změna platí od další handy.',
   'settings.table.bbAnte.label': 'Big blind ante',
   'settings.table.bbAnte.help': 'Místo ante od každého hráče platí celé ante jen hráč na big blindu. Peníze jdou do potu a získá je vítěz hlavního potu.',
   'settings.table.straddleEnabled.label': 'Straddle',

@@ -55,6 +55,8 @@ export interface PokerEngineAdapter {
   /** Zbývající karty balíčku (jen server; pro šance na výhru a run it twice). */
   remainingDeck(): Card[];
   setBlinds(smallBlind: number, bigBlind: number, ante: number): void;
+  /** Pozice: živý button (výchozí) se posouvá na dalšího hráče, mrtvý button (kasino) o sedadlo i přes prázdné. */
+  setDeadButton(dead: boolean): void;
   /** Sázkový limit: no-limit (výchozí), pot-limit nebo fixed-limit s nejvýš `maxBets` sázkami na kolo. */
   setLimit(mode: 'noLimit' | 'potLimit' | 'fixedLimit', maxBets: number): void;
   snapshot(): unknown;
@@ -307,6 +309,11 @@ export class PokertoolsAdapter implements PokerEngineAdapter {
       minRaiseTo: minTo,
       maxRaiseTo: maxTo,
     };
+  }
+
+  setDeadButton(dead: boolean): void {
+    // Příznak čte upravený engine (patches/@pokertools__engine.patch) při posunu buttonu a určení blindů.
+    (this.raw.config as { liveButton?: boolean }).liveButton = !dead;
   }
 
   setBlinds(smallBlind: number, bigBlind: number, ante: number): void {
