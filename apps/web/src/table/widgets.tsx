@@ -146,9 +146,10 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
         )
       ),
     },
+    // Na telefonu je kombinace i zvukové emotikony pod stolem (podle zaškrtávátek v kartě „O hře“); v informacích by byly dvakrát.
     best: {
       title: t('table.widget.best'),
-      show: !!mine,
+      show: !!mine && !(mobile && settings.values['ui.mobileBest'] !== false),
       body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
     // Na telefonu mají poslední události vlastní řádek pod stolem (zapíná se v kartě „O hře“), v informacích by byly dvakrát.
@@ -178,7 +179,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       ),
     },
     chat: { title: t('table.chat'), show: !!chat && features.chat, body: chat?.body ?? null, badge: chat?.unread, actions: chat?.actions },
-    sounds: { title: t('table.widget.sounds'), show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
+    sounds: { title: t('table.widget.sounds'), show: !!mine && !(mobile && settings.values['ui.mobileSounds'] === true), body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
     // „O hře“ obsahuje i všechny akce hráče (stůl je vykresluje portálem do tohoto místa): malá tlačítka, aktivní barevná, neaktivní šedá.
     info: {
       title: t('table.info.title'),
