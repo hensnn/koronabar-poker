@@ -181,6 +181,14 @@ describe('webhooky', { timeout: 60_000 }, () => {
     expect(msg).toBeDefined();
     expect(msg).toContain('skončil');
     expect(msg).toContain(`http://localhost/vecery/${id}`);
+
+    // uzavřít, znovu otevřít a znovu uzavřít: souhrn odejde podruhé
+    const before = calls.length;
+    await c.server.evenings.reopen(c.admin, id);
+    await c.server.evenings.close(c.admin, id);
+    await c.server.integrations.idle();
+    expect(calls.length).toBe(before + 1);
+    expect(JSON.parse(calls[calls.length - 1]!.body).content).toContain('Páteční večer');
   });
 
   it('Discord: zpráva je přeložený text bez pingů, posílá se jen vybraným událostem a jen s adresou', async () => {
