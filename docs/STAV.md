@@ -505,3 +505,6 @@ Aplikace je nasazená v LXC kontejneru v Proxmoxu instalačním skriptem, běž�
 
 ## Audit (říjen 2026)
 Typy, lint, 1089 testů, produkční sestavení a simulace cash i turnajů prošly; vizuální průchod stránek našel a opravil kolizi tříd hustoty zobrazení a drobné chyby rozložení. Podrobnosti a seznam známých nedostatků jsou v `docs/AUDIT.md`.
+
+## Návod pro asistenta
+Návod v aplikaci má nové kapitoly Telefon a Na co se u stolu čeká, aktualizované kapitoly o menu, panelech a nastavení a klíčová slova kapitol. Model asistenta dostal nástroj `search_guide` (hledání v návodu), jednoduché otázky se dál zodpovídají z návodu bez AI.

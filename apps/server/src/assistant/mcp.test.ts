@@ -61,6 +61,17 @@ describe('MCP server', { timeout: 90_000 }, () => {
     expect((await c.rpc(tok, 'tools/list')).status).toBe(503);
   });
 
+  it('nástroj search_guide vrátí odstavce z návodu (telefon, čekání u stolu) a nic nezmění', async () => {
+    const c = await start();
+    const tok = await c.token(c.admin);
+    const r = await c.call(tok, 'search_guide', { query: 'jak vypnu vibrace na telefonu' });
+    expect(r.isError).toBe(false);
+    expect(r.data.ok).toBe(true);
+    expect(JSON.stringify(r.data.results)).toMatch(/vibrace/i);
+    const w = await c.call(tok, 'search_guide', { query: 'pauza ředitelem' });
+    expect(JSON.stringify(w.data.results)).toMatch(/Pozastaveno ředitelem/);
+  });
+
   it('hráč bez oprávnění k MCP token s rozsahem mcp nevytvoří', async () => {
     const c = await start();
     const inv = await c.server.accounts.createInvite(c.admin, {});

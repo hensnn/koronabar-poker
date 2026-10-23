@@ -197,6 +197,8 @@ Dokumentace (OpenAPI) je na `/api/v1/openapi.json`. Počet volání za minutu a 
 ## AI asistent nastavení a MCP server
 
 ### Asistent v aplikaci
+Asistent zná návod aplikace (Nastavení → Návod): jednoduché otázky na vysvětlení zodpoví přímo z něj bez AI a model má nástroj `search_guide`, kterým v návodu hledá. Když přibude funkce, doplň ji do návodu (`packages/shared/src/i18n/cs-guide.ts`), aby o ní asistent věděl.
+
 Asistent umí převést běžnou řeč na změny nastavení („zrychli blindy o polovinu“, „vypni zvukové emotikony u tohoto stolu“), založit nebo naplánovat turnaj, navrhnout anketu a vysvětlit, co který parametr dělá. **Nikdy nic nemění sám:** vždy ukáže přehled „před → po“ s vyznačením, kdy změna začne platit (hned, od další handy), a ty ji potvrdíš, upravíš, nebo zamítneš. Změnu provede stejná logika jako ruční změna, tedy s tvými oprávněními, pravidly „kdy lze měnit“ a zápisem do audit logu (se značkou „asistent“ a původním textem požadavku). Karty hráčů, balíček a soukromé zprávy asistent nikdy nedostane.
 
 Zapnutí krok za krokem:

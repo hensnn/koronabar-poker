@@ -104,6 +104,7 @@ const changes: JsonSchema = {
 };
 
 export const ASSISTANT_TOOLS: ToolDef[] = [
+  { name: 'search_guide', kind: 'read', permission: null, parameters: { type: 'object', properties: { query: { type: 'string', description: 'assistant.schema.query' } }, required: ['query'] } },
   { name: 'search_settings', kind: 'read', permission: null, parameters: { type: 'object', properties: { query: { type: 'string', description: 'assistant.schema.query' } }, required: ['query'] } },
   { name: 'get_settings', kind: 'read', permission: null, parameters: { type: 'object', properties: { target, keys: { type: 'array', items: { type: 'string' }, description: 'assistant.schema.keys' } }, required: ['target'] } },
   { name: 'explain_setting', kind: 'read', permission: null, parameters: { type: 'object', properties: { key: { type: 'string', description: 'assistant.schema.key' } }, required: ['key'] } },

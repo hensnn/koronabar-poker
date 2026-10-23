@@ -1,5 +1,12 @@
 # Krátký návod: jak herna funguje a jak nastavit turnaj
 
+<!-- Pro asistenta a pro údržbu: tento dokument je podrobný návod pro majitele. Hráči a asistent čtou stručnější návod přímo v aplikaci
+     (Nastavení → Návod; texty jsou v packages/shared/src/i18n/cs-guide.ts, kapitoly v packages/shared/src/guide.ts).
+     Asistent ho používá dvěma způsoby: (1) jednoduchou otázku zodpoví z návodu bez AI (answerFromGuide), (2) model má nástroj
+     search_guide, který vrací odstavce k otázce (searchGuide, včetně klíčových slov kapitoly guide.s.<kapitola>.keys).
+     Když přibude funkce, doplň odstavec do cs-guide.ts (a počet odstavců do GUIDE_SECTIONS), případně klíčová slova kapitoly,
+     a uprav tento dokument. Kapitoly: start, cash, tournament, table, special, panels, mobile, wait, comm, social, settings, admin. -->
+
 Pro majitele a organizátory. Nic tady není peníze: hraje se o **virtuální měnu (KČ)**, která nemá peněžní hodnotu, nejde koupit ani vybrat. Všechno nastavení je v GUI, do kódu se nesahá.
 
 ## 1. Základní logika

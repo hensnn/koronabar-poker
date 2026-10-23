@@ -19,6 +19,7 @@ import {
   validateValues,
   type AiProviderId,
   answerFromGuide,
+  searchGuide,
   type AssistantContext,
   type PermissionChecker,
   type ProposalAction,
@@ -426,6 +427,8 @@ export class AssistantService {
     if (def.permission && !this.can(env.userId, def.permission)) return JSON.stringify({ ok: false, error: t('assistant.denied.permission') });
     try {
       switch (name) {
+        case 'search_guide':
+          return JSON.stringify({ ok: true, results: searchGuide(String(args.query ?? '')).map((r) => ({ chapter: r.chapter, text: r.paragraphs[0] })) });
         case 'search_settings':
           return JSON.stringify(this.searchSettings(String(args.query ?? '')));
         case 'explain_setting':

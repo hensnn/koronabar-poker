@@ -19,3 +19,14 @@ describe('odpověď z návodu bez AI', () => {
     expect(foldText('Sázka Čeněk')).toBe('sazka cenek');
   });
 });
+
+describe('hledání v návodu pro asistenta', () => {
+  it('najde odstavce o telefonu, čekání u stolu a nastavení panelů, i podle klíčových slov kapitoly', async () => {
+    const { searchGuide } = await import('./guide.js');
+    expect(searchGuide('jak vypnu vibrace na telefonu')[0]?.paragraphs[0]).toMatch(/vibrace/i);
+    expect(searchGuide('proč se nehraje, pauza ředitelem').map((r) => r.paragraphs[0]).join(' ')).toMatch(/Pozastaveno ředitelem/);
+    expect(searchGuide('kde najdu sit out na mobilu').map((r) => r.paragraphs[0]).join(' ')).toMatch(/sit out/i);
+    expect(searchGuide('')).toEqual([]);
+    expect(searchGuide('xyzzyplugh')).toEqual([]);
+  });
+});
