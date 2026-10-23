@@ -81,6 +81,15 @@ U stolu je pod stolem vždy řádek, který říká, na co se čeká, a kde to j
 
 Všechna tato hlášení si každý hráč vypne nebo zapne v **Nastavení → Osobní nastavení → Vzhled a ovládání**: *U stolu ukazovat, na co se čeká*, *Čekání turnaje v řádku s názvem*, *Oznámení nad stolem (bonus, bomb pot, jackpot)* a *Oznámit vypršení času hráče*. Správce může nastavit výchozí hodnoty pro všechny (Správa → Výchozí osobní nastavení).
 
+## 4c. Stůl na telefonu
+
+Na telefonu (úzký displej, nebo telefon na šířku) je stůl samostatná obrazovka bez rolování:
+- **nahoře lišta:** ← zpět, blindy (u turnaje 🏆) a tři ikony: 💬 chat (s počtem nepřečtených), ℹ️ informace o hře (panely z počítače: Můj stůl, Moje kombinace, Hráči, O hře…) a ☰ nabídka stolu (nástroje, sit out, dokoupit, odejít, dohoda, zvuky);
+- **uprostřed stůl**, který vyplní výšku displeje;
+- **dole velká tlačítka:** když nejsi na tahu, **plánované tahy** (Fold, Check/Fold, Check, Call, Straddle); když jsi na tahu, tlačítka akcí a posuvník sázky.
+
+Na počítači se nic nemění. Starší rozložení (vše pod stolem) zůstává jako **Klasický vzhled**: přepíná se v nabídce stolu (🔀) nebo v Osobním nastavení (Vzhled stolu na telefonu). Osobní nastavení lze mít zvlášť pro telefon a počítač.
+
 ## 5. Po testování: vynulování
 
 **Správa → Údržba** (jen hlavní správce). Zaškrtni, co se má smazat všem hráčům: zavřít stoly a zrušit turnaje (žetony se vrátí), XP a úrovně, úspěchy, rating, statistiky a historie hand, peněženky na startovní zůstatek. Potvrzuje se slovem VYNULOVAT a je to nevratné (zápis v audit logu). Doporučený postup po zkušebním provozu: 1) zavřít hry, 2) vynulovat XP, úspěchy, rating a statistiky, 3) peněženky na startovní zůstatek. Zvlášť je **Nový start účetní knihy**: smaže historii všech transakcí a každému připíše počáteční zůstatek (jde jen bez otevřených stolů a běžících turnajů). Jednotlivému hráči vynuluješ XP, úspěchy a rating ve **Správa → Uživatelé** tlačítkem *Vynulovat XP a rating*. Rating navíc umí „měkký reset sezóny“ a přepočet z historie ve Statistiky → Rating (pro běžné sezóny bez mazání).

@@ -40,6 +40,8 @@ interface Props {
   quickPre: string;
   /** Doplňková tlačítka pod akční lištou (zvuky, ankety…). */
   extra?: React.ReactNode;
+  /** Nové mobilní rozložení: bez pravého sloupce a bez pruhu s akcemi pod stolem (jsou v zásuvkách). */
+  modern?: boolean;
 }
 
 const btn = 'rounded-md border border-line bg-surface px-3 py-1';
@@ -59,7 +61,7 @@ function betPosition(seat: number, viewerSeat: number | null, count: number, mob
   return { left: 50 + (p.left - 50) * fx, top: 50 + (p.top - 50) * fy };
 }
 
-export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props) {
+export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern = false }: Props) {
   const net = useNet();
   const logoTextToken = useThemeToken('table.logoText');
   const logoImageToken = useThemeToken('image.logo');
@@ -417,14 +419,14 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra }: Props
           ) : null
         }
       />
-      {actionsInline && (mine || extra) && (
+      {actionsInline && !modern && (mine || extra) && (
         <div className="rounded-md border border-line bg-surface p-2">
           <div ref={setToolsSlot} />
         </div>
       )}
 
       {/* Pravý panel: widgety o hře (přizpůsobitelné); vypnutý panel se nevykreslí. */}
-      {!layout.hiddenSides.includes('right') && <RightColumn />}
+      {!modern && !layout.hiddenSides.includes('right') && <RightColumn />}
       </div>
 
       {/* Chyby jsou vidět i při otevřeném dialogu: v dialogu přímo, jinak jako plovoucí lišta nad vším. */}

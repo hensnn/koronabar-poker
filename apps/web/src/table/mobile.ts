@@ -29,19 +29,22 @@ export function useMobileLayout(): boolean {
  * Zapne `data-mobile` (a na šířku `data-landscape`) na <html>, dokud je stránka stolu v mobilním rozložení;
  * CSS schová nabídku a vše napasuje do okna. Tvar oválu na výšku řídí osobní volba `ui.mobileTableAspect` (v %).
  */
-export function useMobileAttribute(active: boolean): void {
+export function useMobileAttribute(active: boolean, modern = false): void {
   const landscape = useLandscapePhone();
   const aspect = Number(useSettings().values['ui.mobileTableAspect'] ?? 115);
   useEffect(() => {
     const root = document.documentElement;
     if (active) root.setAttribute('data-mobile', '1');
     else root.removeAttribute('data-mobile');
+    if (active && modern) root.setAttribute('data-mobile-modern', '1');
+    else root.removeAttribute('data-mobile-modern');
     if (active && landscape) root.setAttribute('data-landscape', '1');
     else root.removeAttribute('data-landscape');
     root.style.setProperty('--tk-mobile-aspect', String(Math.max(1, aspect) / 100));
     return () => {
       root.removeAttribute('data-mobile');
+      root.removeAttribute('data-mobile-modern');
       root.removeAttribute('data-landscape');
     };
-  }, [active, landscape, aspect]);
+  }, [active, modern, landscape, aspect]);
 }

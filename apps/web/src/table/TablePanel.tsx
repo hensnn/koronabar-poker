@@ -137,9 +137,9 @@ export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí 
   const plan = usePlan();
   const opts: Plan[] = ['fold', 'checkFold', 'check', 'call'];
   return (
-    <div className="flex flex-wrap items-center gap-1" role="group" aria-label={t('table.widget.plan')} title={t('table.plan.help')}>
+    <div className="tk-planbar flex flex-wrap items-center gap-1" role="group" aria-label={t('table.widget.plan')} title={t('table.plan.help')}>
       {opts.map((p) => (
-        <button key={p} className={`rounded-md border px-1.5 py-0.5 text-xs ${plan === p ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface'}`} aria-pressed={plan === p} onClick={() => setPlan(plan === p ? null : p, view.handId)}>
+        <button key={p} className={`tk-plan-btn rounded-md border px-1.5 py-0.5 text-xs ${plan === p ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface'}`} aria-pressed={plan === p} onClick={() => setPlan(plan === p ? null : p, view.handId)}>
           {t(`table.plan.${p}`)}
         </button>
       ))}

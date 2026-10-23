@@ -16,6 +16,7 @@ import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
+import { MobileBar, ToolsSlot } from '../table/mobile-ui';
 import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
@@ -54,14 +55,15 @@ export function TablePage({ tableId }: { tableId: string }) {
   const net = useNet();
   const features = useFeatures();
   const [showSettlement, setShowSettlement] = useState(false);
-  const [drawer, setDrawer] = useState<'chat' | 'panel' | null>(null);
+  const [drawer, setDrawer] = useState<'chat' | 'panel' | 'info' | 'menu' | null>(null);
   const [focus, setFocus] = useState(false);
   const [history, setHistory] = useState(false);
   const hiddenSides = useHiddenSides();
   const [more, setMore] = useState(false);
   const moreRef = useKeepInView<HTMLDivElement>(more);
   const mobile = useMobileLayout();
-  useMobileAttribute(mobile);
+  const modern = mobile && String(settings.values['ui.mobileStyle'] ?? 'modern') !== 'classic';
+  useMobileAttribute(mobile, modern);
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true, chipLabel: settings.values['ui.showChipLabelAtTable'] !== false });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
   useEffect(() => {
@@ -185,6 +187,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         {canPause && view && tool(view.paused ? '▶' : '⏸', view.paused ? t('table.resume') : t('table.pause'), () => void togglePause(), { pressed: !!view.paused })}
         {tool(mobile ? '🖥️' : '📱', mobile ? t('table.mobileOff') : t('table.mobileOn'), () => void saveUserSetting('ui.mobileLayout', mobile ? 'off' : 'on', true).catch(() => undefined))}
         {!mobile && <TableSizeButton iconOnly={iconOnly} />}
+        {mobile && tool('🔀', modern ? t('table.m.toClassic') : t('table.m.toModern'), () => void saveUserSetting('ui.mobileStyle', modern ? 'classic' : 'modern', true).catch(() => undefined))}
         <PanelSettingsButton iconOnly={iconOnly} />
         {tool('📜', t('table.history'), () => setHistory(true))}
         {tool(focus ? '⤡' : '⛶', focus ? t('table.fullscreenExit') : t('table.fullscreen'), () => setFocus((v) => !v), { pressed: focus })}
@@ -226,6 +229,17 @@ export function TablePage({ tableId }: { tableId: string }) {
       </Resizable>
       )}
       <div className="tk-tp-main flex flex-col gap-2">
+        {modern ? (
+          <MobileBar
+            backTo={isTournament ? `/turnaj/${tournamentId}` : '/stoly'}
+            title={`${isTournament ? '🏆 ' : ''}${tableInfo ? `${tableInfo.smallBlind}/${tableInfo.bigBlind}` : ''}`}
+            unread={channel?.unread ?? 0}
+            hasChat={!!channel}
+            onChat={() => setDrawer('chat')}
+            onInfo={() => setDrawer('info')}
+            onMenu={() => setDrawer('menu')}
+          />
+        ) : (
         <div className="flex flex-wrap items-center gap-2">
           <Link to={isTournament ? `/turnaj/${tournamentId}` : '/stoly'} className="underline">
             {isTournament ? t('tournament.backToTournament') : t('table.backToLobby')}
@@ -251,6 +265,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <SoundMenu />
           </span>
         </div>
+        )}
         <ErrorToast message={toolError} onClose={() => setToolError('')} />
         {features.polls && <TablePolls tableId={tableId} alsoIds={tournamentId !== tableId ? [tournamentId] : []} />}
         {pollOpen && (
@@ -270,6 +285,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           inBb={inBb}
           quickPost={String(settings.values['ui.quickBetsPostflop'])}
           quickPre={String(settings.values['ui.quickBetsPreflop'])}
+          modern={modern}
           extra={
             seated ? (
               <span className="tk-tp-mobile">
@@ -280,12 +296,28 @@ export function TablePage({ tableId }: { tableId: string }) {
         />
       </div>
       {drawer && (
-        <div className="tk-drawer" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : t('table.panel')}>
+        <div className="tk-drawer" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : drawer === 'info' ? t('table.m.info') : drawer === 'menu' ? t('table.m.menu') : t('table.panel')}>
           <div className="tk-drawer-head">
-            <strong>{drawer === 'chat' ? t('table.chat') : t('table.panel')}</strong>
+            <strong>{drawer === 'chat' ? t('table.chat') : drawer === 'info' ? t('table.m.info') : drawer === 'menu' ? t('table.m.menu') : t('table.panel')}</strong>
             <Button onClick={() => setDrawer(null)}>{t('table.close')}</Button>
           </div>
-          <div className="tk-drawer-body flex flex-col gap-2">{drawer === 'chat' ? channel && <ChatPanel channel={channel} compact fill /> : <Panel side="left" hide={['chat']} />}</div>
+          <div className="tk-drawer-body flex flex-col gap-2">
+            {drawer === 'chat' ? (
+              channel && <ChatPanel channel={channel} compact fill />
+            ) : drawer === 'info' ? (
+              <>
+                <Panel side="left" hide={['chat']} />
+                <Panel side="right" />
+              </>
+            ) : drawer === 'menu' ? (
+              <>
+                <div className="flex flex-wrap gap-2">{renderTools(false)}</div>
+                <ToolsSlot />
+              </>
+            ) : (
+              <Panel side="left" hide={['chat']} />
+            )}
+          </div>
         </div>
       )}
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}

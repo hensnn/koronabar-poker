@@ -89,8 +89,8 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
   }, [sliderOn, info.bigBlind, min, max]);
 
   return (
-    <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" role="group" aria-label={t('table.actions')} title={hotkeys ? t('table.hotkeysHint', { fold: keys.fold.toUpperCase(), call: keys.call.toUpperCase(), bet: keys.bet.toUpperCase(), raise: keys.raise.toUpperCase(), allIn: keys.allIn.toUpperCase() }) : undefined}>
-      <div ref={sliderRow} className={`flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`} title={sliderOn ? t('table.wheelHint') : undefined}>
+    <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" data-turn={legal ? 'mine' : 'wait'} role="group" aria-label={t('table.actions')} title={hotkeys ? t('table.hotkeysHint', { fold: keys.fold.toUpperCase(), call: keys.call.toUpperCase(), bet: keys.bet.toUpperCase(), raise: keys.raise.toUpperCase(), allIn: keys.allIn.toUpperCase() }) : undefined}>
+      <div ref={sliderRow} className={`tk-slider-row flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`} title={sliderOn ? t('table.wheelHint') : undefined}>
         {quick.map((q) => (
           <button key={q.label} className="rounded-md border border-line bg-raised px-2 py-1 text-sm" disabled={!sliderOn} onClick={() => setAmount(q.value)}>
             {q.label}
