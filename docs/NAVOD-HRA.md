@@ -85,11 +85,13 @@ Všechna tato hlášení si každý hráč vypne nebo zapne v **Nastavení → O
 ## 4c. Stůl na telefonu
 
 Na telefonu (úzký displej, nebo telefon na šířku) je stůl samostatná obrazovka bez rolování:
-- **nahoře lišta:** ← zpět, blindy (u turnaje 🏆) a tři ikony: 💬 chat (s počtem nepřečtených), ℹ️ informace o hře (panely z počítače: Můj stůl, Moje kombinace, Hráči, O hře…) a ☰ nabídka stolu (nástroje, sit out, dokoupit, odejít, dohoda, zvuky);
-- **uprostřed stůl**, který vyplní výšku displeje;
-- **dole velká tlačítka:** když nejsi na tahu, **plánované tahy** (Fold, Check/Fold, Check, Call, Straddle); když jsi na tahu, tlačítka akcí a posuvník sázky.
+- **nahoře lišta** jen s ikonami: ← zpět, blindy (u turnaje 🏆), 📜 historie, ⏸/▶ pauza (kdo ji smí), 💬 chat (s počtem nepřečtených), ℹ️ informace o stole a ☰ nabídka stolu;
+- **ℹ️ Informace o stole:** **Sit out** a volba, co s kartami po výhře a prohře (Win/Lose), pak Můj stůl, Moje ruka a kombinace, Hráči a O hře;
+- **☰ Nabídka stolu:** sdílet v chatu, vyúčtování, anketa, přepnutí rozložení, celá obrazovka a herní akce (dokoupit žetony, odejít od stolu, zavolat čas, dohoda, rebuy);
+- **uprostřed stůl** přes celou šířku;
+- **pod stolem pevná výška s tlačítky:** když nejsi na tahu, **plánované tahy** (Fold, Check/Fold, Check, Call, Straddle); když jsi na tahu, tlačítka akcí a posuvník sázky. Dokud jsi v sit outu, je tam velké tlačítko **Vrátit se do hry**.
 
-Na počítači se nic nemění. Starší rozložení (vše pod stolem) zůstává jako **Klasický vzhled**: přepíná se v nabídce stolu (🔀) nebo v Osobním nastavení (Vzhled stolu na telefonu). Osobní nastavení lze mít zvlášť pro telefon a počítač.
+Panely se na telefonu nepoužívají, proto tam není ani nastavení panelů. Starší rozložení (vše pod stolem) zůstává jako **Klasický vzhled**: přepíná se v nabídce stolu (🔀) nebo v Osobním nastavení (Vzhled stolu na telefonu). Na počítači se nic nemění.
 
 ## 5. Po testování: vynulování
 

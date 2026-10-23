@@ -29,6 +29,9 @@ interface Ctx {
   /** Místo, do kterého stůl vykresluje akce hráče (v widgetu „O hře“, nebo v pruhu pod stolem, když panel s „O hře“ není vidět). */
   setToolsSlot: (el: HTMLElement | null) => void;
   toolsSlot: HTMLElement | null;
+  /** Mobilní zásuvka s informacemi o stole: místo pro sit out a volbu karet po handě. */
+  setInfoSlot: (el: HTMLElement | null) => void;
+  infoSlot: HTMLElement | null;
   /** Akce se ukazují v pruhu pod stolem (telefon, vypnutý panel nebo skrytý widget „O hře“). */
   actionsInline: boolean;
   view: TableView | undefined;
@@ -58,6 +61,7 @@ function useLayoutState(): [Layout, (next: Layout) => void] {
 export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { view: TableView | undefined; tableId: string; inBb: boolean; chat?: { body: ReactNode; unread: number; actions: ReactNode }; children: ReactNode }) {
   const [layout, setLayout] = useLayoutState();
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
+  const [infoSlot, setInfoSlot] = useState<HTMLElement | null>(null);
   const mobile = useMobileLayout();
   // „O hře“ (a v něm akce) je vidět jen když není skrytý ani jeho panel; jinak se akce ukážou pod stolem.
   const infoSide = layout.right.includes('info') ? 'right' : 'left';
@@ -170,10 +174,10 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   };
 
   const value = useMemo<Ctx>(
-    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, actionsInline, view, tour }),
+    () => ({ layout, setLayout, defs, setToolsSlot, toolsSlot, setInfoSlot, infoSlot, actionsInline, view, tour }),
     // defs se staví při každém vykreslení; kontext se tedy obnovuje s ním
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, setLayout, defs, toolsSlot, actionsInline, view, tour],
+    [layout, setLayout, defs, toolsSlot, infoSlot, actionsInline, view, tour],
   );
   void WIDGET_IDS;
   return (

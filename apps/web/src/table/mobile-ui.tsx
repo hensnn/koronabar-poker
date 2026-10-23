@@ -14,6 +14,9 @@ export function MobileBar({
   onChat,
   onInfo,
   onMenu,
+  onHistory,
+  onPause,
+  paused,
 }: {
   backTo: string;
   title: string;
@@ -22,6 +25,10 @@ export function MobileBar({
   onChat: () => void;
   onInfo: () => void;
   onMenu: () => void;
+  onHistory: () => void;
+  /** Pauza stolu (jen kdo smí); undefined = tlačítko se nezobrazí. */
+  onPause?: () => void;
+  paused?: boolean;
 }) {
   const btn = 'tk-mbar-btn relative rounded-md border border-line bg-surface';
   return (
@@ -30,6 +37,14 @@ export function MobileBar({
         ←
       </Link>
       <strong className="min-w-0 flex-1 truncate px-1 text-sm">{title}</strong>
+      <button className={btn} onClick={onHistory} aria-label={t('table.history')} title={t('table.history')}>
+        📜
+      </button>
+      {onPause && (
+        <button className={btn} onClick={onPause} aria-pressed={!!paused} aria-label={paused ? t('table.resume') : t('table.pause')} title={paused ? t('table.resume') : t('table.pause')}>
+          {paused ? '▶' : '⏸'}
+        </button>
+      )}
       {hasChat && (
         <button className={btn} onClick={onChat} aria-label={t('table.chatOpen')} title={t('table.chatOpen')}>
           💬
@@ -50,4 +65,10 @@ export function MobileBar({
 export function ToolsSlot() {
   const { setToolsSlot } = useTableWidgets();
   return <div ref={setToolsSlot} className="flex flex-col gap-2" />;
+}
+
+/** Místo v zásuvce s informacemi o stole, kam se vykreslí sit out a volba, co s kartami po handě. */
+export function InfoSlot() {
+  const { setInfoSlot } = useTableWidgets();
+  return <div ref={setInfoSlot} className="flex flex-col gap-2" />;
 }

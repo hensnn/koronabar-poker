@@ -364,14 +364,19 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       )}
       </div>
 
-      {mine && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} onStraddle={(want) => void run(table.straddle(tableId, want))} />}
+      {modern && mine && (mine.sitOut ?? mine.status === 'sittingOut') && (
+        <button className="tk-sitin rounded-lg border-2 border-primary bg-primary text-on-primary font-bold" onClick={() => void run(table.sitIn(tableId))}>
+          ▶ {t('table.sitIn')}
+        </button>
+      )}
+      {mine && !(modern && (mine.sitOut ?? mine.status === 'sittingOut')) && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} onStraddle={(want) => void run(table.straddle(tableId, want))} />}
 
       {/* Akce hráče: malá tlačítka v widgetu „O hře“; když ten není vidět (telefon, vypnutý panel), v pruhu pod stolem. */}
       <ActionsPortal
         node={
           mine || extra ? (
             <div className="flex flex-col gap-1.5">
-              {mine && (
+              {!modern && mine && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <label className="flex items-center gap-1 text-xs" title={t('table.sitOutHelp')}>
                     <input type="checkbox" role="switch" aria-label={t('table.sitOutToggle')} checked={mine.sitOut ?? mine.status === 'sittingOut'} onChange={(e) => void run(e.target.checked ? table.sitOut(tableId) : table.sitIn(tableId))} />
@@ -406,6 +411,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           ) : null
         }
       />
+      {modern && mine && <InfoPortal node={<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <label className="flex items-center gap-1 text-xs" title={t('table.sitOutHelp')}>
+                    <input type="checkbox" role="switch" aria-label={t('table.sitOutToggle')} checked={mine.sitOut ?? mine.status === 'sittingOut'} onChange={(e) => void run(e.target.checked ? table.sitOut(tableId) : table.sitIn(tableId))} />
+                    <span className={(mine.sitOut ?? mine.status === 'sittingOut') ? 'font-semibold text-warning' : ''}>{t('table.sittingOut')}</span>
+                  </label>
+                  <ShowdownPrefs />
+                </div>} />}
       {actionsInline && !modern && (mine || extra) && (
         <div className="rounded-md border border-line bg-surface p-2">
           <div ref={setToolsSlot} />
@@ -622,6 +634,12 @@ function AmountDialog({ title, view, balance, error, onCancel, onOk }: { title: 
       </div>
     </Modal>
   );
+}
+
+/** Sit out a volba karet po handě se v mobilním rozložení vykreslí do zásuvky s informacemi o stole. */
+function InfoPortal({ node }: { node: ReactNode }) {
+  const { infoSlot } = useTableWidgets();
+  return infoSlot ? createPortal(node, infoSlot) : null;
 }
 
 /** Akce hráče se vykreslí do místa, kde je právě slot (widget „O hře“, nebo pruh pod stolem). */
