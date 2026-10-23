@@ -84,6 +84,30 @@ describe('time bank: režimy', () => {
     expect(m.bank(q).timeBank).toBe(45); // 60 - 25 + 10
   });
 
+  it('Fischer: strop rezervy nikdy nezkrátí čas, který hráč už měl (jen omezí přírůstek)', () => {
+    const m = make({ 'time.bankMode': 'fischer', 'time.timeBankSeconds': 100, 'time.incrementSeconds': 10, 'time.bankMaxSeconds': 50 });
+    const p = m.acting()!;
+    m.clock.advance(2_000);
+    m.actor.act(p, { type: 'call' });
+    expect(m.bank(p).timeBank).toBe(98); // 100 - 2, přírůstek by přes strop 50 nic nepřidal
+  });
+
+  it('šachové hodiny: čas na rozdání karet (time.dealMs) se hráči z hodin neodečítá', () => {
+    const m = make({ 'time.bankMode': 'chess', 'time.timeBankSeconds': 100, 'time.dealMs': 0 });
+    // nová handa s dealMs = 3 s: první hráč má o 3 s delší tah a hodiny mu tuto dobu neběží
+    m.settings['time.dealMs'] = 3000;
+    const first = m.acting()!;
+    m.actor.act(first, { type: 'fold' });
+    for (let i = 0; i < 100 && m.actor.viewFor(null).handNumber < 2; i++) m.clock.advance(50);
+    expect(m.actor.viewFor(null).handNumber).toBe(2);
+    const p = m.acting()!;
+    const before = m.bank(p).timeBank;
+    expect(m.actor.viewFor(null).deadline! - m.clock.now()).toBeGreaterThanOrEqual(before * 1000 + 2900);
+    m.clock.advance(2_000);
+    m.actor.act(p, { type: 'call' });
+    expect(m.bank(p).timeBank).toBe(before);
+  });
+
   it('shot clock (bez rezervy): po vypršení limitu tahu hned fold', () => {
     const m = make({ 'time.bankMode': 'none', 'time.turnSeconds': 8, 'time.timeBankSeconds': 100 });
     const p = m.acting()!;

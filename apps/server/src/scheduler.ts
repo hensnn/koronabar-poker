@@ -56,6 +56,8 @@ export class Scheduler {
   private timer: (() => void) | null = null;
   private running = false;
   private busy: Promise<void> | null = null;
+  /** Turnaje bez plánu, které pojistka pozastavila (aby ruční pauzu nerušila). */
+  private localAutoPaused = new Set<string>();
 
   constructor(private deps: SchedulerDeps) {}
 
@@ -150,6 +152,21 @@ export class Scheduler {
         this.deps.onError?.(e);
       }
     }
+    // Pojistka „automatická pauza“ platí i pro ručně založené (neplánované) turnaje.
+    const planned = new Set(this.deps.tournaments.scheduled().map((x) => x.id));
+    for (const r of this.deps.tournaments.list()) {
+      if (planned.has(r.id)) continue;
+      try {
+        if (this.deps.tournaments.get(r.id)?.state().status === 'running') {
+          await this.watchPause(r.id, this.localAutoPaused.has(r.id), async (v) => {
+            if (v) this.localAutoPaused.add(r.id);
+            else this.localAutoPaused.delete(r.id);
+          });
+        } else this.localAutoPaused.delete(r.id);
+      } catch (e) {
+        this.deps.onError?.(e);
+      }
+    }
   }
 
   /** Z opakovaných plánů vytvoří turnaje na nejbližší dny dopředu (každý výskyt jen jednou, i po zrušení). */
@@ -203,7 +220,7 @@ export class Scheduler {
       return;
     }
 
-    if (status === 'running') await this.watchPause(id, sched, s);
+    if (status === 'running') await this.watchPause(id, sched.autoPaused, (v) => this.deps.tournaments.patchSched(id, { autoPaused: v }));
   }
 
   /** V čase startu: dost hráčů = start; jinak podle nastavení zrušit, odložit, nebo začít s menším počtem. */
@@ -239,9 +256,12 @@ export class Scheduler {
   }
 
   /** Pojistka bez admina: málo připojených hráčů = pauza, po návratu pokračování (jen když pauzu způsobila pojistka). */
-  private async watchPause(id: string, sched: SchedMeta, s: Record<string, unknown>): Promise<void> {
+  private async watchPause(id: string, autoPaused: boolean, mark: (v: boolean) => Promise<void>): Promise<void> {
+    const s = this.deps.tournaments.settingsOf(id);
+    if (!s) return;
     const threshold = Number(s['tournament.autoPauseBelow']);
-    if (threshold <= 0) return;
+    // Živá hra nemá online stoly, takže „připojení hráči“ nedávají smysl.
+    if (threshold <= 0 || s['tournament.live']) return;
     const tour = this.deps.tournaments.get(id)!;
     const st = tour.state();
     const alive = st.players.filter((p) => p.status === 'playing').length;
@@ -249,10 +269,10 @@ export class Scheduler {
     const connected = this.deps.tournaments.connectedPlayers(id);
     if (!st.paused && connected < need) {
       this.deps.tournaments.pauseSystem(id, false);
-      await this.deps.tournaments.patchSched(id, { autoPaused: true });
-    } else if (st.paused && sched.autoPaused && connected >= need) {
+      await mark(true);
+    } else if (st.paused && autoPaused && connected >= need) {
       this.deps.tournaments.pauseSystem(id, true);
-      await this.deps.tournaments.patchSched(id, { autoPaused: false });
+      await mark(false);
     }
   }
 }

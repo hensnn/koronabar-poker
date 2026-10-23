@@ -45,7 +45,7 @@ export function changeLimits(current: Limits, pending: PendingLimits, requested:
   const delayed: LimitField[] = [];
   for (const f of Object.keys(requested) as LimitField[]) {
     const v = requested[f]!;
-    if (isLooser(current[f], v)) {
+    if (isLooser(current[f], v) && delayMs > 0) {
       // Znovu zadané uvolnění nezkracuje už běžící čekání.
       if (wait[f]?.value === v) continue;
       wait[f] = { value: v, at: now + delayMs };

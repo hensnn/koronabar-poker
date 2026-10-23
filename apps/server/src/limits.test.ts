@@ -252,3 +252,17 @@ describe('poznámky a štítky o hráčích', { timeout: 60_000 }, () => {
     expect((await s.server.notes.list(a)).notes).toEqual([]);
   });
 });
+
+describe('limit záporného zůstatku', { timeout: 90_000 }, () => {
+  it('změna v nastavení platí hned, bez restartu serveru', async () => {
+    const s = await start();
+    const p = await s.user();
+    const spend = (key: string, amount: number) =>
+      s.server.ledger.post({ kind: 'manual_adjustment', idempotencyKey: key, entries: [{ account: `wallet:${p}`, amount: -amount }, { account: 'mint', amount }] } as never);
+    expect(() => spend('neg-1', 10_500)).toThrow();
+    await s.server.settings.set(s.admin, 'global', '', 'economy.negativeBalanceLimit', 1000);
+    spend('neg-2', 10_500);
+    expect(s.server.ledger.balance(`wallet:${p}`)).toBe(-500);
+    expect(() => spend('neg-3', 600)).toThrow();
+  });
+});

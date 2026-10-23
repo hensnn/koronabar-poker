@@ -175,6 +175,11 @@ export class TableActor {
     if (opt.restore) {
       for (const e of opt.restore.seats) this.seats.set(e.userId, { ...e, fresh: false, wantsStraddle: e.wantsStraddle ?? false, connected: false, timeouts: 0 });
       this.recentLeaves = [...opt.restore.recentLeaves];
+      // Hráči v sit outu po restartu serveru: limit „maximální sit out“ se počítá dál od jejich odchodu.
+      for (const e of this.seats.values()) if (e.mode === 'out') {
+        e.outSince ??= opt.clock.now();
+        this.scheduleMaxSitOut(e);
+      }
       queueMicrotask(() => this.scheduleNextHand());
     }
   }
@@ -200,7 +205,7 @@ export class TableActor {
       const cap = Math.max(max, Math.ceil(floor / rate) * rate);
       if (chips > cap) throw new GameError('BUYIN_TOO_LARGE', undefined, { max: cap });
       this.checkHitAndRun(userId, chips, s);
-      const got = this.opt.cash.buyIn(userId, this.opt.tableId, currencyAmount, `buyin:${this.opt.tableId}:${userId}:${randomUUID()}`);
+      const got = this.opt.cash.buyIn(userId, this.opt.tableId, currencyAmount, `buyin:${this.opt.tableId}:${userId}:${randomUUID()}`, 'cash_buyin', rate);
       this.seats.set(userId, {
         seat: seatNo,
         userId,
@@ -234,7 +239,7 @@ export class TableActor {
       const max = num(s, 'cash.maxBuyInBb') * num(s, 'table.bigBlind');
       const add = currencyAmount * this.rate();
       if (this.currentChips(e) + e.pendingChips + add > max) throw new GameError('BUYIN_TOO_LARGE', undefined, { max });
-      this.opt.cash.buyIn(userId, this.opt.tableId, currencyAmount, `topup:${this.opt.tableId}:${userId}:${randomUUID()}`, 'cash_topup');
+      this.opt.cash.buyIn(userId, this.opt.tableId, currencyAmount, `topup:${this.opt.tableId}:${userId}:${randomUUID()}`, 'cash_topup', this.rate());
       e.pendingChips += add;
       this.opt.onEvent?.({ type: 'seat', userId, seat: e.seat, change: 'topUp', chips: add });
       if (this.phase === 'idle' || this.phase === 'pause') {
@@ -479,7 +484,7 @@ export class TableActor {
         timeBankMode: String(s['time.bankMode']),
         showCards: !!s['special.showCards'],
         rabbitHunt: !!s['special.rabbitHunt'],
-        ante: num(s, 'table.ante') * this.rate(),
+        ante: num(s, 'table.ante') || (s['table.bbAnte'] ? bb : 0),
         bbAnte: !!s['table.bbAnte'],
         oddsDecimals: num(s, 'odds.decimals'),
         oddsStyle: String(s['odds.style']) as 'number' | 'bar' | 'both',
@@ -487,7 +492,7 @@ export class TableActor {
         bombPotEvery: s['special.bombPot'] ? num(s, 'special.bombPotEveryHands') : 0,
         sevenTwoBb: s['special.sevenTwoBonus'] ? num(s, 'special.sevenTwoAmountBb') : 0,
         ...(!this.opt.tournament && s['rake.enabled'] && num(s, 'rake.percent') > 0 ? { rake: { percent: num(s, 'rake.percent'), capChips: num(s, 'rake.cap') * this.rate(), noFlopNoDrop: !!s['rake.noFlopNoDrop'] } } : {}),
-        ...(!this.opt.tournament && (s['jackpot.royalFlushEnabled'] || s['jackpot.badBeatEnabled']) ? { jackpot: this.opt.cash.fundBalance(String(s['rake.jackpotFundId'] || 'jackpot')) } : {}),
+        ...(!this.opt.tournament && (s['jackpot.royalFlushEnabled'] || s['jackpot.badBeatEnabled'] || s['jackpot.highHandEnabled']) ? { jackpot: this.opt.cash.fundBalance(String(s['rake.jackpotFundId'] || 'jackpot')) } : {}),
       },
       myStraddle: userId ? (this.seats.get(userId)?.wantsStraddle ?? false) : false,
       returnStack: userId && !this.seats.has(userId) && !this.opt.tournament ? this.hitAndRunFloor(userId, s) : 0,
@@ -1028,7 +1033,8 @@ export class TableActor {
       const wait = (e.connected ? reserve : Math.min(reserve, grace)) + dealGrace;
       const now = this.opt.clock.now();
       this.bankActive = true;
-      this.bankStartedAt = now;
+      // Čas na rozdání/odhalení karet (dealGrace) se hráči z hodin neodečítá.
+      this.bankStartedAt = now + dealGrace;
       this.deadline = now + wait;
       this.changed();
       this.turnTimer = this.opt.clock.setTimeout(() => this.onBankExpired(userId), wait);
@@ -1125,14 +1131,16 @@ export class TableActor {
     const mode = this.bankMode();
     if (mode === 'chips') return;
     const s = this.opt.settings();
-    const used = Math.ceil((this.opt.clock.now() - this.bankStartedAt) / 1000);
-    let next = Math.max(0, e.timeBank - used);
+    const used = Math.max(0, Math.ceil((this.opt.clock.now() - this.bankStartedAt) / 1000));
+    const left = Math.max(0, e.timeBank - used);
+    let next = left;
     const inc = num(s, 'time.incrementSeconds');
     // Fischer přičte pevný přírůstek po každém tahu, Bronstein vrátí nejvýš tolik, kolik hráč spotřeboval.
     if (mode === 'fischer') next += inc;
     else if (mode === 'bronstein') next += Math.min(used, inc);
     const cap = num(s, 'time.bankMaxSeconds');
-    if (cap > 0 && (mode === 'fischer' || mode === 'bronstein')) next = Math.min(next, cap);
+    // Strop omezuje jen přírůstek: rezerva, kterou hráč měl, se kvůli stropu nikdy nezkrátí.
+    if (cap > 0 && (mode === 'fischer' || mode === 'bronstein')) next = Math.max(left, Math.min(next, cap));
     e.timeBank = next;
   }
 
@@ -1144,7 +1152,7 @@ export class TableActor {
     const cap = num(s, 'time.bankMaxSeconds');
     for (const e of this.seats.values()) {
       if (this.bankMode() === 'chips') e.timeChips = Math.min(num(s, 'time.timeChips'), (e.timeChips ?? 0) + 1);
-      else if (this.bankMode() !== 'none') e.timeBank = cap > 0 ? Math.min(cap, e.timeBank + num(s, 'time.bankRefillSeconds')) : e.timeBank + num(s, 'time.bankRefillSeconds');
+      else if (this.bankMode() !== 'none') e.timeBank = cap > 0 ? Math.max(e.timeBank, Math.min(cap, e.timeBank + num(s, 'time.bankRefillSeconds'))) : e.timeBank + num(s, 'time.bankRefillSeconds');
     }
   }
 
@@ -1733,7 +1741,7 @@ export class TableActor {
       this.persist();
       return;
     }
-    this.opt.cash.cashOut(e.userId, this.opt.tableId, chips, `cashout:${this.opt.tableId}:${e.userId}:${randomUUID()}`, kind);
+    this.opt.cash.cashOut(e.userId, this.opt.tableId, chips, `cashout:${this.opt.tableId}:${e.userId}:${randomUUID()}`, kind, this.rate());
     this.recentLeaves.push({ userId: e.userId, chips, at: this.opt.clock.now() });
     if (this.recentLeaves.length > 200) this.recentLeaves.shift();
     this.seats.delete(e.userId);
@@ -1757,8 +1765,8 @@ export class TableActor {
 
   private scheduleMaxSitOut(e: SeatEntry): void {
     if (this.opt.tournament) return;
-    const ms = num(this.opt.settings(), 'cash.maxSitOutMinutes') * 60_000;
     const since = e.outSince;
+    const ms = Math.max(0, (since ?? this.opt.clock.now()) + num(this.opt.settings(), 'cash.maxSitOutMinutes') * 60_000 - this.opt.clock.now());
     this.later(ms, () => {
       const cur = this.seats.get(e.userId);
       if (!cur || cur.mode !== 'out' || cur.outSince !== since) return;

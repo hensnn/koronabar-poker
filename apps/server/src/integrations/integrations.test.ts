@@ -139,6 +139,21 @@ describe('webhooky', { timeout: 60_000 }, () => {
     expect(calls).toHaveLength(2);
   });
 
+  it('vypnuté odchozí webhooky neposílají na adresy, Discord ale dál jde; log starší než nastavený počet dní se uklidí', async () => {
+    const { f, calls } = fakeFetch();
+    const c = await start({ 'integrations.webhooksEnabled': false, 'integrations.discordEnabled': true, 'integrations.logDays': 2 }, { fetch: f });
+    await c.server.integrations.createEndpoint(c.admin, { name: 'Vypnuty', url: 'https://example.cz/x' });
+    await c.server.secrets.set(c.admin, 'discord.webhookUrl', 'https://discord.example/api/webhooks/1/abc');
+    c.server.integrations.emit('tournament.finished', { name: 'T', winner: 'A', players: 3 });
+    await c.server.integrations.idle();
+    expect(calls.map((x) => x.url)).toEqual(['https://discord.example/api/webhooks/1/abc']);
+    expect(await c.server.db.select().from(schema.webhookDeliveries)).toHaveLength(1);
+    await c.server.db.update(schema.webhookDeliveries).set({ createdAt: new Date(0) });
+    c.clock.advance(3 * 86_400_000);
+    await c.server.integrations.tick();
+    expect(await c.server.db.select().from(schema.webhookDeliveries)).toHaveLength(0);
+  });
+
   it('správa jen s oprávněním, adresa musí být http(s), neplatné události se odmítnou', async () => {
     const c = await start();
     const u = await c.user();

@@ -869,6 +869,12 @@ export function createDefaultRegistry(): SettingsRegistry {
       check: (v) => (v['table.ante'] as number) <= (v['table.bigBlind'] as number),
       messageKey: 'rule.anteAboveBigBlind',
     },
+    {
+      id: 'transferRange',
+      keys: ['economy.transferMin', 'economy.transferMax'],
+      check: (v) => (v['economy.transferMin'] as number) <= (v['economy.transferMax'] as number),
+      messageKey: 'rule.transferMinAboveMax',
+    },
   );
   return reg;
 }

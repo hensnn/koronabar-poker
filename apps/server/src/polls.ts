@@ -156,7 +156,8 @@ export class PollService {
     if (description.length > 1000) throw new PollError('INVALID', { field: 'description' });
 
     const open = (await this.deps.db.select({ id: schema.polls.id }).from(schema.polls).where(and(eq(schema.polls.founderId, userId), inArray(schema.polls.status, ['open', 'tie'])))).length;
-    if (open >= num(s, 'poll.maxOpenPerUser')) throw new PollError('LIMIT', { max: num(s, 'poll.maxOpenPerUser') });
+    // Ankety, které zakládá server sám (pauza, handa večera), se do limitu zakladatele nepočítají.
+    if (!opts.trusted && open >= num(s, 'poll.maxOpenPerUser')) throw new PollError('LIMIT', { max: num(s, 'poll.maxOpenPerUser') });
 
     const options: PollOption[] = (input.config.options ?? []).map((o, i) => ({ id: o.id?.trim() || `o${i + 1}`, label: (o.label ?? '').trim(), ...(o.emoji ? { emoji: o.emoji.slice(0, 8) } : {}), ...(o.image ? { image: o.image.slice(0, 300) } : {}), ...(typeof o.at === 'number' ? { at: o.at } : {}), ...(o.value ? { value: o.value.slice(0, 200) } : {}) }));
     const config: PollConfig = {
@@ -182,7 +183,7 @@ export class PollService {
       action = v.action;
     }
     const minutes = Math.round(input.durationMinutes ?? num(s, 'poll.defaultDurationMinutes'));
-    if (!Number.isFinite(minutes) || minutes < (opts.trusted ? 1 : num(s, 'poll.minDurationMinutes')) || minutes > num(s, 'poll.maxDurationDays') * 1440) throw new PollError('INVALID', { field: 'duration' });
+    if (!Number.isFinite(minutes) || minutes < (opts.trusted ? 1 : num(s, 'poll.minDurationMinutes')) || (!opts.trusted && minutes > num(s, 'poll.maxDurationDays') * 1440)) throw new PollError('INVALID', { field: 'duration' });
     const eligibility = input.eligibility ?? (String(s['poll.defaultEligibility']) as 'fixed' | 'live');
     const results = input.results ?? (String(s['poll.defaultResults']) as 'always' | 'afterVote' | 'afterClose');
     const target = input.target ?? { kind: 'global' };
@@ -666,7 +667,7 @@ export class PollService {
         const voted = new Set((await this.votesOf(poll)).map((v) => v.userId));
         const todo = eligible.map((v) => v.userId).filter((u) => !voted.has(u)).slice(0, num(this.s, 'poll.maxNotified'));
         if (this.s['poll.notify']) for (const u of todo) await this.deps.notify(u, 'pollReminder', { name: poll.title }, `/ankety/${poll.id}`);
-        if (this.s['poll.pushNotify']) await this.deps.push(todo, t('notice.pollReminder.event'), t('notice.pollReminder.text', { name: poll.title }), `/ankety/${poll.id}`, `poll-${poll.id}`);
+        if (this.s['poll.notify'] && this.s['poll.pushNotify']) await this.deps.push(todo, t('notice.pollReminder.event'), t('notice.pollReminder.text', { name: poll.title }), `/ankety/${poll.id}`, `poll-${poll.id}`);
       }
     }
   }

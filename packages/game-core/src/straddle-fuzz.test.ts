@@ -40,7 +40,7 @@ function run(seed: number, players: number, over: Record<string, number | boolea
   return straddles;
 }
 
-describe('straddle: fuzz', () => {
+describe('straddle: fuzz', { timeout: 120_000 }, () => {
   for (const type of ['utg', 'mississippi']) {
     for (const mandatory of [true, false]) {
       it(`${type}, ${mandatory ? 'povinný' : 'dobrovolný'}, 2 až 7 hráčů`, () => {

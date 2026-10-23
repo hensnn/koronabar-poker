@@ -121,8 +121,13 @@ export class ChatService {
   /** Hlavní společný kanál (vytvoří se při prvním startu). */
   async ensureMainChannel(): Promise<string> {
     const [c] = await this.deps.db.select().from(schema.chatChannels).where(eq(schema.chatChannels.key, 'hospoda'));
-    if (c) return c.id;
-    const [row] = await this.deps.db.insert(schema.chatChannels).values({ key: 'hospoda', name: String(this.s['chat.mainChannelName']), kind: 'public' }).returning({ id: schema.chatChannels.id });
+    const name = String(this.s['chat.mainChannelName'] ?? '').trim() || 'Hospoda';
+    if (c) {
+      // Název v nastavení se projeví i u již existujícího kanálu.
+      if (c.name !== name) await this.deps.db.update(schema.chatChannels).set({ name }).where(eq(schema.chatChannels.id, c.id));
+      return c.id;
+    }
+    const [row] = await this.deps.db.insert(schema.chatChannels).values({ key: 'hospoda', name, kind: 'public' }).returning({ id: schema.chatChannels.id });
     return row!.id;
   }
 
@@ -188,6 +193,7 @@ export class ChatService {
 
   async listChannels(userId: string): Promise<ChannelDto[]> {
     if (!this.s['chat.enabled']) return [];
+    await this.ensureMainChannel();
     const all = await this.deps.db.select().from(schema.chatChannels).where(isNull(schema.chatChannels.archivedAt));
     const out: ChannelDto[] = [];
     for (const ch of all) {

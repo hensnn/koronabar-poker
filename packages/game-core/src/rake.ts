@@ -167,7 +167,8 @@ export function jackpotAwards(h: HandState, rules: JackpotRules, fund: number): 
       if (total > 0) {
         const payouts = new Map<string, number>();
         const loserPart = Math.floor((total * rules.badBeat.loserShare) / 100);
-        const winnerPart = Math.floor((total * rules.badBeat.winnerShare) / 100);
+        // Podíly poraženého a vítěze dohromady nikdy nepřekročí vyplácenou částku (ani při součtu nastavení nad 100 %).
+        const winnerPart = Math.min(Math.floor((total * rules.badBeat.winnerShare) / 100), total - loserPart);
         const others = live.map((p) => p.playerId).filter((id) => id !== loser.userId && id !== winner.userId);
         const rest = total - loserPart - winnerPart;
         payouts.set(loser.userId, loserPart);

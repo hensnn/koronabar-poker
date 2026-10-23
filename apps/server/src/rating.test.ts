@@ -200,6 +200,16 @@ describe('herní rating', { timeout: 120_000 }, () => {
     const rb = b!.cash.rating!;
     expect(ra === rb ? true : (ra > 1500) !== (rb > 1500) || ra !== rb).toBe(true);
     expect(await c.server.db.select().from(schema.ratingEvents).where(eq(schema.ratingEvents.scope, 'cash'))).toHaveLength(2);
+
+    // přepočet z historie respektuje vypnutý cash rating (dřív cash sezení hodnotil vždy)
+    const stat = await c.user('statistik');
+    await c.server.settings.set(c.admin, 'global', '', 'rating.cashEnabled', false);
+    const off = await c.server.rating.recompute(stat, false);
+    expect(off.cashDays).toBe(0);
+    expect(await c.server.db.select().from(schema.ratingEvents).where(eq(schema.ratingEvents.scope, 'cash'))).toHaveLength(0);
+    await c.server.settings.set(c.admin, 'global', '', 'rating.cashEnabled', true);
+    await c.server.rating.recompute(stat, false);
+    expect(await c.server.db.select().from(schema.ratingEvents).where(eq(schema.ratingEvents.scope, 'cash'))).toHaveLength(2);
   });
 });
 

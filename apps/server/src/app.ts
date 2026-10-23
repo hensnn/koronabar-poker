@@ -152,6 +152,10 @@ export async function buildServer(opts: ServerOptions = {}) {
   const startSettings = settings.resolve();
   const cash = new CashService(ledger, Number(startSettings['cash.chipsPerCurrencyUnit']));
   ledger.setPolicy({ negativeBalanceLimit: Number(startSettings['economy.negativeBalanceLimit']) });
+  // Limit záporného zůstatku platí hned po změně v nastavení, ne až po restartu.
+  settings.onChange((_scope, _scopeId, key) => {
+    if (key === 'economy.negativeBalanceLimit') ledger.setPolicy({ negativeBalanceLimit: Number(settings.resolve()['economy.negativeBalanceLimit']) });
+  });
 
   const publicOrigin = () => {
     try {
@@ -612,7 +616,7 @@ export async function buildServer(opts: ServerOptions = {}) {
       if (e.type === 'rebuy' || e.type === 'addon' || e.type === 'reentry' || e.type === 'knockout' || e.type === 'eliminated' || e.type === 'level' || e.type === 'bubble' || e.type === 'finished') emitTournamentFx(id, e);
       if (e.type === 'started' || e.type === 'level' || e.type === 'eliminated' || e.type === 'finished' || e.type === 'cancelled') void betsRef?.syncTournament(id).catch((err) => console.error('Sázky:', err instanceof Error ? err.message : err));
       if (e.type === 'eliminated') void bountiesRef?.onEliminated(id, e.userId, e.by.map((k) => ({ userId: k.userId, weight: k.weight }))).catch((err) => console.error('Odměny na hlavu:', err instanceof Error ? err.message : err));
-      if (e.type === 'finished' && e.results[0]) void sounds?.jingle(e.results[0].userId, 'win', { kind: 'table', id }).catch(() => undefined);
+      if (e.type === 'finished' && e.results[0]) void sounds?.jingle(e.results[0].userId, 'win', { kind: 'table', id: tournaments.tableIdsOf(id)[0] ?? id }).catch(() => undefined);
       if (e.type === 'finished') void bountiesRef?.onFinished(id, e.results[0]?.userId ?? null).catch((err) => console.error('Odměny na hlavu:', err instanceof Error ? err.message : err));
       if (e.type === 'cancelled') void bountiesRef?.onCancelled(id).catch((err) => console.error('Odměny na hlavu:', err instanceof Error ? err.message : err));
       if (e.type === 'started') void eveningRef?.attach('tournament', id).catch(() => undefined);
@@ -1083,7 +1087,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     ledger,
     settings: () => settings.resolve(),
     brief: (ids) => progress.brief(ids),
-    rating: async (scope) => (await rating.leaderboard(scope)).map((r) => ({ userId: r.userId, rating: r.rating })),
+    rating: async (scope) => (settings.resolve()['rating.enabled'] === false ? [] : await rating.leaderboard(scope)).map((r) => ({ userId: r.userId, rating: r.rating })),
   });
 
   let bootstrap: { created: boolean; password?: string } | undefined;

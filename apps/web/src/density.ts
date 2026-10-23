@@ -26,6 +26,16 @@ export function useApplyDensity(): void {
       root.style.removeProperty('font-size');
     };
   }, [scale]);
+  // Omezení pohybu (osobní volba): CSS pak vypne všechny animace a přechody.
+  const reduced = useSettings().values['ui.reducedMotion'] === true;
+  useEffect(() => {
+    const root = document.documentElement;
+    if (reduced) root.dataset.reducedMotion = 'on';
+    else delete root.dataset.reducedMotion;
+    return () => {
+      delete root.dataset.reducedMotion;
+    };
+  }, [reduced]);
   useEffect(() => {
     document.documentElement.dataset.density = density;
   }, [density]);

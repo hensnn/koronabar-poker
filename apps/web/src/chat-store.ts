@@ -137,3 +137,9 @@ onSocket<{ channelId: string; nickname: string }>('chat:typing', (m) => {
 });
 onSocket('chat:mention', () => set({ mentions: state.mentions + 1 }));
 onSocket('chat:channels-changed', () => void loadChannels().catch(() => undefined));
+
+/** Přišla mi nová soukromá zpráva od protějšku (ne zpráva s @zmínkou, ta má vlastní událost, a ne ztlumený kanál). */
+export const isIncomingDm = (m: Message): boolean => {
+  const c = state.channels.find((x) => x.id === m.channelId);
+  return !!c && c.kind === 'dm' && !c.notifyMuted && !m.system && m.mentions.length === 0 && !!c.peer && m.userId === c.peer.id;
+};

@@ -464,7 +464,8 @@ export class RatingService {
     const [first] = await this.db.select({ at: schema.hands.playedAt }).from(schema.hands).where(eq(schema.hands.kind, 'cash')).orderBy(schema.hands.playedAt).limit(1);
     const today = dayKey(this.deps.now());
     let cashDays = 0;
-    if (first) {
+    // vypnutý rating nebo cash rating se při přepočtu nepočítá (stejně jako v rateCash)
+    if (first && this.s['rating.enabled'] && this.s['rating.cashEnabled']) {
       for (let day = dayKey(first.at.getTime()); day < today; day = nextDay(day)) {
         const [y, m, d] = day.split('-').map(Number) as [number, number, number];
         items.push({ at: fromLocal(y, m, d + 1, 0, 0) - 1, order: 1, run: async () => void (await this.rateCashDay(day)) });

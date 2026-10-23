@@ -494,3 +494,53 @@ describe('TableActor: čas na rozdání (time.dealMs)', () => {
     expect(m.actor.viewFor(null).deadline! - m.clock.now()).toBeGreaterThan(9_990);
   });
 });
+
+describe('TableActor: audit nastavení stolu a cash', () => {
+  it('kurz žetonů stolu platí pro buy-in, top-up i cash-out, i když služba účetní knihy má jiný kurz', () => {
+    const clock = new FakeClock();
+    const ledger = new Ledger();
+    const cash = new CashService(ledger); // kurz 1 : 1
+    const settings = { ...reg.defaults(), 'cash.minBuyInBb': 10, 'cash.maxBuyInBb': 100, 'cash.chipsPerCurrencyUnit': 10 } as SettingValues;
+    const actor = new TableActor({ tableId: 't1', settings: () => settings, clock, cash, chipsPerCurrencyUnit: 10 });
+    cash.mint('a', 1000, 'm-a');
+    actor.join('a', 'A', 0, 20); // 20 měny = 200 žetonů
+    expect(actor.playersSeated()[0]!.chips).toBe(200);
+    expect(ledger.balance(accounts.table('t1'))).toBe(20);
+    actor.topUp('a', 10);
+    expect(actor.playersSeated()[0]!.chips).toBe(300);
+    actor.leave('a');
+    expect(ledger.balance(accounts.wallet('a'))).toBe(1000);
+    expect(ledger.balance(accounts.table('t1'))).toBe(0);
+  });
+
+  it('maximální sit out: po uplynutí minut je hráč odebrán a dostane cash-out', () => {
+    const m = make({ 'cash.maxSitOutMinutes': 5 });
+    seatTwo(m);
+    m.actor.sitOut('a');
+    m.clock.advance(4 * 60_000);
+    expect(m.actor.playersSeated().map((s) => s.userId)).toContain('a');
+    m.clock.advance(61_000);
+    expect(m.actor.playersSeated().map((s) => s.userId)).not.toContain('a');
+    expect(m.ledger.balance(accounts.wallet('a'))).toBe(10_000);
+  });
+
+  it('maximální sit out se po obnově stolu (restart serveru) počítá dál od odchodu hráče', () => {
+    const m = make({ 'cash.maxSitOutMinutes': 5 });
+    seatTwo(m);
+    m.actor.sitOut('a');
+    m.clock.advance(3 * 60_000);
+    const saved = JSON.parse(JSON.stringify(m.actor.persisted()));
+    const actor2 = new TableActor({ tableId: 't1', settings: () => m.settings, clock: m.clock, cash: m.cash, restore: saved });
+    m.clock.advance(60_000);
+    expect(actor2.playersSeated().map((s) => s.userId)).toContain('a');
+    m.clock.advance(61_000);
+    expect(actor2.playersSeated().map((s) => s.userId)).not.toContain('a');
+  });
+
+  it('big blind ante s nulovým ante: pohled ukáže ante rovné velkému blindu', () => {
+    const m = make({ 'table.bbAnte': true, 'table.ante': 0 });
+    expect(m.actor.viewFor(null).info.ante).toBe(Number(m.settings['table.bigBlind']));
+    m.settings['table.ante'] = 7;
+    expect(m.actor.viewFor(null).info.ante).toBe(7);
+  });
+});

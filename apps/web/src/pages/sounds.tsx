@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '@kb/shared';
 import { del, errorText, get, patch, post } from '../api';
+import { isIncomingDm, type Message } from '../chat-store';
 import { onSocket } from '../net';
 import { can, useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
@@ -23,12 +24,16 @@ export function SoundHost() {
   useEffect(() => {
     void loadSounds().catch(() => undefined);
     const offSound = onSocket<SoundPlayEvent>('sound', (e) => handleSoundEvent(e, prefs.current));
+    const offDm = onSocket<Message>('chat:message', (m) => {
+      if (prefs.current.mention && isIncomingDm(m)) playMentionTone(prefs.current.volume);
+    });
     const offMention = onSocket('chat:mention', () => {
-      if (prefs.current.mention && prefs.current.play) playMentionTone(prefs.current.volume);
+      if (prefs.current.mention) playMentionTone(prefs.current.volume);
     });
     return () => {
       offSound();
       offMention();
+      offDm();
     };
   }, []);
   if (!st.locked) return null;

@@ -17,7 +17,7 @@ export function usePrefs(): PlayerPrefs {
     browserOnly: global === 'browser' || (allowUser && values['announcer.userBrowserOnly'] === true),
     volume: (Number(values['announcer.volumePercent'] ?? 80) / 100) * (Number(values['announcer.userVolumePercent'] ?? 100) / 100),
     rate: Number(values['announcer.ratePercent'] ?? 100) / 100,
-    voiceName: String(values['announcer.userVoice'] ?? ''),
+    voiceName: allowUser ? String(values['announcer.userVoice'] ?? '') : '',
     audioUrl: (id) => `/api/announcer/audio/${id}`,
   };
 }

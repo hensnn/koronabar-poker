@@ -302,4 +302,27 @@ describe('plánované turnaje', { timeout: 300_000 }, () => {
     const other = await c.server.app.inject({ method: 'GET', url: `/api/calendar/${org}/${calendarToken(Buffer.alloc(32, 3), org)}.ics` });
     expect(other.body).toContain('SUMMARY:Páteční hra');
   });
+
+  it('pojistka automatické pauzy platí i pro ručně založený turnaj a změna „registrace se otevře před startem“ přepočítá plán', async () => {
+    const c = await start();
+    const org = await c.user('organizator');
+    const ps = [await c.user(), await c.user(), await c.user()];
+    const { id } = await c.server.tournaments.create(org, { name: 'Ruční hra', templateId: 'tour-turbo', settings: { ...FAST, 'tournament.minPlayers': 3, 'tournament.autoPauseBelow': 2 } });
+    for (const p of ps) await c.server.tournaments.register(p, id);
+    await c.server.tournaments.start(org, id);
+    const tour = c.server.tournaments.get(id)!;
+    expect(tour.state().paused).toBe(false);
+    for (const p of ps) c.server.tables.actors.get(id)!.setConnected(p, false);
+    await c.server.scheduler.tick(); // nikdo není připojený
+    expect(tour.state().paused).toBe(true);
+    c.server.tables.actors.get(id)!.setConnected(ps[0]!, true);
+    c.server.tables.actors.get(id)!.setConnected(ps[1]!, true);
+    await c.server.scheduler.tick();
+    expect(tour.state().paused).toBe(false);
+
+    const sched = await create(c, org, 5 * HOUR, { 'tournament.registerOpensMinutes': 60 });
+    expect(c.server.tournaments.schedOf(sched.id)!.opensAt).toBe(c.server.tournaments.schedOf(sched.id)!.startAt - 60 * MIN);
+    await c.server.tournaments.updateSettings(org, sched.id, { 'tournament.registerOpensMinutes': 180 });
+    expect(c.server.tournaments.schedOf(sched.id)!.opensAt).toBe(c.server.tournaments.schedOf(sched.id)!.startAt - 180 * MIN);
+  });
 });

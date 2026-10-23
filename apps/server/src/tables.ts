@@ -107,7 +107,9 @@ export class TableManager {
       chipsPerCurrencyUnit: Number(settings()['cash.chipsPerCurrencyUnit']),
       persist: (snap) => this.deps.journal.push(`table:${row.id}`, tableStateOp(row.id, snap)),
       onChange: () => this.deps.onChange(row.id),
-      userPref: (userId, key) => this.deps.settings.layer('user', userId)[key] as string | number | boolean | undefined,
+      // Osobní volba hráče, jinak výchozí hodnota správce (globální vrstva), jinak výchozí ze schématu.
+      userPref: (userId, key) =>
+        this.deps.settings.resolve([{ scope: 'user', scopeId: userId, values: this.deps.settings.layer('user', userId) }])[key] as string | number | boolean | undefined,
       onEvent: (e) => {
         if (e.type === 'handEnd') void this.applyPending(row.id);
         this.deps.onEvent?.(row.id, e);
@@ -342,7 +344,7 @@ export class TableManager {
         turnSeconds: Number(s['time.turnSeconds']),
         rakePercent: s['rake.enabled'] ? Number(s['rake.percent']) : 0,
         rakeCap: s['rake.enabled'] ? Number(s['rake.cap']) : 0,
-        jackpot: s['jackpot.royalFlushEnabled'] || s['jackpot.badBeatEnabled'] ? this.deps.cash.fundBalance(String(s['rake.jackpotFundId'] || 'jackpot')) : null,
+        jackpot: s['jackpot.royalFlushEnabled'] || s['jackpot.badBeatEnabled'] || s['jackpot.highHandEnabled'] ? this.deps.cash.fundBalance(String(s['rake.jackpotFundId'] || 'jackpot')) : null,
         playing: actor.handInProgress(),
       };
     });

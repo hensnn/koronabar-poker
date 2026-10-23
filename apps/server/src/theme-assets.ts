@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import type { PermissionChecker, SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
 import { detectImage } from './chat/images.js';
@@ -65,7 +65,8 @@ export class ThemeAssets {
     if (!format) throw new AssetError('INVALID', { field: 'data' });
     const allowed = String(s['theme.imageFormats']).split(',').map((x) => x.trim().toLowerCase().replace('jpeg', 'jpg'));
     if (!allowed.includes(format)) throw new AssetError('FORMAT');
-    const mine = await this.deps.db.select({ id: schema.themeAssets.id }).from(schema.themeAssets).where(eq(schema.themeAssets.ownerId, userId));
+    // Logo a pozadí aplikace (brand) se do limitu obrázků motivů nepočítají.
+    const mine = await this.deps.db.select({ id: schema.themeAssets.id }).from(schema.themeAssets).where(and(eq(schema.themeAssets.ownerId, userId), ne(schema.themeAssets.kind, 'brand')));
     if (!brand && mine.filter((m) => m.id).length >= Number(s['theme.maxImagesPerUser'])) throw new AssetError('LIMIT', { max: Number(s['theme.maxImagesPerUser']) });
     const id = randomUUID();
     await writeFile(this.file(id), data);

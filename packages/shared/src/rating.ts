@@ -34,7 +34,7 @@ export function inactiveSkill(s: Skill, daysInactive: number, graceDays: number,
   const over = daysInactive - graceDays;
   if (over <= 0 || growthPer30Days <= 0) return s;
   const add = growthPer30Days * (over / 30);
-  return { mu: s.mu, sigma: Math.min(p.sigma0, Math.sqrt(s.sigma * s.sigma + add * add)) };
+  return { mu: s.mu, sigma: Math.min(p.sigma0, s.sigma + add) };
 }
 
 /** Měkký reset sezóny: μ se přiblíží k průměru o dané procento, σ se zvýší o dané procento rozdílu k σ0. */

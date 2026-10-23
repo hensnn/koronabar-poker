@@ -597,6 +597,12 @@ export class TournamentManager {
       throw e;
     }
     if (Object.keys(now).length) await this.deps.db.update(schema.tournaments).set({ settings: row.settings }).where(eq(schema.tournaments.id, id));
+    // Změna „Registrace se otevře před startem“ musí přepočítat už naplánované otevření registrace.
+    if ('tournament.registerOpensMinutes' in now && row.sched && st.status === 'registering') {
+      const opensAt = row.sched.startAt - Number(now['tournament.registerOpensMinutes']) * 60_000;
+      // Už otevřenou registraci nezavíráme zpět.
+      if (!row.sched.openedNotified || opensAt <= this.deps.clock.now()) await this.patchSched(id, { opensAt });
+    }
     if (Object.keys(later).length) this.pending.set(id, { ...(this.pending.get(id) ?? {}), ...later });
     await this.deps.audit?.log({ actorId, action: 'nastaveni.zmena', targetType: 'tournament', targetId: id, before, after: { applied: now, pending: later }, ...meta });
     this.deps.onChanged?.(id);
@@ -717,6 +723,8 @@ export class TournamentManager {
   private liveDirector(actorId: string, id: string): { row: Row; tour: Tournament } {
     const { row, tour } = this.must(id);
     if (!this.isLive(id)) throw new TournamentError('INVALID', { field: 'live' });
+    // Vypnutý režim živé hry (live.enabled) zastaví i zápisy ředitele do už založených živých turnajů.
+    if (!this.deps.settings.resolve()['live.enabled']) throw new TournamentError('INVALID', { field: 'live.enabled' });
     if (!this.canManage(actorId, row)) throw new TournamentError('FORBIDDEN');
     return { row, tour };
   }

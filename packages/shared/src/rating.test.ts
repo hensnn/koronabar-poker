@@ -98,6 +98,8 @@ describe('neaktivita a reset', () => {
     expect(later.mu).toBe(30);
     expect(later.sigma).toBeGreaterThan(3);
     expect(inactiveSkill(s, 10_000, 30, 2, P).sigma).toBe(P.sigma0);
+    // 1,00 σ za každých 30 dní nad dobu odkladu (jak říká nápověda)
+    expect(inactiveSkill({ mu: 30, sigma: 3 }, 60, 30, 1, P).sigma).toBeCloseTo(4, 6);
     expect(displayRating(later, P)).toBeLessThan(displayRating(s, P));
   });
 

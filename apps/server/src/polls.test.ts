@@ -195,6 +195,15 @@ describe('ankety', { timeout: 120_000 }, () => {
     expect(await code(c.polls.create(f, { title: 'Akce', config: { type: 'yesno' }, action: { kind: 'pauseGame', params: { tournamentId: 'x' } } }))).toBe('FORBIDDEN'); // hráč nemá oprávnění k akcím
   });
 
+  it('ankety zakládané serverem (trusted) se nepočítají do limitu otevřených anket a nejdelší anketa je neomezuje', async () => {
+    const c = await start({ 'poll.maxOpenPerUser': 1, 'poll.maxDurationDays': 1 });
+    const [f, a] = [await c.user(), await c.user()];
+    await c.polls.create(f, { title: 'První', config: { type: 'yesno' }, condition: only(a, f) });
+    expect(await code(c.polls.create(f, { title: 'Druhá', config: { type: 'yesno' }, condition: only(a, f) }))).toBe('LIMIT');
+    expect(await code(c.polls.create(f, { title: 'Server', config: { type: 'yesno' }, condition: only(a, f), durationMinutes: 3 * 1440 }, { trusted: true }))).toBe('OK');
+    expect(await code(c.polls.create(a, { title: 'Dlouhá', config: { type: 'yesno' }, condition: only(a, f), durationMinutes: 3 * 1440 }))).toBe('INVALID');
+  });
+
   it('plánovač ukončí anketu po termínu, připomene nehlasujícím a export CSV je jen pro zakladatele', async () => {
     const c = await start({ 'poll.reminderMinutes': 30 });
     const [f, a, b] = [await c.user(), await c.user(), await c.user()];

@@ -344,7 +344,10 @@ h3,
 /* ---------- animace ---------- */
 [data-tk-anim-enabled='off'] *,
 [data-tk-anim-enabled='off'] *::before,
-[data-tk-anim-enabled='off'] *::after {
+[data-tk-anim-enabled='off'] *::after,
+[data-reduced-motion='on'] *,
+[data-reduced-motion='on'] *::before,
+[data-reduced-motion='on'] *::after {
   animation: none !important;
   transition: none !important;
 }

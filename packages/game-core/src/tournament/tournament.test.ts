@@ -785,6 +785,17 @@ describe('turnaj: dohoda (deal)', { timeout: 300_000 }, () => {
     }
   });
 
+  it('vypnuté metody dohody (ICM, chip chop, rovným dílem, vlastní) nejdou navrhnout ani se nenabízejí', () => {
+    const h = started({ 'tournament.dealIcm': false, 'tournament.dealChipChop': false, 'tournament.dealEqual': true, 'tournament.dealCustom': false });
+    const opt = h.tour.dealOptions('u1');
+    expect(opt.allowed).toEqual(['equal']);
+    expect(Object.keys(opt.methods)).toEqual(['equal']);
+    expect(() => h.tour.proposeDeal('u1', { method: 'icm' })).toThrow(/DEAL_INVALID/);
+    expect(() => h.tour.proposeDeal('u1', { method: 'chipChop' })).toThrow(/DEAL_INVALID/);
+    expect(() => h.tour.proposeDeal('u1', { method: 'custom', custom: { u1: 100, u2: 100, u3: 100, u4: 100 } })).toThrow(/DEAL_INVALID/);
+    expect(() => h.tour.proposeDeal('u1', { method: 'equal' })).not.toThrow();
+  });
+
   it('dohodu zablokuje rebuy, pozdní registrace i počet hráčů; vypnutá dohoda', () => {
     const rebuy = started({ 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 2 });
     expect(rebuy.tour.dealBlocker()).toBe('DEAL_WINDOWS_OPEN');

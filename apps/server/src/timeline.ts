@@ -92,7 +92,7 @@ export class TimelineService {
     const xp: Point[] = xpRows.map((x) => [x.at.getTime(), (xpSum += x.amount)]);
 
     // rating
-    const visible = !!this.deps.settings()['rating.showNumbers'];
+    const visible = !!this.deps.settings()['rating.showNumbers'] && !!this.deps.settings()['rating.enabled'];
     const ratingOf = async (scope: 'tournament' | 'cash'): Promise<Point[]> =>
       visible
         ? (await db.select({ at: schema.ratingEvents.at, v: schema.ratingEvents.displayAfter }).from(schema.ratingEvents).where(and(eq(schema.ratingEvents.userId, userId), eq(schema.ratingEvents.scope, scope))).orderBy(asc(schema.ratingEvents.at), asc(schema.ratingEvents.id))).map((r) => [r.at.getTime(), r.v] as Point)

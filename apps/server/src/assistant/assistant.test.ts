@@ -536,3 +536,34 @@ describe('AI asistent: úspora a ochrana limitů (bezplatný plán)', { timeout:
     expect(clipped.length).toBeLessThan(200);
   });
 });
+
+describe('AI asistent: parametry volání modelu a vypnutí návrhů', { timeout: 90_000 }, () => {
+  it('teplota, nejdelší odpověď, model pro plánování a velikost historie se předají modelu', async () => {
+    const sp = scripted([say('1'), say('2'), say('3')]);
+    const c = await start({ 'assistant.localFirst': false, 'assistant.temperaturePercent': 70, 'assistant.maxTokens': 333, 'assistant.modelPlanning': 'silny-model', 'assistant.historySize': 2 }, sp.provider);
+    await c.server.assistant.chat(c.admin, { text: 'první dlouhá otázka', context: 'planning' });
+    await c.server.assistant.chat(c.admin, { text: 'druhá dlouhá otázka', context: 'admin' });
+    await c.server.assistant.chat(c.admin, { text: 'třetí dlouhá otázka', context: 'admin' });
+    expect(sp.seen[0]).toMatchObject({ model: 'silny-model', temperature: 0.7, maxTokens: 333 });
+    expect(sp.seen[1]!.model).toBe('gemini-3.5-flash');
+    // historie: 2 poslední zprávy (otázka a odpověď) + nová otázka
+    expect(sp.seen[2]!.messages.map((m) => (m as { content: string }).content)).toEqual(['druhá dlouhá otázka', '2', 'třetí dlouhá otázka']);
+  });
+
+  it('nejvíc kroků s nástroji: po vyčerpání dostane model poslední volání bez nástrojů', async () => {
+    const sp = scripted([call('list_games', {}), call('list_games', {}), say('hotovo')]);
+    const c = await start({ 'assistant.localFirst': false, 'assistant.maxToolSteps': 2 }, sp.provider);
+    const res = await c.server.assistant.chat(c.admin, { text: 'co se hraje teď', context: 'admin' });
+    expect(res.reply).toBe('hotovo');
+    expect(sp.seen.map((r) => r.tools.length > 0)).toEqual([true, true, false]);
+  });
+
+  it('vypnuté návrhy z vlastní iniciativy: model nedostane návrhové nástroje a jejich volání se odmítne', async () => {
+    const sp = scripted([call('propose_settings_change', { target: { kind: 'global' }, changes: [{ key: 'cosmetics.discountPercent', value: '15' }] }), say('nelze')]);
+    const c = await start({ 'assistant.suggestEnabled': false }, sp.provider);
+    const res = await c.server.assistant.chat(c.admin, { text: 'dej slevu 15 procent', context: 'admin' });
+    expect(sp.seen[0]!.tools.some((t) => t.name.startsWith('propose'))).toBe(false);
+    expect(res.proposals).toHaveLength(0);
+    expect(JSON.parse(toolResults(sp.seen)[0]!).ok).toBe(false);
+  });
+});

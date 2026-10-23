@@ -15,6 +15,14 @@ describe('osobní limity: změny', () => {
     expect(r.pending.buyInsDay).toEqual({ value: 0, at: NOW + 24 * H });
   });
 
+  it('čekací doba 0 hodin: uvolnění platí hned a neláme se jako čekající', () => {
+    const r = changeLimits({ lossDay: 100 }, {}, { lossDay: 500 }, NOW, 0);
+    expect(r.current).toEqual({ lossDay: 500 });
+    expect(r.applied).toEqual(['lossDay']);
+    expect(r.delayed).toEqual([]);
+    expect(r.pending).toEqual({});
+  });
+
   it('nastavení limitu poprvé (z neomezeného) je zpřísnění; zrušení limitu je uvolnění', () => {
     expect(changeLimits({}, {}, { lossDay: 100 }, NOW, H).applied).toEqual(['lossDay']);
     expect(changeLimits({ lossDay: 100 }, {}, { lossDay: 0 }, NOW, H).delayed).toEqual(['lossDay']);

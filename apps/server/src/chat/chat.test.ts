@@ -312,3 +312,18 @@ describe('nepřečtené, ztlumení a ignorování', () => {
     expect(s.log.some((l) => l.kind === 'message' && (l.payload as MessageDto).system)).toBe(true);
   });
 });
+
+describe('název hlavního kanálu', () => {
+  it('změna v nastavení přejmenuje už existující hlavní kanál', async () => {
+    const s = await setup();
+    const u = await s.user('U');
+    expect((await s.chat.listChannels(u)).find((c) => c.id === s.main)?.name).toBe('Hospoda');
+    const renamed = new ChatService({
+      db: s.db,
+      perms: s.perms,
+      audit: new AuditService(s.db),
+      settings: () => resolveSettings(reg, [{ scope: 'global', values: { 'chat.mainChannelName': 'Krčma' } }]).values,
+    });
+    expect((await renamed.listChannels(u)).find((c) => c.id === s.main)?.name).toBe('Krčma');
+  });
+});

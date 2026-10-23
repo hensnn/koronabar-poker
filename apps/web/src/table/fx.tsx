@@ -50,7 +50,8 @@ export function useTableNotices(tableId: string): { key: number; text: string }[
 
 /** Poslouchá animační události turnaje pro tento stůl; vrací právě běžící efekty. Vypnutelné osobním nastavením. */
 export function useTournamentFx(tournamentId: string | null, view: TableView | undefined): ActiveFx[] {
-  const enabled = useSettings().values['ui.eventAnimations'] !== false;
+  const fxValues = useSettings().values;
+  const enabled = fxValues['ui.eventAnimations'] !== false && fxValues['ui.reducedMotion'] !== true;
   const [list, setList] = useState<ActiveFx[]>([]);
   const seatsRef = useRef<Record<string, number>>({});
   const counter = useRef(0);

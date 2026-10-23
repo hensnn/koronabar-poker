@@ -26,8 +26,8 @@ export class CashService {
     });
   }
 
-  /** Buy-in nebo top-up: z peněženky na stůl. Vrací počet žetonů. */
-  buyIn(userId: string, tableId: string, currencyAmount: number, key: string, kind: 'cash_buyin' | 'cash_topup' = 'cash_buyin'): number {
+  /** Buy-in nebo top-up: z peněženky na stůl. Vrací počet žetonů; `chipsPerUnit` je kurz stolu (jinak kurz služby). */
+  buyIn(userId: string, tableId: string, currencyAmount: number, key: string, kind: 'cash_buyin' | 'cash_topup' = 'cash_buyin', chipsPerUnit = this.chipsPerUnit): number {
     if (!Number.isInteger(currencyAmount) || currencyAmount <= 0) throw new LedgerError('NOT_INTEGER');
     this.ledger.post({
       kind,
@@ -38,17 +38,17 @@ export class CashService {
         { account: accounts.table(tableId), amount: currencyAmount },
       ],
     });
-    return currencyAmount * this.chipsPerUnit;
+    return currencyAmount * chipsPerUnit;
   }
 
   /**
    * Cash-out: ze stolu do peněženky. Zbytek žetonů, který nejde převést na celou jednotku měny,
    * jde na účet domu (zaokrouhlení). Vrací vyplacenou měnu.
    */
-  cashOut(userId: string, tableId: string, chips: number, key: string, kind: 'cash_cashout' | 'cash_return' = 'cash_cashout'): number {
+  cashOut(userId: string, tableId: string, chips: number, key: string, kind: 'cash_cashout' | 'cash_return' = 'cash_cashout', chipsPerUnit = this.chipsPerUnit): number {
     if (!Number.isInteger(chips) || chips < 0) throw new LedgerError('NOT_INTEGER', String(chips));
-    const currency = Math.floor(chips / this.chipsPerUnit);
-    const remainderChips = chips - currency * this.chipsPerUnit;
+    const currency = Math.floor(chips / chipsPerUnit);
+    const remainderChips = chips - currency * chipsPerUnit;
     // Zbytek žetonů se nedá vyjádřit v měně; účetně se na stole neeviduje (viz tableCurrencyFor).
     if (currency === 0) return 0;
     this.ledger.post({

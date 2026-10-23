@@ -184,10 +184,11 @@ export function useTableSfx(view: TableView | undefined, clockOffset: number): v
 
   const fire = (name: Sfx | 'warning') => {
     const v = cfg.current;
-    if (v['ui.sfxEnabled'] === false || v[SETTING[name]] === false) return;
-    playSfx(name, Number(v['ui.sfxVolumePercent'] ?? 60) / 100);
+    // Vibrace je nezávislá na zvucích: platí jen vlastní volba „Vibrace“.
     const pattern = VIBRATE[name];
     if (pattern && v['ui.vibrate'] !== false && typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(pattern);
+    if (v['ui.sfxEnabled'] === false || v[SETTING[name]] === false) return;
+    playSfx(name, Number(v['ui.sfxVolumePercent'] ?? 60) / 100);
   };
 
   useEffect(() => {

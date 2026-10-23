@@ -368,3 +368,18 @@ describe('správa uživatelů', () => {
     expect(list.find((u) => u.nickname === 'Michal')!.roles[0]!.role).toBe('Hlavní administrátor');
   });
 });
+
+describe('časové limity pozvánek a ověřovacích odkazů', () => {
+  it('výchozí platnost pozvánky a platnost ověřovacího odkazu se řídí nastavením v hodinách', async () => {
+    const s = await setup({ 'system.inviteDefaultHours': 3, 'system.verifyLinkHours': 5 });
+    const inv = await s.accounts.createInvite(s.adminId);
+    const [row] = await s.db.select().from(schema.invites).where(eq(schema.invites.code, inv));
+    expect(row!.expiresAt!.getTime() - s.now().getTime()).toBe(3 * 3600_000);
+    await s.accounts.register(reg1(inv));
+    expect(s.mails.find((m) => m.kind === 'verify')!.vars.hours).toBe(5);
+    const [tok] = await s.db.select().from(schema.emailTokens);
+    expect(tok!.expiresAt.getTime() - s.now().getTime()).toBe(5 * 3600_000);
+    s.advance(6 * 3600_000);
+    expect(await code(s.accounts.verifyEmail(s.tokenFrom('verify')))).toBe('INVALID_TOKEN');
+  });
+});

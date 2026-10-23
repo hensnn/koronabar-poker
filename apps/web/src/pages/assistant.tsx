@@ -3,6 +3,8 @@ import { t } from '@kb/shared';
 import { del, errorText, get, post } from '../api';
 import { useLocation, matchPath } from '../router';
 import { Badge, Button, Notice } from '../ui';
+import { useSettings } from '../settings';
+import { pickVoice } from '../announcer/engine';
 
 interface DiffRow {
   key: string;
@@ -158,6 +160,7 @@ export function AssistantLauncher() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [listening, setListening] = useState(false);
+  const { values: setv } = useSettings();
   const endRef = useRef<HTMLDivElement>(null);
   const rec = useRef<Recognition | null>(null);
 
@@ -195,9 +198,15 @@ export function AssistantLauncher() {
     try {
       const r = await post<{ reply: string; proposals: Proposal[] }>('/api/assistant/chat', { text: q, ...contextOf(path) });
       setMsgs((m) => [...m, { id: `a-${Date.now()}`, role: 'assistant', content: r.reply, proposals: r.proposals }]);
-      if (status.voiceOutput && r.reply && 'speechSynthesis' in window) {
+      // Odpověď čte hlasatel: respektuje jeho vypnutí, ztlumení, hlasitost, rychlost a zvolený hlas zařízení.
+      const volume = (Number(setv['announcer.volumePercent'] ?? 80) / 100) * (Number(setv['announcer.userVolumePercent'] ?? 100) / 100);
+      if (status.voiceOutput && r.reply && 'speechSynthesis' in window && setv['announcer.enabled'] !== false && setv['announcer.mute'] !== true && volume > 0) {
         const u = new SpeechSynthesisUtterance(r.reply);
-        u.lang = 'cs-CZ';
+        const voice = pickVoice(setv['announcer.allowUserChoice'] !== false ? String(setv['announcer.userVoice'] ?? '') : '');
+        if (voice) u.voice = voice;
+        u.lang = voice?.lang ?? 'cs-CZ';
+        u.volume = volume;
+        u.rate = Number(setv['announcer.ratePercent'] ?? 100) / 100;
         window.speechSynthesis.speak(u);
       }
       loadStatus();

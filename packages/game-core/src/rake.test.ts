@@ -118,6 +118,22 @@ describe('jackpoty', () => {
     expect([...p.values()].reduce((a, b) => a + b, 0)).toBe(500);
   });
 
+  it('bad beat: podíly poraženého a vítěze nad 100 % nikdy nevyplatí víc než je částka', () => {
+    const board = ['9c', '9s', 'Th', 'Jh', 'Qh'] as Card[];
+    const h = hand(
+      [player(0, 'poraz', 50, ['9h', '9d'] as [Card, Card]), player(1, 'vitez', 50, ['Ah', 'Kh'] as [Card, Card]), player(2, 'treti', 50, ['2c', '3d'] as [Card, Card])],
+      board,
+      [{ seat: 1, amount: 150 }],
+    );
+    const awards = jackpotAwards(h, { royalFlush: { enabled: false, percent: 0 }, badBeat: { ...rules.badBeat, loserShare: 80, winnerShare: 80 } }, 1000);
+    const p = awards[0]!.payouts;
+    const sum = [...p.values()].reduce((a, b) => a + b, 0);
+    expect(sum).toBe(500);
+    expect([...p.values()].every((v) => v >= 0)).toBe(true);
+    expect(p.get('poraz')).toBe(400);
+    expect(p.get('vitez')).toBe(100);
+  });
+
   it('bez showdownu, s prázdným fondem nebo s vypnutými jackpoty se nic nevyplácí', () => {
     const h = hand([player(0, 'a', 50, ['Ah', 'Kh'] as [Card, Card]), player(1, 'b', 50, ['2c', '3d'] as [Card, Card], 'folded')], ['Qh', 'Jh', 'Th', '9c', '4d'] as Card[], [{ seat: 0, amount: 100 }]);
     expect(jackpotAwards(h, rules, 1000)).toHaveLength(0);

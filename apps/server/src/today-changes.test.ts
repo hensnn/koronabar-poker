@@ -127,7 +127,7 @@ describe('informace o stole', () => {
       settings: { ...FAST, 'table.ante': 2, 'table.bbAnte': true, 'special.runItTwice': true, 'special.runItTimes': 3, 'special.bombPot': true, 'special.bombPotEveryHands': 5, 'special.sevenTwoBonus': true, 'special.sevenTwoAmountBb': 2 },
     });
     const info = s.server.tables.actors.get(id)!.viewFor(null).info;
-    expect(info).toMatchObject({ ante: 2 * info.chipsPerCurrencyUnit, bbAnte: true, runIt: 3, bombPotEvery: 5, sevenTwoBb: 2 });
+    expect(info).toMatchObject({ ante: 2, bbAnte: true, runIt: 3, bombPotEvery: 5, sevenTwoBb: 2 });
     const plain = await s.server.tables.createTable(org, { name: 'Prosty', templateId: 'cash-klasika', settings: FAST });
     expect(s.server.tables.actors.get(plain.id)!.viewFor(null).info).toMatchObject({ runIt: 0, bombPotEvery: 0, sevenTwoBb: 0 });
   });

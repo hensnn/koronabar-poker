@@ -268,3 +268,12 @@ describe('pravidla odesílání (správce)', () => {
     expect(await kinds(s2)).toEqual(['vecer_souhrn:pending:']);
   });
 });
+
+describe('odesílatel a adresa pro odpovědi', () => {
+  it('replyTo a jméno odesílatele z nastavení; prázdné jméno = jen adresa', async () => {
+    const s = await setup({ 'email.replyTo': 'odpoved@example.cz', 'email.fromName': '' });
+    await s.email.enqueue('zmena_hesla', 'a@example.cz', { prezdivka: 'A' });
+    await s.email.processQueue();
+    expect(s.sent[0]).toMatchObject({ from: 'poker@example.cz', replyTo: 'odpoved@example.cz' });
+  });
+});
