@@ -319,10 +319,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
         </div>
       </div>
 
-      {modern && <MobileMid view={view} mine={mine} inBb={inBb} offset={net.clockOffset} log={actionLog.slice(-3)} tableId={tableId} />}
-
       {/* Vše vedle stolu (stav tahu, akční lišta, akce, widgety) je v jednom obalu: na šířku telefonu tvoří vlastní posuvný sloupec, jinde je obal průhledný. */}
       <div className="tk-side-col">
+      {modern && <MobileMid view={view} mine={mine} inBb={inBb} offset={net.clockOffset} log={actionLog.slice(-3)} tableId={tableId} />}
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
       <div className="tk-turn-row">
       {myTurn ? (

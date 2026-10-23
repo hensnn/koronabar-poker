@@ -359,8 +359,6 @@ export const cs: Record<string, string> = {
   'table.size.height': 'Stůl: výška',
   'table.size.help': 'Plocha hry (panely se stolem) zabere jen část okna a panely se přisunou ke stolu; stůl a jeho čtverec se dál ladí zvlášť.',
   'table.size.reset': 'Výchozí velikost',
-  'settings.ui.mobileHandStrip.label': 'Telefon: moje ruka pod stolem',
-  'settings.ui.mobileHandStrip.help': 'Na telefonu ukáže mezi stolem a tlačítky tvé dvě karty větší, název tvé kombinace a stack. Hodí se, když se nechceš dívat na malé karty u sedadla.',
   'settings.ui.mobileBest.label': 'Telefon: moje kombinace',
   'settings.ui.mobileBest.help': 'Na telefonu ukáže mezi stolem a tlačítky název tvé nejlepší kombinace (např. „Dvojice devítek“), od flopu dál. Funguje samostatně i bez velkých karet.',
   'settings.ui.mobileSounds.label': 'Telefon: zvukové emotikony v řádku',

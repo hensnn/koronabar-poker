@@ -2,8 +2,6 @@ import type { SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
 import { Link } from '../router';
-import { CardView } from './CardView';
-import { formatAmount } from './format';
 import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
 import { SoundStrip } from '../pages/sounds';
@@ -81,33 +79,21 @@ export function InfoSlot() {
 }
 
 /**
- * Prostor mezi stolem a tlačítky na telefonu: moje ruka (velké karty, kombinace, stack), poslední události a pruh času.
+ * Prostor mezi stolem a tlačítky na telefonu: moje kombinace, poslední události a pruh času.
  * Každá část se zapíná v kartě „O hře“ (osobní nastavení), aby si každý nechal jen to, co potřebuje.
  */
-export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string; cards?: string[] }[]; tableId: string }) {
+export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
   const v = useSettings().values;
-  const hand = v['ui.mobileHandStrip'] !== false;
   const events = v['ui.mobileEvents'] !== false;
   const timer = v['ui.mobileTimerBar'] !== false;
   const best = v['ui.mobileBest'] !== false;
   const sounds = v['ui.mobileSounds'] === true;
-  if (!hand && !events && !timer && !best && !sounds) return null;
+  if (!events && !timer && !best && !sounds) return null;
   const acting = view.actingSeat !== null;
   return (
     <div className="tk-mid flex flex-col gap-1.5">
       {timer && (acting || mine) && <TimeStrip deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />}
-      {hand && mine && (
-        <div className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-2">
-          <div className="flex gap-1">
-            {mine.hasCards && mine.cards ? mine.cards.map((c, i) => <CardView key={`${view.handId}-${i}`} card={c} still />) : <span className="text-sm text-muted">{t('table.notInHand')}</span>}
-          </div>
-          <div className="min-w-0 flex-1">
-            {best && <div className="truncate font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</div>}
-            <div className="font-mono text-xs text-muted">{formatAmount(mine.stack, view.info, inBb)}</div>
-          </div>
-        </div>
-      )}
-      {!hand && best && mine && (
+      {best && mine && (
         <div className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
           <span className="text-muted">{t('table.widget.best')}: </span>
           <span className="font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</span>
@@ -139,7 +125,7 @@ export function MobileOptions() {
   return (
     <fieldset className="flex flex-col gap-1 border-t border-line pt-2">
       <legend className="text-xs font-semibold text-muted">{t('table.m.options')}</legend>
-      {['ui.mobileHandStrip', 'ui.mobileBest', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileSounds', 'ui.mobileTurnAlert'].map(row)}
+      {['ui.mobileBest', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileSounds', 'ui.mobileTurnAlert'].map(row)}
     </fieldset>
   );
 }

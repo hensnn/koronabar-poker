@@ -60,7 +60,7 @@ export const csGuide: Record<string, string> = {
   'guide.s.mobile.title': 'Telefon',
   'guide.s.mobile.keys': 'telefon mobil mobilní tablet dotyk zásuvka lišta ikony vibrace naležato na výšku bez panelů',
   'guide.s.mobile.1': 'Na telefonu (úzký displej nebo telefon na šířku) je stůl samostatná obrazovka bez rolování. Nahoře je lišta s ikonami: ← zpět, blindy, 📜 historie, ⏸ pauza, 💬 chat, ℹ️ informace a ☰ nabídka.',
-  'guide.s.mobile.2': 'Pod stolem na výšku: pruh času s time bankem, moje ruka (velké karty a stack), moje kombinace, poslední události (akce hráčů, výhra) a volitelně řádek zvukových emotikonů. Dole jsou plánované tahy nebo akční tlačítka v pevné výšce, takže se nic nehýbe.',
+  'guide.s.mobile.2': 'Pod stolem na výšku: pruh času s time bankem, moje kombinace, poslední události (akce hráčů, výhra) a volitelně řádek zvukových emotikonů. Dole jsou plánované tahy nebo akční tlačítka v pevné výšce, takže se nic nehýbe.',
   'guide.s.mobile.3': 'Zaškrtávátka v kartě O hře (ℹ️) určují, co se ukazuje pod stolem: co je zaškrtnuté, je pod stolem a v ℹ️ se to neopakuje; co odškrtneš, najdeš v ℹ️. Je tam i Upozornění na můj tah (spodní tlačítka pulzují).',
   'guide.s.mobile.4': 'ℹ️ Informace o stole: nejdřív Můj stůl (u turnaje hodiny turnaje), pak O hře (sit out, volba karet po handě Win a Lose, dokoupit žetony, odejít od stolu, zavolat čas, dohoda, rebuy), potom ostatní widgety.',
   'guide.s.mobile.5': '☰ Nabídka stolu: sdílet v chatu, vyúčtování, anketa u stolu, přepnutí mobilního rozložení, celá obrazovka, zvuk a vibrace (vibrace jdou vypnout).',

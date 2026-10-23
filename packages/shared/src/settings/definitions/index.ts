@@ -764,7 +764,6 @@ const ui: SettingDef[] = [
   choice('ui.tableAreaAlign', { category: 'ui', mutability: A, scopes: USER }, 'center', ['left', 'center', 'right']),
   int('ui.tableWidthPercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 50, 100),
   int('ui.tableHeightPercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 50, 100),
-  bool('ui.mobileHandStrip', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.mobileBest', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.mobileSounds', { category: 'ui', mutability: A, scopes: USER }, false),
   bool('ui.mobileEvents', { category: 'ui', mutability: A, scopes: USER }, true),
