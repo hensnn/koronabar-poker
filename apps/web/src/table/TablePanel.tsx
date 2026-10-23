@@ -104,20 +104,24 @@ export function ClockWidget({ tournamentId, timeBank }: { tournamentId: string; 
   const remaining = c.clockMs !== null ? (c.paused ? c.clockMs : c.clockMs - (now - c.fetchedAt)) : null;
   return (
     <div className="flex flex-col gap-1">
+      {c.onBreak && (
+        <div role="status" className="rounded-md bg-warning px-2 py-1 text-center text-lg font-bold text-on-act">
+          ☕ {t('tournament.breakBanner')}
+        </div>
+      )}
       <div className="flex items-baseline justify-between">
-        <span>{t('tournament.level', { n: c.levelNumber })}</span>
+        <span className={c.onBreak ? 'text-muted' : ''}>{t(c.onBreak ? 'tournament.lastLevel' : 'tournament.level', { n: c.levelNumber })}</span>
         {remaining !== null && (
           <span className="font-mono text-2xl font-bold" role="timer">
             {mmss(remaining)}
           </span>
         )}
       </div>
-      <div className="font-mono text-lg">{blinds(c.level)}</div>
-      {c.onBreak && <span className="text-warning">{t('tournament.onBreak')}</span>}
+      <div className={`font-mono text-lg ${c.onBreak ? 'text-muted' : ''}`}>{blinds(c.level)}</div>
       {c.paused && <span className="text-muted">{t('tournament.paused')}</span>}
       {c.nextLevel && (
-        <div className="text-xs text-muted">
-          {t('table.widget.nextLevel')}: {blinds(c.nextLevel)}
+        <div className={c.onBreak ? 'rounded-md border border-warning px-2 py-1 text-base font-semibold' : 'text-xs text-muted'}>
+          {t('tournament.nextLevelN', { n: c.levelNumber + 1 })}: <span className="font-mono">{blinds(c.nextLevel)}</span>
         </div>
       )}
       <div className="text-xs text-muted">

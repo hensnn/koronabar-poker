@@ -583,8 +583,13 @@ export function TournamentPage({ id }: { id: string }) {
 
         <Card title={t('tournament.clock')}>
           <div className="flex flex-col gap-1">
-            <p className="text-lg">
-              {t('tournament.level', { n: view.levelNumber })}: <strong className="font-mono">{levelText(view.level ?? view.levels[0] ?? null)}</strong>
+            {view.onBreak && (
+              <p role="status" className="rounded-md bg-warning px-3 py-2 text-center text-xl font-bold text-on-act">
+                ☕ {t('tournament.breakBanner')}
+              </p>
+            )}
+            <p className={`text-lg ${view.onBreak ? 'text-muted' : ''}`}>
+              {t(view.onBreak ? 'tournament.lastLevel' : 'tournament.level', { n: view.levelNumber })}: <strong className="font-mono">{levelText(view.level ?? view.levels[0] ?? null)}</strong>
             </p>
             {running && remaining !== null && (
               <p className="font-mono text-3xl" role="timer" aria-label={view.clockKind === 'break' ? t('tournament.breakLeft') : t('tournament.levelLeft')}>
@@ -598,8 +603,8 @@ export function TournamentPage({ id }: { id: string }) {
               </p>
             )}
             {view.nextLevel && (
-              <p className="text-muted">
-                {t('tournament.next')}: <span className="font-mono">{levelText(view.nextLevel)}</span>
+              <p className={view.onBreak ? 'rounded-md border border-warning px-3 py-1 text-lg font-semibold' : 'text-muted'}>
+                {t('tournament.nextLevelN', { n: view.levelNumber + 1 })}: <span className="font-mono">{levelText(view.nextLevel)}</span>
               </p>
             )}
             {view.status === 'registering' && <p className="text-muted">{view.levelMode === 'hands' ? t('tournament.levelEveryHands', { n: view.levelHands }) : t('tournament.levelEvery', { minutes: view.levelMinutes })}</p>}
