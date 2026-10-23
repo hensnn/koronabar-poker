@@ -164,22 +164,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   return (
     <div className={`tk-screen flex flex-col gap-2 ${layout.hiddenSides.includes('right') ? 'tk-no-extra' : ''}`}>
       <div className="tk-room relative" style={{ '--room-w': String(roomSize.w), '--room-h': String(roomSize.h) } as CSSProperties} {...myLook}>
-        {mine && (showBar || canRabbit) && (
+        {mine && canRabbit && (
           <div role="group" aria-label={t('table.widget.reveal')} className="tk-pop absolute bottom-1 right-1 z-20 flex flex-wrap items-center gap-1.5 rounded-md border border-info bg-surface p-1.5 shadow-lg">
-            {showBar && (
-              <>
-                <span className="text-xs font-semibold">{t('table.revealAsk')}</span>
-                <button className={actionToneSm.show} onClick={() => void run(table.show(tableId, 'both'))}>
-                  {t('table.showBoth')}
-                </button>
-                <button className={actionToneSm.show} onClick={() => void run(table.show(tableId, 0))}>
-                  {t('table.showFirst')}
-                </button>
-                <button className={actionToneSm.show} onClick={() => void run(table.show(tableId, 1))}>
-                  {t('table.showSecond')}
-                </button>
-              </>
-            )}
             {canRabbit && (
               <button className={actionToneSm.special} onClick={() => void run(table.rabbit(tableId))}>
                 {t('table.rabbit')}
@@ -352,6 +338,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       )}
       {!myTurn && !acting && (
         <p role="status" className="text-center text-sm text-muted">
+          {showBar && <span className="font-semibold text-info">{t('table.tapToShow')} · </span>}
           {waitInfo && view.vote && view.vote.status === 'open' && !view.vote.canVote ? (
             <>
               🗳️ {t('table.wait.vote', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={net.clockOffset} />

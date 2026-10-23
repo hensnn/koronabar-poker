@@ -1143,10 +1143,22 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Stůl má stejný tvar jako dosud (osobní tvar oválu ui.mobileTableAspect) a přes celou šířku; stavový řádek a tlačítka jsou přitisknuté ke spodnímu okraji, kam dosáhne palec. */
 [data-mobile-modern]:not([data-landscape]) .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 15rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
 [data-mobile-modern]:not([data-landscape]) .tk-screen > .tk-side-col, [data-mobile-modern]:not([data-landscape]) .tk-screen { min-height: 0; }
-[data-mobile-modern]:not([data-landscape]) .tk-turn-row { margin-top: auto; }
+/* Stálá výška spodní části: plánované tahy a akce zabírají stejné místo, takže se stůl ani okno při změně stavu neposouvají. Vše se vejde do okna. */
+[data-mobile-modern]:not([data-landscape]) .tk-actionbar { min-height: 7.5rem; justify-content: center; }
+[data-mobile-modern]:not([data-landscape]) .tk-actionbar .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(var(--spacing) * 1.5); }
+[data-mobile-modern] .tk-act { min-height: 2.75rem; padding-inline: calc(var(--spacing) * 0.5); font-size: 0.85rem; }
+[data-mobile-modern] .tk-slider-row { flex-wrap: nowrap; gap: calc(var(--spacing) * 1.5); }
+[data-mobile-modern] .tk-slider-row button { padding-inline: calc(var(--spacing) * 1.5); font-size: 0.8rem; }
+[data-mobile-modern] .tk-slider-row input[type='range'] { min-width: 2.5rem; }
+[data-mobile-modern] .tk-slider-row input[type='number'] { width: 4.5rem; }
+/* O trochu menší písmo u sedadel a potu. */
+[data-mobile-modern] .tk-seat-name { font-size: 0.74rem; }
+[data-mobile-modern] .tk-seat-stack, [data-mobile-modern] .tk-seat-mine .tk-seat-stack { font-size: 0.69rem; }
+[data-mobile-modern] .tk-seat-status { font-size: 0.64rem; }
+[data-mobile-modern] .tk-pot { font-size: 0.82rem; }
+[data-mobile-modern] .tk-bubble { font-size: 0.7rem; }
 /* Mimo můj tah se ukazují jen plánované tahy, velké a dobře trefitelné; posuvník sázky je schovaný, dokud nejsem na tahu. */
 [data-mobile-modern] .tk-actionbar[data-turn='wait'] .tk-slider-row { display: none; }
 [data-mobile-modern] .tk-planbar { width: 100%; flex-wrap: nowrap; gap: calc(var(--spacing) * 1.5); }
 [data-mobile-modern] .tk-plan-btn { flex: 1 1 0; min-height: 2.75rem; padding: calc(var(--spacing) * 2) calc(var(--spacing) * 1); font-size: 0.85rem; line-height: 1.15; }
 [data-mobile-modern] .tk-planbar label { white-space: nowrap; }
-[data-mobile-modern] .tk-act { min-height: 3rem; }
