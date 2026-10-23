@@ -17,7 +17,7 @@ STORAGE="${STORAGE:-local-lvm}"
 TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
 BRIDGE="${BRIDGE:-vmbr0}"
 IP_CONF="${IP_CONF:-dhcp}"              # např. 192.168.1.50/24,gw=192.168.1.1
-DISK_GB="${DISK_GB:-32}"
+DISK_GB="${DISK_GB:-16}"
 CORES="${CORES:-2}"
 MEMORY_MB="${MEMORY_MB:-2048}"
 SWAP_MB="${SWAP_MB:-512}"

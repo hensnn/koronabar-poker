@@ -10,7 +10,7 @@ Kroky 1 až 4 udělá za tebe skript. Na hostiteli Proxmoxu jako root spusť:
 bash <(curl -fsSL https://raw.githubusercontent.com/hensnn/koronabar-poker/main/scripts/proxmox-install.sh)
 ```
 
-Vytvoří LXC 120 (Debian 12, Nesting, 2 jádra, 2 GB RAM, 32 GB disk na `local-lvm`, síť DHCP na `vmbr0`), nainstaluje Docker, stáhne projekt, vygeneruje hesla a `MASTER_KEY`, spustí aplikaci a na konci vypíše hesla a údaje pro NPM (ulož si je hned, podruhé se nevypíší). Jiné hodnoty zadáš proměnnými před příkazem, například:
+Vytvoří LXC 120 (Debian 12, Nesting, 2 jádra, 2 GB RAM, 16 GB disk na `local-lvm`, síť DHCP na `vmbr0`), nainstaluje Docker, stáhne projekt, vygeneruje hesla a `MASTER_KEY`, spustí aplikaci a na konci vypíše hesla a údaje pro NPM (ulož si je hned, podruhé se nevypíší). Jiné hodnoty zadáš proměnnými před příkazem, například:
 
 ```bash
 CTID=130 STORAGE=local-zfs IP_CONF=192.168.1.50/24,gw=192.168.1.1 ADMIN_NICKNAME=Michal bash <(curl -fsSL https://raw.githubusercontent.com/hensnn/koronabar-poker/main/scripts/proxmox-install.sh)
@@ -45,10 +45,10 @@ pveam download local debian-12-standard_12.7-1_amd64.tar.zst
 Vytvoř kontejner (změň `120` na volné ID, `local-lvm` na své úložiště a heslo roota):
 
 ```bash
-pct create 120 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst --hostname poker --cores 2 --memory 2048 --swap 512 --rootfs local-lvm:32 --net0 name=eth0,bridge=vmbr0,ip=dhcp --unprivileged 1 --features nesting=1,keyctl=1 --onboot 1 --password 'ZmenMeHeslo123'
+pct create 120 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst --hostname poker --cores 2 --memory 2048 --swap 512 --rootfs local-lvm:16 --net0 name=eth0,bridge=vmbr0,ip=dhcp --unprivileged 1 --features nesting=1,keyctl=1 --onboot 1 --password 'ZmenMeHeslo123'
 ```
 
-Totéž jde naklikat v GUI: Create CT → Unprivileged container zapnuto → šablona Debian 12 → 32 GB disk → 2 jádra → 2048 MB RAM → síť DHCP. Potom v **Options → Features** zapni **Nesting** a **keyctl** a v **Options → Start at boot** dej Yes.
+Totéž jde naklikat v GUI: Create CT → Unprivileged container zapnuto → šablona Debian 12 → 16 GB disk → 2 jádra → 2048 MB RAM → síť DHCP. Potom v **Options → Features** zapni **Nesting** a **keyctl** a v **Options → Start at boot** dej Yes.
 
 Spusť kontejner a zjisti jeho IP adresu (budeš ji potřebovat v NPM):
 
@@ -355,10 +355,10 @@ Tlačítko „Vrátit vzhled přihlášení na výchozí“ vše vrátí. Všech
 
 ## Místo na disku
 
-Každé sestavení (`--build`) nechá po sobě staré obrazy a mezipaměť sestavení; po několika aktualizacích to bývá víc než 10 GB. Proto je výchozí disk 32 GB a aktualizační příkaz výše hned po sestavení uklidí staré obrazy a mezipaměť (data a zálohy se nemažou). Když už je disk plný, zjistíš, co ho zabírá, příkazem `docker system df`, a uvolníš ho takto:
+Po instalaci zabírá aplikace asi 3 GB, takže výchozích 16 GB disku bohatě stačí. Jediné, co disk postupně plní, je mezipaměť sestavení Dockeru: každé `--build` ji zvětší a po desítkách sestavení (např. při opakovaném testování) může mít přes 10 GB. Aktualizační příkaz výše ji proto po sestavení hned uklidí (data a zálohy se nemažou). Když disk přesto roste, zjistíš příčinu příkazem `docker system df` a mezipaměť uvolníš takto:
 
 ```bash
-docker image prune -a -f && docker builder prune -a -f
+docker builder prune -a -f
 ```
 
-Zálohy databáze se drží `BACKUP_KEEP_DAYS` dní (výchozí 14) ve volume `backups`; ruční „Nový start“ a mazání historie je zmenší jen málo. Disk LXC jde v Proxmoxu zvětšit i později: `pct resize 120 rootfs +16G`.
+Zálohy databáze se drží `BACKUP_KEEP_DAYS` dní (výchozí 14) ve volume `backups` a zabírají jednotky MB. Disk LXC jde v Proxmoxu zvětšit i později: `pct resize 120 rootfs +16G`.
