@@ -4,7 +4,7 @@ import { formatLocal, t, type PermissionChecker, type SettingValues } from '@kb/
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 
-export type EveningErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'DISABLED' | 'CLOSED' | 'GAME_TAKEN';
+export type EveningErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'DISABLED' | 'CLOSED' | 'GAME_TAKEN' | 'OPEN_EXISTS';
 
 export class EveningError extends Error {
   constructor(
@@ -471,6 +471,23 @@ export class EveningService {
       const text = this.summaryText(closed, summary);
       for (const p of summary.players) await this.deps.mail(p.userId, 'vecer_souhrn', { nazev: ev.name, souhrn: text, odkaz: `${String(s['system.publicUrl'] ?? '').replace(/\/$/, '')}/vecery/${id}` }).catch(() => undefined);
     }
+  }
+
+  /**
+   * Znovu otevře uzavřený večer (např. uzavřený omylem): vrátí ho do stavu otevřený a smaže uložený souhrn, který se spočítá znovu
+   * při dalším uzavření. Jen když není otevřený jiný večer. Co po uzavření už odešlo (chat, e-maily, hlasování o handě), se nevrací.
+   */
+  async reopen(actorId: string, id: string, meta: Meta = {}): Promise<void> {
+    this.manage(actorId);
+    this.enabled();
+    const ev = await this.load(id);
+    if (ev.status !== 'closed') throw new EveningError('INVALID', { field: 'status' });
+    const [other] = await this.deps.db.select({ id: schema.evenings.id }).from(schema.evenings).where(eq(schema.evenings.status, 'open')).limit(1);
+    if (other) throw new EveningError('OPEN_EXISTS', { id: other.id });
+    await this.deps.db.update(schema.evenings).set({ status: 'open', endsAt: null, summary: null, touchedAt: new Date(this.deps.now()) }).where(eq(schema.evenings.id, id));
+    await this.deps.audit.log({ actorId, action: 'vecer.znovu_otevrit', targetType: 'evening', targetId: id, ...meta });
+    await this.refreshOpen();
+    this.deps.onChanged?.(id);
   }
 
   /** Přepočítá uložený souhrn uzavřeného večera (např. po opravě zápisu živé hry). */

@@ -214,6 +214,15 @@ export function EveningPage({ id }: { id: string }) {
               </Button>
             )}
             {!open && <Button onClick={() => void run(() => post(`/api/evenings/${id}/recompute`))}>{t('evening.recompute')}</Button>}
+            {!open && (
+              <Button
+                onClick={() => {
+                  if (confirm(t('evening.confirmReopen'))) void run(() => post(`/api/evenings/${id}/reopen`));
+                }}
+              >
+                {t('evening.reopen')}
+              </Button>
+            )}
             <Button
               variant="danger"
               onClick={() => {

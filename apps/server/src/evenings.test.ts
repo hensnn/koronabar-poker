@@ -121,6 +121,19 @@ describe('herní večery', { timeout: 90_000 }, () => {
     expect(chat[0]!.body).toContain('Lovec');
     expect(await s.server.evenings.csv(a, id)).toContain(';');
     expect(s.server.ledger.balance(accounts.table(live.id))).toBe(0);
+
+    // znovu otevření: jen správce, jen uzavřený večer, souhrn se smaže a po dalším uzavření se spočítá znovu
+    expect(await code(s.server.evenings.reopen(a, id))).toBe('FORBIDDEN');
+    await s.server.evenings.reopen(org, id);
+    expect((await s.server.evenings.view(id, org)).status).toBe('open');
+    expect(await code(s.server.evenings.reopen(org, id))).toBe('INVALID');
+    const other = await s.server.evenings.create(org, 'Druhý večer');
+    await s.server.evenings.close(org, id);
+    expect(await code(s.server.evenings.reopen(org, id))).toBe('OPEN_EXISTS');
+    await s.server.evenings.close(org, other.id);
+    await s.server.evenings.reopen(org, id);
+    await s.server.evenings.close(org, id);
+    expect((await s.server.evenings.view(id, org)).summary.mvp?.userId).toBe(b);
   });
 
   it('po dlouhé mezeře vznikne nový večer a starý se sám uzavře', async () => {

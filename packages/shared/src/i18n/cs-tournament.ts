@@ -1270,6 +1270,7 @@ export const csTournament: Record<string, string> = {
   'error.EVENING_INVALID': 'Neplatný údaj.',
   'error.EVENING_DISABLED': 'Herní večery jsou vypnuté.',
   'error.EVENING_CLOSED': 'Večer je už uzavřený.',
+  'error.EVENING_OPEN_EXISTS': 'Už je otevřený jiný večer. Nejdřív ho uzavři.',
   'error.EVENING_GAME_TAKEN': 'Tato hra už patří do jiného večera.',
   'settings.rating.flagNotifyAdmins.label': 'Potvrzené podezření: upozornit správce',
   'settings.rating.flagNotifyAdmins.help': 'Když správce potvrdí podezření na přelévání žetonů, dostanou upozornění ostatní správci ratingu.',

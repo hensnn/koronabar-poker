@@ -160,3 +160,7 @@ Sázky se u stolu ukazují jako **žetony**: u každého hráče, který vsadil 
 ## Button a blindy při prázdných místech
 
 Ve výchozím stavu se **button posouvá na dalšího hráče u stolu** a malý i velký blind platí vždy dva hráči hned za ním; prázdná místa ani hráči v sit outu se nepoužijí. Správce může v nastavení stolu zapnout **Mrtvý button (pravidlo kasin)**: button se pak posouvá o jedno sedadlo i přes prázdná místa, malý blind může zůstat nezaplacený a velký blind může platit tentýž hráč víckrát za sebou. Platí od další handy.
+
+## Znovu otevřít uzavřený večer
+
+Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu otevřít večer** na jeho stránce (jen pro správce večerů a jen když není otevřený jiný večer). Uložený souhrn se smaže a spočítá se znovu při dalším uzavření. Co po prvním uzavření už odešlo (zpráva v chatu, e-maily hráčům, hlasování o handě večera), se nevrací a při dalším uzavření se pošle znovu podle nastavení večerů (shrnutí do chatu, e-maily, automatické hlasování); chceš-li to nechtít, vypni je před uzavřením. Znovuotevření se zapíše do auditu.

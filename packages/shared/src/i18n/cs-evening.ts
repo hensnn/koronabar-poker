@@ -36,6 +36,8 @@ export const csEvening: Record<string, string> = {
   'evening.from': 'od {time}',
   'evening.to': 'do {time}',
   'evening.close': 'Uzavřít večer',
+  'evening.reopen': 'Znovu otevřít večer',
+  'evening.confirmReopen': 'Znovu otevřít večer? Uložený souhrn se smaže a spočítá se znovu při dalším uzavření. Zpráva v chatu, e-maily a hlasování o handě, které po uzavření odešly, se nevrací a při dalším uzavření se mohou poslat znovu (podle nastavení večerů).',
   'evening.confirmClose': 'Uzavřít večer? Souhrn se uloží a pošle do chatu.',
   'evening.recompute': 'Přepočítat souhrn',
   'evening.rename': 'Přejmenovat',
