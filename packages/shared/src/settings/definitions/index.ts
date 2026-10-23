@@ -509,6 +509,7 @@ const sounds: SettingDef[] = [
   text('sounds.formats', { category: 'sounds', mutability: ADM, scopes: GLOBAL }, 'mp3,ogg,wav,m4a', 60),
   int('sounds.maxFileKb', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 'KB' }, 2048, 64, 20480),
   int('sounds.maxSeconds', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 's' }, 5, 1, 30),
+  int('system.profilesMaxPerUser', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 10, 1, 100),
   int('sounds.maxPerUser', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 20, 1, 500),
   bool('sounds.requireApproval', { category: 'sounds', mutability: ADM, scopes: GLOBAL }, true),
   int('sounds.userCooldownSeconds', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 's' }, 3, 0, 600),

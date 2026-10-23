@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { createDefaultRegistry, resolveSettings, scopeAllowed, validateValues, type SettingValue, type SettingValues } from '@kb/shared';
+import { createDefaultRegistry, resolveSettings, sanitizeSettingsProfile, type SettingsProfileData, type SettingValue, type SettingValues } from '@kb/shared';
 import { del, get, put } from './api';
 import { onSocket } from './net';
 
@@ -216,24 +216,65 @@ export async function resetUserSetting(key: string, deviceOnly = false): Promise
   }
 }
 
-/** Export osobního nastavení do JSON (bez tajných údajů; ta v osobních vrstvách nejsou). */
-export function exportUserSettings(): string {
-  return JSON.stringify({ kind: 'kb-user-settings', version: 1, user: state.user }, null, 2);
+/** Moje osobní nastavení ke sdílení: hodnoty pro všechna zařízení a pro druh zařízení, na kterém právě jsem. */
+export function currentProfile(): SettingsProfileData {
+  return { user: state.user as Record<string, SettingValue>, device: state.device as Record<string, SettingValue>, deviceKind: deviceId() };
 }
 
-/** Import: jen platné osobní parametry, ostatní se vyřadí. Vrací počet načtených a vyřazených. */
-export async function importUserSettings(json: string): Promise<{ imported: number; dropped: string[] }> {
-  const raw = JSON.parse(json) as { kind?: string; user?: Record<string, SettingValue> };
-  if (raw.kind !== 'kb-user-settings' || typeof raw.user !== 'object' || raw.user === null) throw new Error('INVALID_FILE');
-  const ok: Record<string, SettingValue> = {};
-  const dropped: string[] = [];
-  for (const [k, v] of Object.entries(raw.user)) {
-    const def = registry.get(k);
-    if (!def || !scopeAllowed(def.scopes, 'user') || validateValues(registry, { [k]: v }).length) dropped.push(k);
-    else ok[k] = v;
+export interface ProfileChange {
+  key: string;
+  layer: 'user' | 'device';
+  /** Hodnota, která u mě platí teď (včetně zděděné), a hodnota z profilu. */
+  from: SettingValue | undefined;
+  to: SettingValue;
+}
+
+export interface ProfileOptions {
+  /** Převzít i hodnoty pro druh zařízení (telefon / počítač). */
+  includeDevice: boolean;
+  /** Nejdřív zrušit mé vlastní úpravy, které v profilu nejsou (nastavení bude přesně jako v profilu). */
+  replace: boolean;
+}
+
+/** Co by převzetí profilu změnilo: jen hodnoty, které se liší od těch, co mám; neplatné klíče jsou v `dropped`. */
+export function previewProfile(data: SettingsProfileData, opts: ProfileOptions): { changes: ProfileChange[]; removed: string[]; dropped: string[] } {
+  const { data: clean, dropped } = sanitizeSettingsProfile(registry, data);
+  const now = resolveFor().values as Record<string, SettingValue>;
+  const changes: ProfileChange[] = [];
+  for (const [key, to] of Object.entries(clean.user)) if (now[key] !== to) changes.push({ key, layer: 'user', from: now[key], to });
+  if (opts.includeDevice) for (const [key, to] of Object.entries(clean.device)) if (now[key] !== to) changes.push({ key, layer: 'device', from: now[key], to });
+  const removed = opts.replace ? [...Object.keys(state.user).filter((k) => !(k in clean.user)), ...(opts.includeDevice ? Object.keys(state.device).filter((k) => !(k in clean.device)) : [])] : [];
+  return { changes, removed, dropped };
+}
+
+/** Převezme profil (z kódu nebo od jiného hráče): uloží platné hodnoty do mého osobního nastavení. */
+export async function applyProfile(data: SettingsProfileData, opts: ProfileOptions): Promise<{ applied: number; removed: number; dropped: number }> {
+  const { data: clean, dropped } = sanitizeSettingsProfile(registry, data);
+  let applied = 0;
+  for (const [k, v] of Object.entries(clean.user)) {
+    await saveUserSetting(k, v);
+    applied++;
   }
-  for (const [k, v] of Object.entries(ok)) await saveUserSetting(k, v);
-  return { imported: Object.keys(ok).length, dropped };
+  if (opts.includeDevice) {
+    for (const [k, v] of Object.entries(clean.device)) {
+      await saveUserSetting(k, v, true);
+      applied++;
+    }
+  }
+  let removed = 0;
+  if (opts.replace) {
+    for (const k of Object.keys(state.user).filter((x) => !(x in clean.user))) {
+      await resetUserSetting(k);
+      removed++;
+    }
+    if (opts.includeDevice) {
+      for (const k of Object.keys(state.device).filter((x) => !(x in clean.device))) {
+        await resetUserSetting(k, true);
+        removed++;
+      }
+    }
+  }
+  return { applied, removed, dropped: dropped.length };
 }
 
 // Změna na jiném zařízení téhož hráče se projeví hned.

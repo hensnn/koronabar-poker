@@ -1304,3 +1304,19 @@ export const mcpCalls = pgTable(
   },
   (t) => [index('mcp_calls_created_idx').on(t.createdAt)],
 );
+
+/** Veřejné profily osobního nastavení: hráč si uloží své nastavení pod názvem a ostatní si ho smějí převzít. */
+export const settingsProfiles = pgTable(
+  'settings_profiles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    /** Druh zařízení, pro které jsou hodnoty v `data.device` (phone / desktop), jinak null. */
+    deviceKind: text('device_kind'),
+    data: jsonb('data').$type<{ user: Record<string, string | number | boolean>; device: Record<string, string | number | boolean> }>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('settings_profiles_owner_idx').on(t.ownerId)],
+);

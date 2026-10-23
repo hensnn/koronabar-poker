@@ -12,7 +12,7 @@ import { SESSION_COOKIE } from './cookies.js';
 import { sendError } from './errors.js';
 import { schema, type Db } from '../db/index.js';
 import { eq } from 'drizzle-orm';
-import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, type SettingsTemplate } from '@kb/shared';
+import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, sanitizeSettingsProfile, type SettingsTemplate } from '@kb/shared';
 import type { EmailService } from '../email/service.js';
 import type { ApprovalService } from '../auth/approvals.js';
 import type { WalletService } from '../wallet/service.js';
@@ -302,6 +302,54 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const { key } = req.params as { key: string };
     const device = (req.query as { device?: string }).device;
     await svc.settings.reset(u.id, device ? 'userDevice' : 'user', device ? `${u.id}:${device}` : u.id, key, meta(req));
+    return reply.send({ ok: true });
+  }));
+  // ---------- sdílené profily osobního nastavení ----------
+
+  const profileData = z.object({
+    user: z.record(z.string().max(100), z.union([z.string().max(5000), z.number(), z.boolean()])).default({}),
+    device: z.record(z.string().max(100), z.union([z.string().max(5000), z.number(), z.boolean()])).default({}),
+    deviceKind: z.enum(['phone', 'desktop']).nullable().default(null),
+  });
+  /** Seznam veřejných profilů: název, autor, počet hodnot; hodnoty se stahují až při převzetí. */
+  app.get('/api/settings-profiles', guard(async (req, reply) => {
+    const u = need(req);
+    const rows = await svc.db
+      .select({ id: schema.settingsProfiles.id, ownerId: schema.settingsProfiles.ownerId, name: schema.settingsProfiles.name, description: schema.settingsProfiles.description, deviceKind: schema.settingsProfiles.deviceKind, data: schema.settingsProfiles.data, createdAt: schema.settingsProfiles.createdAt, author: schema.users.nickname })
+      .from(schema.settingsProfiles)
+      .leftJoin(schema.users, eq(schema.users.id, schema.settingsProfiles.ownerId));
+    const canDelete = svc.perms.can(u.id, 'nastaveni.globalni').allowed;
+    return reply.send({
+      profiles: rows
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map((r) => ({ id: r.id, name: r.name, description: r.description, deviceKind: r.deviceKind, author: r.author ?? '?', count: Object.keys(r.data.user).length + Object.keys(r.data.device).length, createdAt: r.createdAt.getTime(), mine: r.ownerId === u.id, canDelete: r.ownerId === u.id || canDelete })),
+    });
+  }));
+  app.get('/api/settings-profiles/:id', guard(async (req, reply) => {
+    need(req);
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const [row] = await svc.db.select().from(schema.settingsProfiles).where(eq(schema.settingsProfiles.id, id));
+    if (!row) throw new AccountError('NOT_FOUND');
+    return reply.send({ name: row.name, data: { user: row.data.user, device: row.data.device, deviceKind: row.deviceKind } });
+  }));
+  app.post('/api/settings-profiles', guard(async (req, reply) => {
+    const u = need(req);
+    const body = z.object({ name: z.string().trim().min(1).max(60), description: z.string().trim().max(200).default(''), data: profileData }).parse(req.body);
+    const { data } = sanitizeSettingsProfile(svc.settings['registry'], body.data);
+    if (Object.keys(data.user).length + Object.keys(data.device).length === 0) return reply.status(400).send({ code: 'INVALID_INPUT', params: { issues: [] } });
+    const max = Number(svc.settings.resolve()['system.profilesMaxPerUser']);
+    const mine = await svc.db.select({ id: schema.settingsProfiles.id }).from(schema.settingsProfiles).where(eq(schema.settingsProfiles.ownerId, u.id));
+    if (mine.length >= max) return reply.status(409).send({ code: 'PROFILE_LIMIT', params: { max } });
+    const [row] = await svc.db.insert(schema.settingsProfiles).values({ ownerId: u.id, name: body.name, description: body.description, deviceKind: data.deviceKind, data: { user: data.user, device: data.device } }).returning({ id: schema.settingsProfiles.id });
+    return reply.send({ id: row!.id });
+  }));
+  app.delete('/api/settings-profiles/:id', guard(async (req, reply) => {
+    const u = need(req);
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const [row] = await svc.db.select({ ownerId: schema.settingsProfiles.ownerId }).from(schema.settingsProfiles).where(eq(schema.settingsProfiles.id, id));
+    if (!row) throw new AccountError('NOT_FOUND');
+    if (row.ownerId !== u.id && !svc.perms.can(u.id, 'nastaveni.globalni').allowed) throw new AccountError('FORBIDDEN');
+    await svc.db.delete(schema.settingsProfiles).where(eq(schema.settingsProfiles.id, id));
     return reply.send({ ok: true });
   }));
   app.get('/api/settings/global', guard(async (req, reply) => {

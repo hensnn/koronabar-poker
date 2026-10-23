@@ -4,6 +4,7 @@ export * from './settings/registry.js';
 export * from './settings/resolve.js';
 export * from './settings/validate.js';
 export * from './settings/mutability.js';
+export * from './settings/profile.js';
 export * from './settings/templates.js';
 export * from './settings/definitions/index.js';
 export * from './templates/builtin.js';

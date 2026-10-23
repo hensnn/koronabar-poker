@@ -267,6 +267,13 @@
       "when": 1792559902096,
       "tag": "0037_asistent_mistni_odpovedi",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792757067350,
+      "tag": "0038_profily_nastaveni",
+      "breakpoints": true
     }
   ]
 }

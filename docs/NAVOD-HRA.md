@@ -143,3 +143,11 @@ Když se u stolu objeví nabídka, kterou chceš přijmout (okno buy-inu a dokou
 - **Hlasování o run it twice** proběhne **před otočením karet**: nikdo ještě nevidí soupeřovy karty ani šance na výhru, takže hlasuje naslepo. Teprve po rozhodnutí se karty otočí a doloží se board.
 - **Moje odpověď na hlasování** si nastavíš v informacích o hře (widget O hře, volba **Run it**): *ask* (zeptat se), *never* (nikdy, odpověď „ne“ se pošle sama) nebo *always* (vždy souhlasit). Dotaz se pak vůbec neukáže.
 - **Rabbit hunt:** po handě bez celého boardu zůstane stůl aspoň **dobu na rabbit hunt** (nastavení → Speciální prvky → Rabbit hunt, pod přepínačem Rabbit hunt; viditelné jen když je rabbit hunt zapnutý; výchozí 8 s); po vyžádání zbývá na prohlédnutí aspoň tato doba, takže další handa nezačne dřív.
+
+## Sdílení osobního nastavení
+
+V **Nastavení** (dole, karta **Sdílení nastavení**) můžeš své osobní nastavení (vzhled, zvuky, volby pro telefon, plánované tahy a další) předat ostatním a převzít jejich:
+- **Kód:** *Zkopírovat můj kód* vytvoří text, který pošleš třeba v chatu. Kdo ho vloží do pole a klikne na *Zobrazit, co se změní*, uvidí seznam změn (stará → nová hodnota) a teprve potom ho převezme. Zahrnuje i nastavení pro telefon nebo počítač (volitelné).
+- **Veřejné profily:** *Zveřejnit moje nastavení* uloží profil pod názvem do seznamu; kdokoli si ho tlačítkem *Převzít* přes stejný náhled vezme. Smazat ho může autor a správce. Počet profilů na hráče určuje nastavení správce *Sdílené profily nastavení: nejvíc na hráče* (výchozí 10).
+- **Převzít** nic jinému hráči nemění, jen tvoje nastavení. Volba *Nahradit moje nastavení* vrátí na výchozí vše, co v profilu není, takže bude přesně jako v profilu.
+- **Nastavení od správce:** správce nastavuje výchozí hodnoty pro všechny; tvoje osobní úpravy je přebíjejí. Tlačítko *Vrátit vše na výchozí* je smaže a platí zase nastavení správce.

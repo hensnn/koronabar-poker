@@ -6,7 +6,7 @@ import { useThemes } from '../theme/ThemeProvider';
 import { t, type SettingValue } from '@kb/shared';
 import { errorText, post } from '../api';
 import { logout, useSession } from '../session';
-import { exportUserSettings, deviceId, deviceKindOverride, setDeviceKindOverride, importUserSettings, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
+import { deviceId, deviceKindOverride, setDeviceKindOverride, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
 import { SettingsForm } from '../settings/SettingsForm';
 import { Button, Card, Notice, Tabs, TextArea, TextInput } from '../ui';
 import { Guide } from './guide';
@@ -15,6 +15,7 @@ import { useFeatures } from '../features';
 import { NotesSection } from './notes';
 import { TokensSection } from './tokens';
 import { InstallCard } from '../pwa';
+import { SettingsShare } from '../settings-share';
 import { LookTitle, Trophies } from '../cosmetics-client';
 
 export function ProfilePage() {
@@ -138,27 +139,7 @@ export function SettingsPage() {
         allowedKeys={(d) => userKeys.some((x) => x.key === d.key)}
       />
       <SoundLibrary />
-      <Card title={t('settings.personal.backup')}>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setJson(exportUserSettings())}>{t('settings.personal.export')}</Button>
-            <Button onClick={resetAll}>{t('settings.personal.reset')}</Button>
-          </div>
-          <TextArea label={t('settings.personal.json')} value={json} onChange={(e) => setJson(e.target.value)} />
-          <Button
-            onClick={async () => {
-              try {
-                const r = await importUserSettings(json);
-                setMsg({ kind: 'success', text: t('settings.personal.imported', { n: r.imported, dropped: r.dropped.length }) });
-              } catch {
-                setMsg({ kind: 'error', text: t('settings.personal.importError') });
-              }
-            }}
-          >
-            {t('settings.personal.import')}
-          </Button>
-        </div>
-      </Card>
+      <SettingsShare />
         </>
       )}
     </div>
