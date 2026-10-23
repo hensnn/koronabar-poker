@@ -86,7 +86,7 @@ Všechna tato hlášení si každý hráč vypne nebo zapne v **Nastavení → O
 
 Na telefonu (úzký displej, nebo telefon na šířku) je stůl samostatná obrazovka bez rolování:
 - **nahoře lišta** jen s ikonami: ← zpět, blindy (u turnaje 🏆), 📜 historie, ⏸/▶ pauza (kdo ji smí), 💬 chat (s počtem nepřečtených), ℹ️ informace o stole a ☰ nabídka stolu;
-- **ℹ️ Informace o stole:** **Sit out** a volba, co s kartami po výhře a prohře (Win/Lose), pak Můj stůl, Moje ruka a kombinace, Hráči a **O hře** (v ní **Dokoupit žetony**, **Odejít od stolu**, zavolání času, dohoda, rebuy);
+- **ℹ️ Informace o stole:** **Sit out** a volba, co s kartami po výhře a prohře (Win/Lose), pak Můj stůl, Moje kombinace, Hráči a **O hře** (v ní **Dokoupit žetony**, **Odejít od stolu**, zavolání času, dohoda, rebuy);
 - **☰ Nabídka stolu:** sdílet v chatu, vyúčtování, anketa, přepnutí rozložení, celá obrazovka a **Zvuk a Vibrace** (vibrace jdou vypnout);
 - **uprostřed stůl** přes celou šířku;
 - **pod stolem (na výšku):** pruh času s time bankem, **moje ruka** (velké karty, název kombinace a stack) a **poslední události** (kdo co sázel, výhra, nová handa). Každou z těchto částí i upozornění na můj tah (spodní tlačítka pulzují) si zapneš nebo vypneš zaškrtávátky v kartě **O hře** (ℹ️), nebo v Osobním nastavení. Na šířku se tato část neukazuje;

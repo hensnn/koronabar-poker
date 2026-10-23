@@ -116,23 +116,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
         )
       ),
     },
-    hand: {
-      title: t('table.widget.hand'),
-      show: !!mine,
-      body:
-        mine && mine.hasCards && mine.cards ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex gap-1">
-              {mine.cards.map((c) => (
-                <CardView key={c} card={c} />
-              ))}
-            </div>
-            {myWin?.hand && <span className="text-sm">{t(myWin.hand.key, myWin.hand.params)}</span>}
-          </div>
-        ) : (
-          <p className="text-muted">{t('table.notInHand')}</p>
-        ),
-    },
     best: {
       title: t('table.widget.best'),
       show: !!mine,

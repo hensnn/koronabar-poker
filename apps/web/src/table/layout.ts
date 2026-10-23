@@ -3,7 +3,7 @@
  * v kterémkoli panelu, může být skrytý nebo sbalený. Rozložení je osobní nastavení `ui.tableLayout`.
  */
 
-export const LEFT_DEFAULT = ['table', 'hand', 'best', 'players', 'chat', 'sounds'] as const;
+export const LEFT_DEFAULT = ['table', 'best', 'players', 'chat', 'sounds'] as const;
 /** „O hře“ obsahuje i všechny akce hráče (dokoupit, odejít, sit out, ukázání karet, dohoda…). */
 export const RIGHT_DEFAULT = ['info', 'bounties'] as const;
 export const WIDGET_IDS = [...LEFT_DEFAULT, ...RIGHT_DEFAULT] as const;
