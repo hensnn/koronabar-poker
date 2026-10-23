@@ -81,7 +81,7 @@ export const csIntegrations: Record<string, string> = {
   'integration.discord.hand.badBeat': '😱 Bad beat: {nick} prohrál se šancí {equity} % na výhru.',
   'integration.discord.chat.message': '💬 {nick}: {text}',
   'integration.discord.poll.created': '🗳️ Nová anketa: {title}',
-  'integration.discord.evening.closed': '🌙 Večer **{name}** skončil: {games} her, {players} hráčů, MVP {mvp}.',
+  'integration.discord.evening.closed': '🌙 Večer **{name}** skončil: {games} her, {players} hráčů, MVP {mvp}.\nSouhrn na webu: {url}',
   'integration.ha.status': 'Turnaj: stav',
   'integration.ha.name': 'Turnaj: název',
   'integration.ha.level': 'Turnaj: level',

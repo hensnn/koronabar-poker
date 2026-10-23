@@ -93,7 +93,7 @@ interface Deps {
   mail: (userId: string, template: string, vars: Record<string, string | number>) => Promise<void>;
   onChanged?: (id: string) => void;
   /** Večer byl uzavřen (napojení ven). */
-  onClosed?: (info: { name: string; games: number; players: number; mvp: string }) => void;
+  onClosed?: (info: { id: string; name: string; games: number; players: number; mvp: string }) => void;
 }
 
 type Meta = { ip?: string | null };
@@ -463,7 +463,7 @@ export class EveningService {
     await this.deps.audit.log({ actorId: actorId ?? undefined, action: 'vecer.uzavrit', targetType: 'evening', targetId: id, after: { auto: actorId === null, games: summary.stats.games }, ...meta });
     await this.refreshOpen();
     this.deps.onChanged?.(id);
-    this.deps.onClosed?.({ name: ev.name, games: summary.stats.games, players: summary.stats.players, mvp: summary.mvp?.nickname ?? '' });
+    this.deps.onClosed?.({ id, name: ev.name, games: summary.stats.games, players: summary.stats.players, mvp: summary.mvp?.nickname ?? '' });
     const s = this.s();
     if (s['evening.chatSummary'] && summary.stats.games > 0) await this.deps.postChat(this.summaryText(closed, summary)).catch(() => undefined);
     if (s['evening.handVoteAuto']) await this.startHandVote(null, id).catch(() => undefined);

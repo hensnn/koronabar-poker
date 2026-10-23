@@ -170,6 +170,19 @@ describe('webhooky', { timeout: 60_000 }, () => {
     expect(await code(c.server.integrations.removeEndpoint(c.admin, id))).toBe('NOT_FOUND');
   });
 
+  it('Discord: po uzavření večera odejde souhrn s odkazem na web', async () => {
+    const { f, calls } = fakeFetch();
+    const c = await start({ 'integrations.discordEnabled': true }, { fetch: f });
+    await c.server.secrets.set(c.admin, 'discord.webhookUrl', 'https://discord.example/api/webhooks/1/abc');
+    const { id } = await c.server.evenings.create(c.admin, 'Páteční večer');
+    await c.server.evenings.close(c.admin, id);
+    await c.server.integrations.idle();
+    const msg = calls.map((x) => JSON.parse(x.body).content as string).find((x) => x.includes('Páteční večer'));
+    expect(msg).toBeDefined();
+    expect(msg).toContain('skončil');
+    expect(msg).toContain(`http://localhost/vecery/${id}`);
+  });
+
   it('Discord: zpráva je přeložený text bez pingů, posílá se jen vybraným událostem a jen s adresou', async () => {
     const { f, calls } = fakeFetch();
     const c = await start({ 'integrations.discordEnabled': true }, { fetch: f });

@@ -842,7 +842,8 @@ export async function buildServer(opts: ServerOptions = {}) {
     mainChannelId: () => chat.ensureMainChannel(),
   });
   eveningRef = new EveningService({
-    onClosed: (info) => out('evening.closed', info),
+    // Do integrací (Discord, webhooky) jde i odkaz na stránku večera se souhrnem.
+    onClosed: (info) => out('evening.closed', { name: info.name, games: info.games, players: info.players, mvp: info.mvp, url: `${String(settings.resolve()['system.publicUrl'] ?? '').replace(/\/$/, '')}/vecery/${info.id}` }),
     db,
     perms,
     audit,
