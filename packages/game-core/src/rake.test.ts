@@ -22,6 +22,8 @@ function hand(players: HandPlayer[], board: Card[], winners: { seat: number; amo
     street: 'SHOWDOWN',
     board,
     buttonSeat: 0,
+    smallBlindSeat: null,
+    bigBlindSeat: null,
     actingSeat: null,
     players,
     pots: [],

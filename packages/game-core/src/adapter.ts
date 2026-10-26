@@ -83,6 +83,8 @@ export class PokertoolsAdapter implements PokerEngineAdapter {
   private dead = new Map<string, number>();
   private deadAward: Map<string, number> | null = null;
   private straddleSeat: number | null = null;
+  /** Sedadlo malého blindu v aktuální handě (engine drží jen velký blind); null = nikdo ho nezaplatil. */
+  private sbSeat: number | null = null;
   private limit: { mode: 'noLimit' | 'potLimit' | 'fixedLimit'; maxBets: number } = { mode: 'noLimit', maxBets: 4 };
   /** Kolik sázek a zvýšení už v aktuálním kole proběhlo (mimo blindy). */
   private aggressions = 0;
@@ -175,9 +177,25 @@ export class PokertoolsAdapter implements PokerEngineAdapter {
     );
     this.aggressions = 0;
     this.straddleSeat = null;
+    this.sbSeat = this.findSmallBlindSeat();
     for (const p of this.raw.players as any[]) if (p && p.betThisStreet > this.raw.bigBlind) this.straddleSeat = p.seat;
     // Hráči, kteří čekají na big blind a nebyli dealt, zůstanou v čekání; ostatním se příznak smaže.
     for (const p of this.raw.players as any[]) if (p?.hand && p.hand.length === 2) this.waiting.set(p.id, false);
+  }
+
+  /** Malý blind je heads-up button, jinak první hráč po buttonu, který zaplatil sázku a není na velkém blindu. */
+  private findSmallBlindSeat(): number | null {
+    const s = this.raw as { buttonSeat: number | null; bigBlindSeat: number | null; maxPlayers: number; players: ({ betThisStreet: number; stack: number } | null)[] };
+    if (s.buttonSeat === null || s.bigBlindSeat === null) return null;
+    const posted = (seat: number) => (s.players[seat]?.betThisStreet ?? 0) > 0;
+    const funded = s.players.filter((p) => p !== null && (p.stack > 0 || p.betThisStreet > 0)).length;
+    if (funded === 2) return s.bigBlindSeat !== s.buttonSeat ? s.buttonSeat : null;
+    for (let i = 1; i < s.maxPlayers; i++) {
+      const seat = (s.buttonSeat + i) % s.maxPlayers;
+      if (seat === s.bigBlindSeat) return null;
+      if (posted(seat)) return seat;
+    }
+    return null;
   }
 
   /** Kdo bude na big blindu: zkušební rozdání na kopii enginu (pozice nezávisí na zamíchání). */
@@ -379,6 +397,8 @@ export class PokertoolsAdapter implements PokerEngineAdapter {
       street: s.street as Street,
       board: [...s.board],
       buttonSeat: s.buttonSeat,
+      smallBlindSeat: this.sbSeat,
+      bigBlindSeat: s.bigBlindSeat ?? null,
       actingSeat: finished ? null : s.actionTo,
       players,
       pots,

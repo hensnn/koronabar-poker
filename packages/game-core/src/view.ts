@@ -128,6 +128,8 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       bet: h.finished ? 0 : p.bet,
       status: p.status === 'sittingOut' && ctx.statusOverride?.has(p.playerId) ? (ctx.statusOverride.get(p.playerId) as SeatView['status']) : p.status,
       isDealer: h.buttonSeat === p.seat,
+      isSmallBlind: h.smallBlindSeat === p.seat,
+      isBigBlind: h.bigBlindSeat === p.seat,
       cards: showCards ? ([showCards[0], showCards[1]] as [Card, Card]) : null,
       hasCards: !!p.hole && p.status !== 'sittingOut',
       timeBank: ctx.timeBanks?.get(p.playerId) ?? p.timeBank,

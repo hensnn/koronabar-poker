@@ -1218,3 +1218,24 @@ label:has(> select) { min-width: 0; max-width: 100%; }
   animation: tk-chip-sweep calc(0.55s / var(--tk-anim-speed)) ease-in-out both;
 }
 @keyframes tk-chip-sweep { to { left: var(--to-left); top: var(--to-top); opacity: 0.2; transform: translate(-50%, -50%) scale(0.7); } }
+
+/* Označení malého a velkého blindu u sedadla (vedle dealer buttonu). */
+.tk-blind {
+  position: absolute;
+  left: calc(var(--spacing) * -3);
+  bottom: calc(var(--spacing) * -1);
+  min-width: calc(var(--spacing) * 6);
+  height: calc(var(--spacing) * 6);
+  padding-inline: calc(var(--spacing) * 1);
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  font-family: var(--tk-font-heading);
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: var(--tk-color-onAction);
+  background: var(--tk-color-info);
+  box-shadow: var(--tk-shape-shadow);
+}
+.tk-blind[data-blind='big'] { background: var(--tk-color-warning); }
+[data-mobile] .tk-blind { min-width: calc(var(--spacing) * 4.5); height: calc(var(--spacing) * 4.5); font-size: 0.6rem; left: calc(var(--spacing) * -2); }

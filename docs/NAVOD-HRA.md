@@ -164,3 +164,8 @@ Ve výchozím stavu se **button posouvá na dalšího hráče u stolu** a malý 
 ## Znovu otevřít uzavřený večer
 
 Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu otevřít večer** na jeho stránce (jen pro správce večerů a jen když není otevřený jiný večer). Uložený souhrn se smaže a spočítá se znovu při dalším uzavření. Co po prvním uzavření už odešlo (zpráva v chatu, e-maily hráčům, hlasování o handě večera), se nevrací a při dalším uzavření se pošle znovu podle nastavení večerů (shrnutí do chatu, e-maily, automatické hlasování); chceš-li to nechtít, vypni je před uzavřením. Znovuotevření se zapíše do auditu.
+
+## Informační řádka a označení blindů
+
+- Když jsi na tahu, informační řádka pod stolem říká, co máš udělat: **„Na tahu: dorovnat 40“** (u dorovnání celého stacku „… (all-in)“), **„Na tahu: check nebo vsadit“** nebo **„Na tahu: check nebo zvýšit“** (např. velký blind, když nikdo nezvýšil). Vedle je odpočet času.
+- U sedadel jsou kromě dealera **D** i značky **SB** (malý blind, modrá) a **BB** (velký blind, oranžová). Heads-up je dealer zároveň malý blind.

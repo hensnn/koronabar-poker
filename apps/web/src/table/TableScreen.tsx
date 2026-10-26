@@ -175,6 +175,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
 
   // Run it: pot leží nad řádky jednotlivých běhů, aby se s nimi a s mými kartami nepřekrýval.
   const multiRun = !!view.runs && view.runs.length >= 1;
+  // Co mám na tahu udělat: dorovnat (kolik), nebo check/sázka; místo obecného „Jsi na tahu“.
+  const toCall = view.legal?.callAmount ?? 0;
+  const turnText = !view.legal
+    ? t('table.yourTurn')
+    : toCall > 0
+      ? t(mine && toCall >= mine.stack ? 'table.turn.callAllIn' : 'table.turn.call', { amount: formatAmount(toCall, info, inBb) })
+      : t(view.legal.canRaise ? 'table.turn.checkOrRaise' : 'table.turn.checkOrBet');
   const settledPot = view.pots.reduce((n, p) => n + p.amount, 0);
   const potEl = (
     <div className="tk-pot" aria-label={t('table.pot')}>
@@ -381,7 +388,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       <div className="tk-turn-row">
       {myTurn ? (
         <div role="status" className="tk-your-turn tk-pop">
-          {t('table.yourTurn')} · <Countdown deadline={view.deadline} offset={net.clockOffset} />
+          {turnText} · <Countdown deadline={view.deadline} offset={net.clockOffset} />
           {view.bankActive && ` (${t('table.timeBank')})`}
           {view.clockCalled && ` · ${t('table.clockCalled')}`}
         </div>
@@ -605,6 +612,11 @@ function Seat({
           </span>
         )}
         {view.straddleSeat === seat.seat && <span className="tk-straddle">S</span>}
+        {(seat.isSmallBlind || seat.isBigBlind) && (
+          <span className="tk-blind" data-blind={seat.isBigBlind ? 'big' : 'small'} title={t(seat.isBigBlind ? 'table.bigBlind' : 'table.smallBlind')}>
+            {seat.isBigBlind ? 'BB' : 'SB'}
+          </span>
+        )}
         {revealLabel && (
           <span className="tk-seat-reveal" role="status">
             {revealLabel}

@@ -18,13 +18,13 @@ function hands(over: Record<string, unknown>, sitOutSeat?: number) {
     actor.join(u, u, n, 1000);
   }
   if (sitOutSeat !== undefined) actor.sitOut(Object.entries(seats).find(([, n]) => n === sitOutSeat)![0]);
-  const out: { button: number; bets: Record<number, number> }[] = [];
+  const out: { button: number; bets: Record<number, number>; sb: number | null; bb: number | null }[] = [];
   let last = 0;
   for (let step = 0; step < 4000 && out.length < 8; step++) {
     const v = actor.viewFor(null);
     if (v.handId && v.handNumber !== last) {
       last = v.handNumber;
-      out.push({ button: v.buttonSeat!, bets: Object.fromEntries(v.seats.filter((s) => s.bet > 0).map((s) => [s.seat, s.bet])) });
+      out.push({ button: v.buttonSeat!, sb: v.seats.find((x) => x.isSmallBlind)?.seat ?? null, bb: v.seats.find((x) => x.isBigBlind)?.seat ?? null, bets: Object.fromEntries(v.seats.filter((s) => s.bet > 0).map((s) => [s.seat, s.bet])) });
     }
     if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
       const p = v.seats.find((s) => s.seat === v.actingSeat)!;
@@ -49,6 +49,18 @@ describe('blindy a button s prázdnými místy', () => {
     }
     // button obíhá hráče po řadě
     expect(hs.slice(0, 5).map((h) => h.button)).toEqual([0, 2, 5, 7, 0]);
+  });
+
+  it('označení blindů: SB a BB jsou hráči hned za buttonem, SB platí malý a BB velký blind', () => {
+    const hs = hands({});
+    const order = [0, 2, 5, 7];
+    for (const h of hs) {
+      const i = order.indexOf(h.button);
+      expect(h.sb).toBe(order[(i + 1) % 4]);
+      expect(h.bb).toBe(order[(i + 2) % 4]);
+      expect(h.bets[h.sb!]).toBe(5);
+      expect(h.bets[h.bb!]).toBe(10);
+    }
   });
 
   it('živý button přeskočí hráče v sit outu', () => {

@@ -146,7 +146,7 @@ describe('run it twice/třikrát', () => {
 
 describe('settleRuns (čistý výpočet)', () => {
   const player = (seat: number, id: string, invested: number, hole: [Card, Card], status: HandPlayer['status'] = 'allIn'): HandPlayer => ({ seat, playerId: id, name: id, stack: 0, bet: 0, invested, status, hole, timeBank: 0, dead: 0 });
-  const hand = (players: HandPlayer[], board: Card[]): HandState => ({ handId: 'h', handNumber: 1, street: 'SHOWDOWN', board, buttonSeat: 0, actingSeat: null, players, pots: [], winners: [], finished: true, minRaiseTo: 0, currentBet: 0, deadMoney: 0, straddleSeat: null });
+  const hand = (players: HandPlayer[], board: Card[]): HandState => ({ handId: 'h', handNumber: 1, street: 'SHOWDOWN', board, buttonSeat: 0, smallBlindSeat: null, bigBlindSeat: null, actingSeat: null, players, pots: [], winners: [], finished: true, minRaiseTo: 0, currentBet: 0, deadMoney: 0, straddleSeat: null });
 
   it('každý běh dostane polovinu každého potu, lichý žeton první běh', () => {
     // a: AA, b: KK; run 1: bez pomoci pro b (a vyhrává), run 2: král na boardu (b vyhrává set)

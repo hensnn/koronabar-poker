@@ -35,6 +35,9 @@ export interface HandState {
   street: Street;
   board: Card[];
   buttonSeat: number | null;
+  /** Sedadla, která v téhle handě platila malý a velký blind (malý blind může chybět, když nikdo nesedí hned za buttonem). */
+  smallBlindSeat: number | null;
+  bigBlindSeat: number | null;
   actingSeat: number | null;
   players: HandPlayer[];
   pots: { amount: number; eligibleSeats: number[] }[];
@@ -86,6 +89,9 @@ export interface SeatView {
   bet: number;
   status: SeatStatus;
   isDealer: boolean;
+  /** Hráč platí v této handě malý, resp. velký blind (označení u sedadla). */
+  isSmallBlind?: boolean;
+  isBigBlind?: boolean;
   /** Karty: vlastní, nebo odhalené při showdownu; jinak null. */
   cards: [Card, Card] | null;
   /** Hráč má karty (rub se vykreslí), i když je nevidíme. */
