@@ -100,6 +100,10 @@ export interface TableOptions {
   tournament?: boolean;
   /** Turnaj, ke kterému stůl patří (u turnaje na více stolech se liší od id stolu). */
   tournamentId?: string;
+  /** Smí se právě teď pauza ukončit dřív tlačítkem „Jsem ready“? Výchozí ano; turnaj to povolí jen při přestávce. */
+  readyAllowed?: () => boolean;
+  /** Dost hráčů je ready: výchozí je uvolnit stůl; turnaj tak ukončí přestávku. */
+  onReadyQuorum?: () => void;
   /** Předěl mezi handami u turnajového stolu: turnaj může přesadit hráče, zrušit stůl nebo stůl zadržet (hand-for-hand). */
   onBoundary?: () => void;
   /** Osobní nastavení hráče (např. jak naložit s kartami na showdownu); undefined = výchozí hodnota. */
@@ -152,6 +156,10 @@ export class TableActor {
   private bombPotHand: string | null = null;
   /** Čas navíc pro první tah handy (rozdávání); spotřebuje se při prvním spuštění časovače. */
   private dealGraceMs = 0;
+  /** Hráči, kteří při pauze potvrdili „Jsem ready“, a čas začátku pauzy. */
+  private ready = new Set<string>();
+  private heldSince = 0;
+  private readyTimer: (() => void) | null = null;
   /** Sedadlo s dealer buttonem v poslední rozehrané handě: mezi handami zůstává vidět u stolu. */
   private lastButton: number | null = null;
   /** Ulice, pro kterou už se hráči na tahu připsal čas na odhalení karet (aby se nepřipisoval při každém tahu). */
@@ -350,11 +358,68 @@ export class TableActor {
 
   /** Pozastaví rozdávání dalších hand (přestávka, pauza). Rozehraná handa se dohraje. */
   hold(): void {
+    if (!this.held) {
+      this.heldSince = this.opt.clock.now();
+      this.ready.clear();
+    }
     this.held = true;
     this.changed();
   }
 
+  /** Hráči u stolu, kteří se počítají do „ready“ (usazení a ne v sit outu), a kolik jich je ready. */
+  private readyCounts(): { total: number; count: number; needed: number } {
+    const s = this.opt.settings();
+    const active = [...this.seats.values()].filter((e) => e.mode === 'in');
+    const total = active.length;
+    const count = active.filter((e) => this.ready.has(e.userId)).length;
+    return { total, count, needed: Math.max(1, Math.ceil((total * num(s, 'table.readyPercent')) / 100)) };
+  }
+
+  private readyOpen(): boolean {
+    return this.held && !!this.opt.settings()['table.readyEnabled'] && (this.opt.readyAllowed ? this.opt.readyAllowed() : true);
+  }
+
+  private readyView(userId: string | null): TableView['ready'] {
+    if (!userId || !this.readyOpen()) return null;
+    const e = this.seats.get(userId);
+    if (!e || e.mode !== 'in') return null;
+    const { total, count, needed } = this.readyCounts();
+    const waitMs = Math.max(0, this.heldSince + this.scaled(num(this.opt.settings(), 'table.readyMinSeconds') * 1000) - this.opt.clock.now());
+    return { count, needed, total, mine: this.ready.has(userId), waitMs };
+  }
+
+  /** Hráč potvrdí (nebo zruší) „Jsem ready“ při pauze; když je ready dost hráčů a uplynula minimální doba, pauza skončí dřív. */
+  setReady(userId: string, flag: boolean): void {
+    this.guard(() => {
+      const e = this.mustSeat(userId);
+      if (!this.readyOpen() || e.mode !== 'in') throw new GameError('NOT_ALLOWED');
+      if (flag) this.ready.add(userId);
+      else this.ready.delete(userId);
+      this.checkReadyQuorum();
+      this.changed();
+    });
+  }
+
+  private checkReadyQuorum(): void {
+    this.readyTimer?.();
+    this.readyTimer = null;
+    if (!this.readyOpen()) return;
+    const { count, needed } = this.readyCounts();
+    if (count < needed) return;
+    const wait = this.heldSince + this.scaled(num(this.opt.settings(), 'table.readyMinSeconds') * 1000) - this.opt.clock.now();
+    if (wait > 0) {
+      this.readyTimer = this.opt.clock.setTimeout(() => this.checkReadyQuorum(), wait);
+      return;
+    }
+    this.ready.clear();
+    if (this.opt.onReadyQuorum) this.opt.onReadyQuorum();
+    else this.release();
+  }
+
   release(): void {
+    this.readyTimer?.();
+    this.readyTimer = null;
+    this.ready.clear();
     this.held = false;
     if (this.phase === 'idle' || this.phase === 'pause') this.scheduleNextHand();
     this.changed();
@@ -524,6 +589,7 @@ export class TableActor {
       odds: showOdds ? this.oddsCache : null,
       extraSeats: this.extraSeats(h),
       lastButton: this.lastButton,
+      ready: this.readyView(userId),
       statusOverride: new Map([...this.seats.values()].filter((e) => e.fresh).map((e) => [e.userId, 'waiting' as const])),
       sitOuts: new Set([...this.seats.values()].filter((e) => e.mode === 'out').map((e) => e.userId)),
       paused: this.held,

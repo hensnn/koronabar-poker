@@ -23,6 +23,7 @@ export const clientMessages = {
   'table:straddle': z.object({ tableId, want: z.boolean() }),
   'table:callClock': z.object({ tableId }),
   'table:vote': z.object({ tableId, yes: z.boolean() }),
+  'table:ready': z.object({ tableId, ready: z.boolean() }),
   'table:show': z.object({ tableId, which: z.union([z.literal('both'), z.literal(0), z.literal(1)]) }),
   'table:rabbit': z.object({ tableId }),
   'table:showdown': z.object({ tableId, choice: z.union([z.literal('show'), z.literal('muck')]) }),

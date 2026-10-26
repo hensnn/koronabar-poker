@@ -169,3 +169,9 @@ Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu ote
 
 - Když jsi na tahu, informační řádka pod stolem ukazuje vlevo **odpočet** a vedle něj, co máš udělat: **CALL** se zvýrazněnou částkou k dorovnání (u dorovnání celého stacku **CALL (ALL-IN)**), nebo **CHECK / BET** či **CHECK / RAISE** (např. velký blind, když nikdo nezvýšil).
 - U sedadel jsou kromě dealera **D** i značky **SB** (malý blind, modrá) a **BB** (velký blind, oranžová). Heads-up je dealer zároveň malý blind.
+
+## Jsem ready při pauze a další úpravy stolu
+
+- **Jsem ready:** když je stůl pozastavený (nebo v turnaji přestávka), objeví se u informační řádky tlačítko **Jsem ready (kolik/kolik je třeba)**. Když potvrdí dost hráčů, pauza skončí dřív. Nastavení stolu: **Tlačítko „Jsem ready“ při pauze** (`table.readyEnabled`), **Kolik hráčů musí být ready** (`table.readyPercent`, výchozí 100 %, hráči v sit outu se nepočítají) a **Nejdřív po (s) od začátku pauzy** (`table.readyMinSeconds`, výchozí 10 s). U turnaje platí jen pro přestávku (pauzu ředitele ukončuje ředitel) a u více stolů stačí, aby kvórum splnil kterýkoli stůl.
+- **Raise a re-raise:** bublina u hráče ukazuje *Raise → 57 (+37)* (na kolik a o kolik) a od třetí sázky v kole *3-bet → 150 (+90)*; částka sázky u sedadla je větší a tučná.
+- **Tlačítka akcí a rychlých sázek** jsou větší. **Ukazování karet** (Win, Run it, Lose) je v widgetu O hře v rozbalovací položce, stejně jako Plánované tahy.

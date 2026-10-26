@@ -381,7 +381,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       <div className="tk-side-col">
       {modern && <MobileMid view={view} mine={mine} inBb={inBb} offset={net.clockOffset} log={actionLog.slice(-3)} tableId={tableId} />}
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
-      <div className="tk-turn-row">
+      <div className={`tk-turn-row ${view.ready ? 'tk-turn-ready' : ''}`}>
       {myTurn ? (
         <div role="status" className="tk-your-turn tk-pop">
           <span className="inline-flex items-center justify-center gap-3">
@@ -424,6 +424,14 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           ) : (
             t('table.waitingPlayers')
           )}
+          {/* Pauza nebo přestávka: „Jsem ready“; když je ready dost hráčů, pauza skončí dřív. */}
+          {view.ready && (
+            <button className={`ml-2 rounded-md border px-3 py-1 text-base font-semibold ${view.ready.mine ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-text'}`} aria-pressed={view.ready.mine} title={t('table.ready.help')} onClick={() => void run(table.ready(tableId, !view.ready!.mine))}>
+              {view.ready.mine ? '✔ ' : ''}
+              {t('table.ready')} ({view.ready.count}/{view.ready.needed})
+            </button>
+          )}
+          {view.ready && view.ready.waitMs > 0 && <span className="ml-2 text-xs">{t('table.ready.wait', { s: Math.ceil(view.ready.waitMs / 1000) })}</span>}
         </p>
       )}
       </div>

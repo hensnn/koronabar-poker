@@ -254,6 +254,9 @@ export class TournamentManager {
             if (e.type === 'handEnd') this.applyPending(row.id);
           },
           onBoundary: () => set.onBoundary(tableId),
+          // Přestávku (ne pauzu ředitele) smějí hráči ukončit dřív tlačítkem „Jsem ready“.
+          readyAllowed: () => tour.breakActive(),
+          onReadyQuorum: () => tour.skipBreak(),
           restore: snaps.get(tableId),
         });
         this.deps.actors.set(tableId, table);

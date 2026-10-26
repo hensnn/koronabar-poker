@@ -1051,6 +1051,19 @@ export class Tournament {
 
   // ---------- řízení ----------
 
+  /** Běží právě přestávka (a ne pauza ředitele)? Jen tehdy ji smějí hráči ukončit dřív tlačítkem „Jsem ready“. */
+  breakActive(): boolean {
+    return this.st.status === 'running' && this.st.onBreak && !this.st.paused;
+  }
+
+  /** Ukončí přestávku dřív (hráči jsou ready): jako by vypršel její čas. */
+  skipBreak(): void {
+    if (!this.breakActive()) return;
+    this.freezeClock();
+    this.st.clock.remainingMs = 0;
+    this.onClockEnd();
+  }
+
   pause(): void {
     if (this.st.status !== 'running' || this.st.paused) throw new TournamentError('STATE');
     this.freezeClock();

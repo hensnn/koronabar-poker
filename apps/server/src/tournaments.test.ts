@@ -217,6 +217,32 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     expect(dealtIn).toBe(true);
   });
 
+  it('přestávka: když jsou všichni ready, skončí dřív; pauza ředitele tlačítko nemá', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const ps = [await s.user(), await s.user(), await s.user()];
+    const { id } = await s.server.tournaments.create(org, { name: 'Ready přestávka', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.levelMinutes': 1, 'tournament.breakEveryLevels': 1, 'tournament.breakMinutes': 10, 'table.readyMinSeconds': 5 } });
+    for (const p of ps) await s.server.tournaments.register(p, id);
+    await s.server.tournaments.start(org, id);
+    const actor = s.server.tables.actors.get(id)!;
+    const tour = s.server.tournaments.get(id)!;
+    for (let i = 0; i < 400 && !tour.state().onBreak; i++) {
+      s.clock.advance(1000);
+      await Promise.resolve();
+    }
+    expect(tour.state().onBreak).toBe(true);
+    expect(actor.viewFor(ps[0]!).ready).toMatchObject({ total: 3, needed: 3, mine: false });
+    for (const p of ps) actor.setReady(p, true);
+    expect(tour.state().onBreak).toBe(true); // minimální doba ještě neuplynula
+    s.clock.advance(6000);
+    await Promise.resolve();
+    expect(tour.state().onBreak).toBe(false);
+    // pauza ředitele: tlačítko ready se neukazuje a příkaz nejde
+    tour.pause();
+    expect(actor.viewFor(ps[0]!).ready).toBeNull();
+    expect(() => actor.setReady(ps[0]!, true)).toThrow();
+  });
+
   it('celý turnaj: přihlášky, start, hra botů, výplaty z poolu, dům dostane poplatky', async () => {
     const s = await start();
     const org = await s.user('organizator');

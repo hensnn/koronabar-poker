@@ -33,6 +33,7 @@ export interface ViewContext {
   rabbit?: Card[] | null;
   /** Sedadlo s dealer buttonem z poslední handy (zobrazí se i mezi handami). */
   lastButton?: number | null;
+  ready?: TableView['ready'];
   bombPot?: boolean;
   /** Kdy začne další handa (epoch ms), nebo null. */
   nextHandAt?: number | null;
@@ -101,6 +102,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       myStraddle: ctx.myStraddle ?? false,
       returnStack: ctx.returnStack ?? 0,
       topUpRoom: ctx.topUpRoom ?? 0,
+      ready: ctx.ready ?? null,
       odds: null,
     };
   }
@@ -186,6 +188,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     myStraddle: ctx.myStraddle ?? false,
     returnStack: ctx.returnStack ?? 0,
     topUpRoom: ctx.topUpRoom ?? 0,
+    ready: ctx.ready ?? null,
     odds: ctx.odds,
     myBest: myBestHand(viewer, h.board.slice(0, ctx.reveal.boardCards)),
   };

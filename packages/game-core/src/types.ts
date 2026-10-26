@@ -201,6 +201,8 @@ export interface TableView {
   myStraddle: boolean;
   /** Hráč, který nesedí, ale nedávno od stolu odešel s větším stackem: s kolika žetony se musí vrátit (ochrana „hit and run“), jinak 0. Smí přesáhnout maximální buy-in. */
   returnStack: number;
+  /** Pauza nebo přestávka, kterou hráči smějí ukončit dřív tlačítkem „Jsem ready“ (jen pro usazeného hráče, jinak null). */
+  ready: { count: number; needed: number; total: number; mine: boolean; /** Za jak dlouho se smí pauza ukončit (0 = už teď). */ waitMs: number } | null;
   /** Hráč u stolu: kolik žetonů ještě může dokoupit (maximální buy-in minus stack a čekající žetony), jinak 0. */
   topUpRoom: number;
   /** Šance na výhru (jen když to nastavení dovolí a nikdo už nemůže ovlivnit hru). */

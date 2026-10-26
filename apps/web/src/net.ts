@@ -93,6 +93,7 @@ export const table = {
   sitIn: (tableId: string) => send('table:sitIn', { tableId }),
   straddle: (tableId: string, want: boolean) => send('table:straddle', { tableId, want }),
   callClock: (tableId: string) => send('table:callClock', { tableId }),
+  ready: (tableId: string, ready: boolean) => send('table:ready', { tableId, ready }),
   vote: (tableId: string, yes: boolean) => send('table:vote', { tableId, yes }),
   show: (tableId: string, which: 'both' | 0 | 1) => send('table:show', { tableId, which }),
   rabbit: (tableId: string) => send('table:rabbit', { tableId }),

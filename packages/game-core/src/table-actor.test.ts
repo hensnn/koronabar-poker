@@ -230,6 +230,46 @@ describe('TableActor: průběh handy', () => {
     expect(m.actor.viewFor(null).buttonSeat).toBe(dealerSeats()[0]);
   });
 
+  it('Jsem ready při pauze: pauza skončí dřív, když je ready dost hráčů a uplynula minimální doba', () => {
+    const m = make({ 'table.readyEnabled': true, 'table.readyPercent': 100, 'table.readyMinSeconds': 10 });
+    seatTwo(m);
+    m.actor.hold();
+    expect(m.actor.viewFor('a').ready).toEqual({ count: 0, needed: 2, total: 2, mine: false, waitMs: 10_000 });
+    expect(m.actor.viewFor(null).ready).toBeNull(); // divák tlačítko nemá
+    m.actor.setReady('a', true);
+    expect(m.actor.viewFor('a').ready).toMatchObject({ count: 1, mine: true });
+    m.actor.setReady('b', true); // všichni, ale minimální doba ještě neuplynula
+    expect(m.actor.viewFor('a').paused).toBe(true);
+    m.clock.advance(9_000);
+    expect(m.actor.viewFor('a').paused).toBe(true);
+    m.clock.advance(1_500); // minimální doba uplynula: pauza skončí a rozdá se handa
+    expect(m.actor.viewFor('a').paused).toBe(false);
+    m.clock.advance(Number(m.settings['time.betweenHandsMs']) + 100);
+    expect(m.actor.viewFor(null).handNumber).toBe(1);
+    // vypnuté nastavení: tlačítko ani příkaz nejsou
+    const off = make({ 'table.readyEnabled': false });
+    seatTwo(off);
+    off.actor.hold();
+    expect(off.actor.viewFor('a').ready).toBeNull();
+    expect(() => off.actor.setReady('a', true)).toThrowError(expect.objectContaining({ code: 'NOT_ALLOWED' }));
+  });
+
+  it('Jsem ready: podíl hráčů podle nastavení (50 % ze čtyř = dva), zrušení ready se počítá', () => {
+    const m = make({ 'table.readyPercent': 50, 'table.readyMinSeconds': 0 });
+    for (const [u, n] of [['a', 0], ['b', 1], ['c', 2], ['d', 3]] as const) {
+      m.fund(u);
+      m.actor.join(u, u, n, 1000);
+    }
+    m.actor.hold();
+    expect(m.actor.viewFor('a').ready).toMatchObject({ total: 4, needed: 2 });
+    m.actor.setReady('a', true);
+    m.actor.setReady('a', false);
+    m.actor.setReady('b', true);
+    expect(m.actor.viewFor('a').paused).toBe(true);
+    m.actor.setReady('c', true);
+    expect(m.actor.viewFor('a').paused).toBe(false);
+  });
+
   it('vypršení času: nejdřív time bank, pak automatický fold, po N vypršeních sit out', () => {
     const m = make({ 'time.turnSeconds': 10, 'time.timeBankSeconds': 20, 'time.timeoutsToSitOut': 2 });
     seatTwo(m);

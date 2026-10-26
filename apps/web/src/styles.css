@@ -1246,3 +1246,7 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Částka sázky u sedadla je větší a tučná, ať je ze stolu hned vidět, kolik kdo vsadil. */
 .tk-bet { font-size: 0.95rem; font-weight: 700; }
 [data-mobile] .tk-bet { font-size: 0.85rem; }
+
+/* Při pauze s tlačítkem „Jsem ready“ se stavový řádek nezkracuje na dva řádky: tlačítko se musí vejít celé. */
+[data-mobile-modern] .tk-turn-ready { height: auto; min-height: 2.6rem; overflow: visible; }
+[data-mobile-modern] .tk-turn-ready > p { display: block; -webkit-line-clamp: unset; overflow: visible; }
