@@ -7,7 +7,12 @@ export type SeatActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'rera
 export interface SeatAction {
   seat: number;
   kind: SeatActionKind;
+  /** Celková sázka hráče na ulici („to“): u raise na kolik, u call kolik dorovnal. */
   amount: number;
+  /** O kolik zvýšil nad dosud nejvyšší sázku (jen bet a raise). */
+  by?: number;
+  /** Kolikátá agrese na ulici to je (bet/raise; preflop se big blind počítá jako první): z toho „3-bet“, „4-bet“. */
+  count?: number;
 }
 
 /** Odvodí akce hráčů z rozdílu dvou pohledů na stůl (server posílá jen stav, ne události). Čistá funkce. */
@@ -28,7 +33,10 @@ export function detectActions(prev: TableView | null, next: TableView): SeatActi
       continue;
     }
     if (sameStreet) {
-      if (s.bet > b.bet) out.push({ seat: s.seat, kind: prevMax === 0 ? 'bet' : s.bet <= prevMax ? 'call' : 'raise', amount: s.bet });
+      if (s.bet > b.bet) {
+        const kind = prevMax === 0 ? 'bet' : s.bet <= prevMax ? 'call' : 'raise';
+        out.push({ seat: s.seat, kind, amount: s.bet, ...(kind === 'raise' ? { by: s.bet - prevMax } : {}) });
+      }
       else if (prev.actingSeat === s.seat && next.actingSeat !== s.seat && s.bet === b.bet && s.status === b.status) out.push({ seat: s.seat, kind: 'check', amount: 0 });
     } else if (prev.actingSeat === s.seat && s.status === b.status) {
       // Akce, která uzavřela ulici: sázky už jsou smetené do potu, takže se pozná jen podle předchozího stavu.
@@ -52,9 +60,16 @@ export function classifyAggression(kind: SeatActionKind, count: number): SeatAct
   return kind === 'raise' && count >= 3 ? 'reraise' : kind;
 }
 
+/**
+ * Text akce u stolu: bet „Bet 20“, raise „Raise → 57 (+37)“ (na kolik a o kolik), re-raise „3-bet → 120 (+63)“,
+ * call a all-in s částkou, fold a check bez ní.
+ */
 export function actionLabel(a: SeatAction, view: TableView, inBb: boolean): string {
-  const word = t(`table.${a.kind}`);
-  return a.amount > 0 ? `${word} ${formatAmount(a.amount, view.info, inBb)}` : word;
+  const fmt = (n: number) => formatAmount(n, view.info, inBb);
+  if (a.amount <= 0) return t(`table.${a.kind}`);
+  const word = a.kind === 'reraise' && a.count ? t('table.nBet', { n: a.count }) : t(`table.${a.kind}`);
+  if ((a.kind === 'raise' || a.kind === 'reraise') && a.by !== undefined && a.by > 0) return `${word} → ${fmt(a.amount)} (+${fmt(a.by)})`;
+  return `${word} ${fmt(a.amount)}`;
 }
 
 export interface Bubble {
@@ -79,6 +94,7 @@ export function useActionBubbles(view: TableView | undefined, inBb: boolean, ttl
     for (const a of actions) {
       if (a.kind === 'bet' || a.kind === 'raise') {
         aggr.current.n += 1;
+        a.count = aggr.current.n;
         a.kind = classifyAggression(a.kind, aggr.current.n);
       }
     }

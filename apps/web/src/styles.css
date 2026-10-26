@@ -1242,3 +1242,7 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 
 /* Na telefonu jsou čtyři tlačítka akcí vedle sebe: o něco menší písmo a boční odsazení, aby se vešla (stále větší než dřív). */
 [data-mobile] .tk-act { font-size: 1rem; padding-inline: calc(var(--spacing) * 1.5); }
+
+/* Částka sázky u sedadla je větší a tučná, ať je ze stolu hned vidět, kolik kdo vsadil. */
+.tk-bet { font-size: 0.95rem; font-weight: 700; }
+[data-mobile] .tk-bet { font-size: 0.85rem; }

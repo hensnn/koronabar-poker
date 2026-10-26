@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TableView } from '@kb/game-core';
-import { detectActions } from './actions-feed';
+import { actionLabel, detectActions } from './actions-feed';
 
 const view = (over: Record<string, unknown> = {}): TableView =>
   ({
@@ -24,7 +24,7 @@ describe('akce hráčů odvozené ze stavu stolu', () => {
   it('call, raise, bet, fold a all-in podle změny sázek a stavu', () => {
     const before = view({ actingSeat: 0 });
     expect(detectActions(before, view({ actingSeat: 1, seats: seats(20, 10, 20) }))).toEqual([{ seat: 0, kind: 'call', amount: 20 }]);
-    expect(detectActions(before, view({ actingSeat: 1, seats: seats(60, 10, 20) }))).toEqual([{ seat: 0, kind: 'raise', amount: 60 }]);
+    expect(detectActions(before, view({ actingSeat: 1, seats: seats(60, 10, 20) }))).toEqual([{ seat: 0, kind: 'raise', amount: 60, by: 40 }]);
     expect(detectActions(before, view({ actingSeat: 1, seats: seats(0, 10, 20, { 0: 'folded' }) }))).toEqual([{ seat: 0, kind: 'fold', amount: 0 }]);
     expect(detectActions(before, view({ actingSeat: 1, seats: seats(500, 10, 20, { 0: 'allIn' }) }))).toEqual([{ seat: 0, kind: 'allIn', amount: 500 }]);
     const flop = view({ street: 'FLOP', actingSeat: 1, seats: seats(0, 0, 0) });
@@ -62,5 +62,16 @@ describe('re-raise', () => {
     expect(classifyAggression('bet', 1)).toBe('bet');
     expect(classifyAggression('raise', 2)).toBe('raise');
     expect(classifyAggression('call', 5)).toBe('call');
+  });
+});
+
+describe('text akce u stolu', () => {
+  const info = { chipLabel: '', currencySymbol: '', currencyForms: ['', '', ''], currencyDecimals: 0, chipsPerCurrencyUnit: 1, bigBlind: 10, smallBlind: 5 };
+  const v = { info } as unknown as TableView;
+  it('raise ukáže na kolik i o kolik, re-raise číslo sázky, ostatní jen částku', () => {
+    expect(actionLabel({ seat: 0, kind: 'raise', amount: 60, by: 40 }, v, false)).toMatch(/Raise → 60 \(\+40\)/);
+    expect(actionLabel({ seat: 0, kind: 'reraise', amount: 150, by: 90, count: 3 }, v, false)).toMatch(/3-bet → 150 \(\+90\)/);
+    expect(actionLabel({ seat: 0, kind: 'bet', amount: 30 }, v, false)).toMatch(/Bet 30/);
+    expect(actionLabel({ seat: 0, kind: 'fold', amount: 0 }, v, false)).toBe('Fold');
   });
 });
