@@ -16,6 +16,7 @@ import { NotesSection } from './notes';
 import { TokensSection } from './tokens';
 import { InstallCard } from '../pwa';
 import { SettingsShare } from '../settings-share';
+import { Diagnostics } from '../diagnostics';
 import { LookTitle, Trophies } from '../cosmetics-client';
 
 export function ProfilePage() {
@@ -140,6 +141,7 @@ export function SettingsPage() {
       />
       <SoundLibrary />
       <SettingsShare />
+      <Diagnostics />
         </>
       )}
     </div>
