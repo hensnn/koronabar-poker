@@ -150,18 +150,22 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     }
     expect(deciding).toBeDefined();
     // Dokud se hráč rozhoduje, další handa se nerozdá.
-    const before = actor.viewFor(null).handNumber;
+    const beforeId = actor.viewFor(null).handId;
     s.clock.advance(20_000);
     await Promise.resolve();
-    expect(actor.viewFor(null).handNumber).toBe(before);
+    expect(actor.viewFor(null).handId).toBe(beforeId);
+    // Vypadlo-li víc hráčů najednou (náhodná hra), rebuy si koupí všichni, ať stůl nic dalšího nedrží.
+    const others = s.server.tournaments.get(id)!.state().players.filter((p) => p.status === 'deciding' && p.userId !== deciding);
     // Rebuy: stůl se uvolní a hráč je v další handě mezi hráči s kartami; když na něj přijde řada, má karty.
     await s.server.tournaments.rebuy(deciding!, id);
-    for (let i = 0; i < 200 && actor.viewFor(null).handNumber === before; i++) {
+    for (const o of others) await s.server.tournaments.rebuy(o.userId, id);
+    for (let i = 0; i < 400 && (actor.viewFor(null).handId === null || actor.viewFor(null).handId === beforeId); i++) {
       s.clock.advance(100);
       await Promise.resolve();
     }
     const v = actor.viewFor(deciding!);
-    expect(v.handNumber).toBeGreaterThan(before);
+    expect(v.handId).not.toBeNull();
+    expect(v.handId).not.toBe(beforeId);
     const me = v.seats.find((x) => x.playerId === deciding)!;
     expect(me).toBeDefined();
     expect(me.stack + me.bet).toBeGreaterThan(0);
@@ -170,51 +174,57 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
   });
 
   it('rebuy uprostřed rozdané handy (hra nečekala): hráč nedostane tah bez karet a v další handě hraje', async () => {
-    const s = await start();
-    const org = await s.user('organizator');
-    const ps = [await s.user(), await s.user(), await s.user()];
-    const { id } = await s.server.tournaments.create(org, { name: 'Rebuy za běhu', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 5, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyHoldsGame': false, 'tournament.rebuyDecisionSeconds': 600 } });
-    for (const p of ps) await s.server.tournaments.register(p, id);
-    await s.server.tournaments.start(org, id);
-    const rnd = seededRandom(5);
-    const actor = s.server.tables.actors.get(id)!;
-    const act = () => {
-      const v = actor.viewFor(null);
-      if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
-        const p = v.seats.find((x) => x.seat === v.actingSeat)!;
-        const legal = actor.viewFor(p.playerId).legal;
-        if (legal) {
-          const pv = actor.viewFor(p.playerId).seats.find((x) => x.playerId === p.playerId)!;
-          expect(pv.hasCards, 'hráč na tahu musí mít karty').toBe(true);
-          actor.act(p.playerId, randomLegalAction(legal, rnd));
+    // Hra je náhodná (zamíchání karet není ze seedu), proto se scénář při nevhodném průběhu zopakuje.
+    const attempt = async (): Promise<boolean | null> => {
+      const s = await start();
+      const org = await s.user('organizator');
+      const ps = [await s.user(), await s.user(), await s.user()];
+      const { id } = await s.server.tournaments.create(org, { name: 'Rebuy za běhu', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 5, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyHoldsGame': false, 'tournament.rebuyDecisionSeconds': 600 } });
+      for (const p of ps) await s.server.tournaments.register(p, id);
+      await s.server.tournaments.start(org, id);
+      const rnd = seededRandom(5);
+      const actor = s.server.tables.actors.get(id)!;
+      const act = () => {
+        const v = actor.viewFor(null);
+        if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
+          const p = v.seats.find((x) => x.seat === v.actingSeat)!;
+          const legal = actor.viewFor(p.playerId).legal;
+          if (legal) {
+            const pv = actor.viewFor(p.playerId).seats.find((x) => x.playerId === p.playerId)!;
+            expect(pv.hasCards, 'hráč na tahu musí mít karty').toBe(true);
+            actor.act(p.playerId, randomLegalAction(legal, rnd));
+          }
         }
+      };
+      let deciding: string | undefined;
+      for (let i = 0; i < 30_000 && !deciding; i++) {
+        act();
+        s.clock.advance(Math.floor(rnd() * 3000));
+        await Promise.resolve();
+        deciding = s.server.tournaments.get(id)!.state().players.find((p) => p.status === 'deciding')?.userId;
       }
+      if (!deciding) return null;
+      // počkat, až se rozdá další handa bez něj, a teprve pak koupit rebuy
+      for (let i = 0; i < 2000 && actor.currentPhase() !== 'hand'; i++) {
+        s.clock.advance(100);
+        await Promise.resolve();
+      }
+      if (actor.currentPhase() !== 'hand') return null; // náhodná hra skončila turnaj dřív, než se stihlo rozdat: zkusí se znovu
+      await s.server.tournaments.rebuy(deciding!, id);
+      const handNo = actor.viewFor(null).handNumber;
+      let dealtIn = false;
+      for (let i = 0; i < 20_000 && !dealtIn; i++) {
+        act();
+        s.clock.advance(Math.floor(rnd() * 3000));
+        await Promise.resolve();
+        const me = actor.viewFor(deciding!).seats.find((x) => x.playerId === deciding);
+        if (actor.viewFor(null).handNumber > handNo && me?.hasCards) dealtIn = true;
+      }
+      return dealtIn;
     };
-    let deciding: string | undefined;
-    for (let i = 0; i < 30_000 && !deciding; i++) {
-      act();
-      s.clock.advance(Math.floor(rnd() * 3000));
-      await Promise.resolve();
-      deciding = s.server.tournaments.get(id)!.state().players.find((p) => p.status === 'deciding')?.userId;
-    }
-    expect(deciding).toBeDefined();
-    // počkat, až se rozdá další handa bez něj, a teprve pak koupit rebuy
-    for (let i = 0; i < 2000 && actor.currentPhase() !== 'hand'; i++) {
-      s.clock.advance(100);
-      await Promise.resolve();
-    }
-    expect(actor.currentPhase()).toBe('hand');
-    await s.server.tournaments.rebuy(deciding!, id);
-    const handNo = actor.viewFor(null).handNumber;
-    let dealtIn = false;
-    for (let i = 0; i < 20_000 && !dealtIn; i++) {
-      act();
-      s.clock.advance(Math.floor(rnd() * 3000));
-      await Promise.resolve();
-      const me = actor.viewFor(deciding!).seats.find((x) => x.playerId === deciding);
-      if (actor.viewFor(null).handNumber > handNo && me?.hasCards) dealtIn = true;
-    }
-    expect(dealtIn).toBe(true);
+    let result: boolean | null = null;
+    for (let tries = 0; tries < 12 && result === null; tries++) result = await attempt();
+    expect(result).toBe(true);
   });
 
   it('přestávka: když jsou všichni ready, skončí dřív; pauza ředitele tlačítko nemá', async () => {
