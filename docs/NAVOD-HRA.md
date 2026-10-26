@@ -167,5 +167,5 @@ Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu ote
 
 ## Informační řádka a označení blindů
 
-- Když jsi na tahu, informační řádka pod stolem říká, co máš udělat: **„Na tahu: dorovnat 40“** (u dorovnání celého stacku „… (all-in)“), **„Na tahu: check nebo vsadit“** nebo **„Na tahu: check nebo zvýšit“** (např. velký blind, když nikdo nezvýšil). Vedle je odpočet času.
+- Když jsi na tahu, informační řádka pod stolem ukazuje vlevo **odpočet** a vedle něj, co máš udělat: **CALL** se zvýrazněnou částkou k dorovnání (u dorovnání celého stacku **CALL (ALL-IN)**), nebo **CHECK / BET** či **CHECK / RAISE** (např. velký blind, když nikdo nezvýšil).
 - U sedadel jsou kromě dealera **D** i značky **SB** (malý blind, modrá) a **BB** (velký blind, oranžová). Heads-up je dealer zároveň malý blind.

@@ -177,11 +177,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const multiRun = !!view.runs && view.runs.length >= 1;
   // Co mám na tahu udělat: dorovnat (kolik), nebo check/sázka; místo obecného „Jsi na tahu“.
   const toCall = view.legal?.callAmount ?? 0;
-  const turnText = !view.legal
-    ? t('table.yourTurn')
-    : toCall > 0
-      ? t(mine && toCall >= mine.stack ? 'table.turn.callAllIn' : 'table.turn.call', { amount: formatAmount(toCall, info, inBb) })
-      : t(view.legal.canRaise ? 'table.turn.checkOrRaise' : 'table.turn.checkOrBet');
+  const turnText = !view.legal ? t('table.yourTurn') : toCall > 0 ? t(mine && toCall >= mine.stack ? 'table.turn.callAllIn' : 'table.turn.call') : t(view.legal.canRaise ? 'table.turn.checkOrRaise' : 'table.turn.checkOrBet');
   const settledPot = view.pots.reduce((n, p) => n + p.amount, 0);
   const potEl = (
     <div className="tk-pot" aria-label={t('table.pot')}>
@@ -388,7 +384,11 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       <div className="tk-turn-row">
       {myTurn ? (
         <div role="status" className="tk-your-turn tk-pop">
-          {turnText} · <Countdown deadline={view.deadline} offset={net.clockOffset} />
+          <span className="inline-flex items-center justify-center gap-3">
+            <Countdown deadline={view.deadline} offset={net.clockOffset} />
+            <span className="font-bold">{turnText}</span>
+            {toCall > 0 && <span className="rounded-md bg-surface px-2 font-mono text-lg font-bold text-text">{formatAmount(toCall, info, inBb)}</span>}
+          </span>
           {view.bankActive && ` (${t('table.timeBank')})`}
           {view.clockCalled && ` · ${t('table.clockCalled')}`}
         </div>
