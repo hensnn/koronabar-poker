@@ -179,18 +179,23 @@ export function ShowdownPrefs() {
           ))}
         </div>
       </details>
-      {rows.map((r) => (
-        <label key={r.key} className="flex items-center gap-1 text-xs" title={r.title}>
-          <span className="text-muted">{r.label}</span>
-          <select className="rounded-md border border-line bg-surface px-0.5 py-0 text-xs" value={String(settings.values[r.key] ?? r.def)} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
-            {r.options.map(([value, word]) => (
-              <option key={value} value={value}>
-                {t(`table.plan.opt.${word}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-      ))}
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted" title={t('table.plan.cardsHelp')}>{t('table.plan.cards')}</summary>
+        <div className="mt-1 flex flex-col gap-1">
+              {rows.map((r) => (
+                <label key={r.key} className="flex items-center gap-1 text-xs" title={r.title}>
+                  <span className="text-muted">{r.label}</span>
+                  <select className="rounded-md border border-line bg-surface px-0.5 py-0 text-xs" value={String(settings.values[r.key] ?? r.def)} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
+                    {r.options.map(([value, word]) => (
+                      <option key={value} value={value}>
+                        {t(`table.plan.opt.${word}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+        </div>
+      </details>
     </>
   );
 }

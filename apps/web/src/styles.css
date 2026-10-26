@@ -1239,3 +1239,6 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 }
 .tk-blind[data-blind='big'] { background: var(--tk-color-warning); }
 [data-mobile] .tk-blind { min-width: calc(var(--spacing) * 4.5); height: calc(var(--spacing) * 4.5); font-size: 0.6rem; left: calc(var(--spacing) * -2); }
+
+/* Na telefonu jsou čtyři tlačítka akcí vedle sebe: o něco menší písmo a boční odsazení, aby se vešla (stále větší než dřív). */
+[data-mobile] .tk-act { font-size: 1rem; padding-inline: calc(var(--spacing) * 1.5); }

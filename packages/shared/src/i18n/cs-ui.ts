@@ -56,6 +56,8 @@ export const csUi: Record<string, string> = {
   'table.showdown.hint': 'Bez odpovědi se karty za {s} s odhodí (muck).',
   'table.showWinnerPrompt': 'Vyhrál jsi bez showdownu. Ukázat karty?',
   'table.keepHidden': 'Neukazovat',
+  'table.plan.cards': 'Ukazování karet',
+  'table.plan.cardsHelp': 'Co dělat s kartami po handě: když vyhraješ bez showdownu, na showdownu a při hlasování o run it twice.',
   'table.plan.win': 'Win',
   'table.plan.lose': 'Lose',
   'table.plan.opt.show': 'Show',
