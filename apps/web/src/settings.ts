@@ -188,12 +188,22 @@ export async function saveUserSetting(key: string, value: SettingValue, deviceOn
   }
   const layer = deviceOnly ? 'device' : 'user';
   const before = state[layer];
+  const deviceBefore = state.device;
+  // Hodnota „pro všechna zařízení“ přebije starší hodnotu stejného klíče uloženou jen pro toto zařízení; jinak by ji nová hodnota nepřebila a změna by nebyla vidět (vrstva zařízení má přednost).
+  const clearsDevice = !deviceOnly && key in deviceBefore;
   written[layer].add(key);
-  set({ [layer]: { ...before, [key]: value } } as Partial<State>);
+  if (clearsDevice) {
+    const { [key]: _drop, ...rest } = deviceBefore;
+    written.device.add(key);
+    set({ user: { ...before, [key]: value }, device: rest } as Partial<State>);
+  } else {
+    set({ [layer]: { ...before, [key]: value } } as Partial<State>);
+  }
   try {
     await put('/api/me/settings', { key, value, device: deviceOnly ? deviceId() : undefined });
+    if (clearsDevice) await del(`/api/me/settings/${encodeURIComponent(key)}?device=${deviceId()}`);
   } catch (e) {
-    set({ [layer]: before } as Partial<State>);
+    set(clearsDevice ? ({ user: before, device: deviceBefore } as Partial<State>) : ({ [layer]: before } as Partial<State>));
     reportSaveError(e);
     throw e;
   }

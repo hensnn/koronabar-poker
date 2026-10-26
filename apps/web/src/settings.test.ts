@@ -46,3 +46,17 @@ describe('settings store', () => {
     expect(s.resolveFor().values['sounds.play']).toBe(true);
   });
 });
+
+describe('hodnota pro všechna zařízení a starší hodnota jen pro zařízení', () => {
+  it('uložení do účtu přebije starší hodnotu stejného klíče uloženou pro zařízení (jinak by změna nebyla vidět)', async () => {
+    const s = await import('./settings');
+    const load = s.loadSettings();
+    pendingGets[pendingGets.length - 2]!({ user: {}, device: { 'ui.tableLayout': '{"left":["table"],"right":[],"hidden":[],"collapsed":[],"hiddenSides":[]}' } });
+    pendingGets[pendingGets.length - 1]!({ values: {} });
+    await load;
+    expect(String(s.resolveFor().values['ui.tableLayout'])).toContain('"collapsed":[]');
+    const next = '{"left":["table"],"right":[],"hidden":[],"collapsed":["players"],"hiddenSides":[]}';
+    await s.saveUserSetting('ui.tableLayout', next);
+    expect(s.resolveFor().values['ui.tableLayout']).toBe(next);
+  });
+});

@@ -192,3 +192,7 @@ Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu ote
 ## Nabídka add-onu až po dohrání handy
 
 Jednorázová nabídka add-onu na konci posledního levelu s add-onem se ukáže **až po dohrání rozehrané handy**, ne uprostřed ní (na více stolech po dohrání všech rozehraných hand). Kdyby se nějaká handa z technických důvodů nedohrála, nabídka se ukáže nejpozději po době **Nejdéle čekat na konec handy před nabídkou add-onu** (nastavení turnaje, výchozí 300 s). Čas na odpověď (**Čas na rozhodnutí o add-onu**) se počítá až od zobrazení nabídky.
+
+## Když se u některého účtu nastavení „nezmění“
+
+Každé osobní nastavení má dvě vrstvy: **pro všechna zařízení** a **jen pro toto zařízení** (počítač nebo telefon). Hodnota pro zařízení má přednost. Kdyby měl účet starou hodnotu jen pro zařízení (např. rozložení panelů nebo volby Hra/Hráči v chatu), dřív se nová hodnota uložila na server, ale nepřebila ji a změna nebyla vidět (widgety „nereagovaly“). Teď uložení pro všechna zařízení smaže i starší hodnotu stejného klíče pro toto zařízení, takže se změna hned projeví. V **Nastavení → Diagnostika účtu** je u řádku „Načtení nastavení“ vidět, kolik hodnot má účet v zařízení (hodně hodnot = pravděpodobné přepsání).
