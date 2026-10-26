@@ -61,6 +61,8 @@ function betPosition(seat: number, viewerSeat: number | null, count: number, mob
   const p = seatPosition(seat, viewerSeat, count);
   const fx = mobile ? 0.5 : 0.52;
   const fy = mobile ? 0.4 : 0.6;
+  // Sedadlo dole (já) má velké karty nad sebou: sázka leží vedle nich, ne přes ně (v některých motivech by je zakrývala).
+  if (viewerSeat !== null && (seat - viewerSeat + count) % count === 0) return { left: p.left + (mobile ? 17 : 20), top: 50 + (p.top - 50) * (mobile ? 0.62 : 0.72) };
   return { left: 50 + (p.left - 50) * fx, top: 50 + (p.top - 50) * fy };
 }
 
@@ -567,7 +569,9 @@ function Seat({
   const userSettings = useSettings().values;
   const showRank = userSettings['xp.showAtTable'] !== false;
   // Zakryté vlastní karty: ukážou se jen při přejetí myší (na dotykovém displeji klepnutím).
-  const hideMine = mine && userSettings['ui.hideMyCards'] === true;
+  // Zakryté vlastní karty se při showdownu a odhalení (all-in) otočí i mně: ostatní už je vidí, takže skrývat je nemá smysl.
+  const shownToOthers = view.seats.some((x) => x.playerId !== seat.playerId && x.cards !== null);
+  const hideMine = mine && userSettings['ui.hideMyCards'] === true && !shownToOthers;
   const [peek, setPeek] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const look = useLook(seat.playerId);

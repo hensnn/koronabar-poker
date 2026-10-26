@@ -175,3 +175,10 @@ Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu ote
 - **Jsem ready:** když je stůl pozastavený (nebo v turnaji přestávka), objeví se u informační řádky tlačítko **Jsem ready (kolik/kolik je třeba)**. Když potvrdí dost hráčů, pauza skončí dřív. Nastavení stolu: **Tlačítko „Jsem ready“ při pauze** (`table.readyEnabled`), **Kolik hráčů musí být ready** (`table.readyPercent`, výchozí 100 %, hráči v sit outu se nepočítají) a **Nejdřív po (s) od začátku pauzy** (`table.readyMinSeconds`, výchozí 10 s). U turnaje platí jen pro přestávku (pauzu ředitele ukončuje ředitel) a u více stolů stačí, aby kvórum splnil kterýkoli stůl.
 - **Raise a re-raise:** bublina u hráče ukazuje *Raise → 57 (+37)* (na kolik a o kolik) a od třetí sázky v kole *3-bet → 150 (+90)*; částka sázky u sedadla je větší a tučná.
 - **Tlačítka akcí a rychlých sázek** jsou větší. **Ukazování karet** (Win, Run it, Lose) je v widgetu O hře v rozbalovací položce, stejně jako Plánované tahy.
+
+## Moje kombinace, zakryté karty a rozložení na notebooku
+
+- **Moje kombinace** ukazuje pětici nejlepších karet v miniaturách (dvojice a trojice vpředu) a pod nimi název kombinace; na telefonu je to v řádku pod stolem.
+- **Zakryté vlastní karty** se na showdownu a při odhalení karet (all-in) otočí i tobě: ostatní je už vidí, skrývat je nemá smysl.
+- **Sázky dole u mých karet** leží vedle karet, ne přes ně (v některých motivech, např. Červený salon, je dřív zakrývaly).
+- **Zvětšení Windows (150 %) a telefonní rozložení:** telefonní rozložení „na šířku“ se zapíná jen na dotykovém zařízení. Okno prohlížeče nízké kvůli zvětšení tak na notebooku s myší nepřepne stůl do telefonního režimu.

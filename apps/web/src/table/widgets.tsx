@@ -11,6 +11,7 @@ import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } fr
 import { formatAmount } from './format';
 import { ClockWidget, mmss } from './TablePanel';
 import { InfoSlot, MobileOptions } from './mobile-ui';
+import { BestHand } from './BestHand';
 import { useActionLog } from './actions-feed';
 import { useMobileLayout } from './mobile';
 
@@ -150,7 +151,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     best: {
       title: t('table.widget.best'),
       show: !!mine && !(mobile && settings.values['ui.mobileBest'] !== false),
-      body: view?.myBest ? <span className="text-lg font-semibold">{t(view.myBest.key, view.myBest.params)}</span> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
+      body: view?.myBest ? <BestHand best={view.myBest} /> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
     // Na telefonu platí: co je zaškrtnuté v kartě „O hře“, ukazuje se pod stolem a v informacích se neopakuje; odškrtnuté se ukáže tady.
     events: {

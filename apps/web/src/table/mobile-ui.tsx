@@ -1,6 +1,7 @@
 import type { SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
+import { CardView } from './CardView';
 import { Link } from '../router';
 import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
@@ -94,9 +95,18 @@ export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: Ta
     <div className="tk-mid flex flex-col gap-1.5">
       {timer && (acting || mine) && <TimeStrip deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />}
       {best && mine && (
-        <div className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
-          <span className="text-muted">{t('table.widget.best')}: </span>
-          <span className="font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</span>
+        <div className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
+          {view.myBest?.cards && view.myBest.cards.length > 0 && (
+            <span className="flex shrink-0 gap-0.5" aria-hidden>
+              {view.myBest.cards.map((c) => (
+                <CardView key={c} card={c} mini still />
+              ))}
+            </span>
+          )}
+          <span className="min-w-0">
+            <span className="text-muted">{t('table.widget.best')}: </span>
+            <span className="font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</span>
+          </span>
         </div>
       )}
       {sounds && mine && <SoundStrip target={{ kind: 'table', id: tableId }} />}

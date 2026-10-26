@@ -12,9 +12,12 @@ function useMedia(query: string): boolean {
   );
 }
 
-/** Telefon na šířku: široký, ale nízký displej. Stůl se pak skládá vedle akční lišty. */
+/**
+ * Telefon na šířku: široký, ale nízký displej s dotykovým ovládáním. Stůl se pak skládá vedle akční lišty.
+ * Počítač s myší (např. notebook se zvětšením Windows na 150 %, kde je okno nízké) tím do telefonního rozložení nepřepne.
+ */
 export function useLandscapePhone(): boolean {
-  return useMedia('(max-height: 30rem) and (orientation: landscape)');
+  return useMedia('(max-height: 30rem) and (orientation: landscape) and (pointer: coarse)');
 }
 
 /** Mobilní rozložení stolu: podle volby `ui.mobileLayout` (auto = úzký displej nebo telefon na šířku, on/off = vynuceno). */

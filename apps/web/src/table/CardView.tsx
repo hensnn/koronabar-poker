@@ -22,8 +22,8 @@ function cardStyle(delayMs?: number, fly?: { dx: number; dy: number }): Record<s
 
 const DELAY = ['', 'tk-delay-1', 'tk-delay-2', 'tk-delay-3', 'tk-delay-4'];
 
-export function CardView({ card, small, delay = 0, delayMs, still, fly, reveal, shown }: { card: Card | null; /** Karta se právě dobrovolně ukazuje: ukazující ji zvedne a zazáří, soupeř ji vidí otočit se se záři. */ shown?: 'self' | 'other'; small?: boolean; delay?: number; /** Vlastní zpoždění rozdání v ms (postupné rozdávání více běhů). */ delayMs?: number; /** Karta už na stole byla: bez animace rozdání. */ still?: boolean; /** Karta doletí od rozdávajícího (posun v % šířky stolu). */ fly?: { dx: number; dy: number }; /** Karta se právě odkrývá (showdown, dobrovolné ukázání): místo rozdání se otočí. */ reveal?: boolean }) {
-  const scale = (small ? '[--card-scale:0.7] ' : '') + (shown ? '' : (DELAY[delay] ?? '')) + (shown ? ' tk-card-shown-' + shown : reveal ? ' tk-card-flip' : '') + (still ? ' tk-card-still' : '') + (fly && !shown ? ' tk-card-fly' : '');
+export function CardView({ card, small, mini, delay = 0, delayMs, still, fly, reveal, shown }: { card: Card | null; /** Miniatura (menší než `small`), např. nejlepší pětice v „Moje kombinace“. */ mini?: boolean; /** Karta se právě dobrovolně ukazuje: ukazující ji zvedne a zazáří, soupeř ji vidí otočit se se záři. */ shown?: 'self' | 'other'; small?: boolean; delay?: number; /** Vlastní zpoždění rozdání v ms (postupné rozdávání více běhů). */ delayMs?: number; /** Karta už na stole byla: bez animace rozdání. */ still?: boolean; /** Karta doletí od rozdávajícího (posun v % šířky stolu). */ fly?: { dx: number; dy: number }; /** Karta se právě odkrývá (showdown, dobrovolné ukázání): místo rozdání se otočí. */ reveal?: boolean }) {
+  const scale = (mini ? '[--card-scale:0.5] ' : small ? '[--card-scale:0.7] ' : '') + (shown ? '' : (DELAY[delay] ?? '')) + (shown ? ' tk-card-shown-' + shown : reveal ? ' tk-card-flip' : '') + (still ? ' tk-card-still' : '') + (fly && !shown ? ' tk-card-fly' : '');
   // Ukázání karty se nesmí zpozdit zbytkem rozdávání.
   const style = shown ? undefined : cardStyle(delayMs, fly);
   if (!card) {

@@ -25,3 +25,12 @@ describe('české popisy kombinací', () => {
     expect(describeHand(['As', 'Ks'])).toBeNull();
   });
 });
+
+describe('pořadí nejlepší pětice k zobrazení', () => {
+  it('dvojice, trojice a čtveřice nejdřív; jinak od nejvyšší; postupka s esem dole má eso na konci', async () => {
+    const { orderBestFive } = await import('./hand-names.js');
+    expect(orderBestFive(['2c', 'Kd', '9h', 'Kc', '4s'])).toEqual(['Kd', 'Kc', '9h', '4s', '2c'].map((c) => c));
+    expect(orderBestFive(['5c', '5d', '9h', '9c', 'Ks'])).toEqual(['9h', '9c', '5c', '5d', 'Ks']);
+    expect(orderBestFive(['Ah', '2c', '3d', '4s', '5h'])).toEqual(['5h', '4s', '3d', '2c', 'Ah']);
+  });
+});

@@ -4,11 +4,23 @@ import type { Card } from './types.js';
 export interface HandDescription {
   key: string;
   params?: Record<string, string>;
+  /** Nejlepší pětice karet (jen u „Moje kombinace“) v pořadí k zobrazení: nejdřív dvojice, trojice a čtveřice, pak ostatní od nejvyšší. */
+  cards?: Card[];
 }
 
 const ORDER = '23456789TJQKA';
 const val = (c: Card) => ORDER.indexOf(c[0] ?? '') + 2;
 const rankKey = (v: number) => ORDER[v - 2] ?? 'A';
+
+/** Seřadí nejlepší pětici k zobrazení: skupiny stejných hodnot (čtveřice, trojice, dvojice) nejdřív, pak od nejvyšší karty; postupka A-2-3-4-5 má eso na konci. */
+export function orderBestFive(cards: Card[]): Card[] {
+  const counts = new Map<number, number>();
+  for (const c of cards) counts.set(val(c), (counts.get(val(c)) ?? 0) + 1);
+  const vals = cards.map(val);
+  const wheel = new Set(vals).size === 5 && Math.max(...vals) === 14 && vals.includes(5) && vals.includes(2);
+  const rank = (c: Card) => (wheel && val(c) === 14 ? 1 : val(c));
+  return [...cards].sort((a, b) => (counts.get(val(b)) ?? 0) - (counts.get(val(a)) ?? 0) || rank(b) - rank(a));
+}
 
 /**
  * Popíše nejlepší pětici karet ("Dvě dvojice", "Postupka do dámy"…). Rozpoznává kombinaci
