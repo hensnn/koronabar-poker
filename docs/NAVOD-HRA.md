@@ -188,3 +188,7 @@ Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu ote
 - Velikosti panelů, widgetů, oken a písma se ukládají **zvlášť pro každé zobrazení** (rozlišení obrazovky a zvětšení systému, např. 1920×1080 při 150 %). Notebook a velký monitor si tak nepřepisují velikosti. Vypnout to jde volbou **Velikosti panelů zvlášť pro každé zobrazení** v osobním nastavení; uložená data jsou v nastavení *Uložené velikosti podle zobrazení* (pamatuje se posledních 8 zobrazení).
 - Když se změna nastavení (rozbalení widgetu, velikost panelu…) **nepodaří uložit**, objeví se dole červená hláška s kódem chyby (např. `403 FORBIDDEN_ORIGIN` = adresa, ze které web otevíráš, nesedí s `PUBLIC_URL`; `0 NETWORK` = výpadek spojení). Dřív změna jen potichu zmizela.
 - **Moje sázka** u mých karet se posune výš jen tolik, aby nezakrývala karty (podle skutečné velikosti karet v motivu).
+
+## Nabídka add-onu až po dohrání handy
+
+Jednorázová nabídka add-onu na konci posledního levelu s add-onem se ukáže **až po dohrání rozehrané handy**, ne uprostřed ní (na více stolech po dohrání všech rozehraných hand). Kdyby se nějaká handa z technických důvodů nedohrála, nabídka se ukáže nejpozději po době **Nejdéle čekat na konec handy před nabídkou add-onu** (nastavení turnaje, výchozí 300 s). Čas na odpověď (**Čas na rozhodnutí o add-onu**) se počítá až od zobrazení nabídky.

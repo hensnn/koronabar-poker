@@ -672,6 +672,7 @@ const tournament: SettingDef[] = [
   int('tournament.addonFromLevel', { category: 'special', mutability: H, unit: 'x', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 5, 1, 50),
   int('tournament.addonUntilLevel', { category: 'special', mutability: H, unit: 'x', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 5, 1, 50),
   choice('tournament.addonMode', { category: 'special', mutability: H, appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 'both', ['window', 'offer', 'both']),
+  int('tournament.addonOfferMaxWaitSeconds', { category: 'special', mutability: H, unit: 's', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 300, 10, 3600),
   int('tournament.addonOfferSeconds', { category: 'special', mutability: H, unit: 's', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 30, 5, 600),
   int('tournament.addonCost', { category: 'special', mutability: S, unit: 'currency', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 100, 1, 1_000_000_000),
   int('tournament.addonChips', { category: 'special', mutability: S, unit: 'chips', appliesTo: 'tournament', dependsOn: { key: 'tournament.addonEnabled', truthy: true } }, 5000, 1, 1_000_000_000),

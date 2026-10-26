@@ -193,6 +193,32 @@ describe('turnaj: registrace a peníze', () => {
       expect(h.tour.canAddon('u2')).toBe(false);
     });
 
+    it('nabídka add-onu čeká, až se dohraje rozehraná handa', () => {
+      const h = harness({ ...base, 'tournament.addonMode': 'offer' });
+      registerAll(h);
+      h.tour.start();
+      h.table.stop(); // jen ruční události níže, bez vlastních hand stolu
+      h.tour.onTableEvent({ type: 'handStart', handId: 'h1', handNumber: 1, buttonSeat: 0, players: [] } as never);
+      for (let i = 0; i < 400 && h.tour.levelNumber() <= 2; i++) h.clock.advance(1000);
+      expect(h.tour.levelNumber()).toBeGreaterThan(2); // level skončil uprostřed handy
+      expect(h.tour.addonOfferUntil()).toBeNull(); // nabídka se zatím neukazuje
+      h.tour.onTableEvent({ type: 'handEnd', handId: 'h1', board: [], winners: [], showdown: false, record: {} } as never);
+      expect(h.tour.addonOfferUntil()).not.toBeNull(); // po konci handy se nabídne
+      expect(h.tour.addonOffered('u1')).toBe(true);
+    });
+
+    it('add-on: kdyby se rozehraná handa nedohrála, nabídka se ukáže po nastavené době', () => {
+      const h = harness({ ...base, 'tournament.addonMode': 'offer', 'tournament.addonOfferMaxWaitSeconds': 60 });
+      registerAll(h);
+      h.tour.start();
+      h.table.stop();
+      h.tour.onTableEvent({ type: 'handStart', handId: 'h1', handNumber: 1, buttonSeat: 0, players: [] } as never);
+      for (let i = 0; i < 400 && h.tour.levelNumber() <= 2; i++) h.clock.advance(1000);
+      expect(h.tour.addonOfferUntil()).toBeNull();
+      h.clock.advance(61_000);
+      expect(h.tour.addonOfferUntil()).not.toBeNull();
+    });
+
     it('režim „both“: odmítnutí nabídku skryje, koupě dřív se na konec neptá', () => {
       const h = harness({ ...base, 'tournament.addonMode': 'both' });
       registerAll(h);

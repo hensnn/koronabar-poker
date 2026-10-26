@@ -315,6 +315,8 @@ export const csTournament: Record<string, string> = {
   'settings.tournament.addonMode.option.window': 'Kdykoli v okně levelů',
   'settings.tournament.addonMode.option.offer': 'Jen jednorázová nabídka po levelu',
   'settings.tournament.addonMode.option.both': 'Obojí',
+  'settings.tournament.addonOfferMaxWaitSeconds.label': 'Nejdéle čekat na konec handy před nabídkou add-onu',
+  'settings.tournament.addonOfferMaxWaitSeconds.help': 'Nabídka add-onu se ukáže až po dohrání rozehrané handy. Kdyby se handa z nějakého důvodu nedohrála, nabídka se ukáže nejpozději po této době od konce levelu.',
   'settings.tournament.addonOfferSeconds.label': 'Čas na rozhodnutí o add-onu',
   'settings.tournament.addonOfferSeconds.help': 'Kolik sekund má hráč na odpověď v jednorázové nabídce add-onu. Hra mezitím běží dál; kdo neodpoví, add-on nedostane.',
   'settings.tournament.addonCost.label': 'Cena add-onu',
