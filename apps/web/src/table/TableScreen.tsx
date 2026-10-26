@@ -57,14 +57,18 @@ const runCardDelay = (index: number) => RUN_FIRST_MS + index * RUN_STEP_MS;
 const runDelayStyle = (fresh: number) => ({ animationDelay: `${fresh === 0 ? 0 : runCardDelay(fresh)}ms` });
 
 /** Sázka hráče leží mezi jeho sedadlem a středem stolu; na telefonu blíž ke středu, aby ji nezakrývaly karty. */
-function betPosition(seat: number, viewerSeat: number | null, count: number, mobile: boolean) {
+function betPosition(seat: number, viewerSeat: number | null, count: number, mobile: boolean, mineCardsTop: number | null = null) {
   const p = seatPosition(seat, viewerSeat, count);
   const fx = mobile ? 0.5 : 0.52;
   const fy = mobile ? 0.4 : 0.6;
-  // Sedadlo dole (já) má velké karty nad sebou: sázka leží vedle nich, ne přes ně (v některých motivech by je zakrývala).
-  if (viewerSeat !== null && (seat - viewerSeat + count) % count === 0) return { left: p.left + (mobile ? 17 : 20), top: 50 + (p.top - 50) * (mobile ? 0.62 : 0.72) };
-  return { left: 50 + (p.left - 50) * fx, top: 50 + (p.top - 50) * fy };
+  const pos = { left: 50 + (p.left - 50) * fx, top: 50 + (p.top - 50) * fy };
+  // Moje sázka leží před mým sedadlem, ale nejvýš tak nízko, aby nezakrývala moje karty: v motivech s většími kartami se posune o kus výš.
+  if (mineCardsTop !== null && viewerSeat !== null && (seat - viewerSeat + count) % count === 0) pos.top = Math.min(pos.top, mineCardsTop - BET_ABOVE_CARDS);
+  return pos;
 }
+
+/** O kolik procent výšky stolu leží střed sázky nad horním okrajem mých karet (výška hromádky žetonů s částkou). */
+const BET_ABOVE_CARDS = 9;
 
 export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern = false }: Props) {
   const net = useNet();
@@ -88,8 +92,30 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
     const mineSeat = v.seats.find((s) => s.playerId === userId)?.seat;
     return { viewer: rotate ? (v.viewerSeat ?? mineSeat ?? 0) : 0, count: v.info.seatCount };
   };
+  // Kde končí moje karty u stolu (horní okraj v % výšky stolu): podle toho se sázka před sedadlem posune, aby karty nezakrývala.
+  const tableEl = useRef<HTMLDivElement>(null);
+  const [mineCardsTop, setMineCardsTop] = useState<number | null>(null);
+  useEffect(() => {
+    const measure = () => {
+      const table = tableEl.current;
+      const cards = table?.querySelector('.tk-seat-mine .tk-seat-cards');
+      if (!table || !cards) return setMineCardsTop(null);
+      const t = table.getBoundingClientRect();
+      const c = cards.getBoundingClientRect();
+      if (t.height <= 0) return;
+      const v = ((c.top - t.top) / t.height) * 100;
+      setMineCardsTop((prev) => (prev !== null && Math.abs(prev - v) < 0.5 ? prev : v));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const id = window.setInterval(measure, 1500);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.clearInterval(id);
+    };
+  });
   const sweeps = useChipSweeps(view, betChips, {
-    bet: (seat) => betPosition(seat, sweepSeat().viewer, sweepSeat().count, mobile),
+    bet: (seat) => betPosition(seat, sweepSeat().viewer, sweepSeat().count, mobile, mineCardsTop),
     seat: (seat) => seatPosition(seat, sweepSeat().viewer, sweepSeat().count),
     pot: { left: 50, top: 52 },
   });
@@ -231,7 +257,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           </div>
         )}
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
-        <div className="tk-table relative mx-auto">
+        <div ref={tableEl} className="tk-table relative mx-auto">
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
@@ -296,7 +322,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           {view.seats
             .filter((s) => s.bet > 0)
             .map((s) => {
-              const p = betPosition(s.seat, viewerSeat, info.seatCount, mobile);
+              const p = betPosition(s.seat, viewerSeat, info.seatCount, mobile, mineCardsTop);
               const from = seatPosition(s.seat, viewerSeat, info.seatCount);
               return (
                 <div key={`bet-${s.seat}-${s.bet}`} className={`tk-chip-fly absolute -translate-x-1/2 -translate-y-1/2 ${betChips ? 'tk-bet-wrap flex flex-col items-center gap-0.5' : 'tk-bet'}`} style={{ left: `${p.left}%`, top: `${p.top}%`, ['--from-left' as string]: `${from.left}%`, ['--from-top' as string]: `${from.top}%` }}>

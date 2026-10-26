@@ -31,6 +31,7 @@ import { DashboardPage } from './pages/dashboard';
 import { MainMenu, type MenuGroup, type MenuItem, type MenuTone } from './main-menu';
 import { useTournamentAutoJoin } from './tournament-autojoin';
 import { MyTableButton } from './my-table-button';
+import { SaveErrorToast } from './save-error-toast';
 
 // Méně časté stránky se načítají až při otevření.
 const ThemeEditorPage = lazyPage(() => import('./pages/theme-editor'), 'ThemeEditorPage');
@@ -173,6 +174,7 @@ function Shell({ me }: { me: Me }) {
 
   return (
     <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
+      <SaveErrorToast />
       <header className={`flex items-center justify-between gap-2 ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
         <BrandMark header />
         <BrandFavicon />

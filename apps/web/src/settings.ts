@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { createDefaultRegistry, resolveSettings, keysOfSet, sanitizeSettingsProfile, setById, type SettingsProfileData, type SettingValue, type SettingValues } from '@kb/shared';
 import { del, get, put } from './api';
+import { clearProfileValue, displayId, profileOverrides, SIZE_KEYS, setProfileValue } from './display-sizes';
 import { onSocket } from './net';
 
 export const registry = createDefaultRegistry();
@@ -73,6 +74,14 @@ function readCache(): State {
 
 let state: State = readCache();
 const listeners = new Set<() => void>();
+
+/** Neúspěšné uložení osobního nastavení (rozbalení widgetu, velikost panelu…): ukáže se uživateli, ať změna nevypadá, že „nic neudělala“. */
+const saveErrorListeners = new Set<(e: unknown) => void>();
+export function onSaveError(l: (e: unknown) => void): () => void {
+  saveErrorListeners.add(l);
+  return () => saveErrorListeners.delete(l);
+}
+const reportSaveError = (e: unknown) => saveErrorListeners.forEach((l) => l(e));
 const set = (patch: Partial<State>) => {
   state = { ...state, ...patch };
   try {
@@ -147,6 +156,16 @@ export function resolveFor(s: State = state) {
     { scope: 'user', values: s.user },
     { scope: 'userDevice', values: s.device },
   ]);
+  // Velikosti panelů platné pro toto zobrazení (rozlišení a zvětšení) přebijí obecné hodnoty.
+  const profiles = String(resolved.values['ui.sizeProfiles'] ?? '');
+  if (resolved.values['ui.sizePerDisplay'] !== false && profiles) {
+    const over = profileOverrides(profiles, displayId());
+    if (Object.keys(over).length > 0) {
+      const origins = { ...resolved.origins };
+      for (const k of Object.keys(over)) origins[k] = 'userDevice';
+      return { ...s, values: { ...resolved.values, ...over }, origins };
+    }
+  }
   return { ...s, values: resolved.values, origins: resolved.origins };
 }
 
@@ -163,6 +182,10 @@ export function useSettings() {
 
 /** Uloží osobní hodnotu na server; `deviceOnly` = jen pro toto zařízení. */
 export async function saveUserSetting(key: string, value: SettingValue, deviceOnly = false): Promise<void> {
+  // Velikost panelu se ukládá pro právě používané zobrazení, ne pro všechna.
+  if (SIZE_KEYS.has(key) && typeof value === 'number' && resolveFor().values['ui.sizePerDisplay'] !== false) {
+    return saveUserSetting('ui.sizeProfiles', setProfileValue(String(resolveFor().values['ui.sizeProfiles'] ?? ''), displayId(), key, value), true);
+  }
   const layer = deviceOnly ? 'device' : 'user';
   const before = state[layer];
   written[layer].add(key);
@@ -171,6 +194,7 @@ export async function saveUserSetting(key: string, value: SettingValue, deviceOn
     await put('/api/me/settings', { key, value, device: deviceOnly ? deviceId() : undefined });
   } catch (e) {
     set({ [layer]: before } as Partial<State>);
+    reportSaveError(e);
     throw e;
   }
 }
@@ -203,6 +227,9 @@ export async function resetGlobalSetting(key: string): Promise<void> {
 }
 
 export async function resetUserSetting(key: string, deviceOnly = false): Promise<void> {
+  if (SIZE_KEYS.has(key) && resolveFor().values['ui.sizePerDisplay'] !== false && key in profileOverrides(String(resolveFor().values['ui.sizeProfiles'] ?? ''), displayId())) {
+    return saveUserSetting('ui.sizeProfiles', clearProfileValue(String(resolveFor().values['ui.sizeProfiles'] ?? ''), displayId(), key), true);
+  }
   const layer = deviceOnly ? 'device' : 'user';
   const { [key]: _drop, ...rest } = state[layer];
   const before = state[layer];
@@ -212,6 +239,7 @@ export async function resetUserSetting(key: string, deviceOnly = false): Promise
     await del(`/api/me/settings/${encodeURIComponent(key)}${deviceOnly ? `?device=${deviceId()}` : ''}`);
   } catch (e) {
     set({ [layer]: before } as Partial<State>);
+    reportSaveError(e);
     throw e;
   }
 }

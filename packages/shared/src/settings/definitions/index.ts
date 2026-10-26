@@ -727,6 +727,8 @@ const ui: SettingDef[] = [
   choice('ui.density', { category: 'ui', mutability: A, scopes: USER }, 'auto', ['auto', 'compact', 'normal', 'comfortable']),
   text('ui.themeId', { category: 'ui', mutability: A, scopes: USER }, 'classic-green', 60),
   text('ui.tablePanel', { category: 'ui', mutability: A, scopes: USER }, '', 400),
+  bool('ui.sizePerDisplay', { category: 'ui', mutability: A, scopes: USER }, true),
+  text('ui.sizeProfiles', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.sizePerDisplay', truthy: true } }, '', 4000),
   text('ui.tableLayout', { category: 'ui', mutability: A, scopes: USER }, '', 1500),
   int('ui.tableSideWidth', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 640),
   int('ui.tableSideHeight', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 3000),
