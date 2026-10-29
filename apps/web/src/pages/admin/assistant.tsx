@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ASSISTANT_CONTEXTS, renderPrompt, t, unknownVariables } from '@kb/shared';
 import { errorText, get, post, put } from '../../api';
 import { Badge, Button, Card, DataTable, Notice, Select, Spinner, Tabs, Td } from '../../ui';
+import { SelfTestTab } from './assistant-selftest';
 
 interface Prompt {
   key: string;
@@ -302,7 +303,7 @@ function ToolsTab() {
 }
 
 export function AssistantAdminPage() {
-  const [tab, setTab] = useState<'prompts' | 'sandbox' | 'usage' | 'tools'>('prompts');
+  const [tab, setTab] = useState<'prompts' | 'sandbox' | 'selftest' | 'usage' | 'tools'>('prompts');
   return (
     <div className="flex flex-col gap-3">
       <h1 className="font-heading text-2xl font-bold">{t('assistantAdmin.title')}</h1>
@@ -311,6 +312,7 @@ export function AssistantAdminPage() {
         tabs={[
           { id: 'prompts' as const, label: t('assistantAdmin.prompts') },
           { id: 'sandbox' as const, label: t('assistantAdmin.sandbox') },
+          { id: 'selftest' as const, label: t('assistantAdmin.selftest') },
           { id: 'usage' as const, label: t('assistantAdmin.usage') },
           { id: 'tools' as const, label: t('assistantAdmin.tools') },
         ]}
@@ -319,6 +321,7 @@ export function AssistantAdminPage() {
       />
       {tab === 'prompts' && <PromptsTab />}
       {tab === 'sandbox' && <SandboxTab />}
+      {tab === 'selftest' && <SelfTestTab />}
       {tab === 'usage' && <UsageTab />}
       {tab === 'tools' && <ToolsTab />}
     </div>

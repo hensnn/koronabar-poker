@@ -40,6 +40,7 @@ import type { SettingsStore } from '../settings-store.js';
 import type { TableManager } from '../tables.js';
 import type { TemplateService } from '../templates.js';
 import type { TournamentManager } from '../tournaments.js';
+import { SELFTEST_CASES, type CaseOutcome, type Verdict } from './selftest.js';
 import { createProvider, ProviderError, type AiProvider, type ChatMsg, type ToolCall, type ToolSpec } from './providers.js';
 
 export type AssistantErrorCode = 'DISABLED' | 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'LIMIT_USER' | 'LIMIT_GLOBAL' | 'PROVIDER' | 'BUSY' | 'TIMEOUT' | 'PROVIDER_LIMIT' | 'EXPIRED' | 'NOT_PENDING' | 'UNKNOWN_VARIABLE';
@@ -96,12 +97,39 @@ export interface ChatResult {
   tokens: number;
 }
 
+export interface SelfTestResult {
+  id: string;
+  title: string;
+  prompt: string;
+  context: string;
+  as: string;
+  verdict: Verdict;
+  note: string;
+  tools: string[];
+  proposals: string[];
+  reply: string;
+  tokens: number;
+  ms: number;
+}
+
+export interface SelfTestJob {
+  id: string;
+  status: 'running' | 'done' | 'error';
+  startedAt: number;
+  total: number;
+  results: SelfTestResult[];
+  tokens: number;
+  error?: string;
+}
+
 interface ToolEnv {
   userId: string;
   source: AuditSource;
   requestText: string;
   dryRun: boolean;
   proposals: ProposalDto[];
+  /** Záznam použitých nástrojů (pro zkoušku schopností): název, argumenty a zkrácený výsledek. */
+  trace?: { tool: string; args: unknown; result: string }[];
 }
 
 type Plan = { actions: ProposalAction[]; diff: ProposalDiffRow[]; denied: string[] };
@@ -862,7 +890,11 @@ export class AssistantService {
         break;
       }
       messages.push({ role: 'assistant', content: result.text, toolCalls: result.toolCalls });
-      for (const call of result.toolCalls as ToolCall[]) messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: clipTool(await this.runTool(env, call.name, call.args), maxChars) });
+      for (const call of result.toolCalls as ToolCall[]) {
+        const out = await this.runTool(env, call.name, call.args);
+        env.trace?.push({ tool: call.name, args: call.args, result: clip(out, 600) });
+        messages.push({ role: 'tool', toolCallId: call.id, name: call.name, content: clipTool(out, maxChars) });
+      }
       reply = result.text;
     }
     return { reply, tokens, system };
@@ -923,6 +955,83 @@ export class AssistantService {
     const out = await this.converse(userId, text, ctx, input.targetId, env, []);
     await this.addTokens(actorId, 0);
     return { system: out.system, reply: out.reply, tokens: out.tokens, proposals: env.proposals };
+  }
+
+  /** Zkouška schopností: průběh a výsledky (v paměti, posledních několik běhů). */
+  private selfTests = new Map<string, SelfTestJob>();
+
+  /**
+   * Spustí zkoušku schopností a bezpečnosti asistenta se skutečným poskytovatelem (např. Gemini). Běží na pozadí v pískovišti:
+   * nic se nezapisuje, návrhy se jen spočítají. Klíč poskytovatele zůstává na serveru. Vrací id běhu, výsledky se průběžně doplňují.
+   */
+  async startSelfTest(actorId: string): Promise<{ id: string; total: number }> {
+    this.manage(actorId);
+    if (!(await this.configured())) throw new AssistantError('DISABLED');
+    if ([...this.selfTests.values()].some((j) => j.status === 'running')) throw new AssistantError('BUSY', { seconds: 30 });
+    const id = `st-${this.deps.now()}-${this.selfTests.size}`;
+    const job: SelfTestJob = { id, status: 'running', startedAt: this.deps.now(), total: SELFTEST_CASES.length, results: [], tokens: 0 };
+    this.selfTests.set(id, job);
+    for (const old of [...this.selfTests.keys()].slice(0, -5)) this.selfTests.delete(old);
+    void this.runSelfTest(actorId, job);
+    return { id, total: job.total };
+  }
+
+  selfTestStatus(actorId: string, id: string): SelfTestJob {
+    this.manage(actorId);
+    const job = this.selfTests.get(id);
+    if (!job) throw new AssistantError('NOT_FOUND');
+    return job;
+  }
+
+  /** Běžný hráč pro zkoušky odmítnutí: první uživatel, který smí asistenta používat, ale nesmí měnit globální nastavení. */
+  private async plainPlayer(): Promise<string | null> {
+    const rows = await this.deps.db.select({ id: schema.users.id }).from(schema.users).limit(100);
+    return rows.map((r) => r.id).find((uid) => this.can(uid, 'asistent.pouzivat') && !this.can(uid, 'nastaveni.globalni')) ?? null;
+  }
+
+  private async runSelfTest(actorId: string, job: SelfTestJob): Promise<void> {
+    try {
+      const player = await this.plainPlayer();
+      for (const c of SELFTEST_CASES) {
+        const userId = c.as === 'player' ? player : actorId;
+        const base = { id: c.id, title: c.title, prompt: c.text, context: c.context, as: c.as };
+        if (!userId) {
+          job.results.push({ ...base, verdict: 'info', note: 'přeskočeno: v aplikaci není běžný hráč, kterému by šlo zkoušku zadat', tools: [], proposals: [], reply: '', tokens: 0, ms: 0 });
+          continue;
+        }
+        const env: ToolEnv = { userId, source: 'assistant', requestText: c.text, dryRun: true, proposals: [], trace: [] };
+        const t0 = Date.now();
+        let attempt = 0;
+        for (;;) {
+          try {
+            const out = await this.converse(userId, c.text, c.context, undefined, env, []);
+            const outcome: CaseOutcome = { tools: env.trace!.map((x) => x.tool), trace: env.trace!, proposals: env.proposals, reply: out.reply };
+            const j = c.judge(outcome);
+            job.tokens += out.tokens;
+            job.results.push({ ...base, verdict: j.verdict, note: j.note, tools: outcome.tools, proposals: env.proposals.map((p) => p.summary), reply: clip(out.reply, 600), tokens: out.tokens, ms: Date.now() - t0 });
+            break;
+          } catch (e) {
+            // Limit volání za minutu (bezplatný plán): počká se na uvolnění a případ se zopakuje.
+            if (e instanceof AssistantError && e.code === 'BUSY' && attempt < 4) {
+              attempt++;
+              env.trace!.length = 0;
+              env.proposals.length = 0;
+              await new Promise((r) => setTimeout(r, Math.min(70, Number(e.params?.seconds ?? 10)) * 1000));
+              continue;
+            }
+            const code = e instanceof AssistantError ? e.code : 'ERROR';
+            job.results.push({ ...base, verdict: 'fail', note: `chyba poskytovatele: ${code}${e instanceof AssistantError && e.params?.detail ? ' ' + String(e.params.detail) : ''}`, tools: [], proposals: [], reply: '', tokens: 0, ms: Date.now() - t0 });
+            // Vyčerpaný limit nebo nedostupný poskytovatel: další případy by dopadly stejně.
+            if (code === 'PROVIDER_LIMIT' || code === 'PROVIDER' || code === 'TIMEOUT') throw e;
+            break;
+          }
+        }
+      }
+      job.status = 'done';
+    } catch (e) {
+      job.status = 'error';
+      job.error = e instanceof AssistantError ? e.code : e instanceof Error ? e.message : 'ERROR';
+    }
   }
 
   /** Zkouška spojení s poskytovatelem. */

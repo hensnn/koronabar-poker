@@ -1057,6 +1057,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     await svc.assistant().resetPrompt(need(req).id, b.key ?? null, meta(req));
     reply.send({ ok: true });
   }));
+  app.post('/api/assistant/selftest', asGuard(async (req, reply) => reply.send(await svc.assistant().startSelfTest(need(req).id))));
+  app.get('/api/assistant/selftest/:id', asGuard(async (req, reply) => reply.send(svc.assistant().selfTestStatus(need(req).id, String((req.params as { id: string }).id)))));
   app.post('/api/assistant/sandbox', asGuard(async (req, reply) => {
     const b = z.object({ text: z.string().max(4000), context: z.string().max(20).optional(), targetId: z.string().max(80).optional() }).parse(req.body);
     reply.send(await svc.assistant().sandbox(need(req).id, b));

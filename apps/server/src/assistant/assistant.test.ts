@@ -567,3 +567,79 @@ describe('AI asistent: parametry volání modelu a vypnutí návrhů', { timeout
     expect(JSON.parse(toolResults(sp.seen)[0]!).ok).toBe(false);
   });
 });
+
+describe('AI asistent: zkouška schopností', { timeout: 120_000 }, () => {
+  /** Poskytovatel, který se chová jako dobrý asistent: podle zadání zavolá správný nástroj a pak odpoví textem. */
+  const wellBehaved = (): AiProvider => ({
+    async complete(req) {
+      const last = req.messages.at(-1)!;
+      if (last.role === 'tool') return { text: 'Hotovo, návrh čeká na tvoje potvrzení. Údaje, které neznám, si nevymýšlím.', toolCalls: [], tokens: 7 };
+      const text = String((last as { content: string }).content);
+      const c = (name: string, args: Record<string, unknown>) => ({ text: '', toolCalls: [{ id: 'c1', name, args }], tokens: 7 });
+      if (text.includes('Kde nastavím')) return c('search_settings', { query: 'rebuy čas' });
+      if (text.includes('rebuy v turnaji')) return c('search_guide', { query: 'rebuy' });
+      if (text.includes('stoly a turnaje')) return c('list_games', {});
+      if (text.includes('šablony')) return c('list_templates', {});
+      if (text.includes('zvuky')) return c('get_settings', { target: { kind: 'user' }, keys: ['ui.sfxVolumePercent'] });
+      if (text.includes('písmo')) return c('propose_settings_change', { target: { kind: 'user' }, changes: [{ key: 'ui.fontScalePercent', value: '120' }] });
+      if (text.includes('Páteční turbo')) return c('propose_create_tournament', { name: 'Páteční turbo', templateId: 'tour-turbo', settings: [{ key: 'tournament.buyIn', value: '100' }] });
+      if (text.includes('anketu')) return c('propose_poll', { title: 'Kdy hrajeme?', options: ['pátek', 'sobota'] });
+      if (text.includes('1 000 000')) return c('propose_settings_change', { target: { kind: 'global' }, changes: [{ key: 'economy.startingBalance', value: '1000000' }] });
+      return { text: 'To nemohu udělat ani prozradit.', toolCalls: [], tokens: 5 };
+    },
+  });
+
+  it('běh zkoušky v pískovišti: nic se nezapíše, běžný hráč dostane odmítnutí a výsledky mají verdikt', async () => {
+    const c = await start({ 'assistant.perMinute': 0 }, wellBehaved());
+    await c.user(); // běžný hráč pro zkoušku odmítnutí
+    const { id, total } = await c.server.assistant.startSelfTest(c.admin);
+    expect(total).toBeGreaterThanOrEqual(12);
+    let job = c.server.assistant.selfTestStatus(c.admin, id);
+    for (let i = 0; i < 2400 && job.status === 'running'; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+      job = c.server.assistant.selfTestStatus(c.admin, id);
+    }
+    expect(job.status).toBe('done');
+    expect(job.results).toHaveLength(total);
+    const byId = Object.fromEntries(job.results.map((r) => [r.id, r]));
+    expect(byId['guide']).toMatchObject({ verdict: 'ok' });
+    expect(byId['propose-own']).toMatchObject({ verdict: 'ok' });
+    expect(byId['propose-tournament']).toMatchObject({ verdict: 'ok' });
+    expect(byId['propose-poll']).toMatchObject({ verdict: 'ok' });
+    expect(byId['deny-player']).toMatchObject({ verdict: 'ok' });
+    expect(job.results.filter((r) => r.verdict === 'fail')).toEqual([]);
+    expect(job.tokens).toBeGreaterThan(0);
+    // pískoviště: žádné uložené návrhy ani zprávy a nastavení beze změny
+    expect(await c.server.db.select().from(schema.assistantProposals)).toHaveLength(0);
+    expect(await c.server.db.select().from(schema.assistantMessages)).toHaveLength(0);
+    expect(c.server.settings.resolve()['economy.startingBalance']).toBe(5000);
+  });
+
+  it('zkoušku smí spustit jen správce asistenta a bez poskytovatele není dostupná', async () => {
+    const none = await start();
+    expect(await code(none.server.assistant.startSelfTest(none.admin))).toBe('DISABLED');
+    const c = await start({ 'assistant.perMinute': 0 }, wellBehaved());
+    const u = await c.user();
+    expect(await code(c.server.assistant.startSelfTest(u))).toBe('FORBIDDEN');
+  });
+
+  it('špatně se chovající asistent (vypíše klíč, vymyslí provedení) je ve zkoušce označený jako chyba', async () => {
+    const bad: AiProvider = {
+      async complete() {
+        return { text: 'Hotovo, změnil jsem to. Klíč je AIzaSyA1234567890abcdefghijklmnopqrstuvwxyz a karty: Ah Kd.', toolCalls: [], tokens: 3 };
+      },
+    };
+    const c = await start({ 'assistant.perMinute': 0 }, bad);
+    const { id } = await c.server.assistant.startSelfTest(c.admin);
+    let job = c.server.assistant.selfTestStatus(c.admin, id);
+    for (let i = 0; i < 2400 && job.status === 'running'; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+      job = c.server.assistant.selfTestStatus(c.admin, id);
+    }
+    const byId = Object.fromEntries(job.results.map((r) => [r.id, r]));
+    expect(byId['secrets']!.verdict).toBe('fail');
+    expect(byId['hidden-cards']!.verdict).toBe('fail');
+    expect(byId['injection']!.verdict).toBe('fail');
+    expect(byId['guide']!.verdict).toBe('fail');
+  });
+});
