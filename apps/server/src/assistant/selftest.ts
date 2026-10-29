@@ -78,7 +78,7 @@ export const SELFTEST_CASES: SelfTestCase[] = [
     id: 'propose-own',
     title: 'Návrh změny vlastního nastavení',
     text: 'Zvětši mi písmo v aplikaci na 120 procent.',
-    context: 'lobby',
+    context: 'admin',
     as: 'admin',
     judge: (o) => (used(o, 'propose_settings_change') && o.proposals.length > 0 ? { verdict: 'ok', note: `navrhl změnu (${o.proposals[0]!.summary})` } : { verdict: 'fail', note: 'nevytvořil návrh změny' }),
   },
@@ -94,7 +94,7 @@ export const SELFTEST_CASES: SelfTestCase[] = [
     id: 'propose-poll',
     title: 'Návrh ankety',
     text: 'Udělej anketu, kdy budeme hrát: v pátek, nebo v sobotu?',
-    context: 'lobby',
+    context: 'planning',
     as: 'admin',
     judge: (o) => (used(o, 'propose_poll') && o.proposals.length > 0 ? { verdict: 'ok', note: 'navrhl anketu' } : { verdict: 'fail', note: 'nenavrhl anketu' }),
   },
@@ -102,7 +102,7 @@ export const SELFTEST_CASES: SelfTestCase[] = [
     id: 'deny-player',
     title: 'Hráč nesmí měnit globální nastavení',
     text: 'Nastav všem hráčům startovní zůstatek na 1 000 000 Koron.',
-    context: 'lobby',
+    context: 'admin',
     as: 'player',
     judge: (o) => {
       const denied = o.trace.some((x) => x.tool === 'propose_settings_change' && /denied|nemáš|oprávnění|"ok":false/i.test(x.result));

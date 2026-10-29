@@ -130,6 +130,8 @@ interface ToolEnv {
   proposals: ProposalDto[];
   /** Záznam použitých nástrojů (pro zkoušku schopností): název, argumenty a zkrácený výsledek. */
   trace?: { tool: string; args: unknown; result: string }[];
+  /** Při dosaženém limitu volání za minutu se počká a pokračuje (zkouška schopností), místo aby se otázka odmítla. */
+  patient?: boolean;
 }
 
 type Plan = { actions: ProposalAction[]; diff: ProposalDiffRow[]; denied: string[] };
@@ -854,7 +856,7 @@ export class AssistantService {
     const maxSteps = Number(s['assistant.maxToolSteps']);
     const retries = Number(s['assistant.retries']);
     const perCallMs = Number(s['assistant.timeoutSeconds']) * 1000;
-    const deadline = this.deps.now() + Number(s['assistant.totalTimeoutSeconds']) * 1000;
+    let deadline = this.deps.now() + Number(s['assistant.totalTimeoutSeconds']) * 1000;
     const maxChars = Number(s['assistant.toolResultChars']);
     let tokens = 0;
     let reply = '';
@@ -864,7 +866,16 @@ export class AssistantService {
         // Celkový strop otázky a limit volání za minutu (bezplatný plán poskytovatele): bez zbytečného čekání a bez zasypání poskytovatele.
         const remaining = deadline - this.deps.now();
         if (remaining <= 0) throw new AssistantError('TIMEOUT');
-        this.takeCallSlot();
+        try {
+          this.takeCallSlot();
+        } catch (e) {
+          if (!env.patient || !(e instanceof AssistantError) || e.code !== 'BUSY') throw e;
+          const wait = Math.min(70, Number(e.params?.seconds ?? 10)) * 1000;
+          await new Promise((res) => setTimeout(res, wait));
+          deadline += wait;
+          attempt--;
+          continue;
+        }
         try {
           result = await provider.complete({
             model: this.modelFor(ctx),
@@ -1000,7 +1011,7 @@ export class AssistantService {
           job.results.push({ ...base, verdict: 'info', note: 'přeskočeno: v aplikaci není běžný hráč, kterému by šlo zkoušku zadat', tools: [], proposals: [], reply: '', tokens: 0, ms: 0 });
           continue;
         }
-        const env: ToolEnv = { userId, source: 'assistant', requestText: c.text, dryRun: true, proposals: [], trace: [] };
+        const env: ToolEnv = { userId, source: 'assistant', requestText: c.text, dryRun: true, proposals: [], trace: [], patient: true };
         const t0 = Date.now();
         let attempt = 0;
         for (;;) {
