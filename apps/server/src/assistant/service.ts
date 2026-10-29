@@ -992,6 +992,7 @@ export class AssistantService {
   private async runSelfTest(actorId: string, job: SelfTestJob): Promise<void> {
     try {
       const player = await this.plainPlayer();
+      let timeouts = 0;
       for (const c of SELFTEST_CASES) {
         const userId = c.as === 'player' ? player : actorId;
         const base = { id: c.id, title: c.title, prompt: c.text, context: c.context, as: c.as };
@@ -1008,6 +1009,7 @@ export class AssistantService {
             const outcome: CaseOutcome = { tools: env.trace!.map((x) => x.tool), trace: env.trace!, proposals: env.proposals, reply: out.reply };
             const j = c.judge(outcome);
             job.tokens += out.tokens;
+            timeouts = 0;
             job.results.push({ ...base, verdict: j.verdict, note: j.note, tools: outcome.tools, proposals: env.proposals.map((p) => p.summary), reply: clip(out.reply, 600), tokens: out.tokens, ms: Date.now() - t0 });
             break;
           } catch (e) {
@@ -1020,8 +1022,10 @@ export class AssistantService {
               continue;
             }
             const code = e instanceof AssistantError ? e.code : 'ERROR';
-            job.results.push({ ...base, verdict: 'fail', note: `chyba poskytovatele: ${code}${e instanceof AssistantError && e.params?.detail ? ' ' + String(e.params.detail) : ''}`, tools: [], proposals: [], reply: '', tokens: 0, ms: Date.now() - t0 });
-            // Vyčerpaný limit nebo nedostupný poskytovatel: další případy by dopadly stejně.
+            const hint = code === 'TIMEOUT' ? ` po ${Math.round((Date.now() - t0) / 1000)} s (model odpovídá pomalu, zvyš časový limit volání nebo zvol rychlejší model)` : '';
+            job.results.push({ ...base, verdict: 'fail', note: `chyba poskytovatele: ${code}${e instanceof AssistantError && e.params?.detail ? ' ' + String(e.params.detail) : ''}${hint}`, tools: [], proposals: [], reply: '', tokens: 0, ms: Date.now() - t0 });
+            // Vyčerpaný limit nebo nedostupný poskytovatel: další případy by dopadly stejně. Pomalá odpověď se zapíše a pokračuje se; dvě po sobě ukončí zkoušku.
+            if (code === 'TIMEOUT' && ++timeouts < 2) break;
             if (code === 'PROVIDER_LIMIT' || code === 'PROVIDER' || code === 'TIMEOUT') throw e;
             break;
           }
