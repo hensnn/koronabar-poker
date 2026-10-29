@@ -61,7 +61,7 @@ export function SelfTestTab() {
 
   const results = job?.results ?? [];
   const report = results
-    .map((r) => `${r.verdict.toUpperCase()}  ${r.title} (${r.as}): ${r.note}\n  zadání: ${r.prompt}\n  nástroje: ${r.tools.join(', ') || '-'}; návrhy: ${r.proposals.join(' | ') || '-'}\n  odpověď: ${r.reply}`)
+    .map((r) => `${r.verdict.toUpperCase()}  ${r.title} (${r.as}, ${Math.round(r.ms / 100) / 10} s, ${r.tokens} tok.): ${r.note}\n  zadání: ${r.prompt}\n  nástroje: ${r.tools.join(', ') || '-'}; návrhy: ${r.proposals.join(' | ') || '-'}\n  odpověď: ${r.reply}`)
     .join('\n\n');
   const counts = { ok: 0, fail: 0, info: 0 };
   for (const r of results) counts[r.verdict]++;
