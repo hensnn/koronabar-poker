@@ -146,6 +146,9 @@ const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
  * (oprávnění, pravidla „kdy lze měnit“, validace, audit se značkou asistenta).
  */
 /** Kontexty, kde asistent hlavně vysvětluje (bez návrhů změn): stačí rychlejší model a menší sada nástrojů. */
+/** Výchozí šablony mají název a popis jako překladový klíč; asistent i návrh potřebují čitelný text. */
+const tplText = (v: string): string => (v.startsWith('template.') ? t(v) : v);
+
 const EXPLAIN_CONTEXTS: readonly string[] = ['rules', 'lobby', 'table'];
 /** Výchozí rychlý model poskytovatele pro vysvětlování, když správce nezadal vlastní. */
 const FAST_MODEL: Record<AiProviderId, string> = { gemini: 'gemini-3.5-flash-lite', anthropic: 'claude-haiku-5-5', openai: 'gpt-4.1-mini', compatible: '' };
@@ -470,7 +473,7 @@ export class AssistantService {
         case 'list_games':
           return JSON.stringify(await this.listGames());
         case 'list_templates':
-          return JSON.stringify(this.deps.templates().list().filter((x) => !args.kind || x.kind === args.kind).map((x) => ({ id: x.id, kind: x.kind, name: x.name, description: x.description })));
+          return JSON.stringify(this.deps.templates().list().filter((x) => !args.kind || x.kind === args.kind).map((x) => ({ id: x.id, kind: x.kind, name: tplText(x.name), description: tplText(x.description) })));
         case 'propose_settings_change':
           return JSON.stringify(await this.proposeSettings(env, args));
         case 'propose_create_tournament':
@@ -700,7 +703,7 @@ export class AssistantService {
     }
     if (denied.length) return { ok: false, denied };
     const diff: ProposalDiffRow[] = [
-      { key: '', label: startAt ? t('assistant.diff.createAt', { name, template: template.name, time: new Date(startAt).toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' }) }) : t('assistant.diff.create', { name, template: template.name }), before: '-', after: name, timing: 'now' },
+      { key: '', label: startAt ? t('assistant.diff.createAt', { name, template: tplText(template.name), time: new Date(startAt).toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' }) }) : t('assistant.diff.create', { name, template: tplText(template.name) }), before: '-', after: name, timing: 'now' },
       ...Object.entries(settings).map(([key, v]) => ({ key, label: t(labelKey(key)), before: '-', after: this.fmt(this.deps.registry.get(key)!, v), timing: 'now' as const })),
     ];
     return this.finishProposal(env, [{ type: 'createTournament', name, templateId, settings, startAt }], diff, false);
