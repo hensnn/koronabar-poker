@@ -320,13 +320,14 @@ export class TableManager {
   }
 
   /** Přehled pro lobby. */
-  async lobby() {
+  async lobby(forUserId?: string) {
     const owners = await this.deps.db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users);
     const nick = new Map(owners.map((o) => [o.id, o.nickname]));
     return this.list().map((r) => {
       const s = this.resolve(r);
       const actor = this.actors.get(r.id)!;
-      const seated = actor.playersSeated().length;
+      const seatedPlayers = actor.playersSeated();
+      const seated = seatedPlayers.length;
       return {
         id: r.id,
         name: r.name,
@@ -348,6 +349,8 @@ export class TableManager {
         rakeCap: s['rake.enabled'] ? Number(s['rake.cap']) : 0,
         jackpot: s['jackpot.royalFlushEnabled'] || s['jackpot.badBeatEnabled'] || s['jackpot.highHandEnabled'] ? this.deps.cash.fundBalance(String(s['rake.jackpotFundId'] || 'jackpot')) : null,
         playing: actor.handInProgress(),
+        /** Přihlášený hráč u tohoto stolu už sedí (lobby pak nabídne návrat, ne usednutí). */
+        mine: !!forUserId && seatedPlayers.some((p) => p.userId === forUserId),
       };
     });
   }

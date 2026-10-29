@@ -28,6 +28,7 @@ interface LobbyTable {
   rakeCap: number;
   jackpot: number | null;
   playing: boolean;
+  mine: boolean;
 }
 interface Template {
   id: string;
@@ -104,7 +105,7 @@ export function LobbyPage() {
             {x.owner && <span className="text-xs text-muted">{t('lobby.owner', { nick: x.owner })}</span>}
             <span className="ml-auto flex flex-wrap gap-1">
               <Button variant="primary" onClick={() => navigate(`/stul/${x.id}`)}>
-                {x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
+                {x.mine ? t('lobby.back') : x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
               </Button>
               <Button onClick={() => setDialog({ rules: x.id })}>{t('lobby.rules')}</Button>
               <Button onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/stul/${x.id}`)}>{t('lobby.copyLink')}</Button>

@@ -17,6 +17,7 @@ interface CashTable {
   smallBlind: number;
   bigBlind: number;
   playing: boolean;
+  mine: boolean;
 }
 interface Tour {
   id: string;
@@ -235,7 +236,7 @@ export function DashboardPage() {
                     {x.playing && <Badge tone="success">{t('lobby.playing')}</Badge>}
                     <span className="ml-auto">
                       <Button onClick={() => navigate(`/stul/${x.id}`)}>
-                        {x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
+                        {x.mine ? t('lobby.back') : x.seated < x.seats ? t('lobby.join') : t('lobby.watch')}
                       </Button>
                     </span>
                   </li>

@@ -611,7 +611,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const u = need(req);
     if (!svc.perms.can(u.id, 'stul.zobrazit').allowed) throw new AccountError('FORBIDDEN');
     return reply.send({
-      tables: await svc.tables().lobby(),
+      tables: await svc.tables().lobby(u.id),
       templates: svc.templates().list('cash').map((t) => ({ id: t.id, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, values: t.values })),
     });
   }));

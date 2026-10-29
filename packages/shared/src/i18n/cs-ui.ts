@@ -218,6 +218,7 @@ export const csUi: Record<string, string> = {
   'lobby.owner': 'Založil {nick}',
   'lobby.join': 'Usednout',
   'lobby.watch': 'Přihlížet',
+  'lobby.back': 'Zpět ke stolu',
   'lobby.copyLink': 'Kopírovat odkaz',
   'lobby.edit': 'Upravit',
   'lobby.close': 'Zrušit stůl',

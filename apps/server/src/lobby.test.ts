@@ -74,6 +74,10 @@ describe('lobby: zakládání stolů', () => {
     expect(lobby[0]!.ownerId).toBe(u);
     s.server.tables.get(id)!.join(u, 'U', 0, 500);
     expect((await s.server.tables.lobby())[0]!.seated).toBe(1);
+    // Hráč u stolu sedí, jiný ne: lobby podle toho nabídne návrat, ne usednutí.
+    expect((await s.server.tables.lobby(u))[0]!.mine).toBe(true);
+    expect((await s.server.tables.lobby(await s.user()))[0]!.mine).toBe(false);
+    expect((await s.server.tables.lobby())[0]!.mine).toBe(false);
     expect((await s.server.audit.list({ action: 'stul.vytvorit' }))[0]!.targetId).toBe(id);
   });
 
