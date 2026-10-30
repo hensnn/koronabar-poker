@@ -281,6 +281,13 @@
       "when": 1792757544015,
       "tag": "0039_profily_sada",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793401227154,
+      "tag": "0040_zpravy_clenum",
+      "breakpoints": true
     }
   ]
 }

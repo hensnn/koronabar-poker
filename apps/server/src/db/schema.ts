@@ -1305,6 +1305,27 @@ export const mcpCalls = pgTable(
   (t) => [index('mcp_calls_created_idx').on(t.createdAt)],
 );
 
+/** Zprávy členům odeslané správcem (historie hromadného rozesílání). */
+export const broadcastMessages = pgTable(
+  'broadcast_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    senderId: uuid('sender_id').references(() => users.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    link: text('link'),
+    /** app | push | email */
+    channels: jsonb('channels').$type<string[]>().notNull(),
+    /** Jak byl zvolen okruh příjemců (pro historii): filtr z formuláře. */
+    audience: jsonb('audience').$type<Record<string, unknown>>().notNull(),
+    recipients: integer('recipients').notNull(),
+    /** Výsledek: kolik e-mailů se zařadilo, kolik přeskočilo (a proč), push apod. */
+    result: jsonb('result').$type<Record<string, number>>().notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('broadcast_messages_created_idx').on(t.createdAt)],
+);
+
 /** Veřejné profily osobního nastavení: hráč si uloží své nastavení pod názvem a ostatní si ho smějí převzít. */
 export const settingsProfiles = pgTable(
   'settings_profiles',

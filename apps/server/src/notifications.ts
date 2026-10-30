@@ -79,6 +79,16 @@ export class NotificationService {
     for (const userId of users) await this.mail(userId, n.kind, params, link);
   }
 
+  /** Zpráva od správy jednomu členovi: do aplikace (zvonek) a/nebo jako push. E-mail řeší `MessageService` zvlášť. */
+  async message(userId: string, m: { title: string; body: string; link: string | null }, channels: { app: boolean; push: boolean }): Promise<void> {
+    const params = { title: m.title, body: m.body };
+    if (channels.app) {
+      const [r] = await this.deps.db.insert(schema.notifications).values({ userId, kind: 'adminMessage', params, link: m.link }).returning();
+      if (r) this.io?.to(`user:${r.userId}`).emit('notification', this.dto(r));
+    }
+    if (channels.push) void this.deps.push?.send([userId], { title: m.title, body: m.body, url: m.link ?? '/', tag: 'zprava-spravy' }).catch(() => undefined);
+  }
+
   private async mail(userId: string, kind: string, params: Record<string, unknown>, link: string): Promise<void> {
     try {
       const [u] = await this.deps.db.select({ nickname: schema.users.nickname, email: schema.users.email, verified: schema.users.emailVerifiedAt }).from(schema.users).where(eq(schema.users.id, userId));

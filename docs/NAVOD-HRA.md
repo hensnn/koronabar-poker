@@ -214,3 +214,14 @@ Příprava s Gemini:
 4. Zkouška spotřebuje asi 15 až 40 požadavků (několik tisíc tokenů).
 
 Mimo zkoušku jde asistenta ladit v záložce **Pískoviště** (jedno zadání s ukázkou odeslaného promptu) a bez skutečného klíče pomocí falešného poskytovatele `node scripts/fake-ai.mjs` (jen pro ruční zkoušení plumbingu; chytrost asistenta zkouška s ním nezjistí).
+
+## Zprávy členům (Správa → Zprávy členům)
+
+Správce (a role s oprávněním **Posílat zprávy členům**) může poslat zprávu nebo pozvánku vybraným členům přímo z aplikace.
+
+1. **Šablona:** vyber turnaj a klikni na „Pozvánka na turnaj“, „Pozvánka na debug turnaj“, „Připomenutí startu“ nebo „Obecná zpráva všem“. Předmět, text, odkaz, kanály i příjemci se předvyplní a vše jde upravit. Doplň datum a čas, kde je v textu `[doplň …]`.
+2. **Komu:** všichni, podle rolí, hráči přihlášení do turnaje, jmenovitě, a vyloučení rolí nebo sebe. Zablokované účty se vynechají vždy. Příjemce se sčítají, vyloučení se odečítají.
+3. **Kanály:** v aplikaci (zvonek), push a e-mail. E-mail dostane jen člen s ověřeným e-mailem, který si příjem zpráv od správy nevypnul (v osobním nastavení „E-mail se zprávami od správy“) a který projde pravidly e-mailu ve Správě.
+4. **Proměnné:** v předmětu i textu jde použít `{prezdivka}` (jméno příjemce) a `{odkaz}` (odkaz ze spodního pole).
+5. **Náhled:** před odesláním vidíš, kolik lidí zprávu dostane, kdo to je, kolika půjde e-mail a jak zpráva vypadá. „Poslat zkušebně jen mně“ pošle zprávu jen tobě.
+6. **Historie:** pod formulářem je seznam odeslaných zpráv (kdo, kdy, komu, jakými kanály). Odeslání se zapisuje i do audit logu. Najednou jde poslat nejvýš 500 lidem.

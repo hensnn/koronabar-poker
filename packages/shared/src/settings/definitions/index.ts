@@ -802,6 +802,7 @@ const ui: SettingDef[] = [
   // Osobní předvolby e-mailů (bezpečnostní e-maily se posílají vždy a vypnout je nelze).
   bool('email.notifyRequestDecided', { category: 'email', mutability: A, scopes: USER }, true),
   bool('email.notifyTournament', { category: 'email', mutability: A, scopes: USER }, true),
+  bool('email.notifyMessages', { category: 'email', mutability: A, scopes: USER }, true),
   bool('email.notifyApprovalDecided', { category: 'email', mutability: A, scopes: USER }, true),
 ];
 

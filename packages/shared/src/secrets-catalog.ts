@@ -94,6 +94,13 @@ export const EMAIL_TEMPLATES: EmailTemplateDef[] = [
     text: 'Ahoj {prezdivka},\n\n{text}\n\nPodrobnosti: {odkaz}\n\nTato upozornění můžeš vypnout v profilu v osobním nastavení.\n',
   },
   {
+    key: 'zprava_clenum',
+    variables: ['prezdivka', 'predmet', 'text', 'odkaz'],
+    security: false,
+    subject: '{predmet} – KoronaBar Poker',
+    text: 'Ahoj {prezdivka},\n\n{text}\n\n{odkaz}\n\nTuto zprávu poslala správa herny. E-maily od správy můžeš vypnout v profilu v osobním nastavení.\n',
+  },
+  {
     key: 'vecer_souhrn',
     variables: ['prezdivka', 'nazev', 'souhrn', 'odkaz'],
     security: false,

@@ -19,6 +19,7 @@ import type { WalletService } from '../wallet/service.js';
 import type { TableManager } from '../tables.js';
 import type { TemplateService } from '../templates.js';
 import type { MaintenanceService } from '../maintenance.js';
+import type { MessageService } from '../messages.js';
 import type { HistoryService, HistoryKind } from '../history.js';
 import type { BlindStructureService } from '../structures.js';
 import { PublicBoardError, type PublicBoardService } from '../public-boards.js';
@@ -75,6 +76,7 @@ export interface Services {
   tournaments: () => TournamentManager;
   templates: () => TemplateService;
   maintenance: () => MaintenanceService;
+  messages: () => MessageService;
   history: () => HistoryService;
   structures: () => BlindStructureService;
   publicBoards: () => PublicBoardService;
@@ -461,6 +463,20 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const b = z.object({ olderThanDays: z.number().int().min(0).max(36500) }).parse(req.body);
     return reply.send({ deleted: await svc.history().purgeHands(need(req).id, b.olderThanDays, meta(req)) });
   }));
+
+  // ---------- zprávy členům ----------
+  const audienceSchema = z.object({
+    everyone: z.boolean().optional(),
+    roleKeys: z.array(z.string().max(60)).max(50).optional(),
+    tournamentId: z.string().max(80).optional(),
+    userIds: z.array(z.string().uuid()).max(500).optional(),
+    excludeRoleKeys: z.array(z.string().max(60)).max(50).optional(),
+    excludeSelf: z.boolean().optional(),
+  });
+  const messageSchema = z.object({ title: z.string().max(200), body: z.string().max(8000), link: z.string().max(300).nullish(), channels: z.array(z.enum(['app', 'push', 'email'])).max(3), audience: audienceSchema });
+  app.get('/api/admin/messages', guard(async (req, reply) => reply.send({ items: await svc.messages().history(need(req).id) })));
+  app.post('/api/admin/messages/preview', guard(async (req, reply) => reply.send(await svc.messages().preview(need(req).id, messageSchema.parse(req.body ?? {})))));
+  app.post('/api/admin/messages/send', guard(async (req, reply) => reply.send(await svc.messages().send(need(req).id, messageSchema.parse(req.body ?? {}), meta(req)))));
 
   // ---------- údržba: vynulování po testování ----------
   app.get('/api/admin/maintenance', guard(async (req, reply) => reply.send(await svc.maintenance().counts(need(req).id))));

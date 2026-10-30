@@ -523,3 +523,6 @@ Typy, lint, produkční sestavení a celá sada testů (141 souborů, 1160 test�
 - **Nalezená a opravená chyba:** big blind ante spolu s run it twice počítal mrtvé peníze dvakrát (do potu a jako „nevyrovnaná sázka“ k vrácení), takže vznikl jeden big blind žetonů navíc (`runs.ts`). Regresní testy jsou v `final-fuzz.test.ts`.
 - **Simulace** se skutečným serverem a boty (`apps/server/scripts/simulate.ts`): cash 2 semínka a turnaje (freezeout, rebuy + add-on, bounty, čekání hry na rebuy s odpojením) 3 semínka bez problémů, součty peněženek a knihy souhlasí. Pozor: krátký limit (např. 60 s na všechny režimy) hlásí „turnaj se nedohrál“, což je jen malý časový rozpočet, ne chyba.
 - Zátěž `STRESS=1` (cash šablony, 8 semínek, 72 stolů): bez problémů.
+
+## Zprávy členům (31. 10. 2026)
+Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihlášení do turnaje, jmenovitě, všichni, s vyloučením rolí a sebe; kanály aplikace (zvonek), push a e-mail (respektuje pravidla e-mailu, ověření adresy a osobní volbu `email.notifyMessages`); šablony (pozvánka, debug turnaj, připomenutí, obecná zpráva), náhled příjemců a vzorku, zkušební odeslání jen sobě, historie (tabulka `broadcast_messages`, migrace 0040) a audit. Oprávnění `zpravy.odeslat` (hlavní správce a administrátor). Příští rozšíření: plánované odeslání, Discord jako další kanál, skupiny příjemců k uložení.

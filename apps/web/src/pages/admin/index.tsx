@@ -18,6 +18,7 @@ const RolesPage = lazyPage(() => import('./roles'), 'RolesPage');
 const TablesPage = lazyPage(() => import('./tables'), 'TablesPage');
 const TemplatesPage = lazyPage(() => import('./templates'), 'TemplatesPage');
 const MaintenancePage = lazyPage(() => import('./maintenance'), 'MaintenancePage');
+const MessagesPage = lazyPage(() => import('./messages'), 'MessagesPage');
 const HistoryPage = lazyPage(() => import('./history'), 'HistoryPage');
 const StructuresPage = lazyPage(() => import('./structures'), 'StructuresPage');
 const FinancePage = lazyPage(() => import('./finance'), 'FinancePage');
@@ -62,6 +63,7 @@ const SECTIONS: Section[] = [
   { group: 'system', path: '/admin/napojeni', label: 'admin.integrations', show: (m) => can(m, 'integrace.spravovat'), render: () => <IntegrationsAdminPage /> },
   { group: 'system', path: '/admin/asistent', label: 'admin.assistant', show: (m) => can(m, 'asistent.spravovat'), render: () => <AssistantAdminPage /> },
   { group: 'system', path: '/admin/audit', label: 'admin.audit', show: (m) => can(m, 'audit.zobrazit'), render: () => <AuditPage /> },
+  { group: 'people', path: '/admin/zpravy', label: 'admin.messages', show: (m) => can(m, 'zpravy.odeslat'), render: () => <MessagesPage /> },
   { group: 'system', path: '/admin/udrzba', label: 'admin.maintenance', show: (m) => can(m, 'nastaveni.globalni'), render: () => <MaintenancePage /> },
 ];
 

@@ -121,6 +121,7 @@ export const PERMISSIONS: PermissionDef[] = [
   p('email.spravovat_smtp', 'email', { sensitive: true }),
   p('email.sablony', 'email'),
   p('email.fronta', 'email'),
+  p('zpravy.odeslat', 'email'),
   // systém
   p('system.tajne_udaje', 'system', { sensitive: true }),
   p('system.kryptovani_klic', 'system', { sensitive: true }),

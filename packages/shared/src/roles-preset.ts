@@ -35,7 +35,7 @@ export const PRESET_ROLES: PresetRole[] = [
     icon: 'shield',
     permissions: [
       ...all(['uzivatel.', 'role.', 'nastaveni.', 'statistiky.', 'chat.', 'cash.', 'turnaj.', 'zasah.', 'prihlizet.', 'stul.', 'emotikon.', 'motiv.', 'audit.', 'zadost.', 'anketa.', 'sazky.', 'obchod.', 'integrace.', 'api.', 'asistent.', 'historie.'], ['role.smazat']),
-      ...keys('email.sablony', 'email.fronta', 'mena.zobrazit_knihu', 'mena.zobrazit_dum', 'mena.vyuctovani', 'schvalovani.rozhodovat'),
+      ...keys('email.sablony', 'email.fronta', 'zpravy.odeslat', 'mena.zobrazit_knihu', 'mena.zobrazit_dum', 'mena.vyuctovani', 'schvalovani.rozhodovat'),
     ],
   },
   {

@@ -111,6 +111,7 @@ export const csPermissions: Record<string, string> = {
   ...perm('email.spravovat_smtp', 'Nastavit SMTP', 'Zadat odesílací účet a testovat e-maily.'),
   ...perm('email.sablony', 'Šablony e-mailů', 'Upravovat texty e-mailů.'),
   ...perm('email.fronta', 'Fronta e-mailů', 'Vidět odeslané a čekající e-maily.'),
+  ...perm('zpravy.odeslat', 'Posílat zprávy členům', 'Rozesílat zprávy a pozvánky vybraným členům (podle rolí, turnaje nebo výběru) do aplikace, push a e-mailem.'),
   ...perm('system.tajne_udaje', 'Tajné údaje', 'Zadat, změnit a smazat API klíče a hesla.'),
   ...perm('system.kryptovani_klic', 'Šifrovací klíč', 'Rotace hlavního šifrovacího klíče.'),
   ...perm('system.zalohy', 'Zálohy a údržba', 'Spravovat zálohy databáze.'),
