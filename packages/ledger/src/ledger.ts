@@ -110,6 +110,8 @@ export interface LedgerStore {
   hasKey(idempotencyKey: string): boolean;
   /** Nový start: zahodí všechny zůstatky, transakce i klíče (jen údržba po testování; DB maže volající). */
   reset?(): void;
+  /** Nahradí stav zůstatky a klíči načtenými z databáze (po vrácení knihy na dřívější stav; DB upravuje volající). */
+  restore?(snapshot: LedgerSnapshot): void;
 }
 
 export interface MutableState {
@@ -173,6 +175,13 @@ export class MemoryLedgerStore implements LedgerStore {
   hasKey(k: string): boolean {
     return this.byKey.has(k) || this.knownKeys.has(k);
   }
+  restore(s: LedgerSnapshot): void {
+    this.balances = new Map(s.balances);
+    this.txs = [];
+    this.byKey = new Map();
+    this.knownKeys = new Set(s.keys);
+    this.idOffset = s.lastTxId;
+  }
   reset(): void {
     this.balances = new Map();
     this.txs = [];
@@ -225,6 +234,12 @@ export class Ledger {
   reset(): void {
     if (!this.store.reset) throw new Error('Úložiště účetní knihy neumí nový start');
     this.store.reset();
+  }
+
+  /** Vrácení knihy na dřívější stav (údržba): úložiště převezme zůstatky a klíče, které volající načetl z upravené databáze. */
+  restore(snapshot: LedgerSnapshot): void {
+    if (!this.store.restore) throw new Error('Úložiště účetní knihy neumí vrácení stavu');
+    this.store.restore(snapshot);
   }
 
   /** Provede transakci. Opakované volání se stejným klíčem a stejným obsahem vrátí původní výsledek. */

@@ -20,7 +20,7 @@ import { WalletService } from './wallet/service.js';
 import { EmailService } from './email/service.js';
 import { loadMasterKey, SecretStore, type MasterKey } from './secrets/store.js';
 import { openPglite, openPostgres, type Database } from './db/index.js';
-import { Journal, ledgerTxOp, openLedgerStore } from './db/journal.js';
+import { Journal, ledgerTxOp, loadLedger, openLedgerStore } from './db/journal.js';
 import { setupGateway } from './gateway.js';
 import { parseCookies, SESSION_COOKIE } from './http/cookies.js';
 import { registerRoutes } from './http/routes.js';
@@ -1049,6 +1049,9 @@ export async function buildServer(opts: ServerOptions = {}) {
     ledger,
     cash,
     flush: () => journal.flush(),
+    reloadLedger: async () => ledger.restore(await loadLedger(db)),
+    progress: () => progress,
+    rating: () => rating,
     perms,
     audit,
     settings: () => settings.resolve(),

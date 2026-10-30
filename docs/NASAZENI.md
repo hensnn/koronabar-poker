@@ -217,9 +217,11 @@ Po testování se dá vše zkušební smazat jedním krokem: **Správa → Údr�
 3. Zaškrtni, co chceš, napiš potvrzovací slovo a potvrď. Akce je nevratná a zapíše se do audit logu.
 4. Hráčům pak dobij měnu v **Správa → Pokladna** (po vynulování mají nulu).
 
-### Testování za provozu: smazání zkušebních záznamů od data
+### Testování za provozu: vrácení stavu k datu
 
-Pokud testuješ i později, kdy už hrají ostatní, použij **Správa → Údržba → Smazat zkušební záznamy od data**. Zadáš datum a čas, od kdy se testovalo, a aplikace ukáže, kolik záznamů od té doby vzniklo (historie, handy, výsledky her, chat, upozornění). Po potvrzení se smažou jen ty novější, starší data zůstanou. Peníze, účetní kniha, XP a rating se tím **nemění**: jsou to součty a po částech se mazat nedají. Před takovým testem proto zapiš čas začátku a zálohu databáze udělej, pokud chceš vrátit i peníze a XP.
+Pokud testuješ i později, kdy už hrají ostatní, použij **Správa → Údržba → Vrátit data na stav k datu**. Zadáš datum a čas, od kdy se testovalo, a aplikace ukáže, kolik záznamů od té doby vzniklo. Po potvrzení se vše novější smaže a aplikace se vrátí do stavu k tomu okamžiku: **peněženky a účetní kniha** (včetně účtu domu, jackpotu, sázek a odměn na hlavu), **XP, úspěchy a rating** (přepočítají se z her, které zbudou), historie her a stolů, handy, výsledky, chat a upozornění. **Nastavení, uživatelé, role a šablony zůstávají.** Starší data se nemění.
+
+Poznámky: otevřené stoly a běžící turnaje se nejdřív zavřou (jinak by žetony nesedly s peněženkami). Uživatel založený od zadaného data zůstane a dostane znovu startovní zůstatek. Akce je nevratná, proto si před testováním zapiš čas začátku a udělej zálohu databáze. Sázka nebo odměna na hlavu založená před datem a vyřízená až po něm zůstane v původním stavu, i když jejich peníze se vrátí; takové případy je lepší nemíchat.
 
 ### Smazání uživatelů a úplný reset (do budoucna)
 

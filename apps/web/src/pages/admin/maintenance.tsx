@@ -32,7 +32,7 @@ interface UserRow {
   status: string;
   roles: { role?: string }[];
 }
-const SINCE = ['history', 'stats', 'chat', 'notifications'] as const;
+const SINCE = ['games', 'money', 'progress', 'history', 'stats', 'chat', 'notifications'] as const;
 type SinceArea = (typeof SINCE)[number];
 interface SinceCounts {
   historyItems: number;
@@ -41,6 +41,10 @@ interface SinceCounts {
   chatMessages: number;
   chatImages: number;
   notifications: number;
+  transactions: number;
+  xpEvents: number;
+  achievements: number;
+  openGames: number;
 }
 const LAUNCH = ['games', 'progress', 'history', 'chat', 'notifications', 'wallets'] as const;
 type LaunchArea = (typeof LAUNCH)[number];
@@ -53,7 +57,7 @@ export function MaintenancePage() {
   const [launch, setLaunch] = useState<Record<LaunchArea, boolean>>({ games: false, progress: false, history: false, chat: false, notifications: false, wallets: false });
   const [launchWord, setLaunchWord] = useState('');
   const [sinceText, setSinceText] = useState('');
-  const [since, setSince] = useState<Record<SinceArea, boolean>>({ history: true, stats: true, chat: true, notifications: true });
+  const [since, setSince] = useState<Record<SinceArea, boolean>>({ games: true, money: true, progress: true, history: true, stats: true, chat: true, notifications: true });
   const [sinceCounts, setSinceCounts] = useState<SinceCounts | null>(null);
   const [sinceWord, setSinceWord] = useState('');
   const sinceMs = sinceText ? new Date(sinceText).getTime() : NaN;
@@ -256,6 +260,7 @@ export function MaintenancePage() {
             </label>
           ))}
           {sinceCounts && <p className="text-sm font-medium">{t('since.count', { ...sinceCounts })}</p>}
+          {sinceCounts && sinceCounts.openGames > 0 && !since.games && since.money && <Notice kind="error">{t('since.openGames', { openGames: sinceCounts.openGames })}</Notice>}
           <TextInput label={t('maintenance.confirmLabel', { word: CONFIRM_WORD })} value={sinceWord} onChange={(e) => setSinceWord(e.target.value)} />
           <div>
             <Button variant="danger" disabled={busy || !sinceValid || !SINCE.some((a) => since[a]) || sinceWord.trim() !== CONFIRM_WORD} onClick={() => void runSince()}>

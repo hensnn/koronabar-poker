@@ -473,7 +473,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     return reply.send(await svc.maintenance().countsSince(need(req).id, q.from));
   }));
   app.post('/api/admin/maintenance/purge-since', guard(async (req, reply) => {
-    const b = z.object({ from: z.number().int().positive(), history: z.boolean().optional(), stats: z.boolean().optional(), chat: z.boolean().optional(), notifications: z.boolean().optional() }).parse(req.body ?? {});
+    const b = z.object({ from: z.number().int().positive(), games: z.boolean().optional(), money: z.boolean().optional(), progress: z.boolean().optional(), history: z.boolean().optional(), stats: z.boolean().optional(), chat: z.boolean().optional(), notifications: z.boolean().optional() }).parse(req.body ?? {});
     const { from, ...areas } = b;
     return reply.send({ done: await svc.maintenance().purgeSince(need(req).id, from, areas, meta(req)) });
   }));

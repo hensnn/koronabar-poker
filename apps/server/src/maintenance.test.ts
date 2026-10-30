@@ -12,8 +12,9 @@ afterEach(async () => {
 });
 
 async function start() {
+  const clock = new FakeClock();
   const server = await buildServer({
-    clock: new FakeClock(),
+    clock,
     emailWorker: false,
     masterKey: { key: Buffer.alloc(32, 3), version: 1 },
     settingsOverride: { 'system.emailVerificationRequired': false, 'system.publicUrl': 'http://localhost', 'economy.startingBalance': 10_000 },
@@ -24,7 +25,7 @@ async function start() {
   const [admin] = server.perms.mainAdminIds();
   const inv = await server.accounts.createInvite(admin!, {});
   const { userId: player } = await server.accounts.register({ inviteCode: inv, nickname: 'Hrac', email: 'hrac@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
-  return { server, admin: admin!, player };
+  return { server, admin: admin!, player, clock };
 }
 
 describe('údržba: vynulování po testování', () => {
@@ -264,5 +265,39 @@ describe('údržba: smazání zkušebních záznamů od data', () => {
     expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(bal);
     expect((await s.server.progress.progressOf(s.player)).xp).toBe(300);
     expect((await s.server.maintenance.countsSince(s.admin, from)).historyItems).toBe(0);
+  });
+});
+
+describe('údržba: vrácení stavu k datu (peníze, XP, rating)', () => {
+  it('peníze, účet domu a XP se vrátí na stav k datu, kniha zůstane vyrovnaná a funkční; nastavení zůstanou', async () => {
+    const s = await start();
+    await s.server.wallet.topUp(s.admin, s.player, 600, 'před testem');
+    const walletBefore = s.server.ledger.balance(accounts.wallet(s.player));
+    s.clock.advance(86_400_000);
+    const from = s.clock.now();
+    await s.server.wallet.topUp(s.admin, s.player, 900, 'test');
+    await s.server.houseExpenses.deposit(s.admin, { amount: 500, note: 'test' });
+    s.server.progress.grant(s.player, 'test', 300);
+    await s.server.progress.idle();
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(walletBefore + 900);
+
+    const preview = await s.server.maintenance.countsSince(s.admin, from);
+    expect(preview.transactions).toBeGreaterThanOrEqual(2);
+    await expect(s.server.maintenance.purgeSince(s.player, from, { money: true })).rejects.toBeInstanceOf(MaintenanceError);
+
+    const done = await s.server.maintenance.purgeSince(s.admin, from, { games: true, money: true, progress: true });
+    expect(done.transactions).toBeGreaterThanOrEqual(2);
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(walletBefore);
+    expect(s.server.ledger.balance(accounts.house())).toBe(0);
+    expect((await s.server.progress.progressOf(s.player)).xp).toBe(0);
+    // kniha je vyrovnaná a dál funguje (nové transakce se zapíšou, nic se nezdvojí)
+    const rows = await s.server.db.select().from(schema.ledgerAccounts);
+    expect(rows.reduce((a, r) => a + r.balance, 0)).toBe(0);
+    await s.server.wallet.topUp(s.admin, s.player, 100, 'po testu');
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(walletBefore + 100);
+    await s.server.maintenance.purgeSince(s.admin, from, { money: true });
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(walletBefore);
+    // globální nastavení zůstalo
+    expect(s.server.settings.resolve()['economy.startingBalance']).toBe(10_000);
   });
 });

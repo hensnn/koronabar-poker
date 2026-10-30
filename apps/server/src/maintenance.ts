@@ -6,6 +6,8 @@ import type { PermissionChecker, SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import type { ChatImages } from './chat/images.js';
 import type { HistoryService } from './history.js';
+import type { ProgressService } from './progress.js';
+import type { RatingService } from './rating.js';
 import { schema, type Db } from './db/index.js';
 import type { TableManager } from './tables.js';
 import type { TournamentManager } from './tournaments.js';
@@ -22,6 +24,10 @@ interface Deps {
   cash: CashService;
   /** Zápisy do DB čekající ve frontě (musí se zapsat, než se tabulky smažou). */
   flush: () => Promise<void>;
+  /** Po úpravě účetní knihy v DB načte zůstatky a klíče znovu do paměti. */
+  reloadLedger: () => Promise<void>;
+  progress: () => ProgressService;
+  rating: () => RatingService;
   perms: PermissionChecker;
   audit: AuditService;
   settings: () => SettingValues;
@@ -74,8 +80,14 @@ export interface LaunchOptions {
   wallets?: boolean;
 }
 
-/** Co se smaže z toho, co vzniklo od zadaného data (testovací provoz). Peníze, XP a rating se tím nemění. */
+/** Co se vrátí na stav k zadanému datu (testovací provoz). Nastavení, uživatelé a šablony se nemění. */
 export interface PurgeSinceAreas {
+  /** Nejdřív zavřít otevřené stoly a zrušit běžící turnaje (jinak nejde vrátit peníze). */
+  games?: boolean;
+  /** Peněženky a účetní kniha (včetně účtu domu a jackpotu) se vrátí na stav k datu. */
+  money?: boolean;
+  /** XP, úspěchy a rating se přepočítají z toho, co zbude (bez her od data). */
+  progress?: boolean;
   /** Hotové stoly, turnaje, ankety, večery a sdílené handy z Historie. */
   history?: boolean;
   /** Uložené handy, výsledky her a vyřazení (statistiky). */
@@ -153,7 +165,7 @@ export class MaintenanceService {
   }
 
   /** Kolik záznamů vzniklo od zadaného času (náhled před smazáním). */
-  async countsSince(actorId: string, sinceMs: number): Promise<{ historyItems: number; hands: number; results: number; chatMessages: number; chatImages: number; notifications: number }> {
+  async countsSince(actorId: string, sinceMs: number): Promise<{ historyItems: number; hands: number; results: number; chatMessages: number; chatImages: number; notifications: number; transactions: number; xpEvents: number; achievements: number; openGames: number }> {
     this.can(actorId);
     const since = new Date(sinceMs);
     const db = this.deps.db;
@@ -165,21 +177,50 @@ export class MaintenanceService {
       chatMessages: await n(schema.chatMessages, schema.chatMessages.createdAt),
       chatImages: await n(schema.chatImages, schema.chatImages.createdAt),
       notifications: await n(schema.notifications, schema.notifications.createdAt),
+      transactions: await n(schema.ledgerTransactions, schema.ledgerTransactions.at),
+      xpEvents: await n(schema.xpEvents, schema.xpEvents.createdAt),
+      achievements: await n(schema.playerAchievements, schema.playerAchievements.earnedAt),
+      openGames: this.openGames(),
     };
   }
 
+  /** Počet otevřených stolů a běžících turnajů. */
+  private openGames(): number {
+    const tournaments = this.deps.tournaments();
+    return this.deps.tables().list().length + tournaments.list().filter((r) => ACTIVE.has(tournaments.get(r.id)?.state().status ?? '')).length;
+  }
+
   /**
-   * Smaže zkušební záznamy, které vznikly od zadaného času: historii her a stolů, statistiky (handy, výsledky), chat a upozornění.
-   * Starší data zůstávají. Peněženky, účetní kniha, XP a rating se nemění (jsou to součty, ne jednotlivé záznamy).
+   * Vrátí data na stav k zadanému času: smaže vše, co od té doby vzniklo (historie her a stolů, handy, výsledky, chat, upozornění),
+   * účetní knihu vrátí na stav k datu (transakce od data se smažou, zůstatky se přepočtou) a XP, úspěchy a rating přepočítá z toho, co zbude.
+   * Nastavení, uživatelé, šablony a role se nemění; uživatelé založení od data zůstanou a dostanou startovní zůstatek.
    */
   async purgeSince(actorId: string, sinceMs: number, areas: PurgeSinceAreas, meta: Meta = {}): Promise<Record<string, number>> {
     this.can(actorId);
     if (!Number.isFinite(sinceMs) || sinceMs <= 0 || sinceMs > Date.now() + 86_400_000) throw new MaintenanceError('INVALID');
     if (!Object.values(areas).some(Boolean)) throw new MaintenanceError('INVALID');
+    const done: Record<string, number> = {};
+    if (areas.games) {
+      const tournaments = this.deps.tournaments();
+      let n = 0;
+      for (const r of tournaments.list()) {
+        if (!ACTIVE.has(tournaments.get(r.id)?.state().status ?? '')) continue;
+        await tournaments.cancel(actorId, r.id, meta);
+        n++;
+      }
+      done.tournaments = n;
+      let m = 0;
+      for (const r of this.deps.tables().list()) {
+        await this.deps.tables().close(r.id);
+        m++;
+      }
+      done.tables = m;
+    }
+    // Peníze jdou vrátit jen bez žetonů na stolech a v turnajích (jinak by se rozešly s peněženkami).
+    if (areas.money && this.openGames() > 0) throw new MaintenanceError('INVALID');
     await this.deps.idle();
     const since = new Date(sinceMs);
     const db = this.deps.db;
-    const done: Record<string, number> = {};
     if (areas.history) {
       const history = this.deps.history();
       let n = 0;
@@ -205,6 +246,45 @@ export class MaintenanceService {
     if (areas.chat) {
       done.chatMessages = (await db.delete(schema.chatMessages).where(gte(schema.chatMessages.createdAt, since)).returning({ id: schema.chatMessages.id })).length;
       done.chatImages = await this.deps.chatImages().purgeSince(since);
+    }
+    if (areas.progress) {
+      // Odměny za úspěchy od data pryč (základ XP se přepočítá níže z her, které zbyly).
+      done.achievements = (await db.delete(schema.playerAchievements).where(gte(schema.playerAchievements.earnedAt, since)).returning({ k: schema.playerAchievements.key })).length;
+      await db.delete(schema.xpEvents).where(and(eq(schema.xpEvents.source, 'achievement'), gte(schema.xpEvents.createdAt, since)));
+      await db.delete(schema.ratingFlags).where(gte(schema.ratingFlags.createdAt, since));
+      await this.deps.progress().recompute(false);
+      await this.deps.rating().recompute(actorId, false);
+      await this.deps.progress().idle();
+      done.xpRecomputed = 1;
+    }
+    if (areas.money) {
+      await this.deps.flush();
+      done.expenses = (await db.delete(schema.houseExpenses).where(gte(schema.houseExpenses.at, since)).returning({ id: schema.houseExpenses.id })).length;
+      await db.delete(schema.headBounties).where(gte(schema.headBounties.createdAt, since));
+      await db.delete(schema.betStakes).where(gte(schema.betStakes.createdAt, since));
+      await db.delete(schema.bets).where(gte(schema.bets.createdAt, since));
+      const ids = (await db.select({ id: schema.ledgerTransactions.id }).from(schema.ledgerTransactions).where(gte(schema.ledgerTransactions.at, since))).map((r) => r.id);
+      for (let i = 0; i < ids.length; i += 500) {
+        const part = ids.slice(i, i + 500);
+        await db.delete(schema.ledgerEntries).where(inArray(schema.ledgerEntries.transactionId, part));
+        await db.delete(schema.ledgerTransactions).where(inArray(schema.ledgerTransactions.id, part));
+      }
+      done.transactions = ids.length;
+      // Zůstatky účtů se přepočtou z toho, co v knize zbylo, a paměť se načte znovu.
+      await db.delete(schema.ledgerAccounts);
+      await db.execute(sql`insert into ledger_accounts (id, balance) select account, sum(amount) from ledger_entries group by account`);
+      await this.deps.reloadLedger();
+      // Hráč založený od data přišel o počáteční vklad: dostane ho znovu.
+      const start = Number(this.deps.settings()['economy.startingBalance'] ?? 0);
+      let fresh = 0;
+      if (start > 0) {
+        for (const u of await db.select({ id: schema.users.id }).from(schema.users).where(gte(schema.users.createdAt, since))) {
+          this.deps.cash.mint(u.id, start, `start:${u.id}`, actorId, 'počáteční vklad');
+          fresh++;
+        }
+      }
+      done.startingBalances = fresh;
+      await this.deps.flush();
     }
     if (areas.notifications) done.notifications = (await db.delete(schema.notifications).where(gte(schema.notifications.createdAt, since)).returning({ id: schema.notifications.id })).length;
     await this.deps.audit.log({ actorId, action: 'udrzba.smazani_od_data', targetType: 'system', after: { since: since.toISOString(), areas, done }, ...meta });
