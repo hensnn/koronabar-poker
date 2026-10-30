@@ -66,7 +66,8 @@ export function settleRuns(h: HandState, boards: Card[][]): RunsOutcome {
   const add = (seat: number, amount: number) => winnings.set(seat, (winnings.get(seat) ?? 0) + amount);
 
   // Nevyrovnaná sázka nejvyššího vkladu se vrací jeho majiteli.
-  const invested = h.players.map((p) => p.invested + p.dead);
+  // Mrtvé peníze (big blind ante) nejsou sázka, kterou by šlo nevyrovnat: jdou do hlavního potu výše, nevracejí se.
+  const invested = h.players.map((p) => p.invested);
   const sorted = [...invested].sort((a, b) => b - a);
   const uncalled = Math.max(0, (sorted[0] ?? 0) - (sorted[1] ?? 0));
   if (uncalled > 0) {
