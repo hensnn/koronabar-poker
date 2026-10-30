@@ -217,6 +217,10 @@ Po testování se dá vše zkušební smazat jedním krokem: **Správa → Údr�
 3. Zaškrtni, co chceš, napiš potvrzovací slovo a potvrď. Akce je nevratná a zapíše se do audit logu.
 4. Hráčům pak dobij měnu v **Správa → Pokladna** (po vynulování mají nulu).
 
+### Testování za provozu: smazání zkušebních záznamů od data
+
+Pokud testuješ i později, kdy už hrají ostatní, použij **Správa → Údržba → Smazat zkušební záznamy od data**. Zadáš datum a čas, od kdy se testovalo, a aplikace ukáže, kolik záznamů od té doby vzniklo (historie, handy, výsledky her, chat, upozornění). Po potvrzení se smažou jen ty novější, starší data zůstanou. Peníze, účetní kniha, XP a rating se tím **nemění**: jsou to součty a po částech se mazat nedají. Před takovým testem proto zapiš čas začátku a zálohu databáze udělej, pokud chceš vrátit i peníze a XP.
+
 ### Smazání uživatelů a úplný reset (do budoucna)
 
 - **Smazání uživatelů:** v kartě Příprava na ostrý provoz zaškrtni, koho smazat (nebo tlačítko Smazat u uživatele ve Správa → Uživatelé). Hlavního správce, sebe, hráče u stolu nebo v otevřeném turnaji a hráče s otevřenou sázkou nebo odměnou na hlavu server přeskočí a řekne proč. Zůstatek smazaného se vrátí do virtuální měny.

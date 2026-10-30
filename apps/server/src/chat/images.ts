@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, gte, lt } from 'drizzle-orm';
 import type { SettingValues } from '@kb/shared';
 import { schema, type Db } from '../db/index.js';
 import { ChatError, type ChatService } from './service.js';
@@ -80,6 +80,13 @@ export class ChatImages {
     const all = await this.deps.db.delete(schema.chatImages).returning({ id: schema.chatImages.id });
     for (const o of all) await rm(this.file(o.id), { force: true });
     return all.length;
+  }
+
+  /** Smaže obrázky vytvořené od zadaného času (řádky i soubory); vrací jejich počet. */
+  async purgeSince(since: Date): Promise<number> {
+    const rows = await this.deps.db.delete(schema.chatImages).where(gte(schema.chatImages.createdAt, since)).returning({ id: schema.chatImages.id });
+    for (const o of rows) await rm(this.file(o.id), { force: true });
+    return rows.length;
   }
 
   /** Smaže nepřipojené obrázky starší než den a soubory obrázků smazaných zpráv. */

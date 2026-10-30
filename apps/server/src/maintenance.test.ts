@@ -225,3 +225,44 @@ describe('údržba: mazání uživatelů a úplný reset', () => {
     expect(server.ledger.balance(accounts.wallet(player))).toBe(0);
   });
 });
+
+describe('údržba: smazání zkušebních záznamů od data', () => {
+  it('smaže jen záznamy novější než zadané datum; starší, peníze a XP nechá; hráč bez oprávnění nesmí', async () => {
+    const s = await start();
+    await s.server.wallet.topUp(s.admin, s.player, 600, 'test');
+    s.server.progress.grant(s.player, 'test', 300);
+    await s.server.progress.idle();
+    const main = await s.server.chat.ensureMainChannel();
+    await s.server.chat.send(s.player, main, 'zpráva z testu');
+    const old = new Date('2020-01-01T10:00:00Z');
+    await s.server.db.insert(schema.notifications).values([
+      { userId: s.player, kind: 'tournamentOpen', params: { name: 'Starý', time: '', minutes: 0 }, link: null, createdAt: old },
+      { userId: s.player, kind: 'tournamentOpen', params: { name: 'Nový', time: '', minutes: 0 }, link: null },
+    ]);
+    const { id } = await s.server.tables.createTable(s.admin, { name: 'Zkušební', templateId: 'cash-klasika' });
+    await s.server.tables.closeTable(s.admin, id);
+    const from = Date.now() - 3_600_000;
+
+    const preview = await s.server.maintenance.countsSince(s.admin, from);
+    expect(preview.notifications).toBeGreaterThanOrEqual(1);
+    expect(preview.chatMessages).toBeGreaterThanOrEqual(1);
+    expect(preview.historyItems).toBeGreaterThanOrEqual(1);
+
+    await expect(s.server.maintenance.purgeSince(s.player, from, { chat: true })).rejects.toBeInstanceOf(MaintenanceError);
+    await expect(s.server.maintenance.purgeSince(s.admin, from, {})).rejects.toBeInstanceOf(MaintenanceError);
+    await expect(s.server.maintenance.purgeSince(s.admin, Date.now() + 10 * 86_400_000, { chat: true })).rejects.toBeInstanceOf(MaintenanceError);
+
+    const bal = s.server.ledger.balance(accounts.wallet(s.player));
+    const done = await s.server.maintenance.purgeSince(s.admin, from, { history: true, stats: true, chat: true, notifications: true });
+    expect(done.notifications).toBeGreaterThanOrEqual(1);
+    expect(done.chatMessages).toBeGreaterThanOrEqual(1);
+    expect(done.historyItems).toBeGreaterThanOrEqual(1);
+    // starší upozornění zůstalo, peníze a XP se nezměnily
+    const left = await s.server.db.select().from(schema.notifications);
+    expect(left).toHaveLength(1);
+    expect(left[0]!.params).toMatchObject({ name: 'Starý' });
+    expect(s.server.ledger.balance(accounts.wallet(s.player))).toBe(bal);
+    expect((await s.server.progress.progressOf(s.player)).xp).toBe(300);
+    expect((await s.server.maintenance.countsSince(s.admin, from)).historyItems).toBe(0);
+  });
+});

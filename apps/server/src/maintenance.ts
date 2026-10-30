@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, getTableName, inArray, is, or, sql } from 'drizzle-orm';
+import { and, eq, getTableName, gte, inArray, is, or, sql } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
 import type { PermissionChecker, SettingValues } from '@kb/shared';
@@ -74,6 +74,18 @@ export interface LaunchOptions {
   wallets?: boolean;
 }
 
+/** Co se smaže z toho, co vzniklo od zadaného data (testovací provoz). Peníze, XP a rating se tím nemění. */
+export interface PurgeSinceAreas {
+  /** Hotové stoly, turnaje, ankety, večery a sdílené handy z Historie. */
+  history?: boolean;
+  /** Uložené handy, výsledky her a vyřazení (statistiky). */
+  stats?: boolean;
+  /** Zprávy a obrázky v chatu. */
+  chat?: boolean;
+  /** Upozornění ve zvonečku. */
+  notifications?: boolean;
+}
+
 export interface DeleteUsersResult {
   deleted: string[];
   skipped: { id: string; nickname: string; reason: 'admin' | 'self' | 'seated' | 'tournament' | 'bets' | 'bounty' | 'notFound' }[];
@@ -138,6 +150,65 @@ export class MaintenanceService {
       openTables: this.deps.tables().list().length,
       activeTournaments: tournaments.list().filter((r) => ACTIVE.has(tournaments.get(r.id)?.state().status ?? '')).length,
     };
+  }
+
+  /** Kolik záznamů vzniklo od zadaného času (náhled před smazáním). */
+  async countsSince(actorId: string, sinceMs: number): Promise<{ historyItems: number; hands: number; results: number; chatMessages: number; chatImages: number; notifications: number }> {
+    this.can(actorId);
+    const since = new Date(sinceMs);
+    const db = this.deps.db;
+    const n = async (table: PgTable, col: Parameters<typeof gte>[0]) => Number((await db.select({ n: sql<number>`count(*)::int` }).from(table).where(gte(col, since)))[0]?.n ?? 0);
+    return {
+      historyItems: (await this.deps.history().overview(actorId)).items.filter((i) => i.at >= sinceMs).length,
+      hands: await n(schema.hands, schema.hands.playedAt),
+      results: await n(schema.gameResults, schema.gameResults.finishedAt),
+      chatMessages: await n(schema.chatMessages, schema.chatMessages.createdAt),
+      chatImages: await n(schema.chatImages, schema.chatImages.createdAt),
+      notifications: await n(schema.notifications, schema.notifications.createdAt),
+    };
+  }
+
+  /**
+   * Smaže zkušební záznamy, které vznikly od zadaného času: historii her a stolů, statistiky (handy, výsledky), chat a upozornění.
+   * Starší data zůstávají. Peněženky, účetní kniha, XP a rating se nemění (jsou to součty, ne jednotlivé záznamy).
+   */
+  async purgeSince(actorId: string, sinceMs: number, areas: PurgeSinceAreas, meta: Meta = {}): Promise<Record<string, number>> {
+    this.can(actorId);
+    if (!Number.isFinite(sinceMs) || sinceMs <= 0 || sinceMs > Date.now() + 86_400_000) throw new MaintenanceError('INVALID');
+    if (!Object.values(areas).some(Boolean)) throw new MaintenanceError('INVALID');
+    await this.deps.idle();
+    const since = new Date(sinceMs);
+    const db = this.deps.db;
+    const done: Record<string, number> = {};
+    if (areas.history) {
+      const history = this.deps.history();
+      let n = 0;
+      for (const item of (await history.overview(actorId)).items) {
+        if (item.at < sinceMs) continue;
+        try {
+          await history.remove(actorId, item.kind, item.id, meta);
+          n++;
+        } catch {
+          // položka, která se zrovna nedá smazat (např. stůl se otevřel), se přeskočí
+        }
+      }
+      done.historyItems = n;
+    }
+    if (areas.stats) {
+      const handIds = (await db.select({ id: schema.hands.id }).from(schema.hands).where(gte(schema.hands.playedAt, since))).map((h) => h.id);
+      if (handIds.length > 0) await db.delete(schema.sharedHands).where(inArray(schema.sharedHands.handId, handIds));
+      await db.delete(schema.sharedHands).where(gte(schema.sharedHands.createdAt, since));
+      done.hands = (await db.delete(schema.hands).where(gte(schema.hands.playedAt, since)).returning({ id: schema.hands.id })).length;
+      done.results = (await db.delete(schema.gameResults).where(gte(schema.gameResults.finishedAt, since)).returning({ id: schema.gameResults.id })).length;
+      await db.delete(schema.tournamentEliminations).where(gte(schema.tournamentEliminations.at, since));
+    }
+    if (areas.chat) {
+      done.chatMessages = (await db.delete(schema.chatMessages).where(gte(schema.chatMessages.createdAt, since)).returning({ id: schema.chatMessages.id })).length;
+      done.chatImages = await this.deps.chatImages().purgeSince(since);
+    }
+    if (areas.notifications) done.notifications = (await db.delete(schema.notifications).where(gte(schema.notifications.createdAt, since)).returning({ id: schema.notifications.id })).length;
+    await this.deps.audit.log({ actorId, action: 'udrzba.smazani_od_data', targetType: 'system', after: { since: since.toISOString(), areas, done }, ...meta });
+    return done;
   }
 
   /** Hromadné vynulování vybraných oblastí. Vrací, co se smazalo. */

@@ -468,6 +468,15 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const b = z.object({ games: z.boolean().optional(), progress: z.boolean().optional(), history: z.boolean().optional(), chat: z.boolean().optional(), notifications: z.boolean().optional(), wallets: z.boolean().optional(), userIds: z.array(z.string().uuid()).max(500).optional() }).parse(req.body ?? {});
     return reply.send({ done: await svc.maintenance().prepareLaunch(need(req).id, b, meta(req)) });
   }));
+  app.get('/api/admin/maintenance/since', guard(async (req, reply) => {
+    const q = z.object({ from: z.coerce.number().int().positive() }).parse(req.query);
+    return reply.send(await svc.maintenance().countsSince(need(req).id, q.from));
+  }));
+  app.post('/api/admin/maintenance/purge-since', guard(async (req, reply) => {
+    const b = z.object({ from: z.number().int().positive(), history: z.boolean().optional(), stats: z.boolean().optional(), chat: z.boolean().optional(), notifications: z.boolean().optional() }).parse(req.body ?? {});
+    const { from, ...areas } = b;
+    return reply.send({ done: await svc.maintenance().purgeSince(need(req).id, from, areas, meta(req)) });
+  }));
   app.post('/api/admin/maintenance/delete-users', guard(async (req, reply) => {
     const b = z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }).parse(req.body ?? {});
     return reply.send(await svc.maintenance().deleteUsers(need(req).id, b.ids, meta(req)));

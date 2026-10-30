@@ -32,6 +32,16 @@ interface UserRow {
   status: string;
   roles: { role?: string }[];
 }
+const SINCE = ['history', 'stats', 'chat', 'notifications'] as const;
+type SinceArea = (typeof SINCE)[number];
+interface SinceCounts {
+  historyItems: number;
+  hands: number;
+  results: number;
+  chatMessages: number;
+  chatImages: number;
+  notifications: number;
+}
 const LAUNCH = ['games', 'progress', 'history', 'chat', 'notifications', 'wallets'] as const;
 type LaunchArea = (typeof LAUNCH)[number];
 
@@ -42,6 +52,12 @@ export function MaintenancePage() {
   const [word, setWord] = useState('');
   const [launch, setLaunch] = useState<Record<LaunchArea, boolean>>({ games: false, progress: false, history: false, chat: false, notifications: false, wallets: false });
   const [launchWord, setLaunchWord] = useState('');
+  const [sinceText, setSinceText] = useState('');
+  const [since, setSince] = useState<Record<SinceArea, boolean>>({ history: true, stats: true, chat: true, notifications: true });
+  const [sinceCounts, setSinceCounts] = useState<SinceCounts | null>(null);
+  const [sinceWord, setSinceWord] = useState('');
+  const sinceMs = sinceText ? new Date(sinceText).getTime() : NaN;
+  const sinceValid = Number.isFinite(sinceMs) && sinceMs < Date.now() + 86_400_000;
   const [users, setUsers] = useState<UserRow[]>([]);
   const [delIds, setDelIds] = useState<string[]>([]);
   const [resetWord, setResetWord] = useState('');
@@ -53,6 +69,30 @@ export function MaintenancePage() {
       .catch((e) => setMsg({ kind: 'error', text: errorText(e) }));
   }, []);
   useEffect(reload, [reload]);
+  useEffect(() => {
+    if (!sinceValid) {
+      setSinceCounts(null);
+      return;
+    }
+    get<SinceCounts>(`/api/admin/maintenance/since?from=${sinceMs}`)
+      .then(setSinceCounts)
+      .catch(() => setSinceCounts(null));
+  }, [sinceValid, sinceMs, msg]);
+  const runSince = async () => {
+    if (!confirm(t('since.confirm', { from: new Date(sinceMs).toLocaleString('cs-CZ') }))) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await post<{ done: Record<string, number> }>('/api/admin/maintenance/purge-since', { from: sinceMs, ...since });
+      setMsg({ kind: 'success', text: t('since.done', { detail: Object.entries(r.done).map(([k, v]) => `${t(`since.done.${k}`)}: ${v}`).join(', ') }) });
+      setSinceWord('');
+      reload();
+    } catch (e) {
+      setMsg({ kind: 'error', text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
   const hint = (a: Area): string => {
     if (!counts) return '';
     switch (a) {
@@ -201,6 +241,25 @@ export function MaintenancePage() {
           <div>
             <Button variant="danger" disabled={busy || !anyLaunch || launchWord.trim() !== CONFIRM_WORD} onClick={() => void runLaunch()}>
               {t('launch.run')}
+            </Button>
+          </div>
+        </div>
+      </Card>
+      <Card title={t('since.title')}>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm">{t('since.help')}</p>
+          <TextInput type="datetime-local" label={t('since.from')} value={sinceText} onChange={(e) => setSinceText(e.target.value)} />
+          {SINCE.map((a) => (
+            <label key={a} className="flex items-center gap-2 font-medium">
+              <input type="checkbox" checked={since[a]} onChange={(e) => setSince({ ...since, [a]: e.target.checked })} />
+              {t(`since.area.${a}`)}
+            </label>
+          ))}
+          {sinceCounts && <p className="text-sm font-medium">{t('since.count', { ...sinceCounts })}</p>}
+          <TextInput label={t('maintenance.confirmLabel', { word: CONFIRM_WORD })} value={sinceWord} onChange={(e) => setSinceWord(e.target.value)} />
+          <div>
+            <Button variant="danger" disabled={busy || !sinceValid || !SINCE.some((a) => since[a]) || sinceWord.trim() !== CONFIRM_WORD} onClick={() => void runSince()}>
+              {t('since.run')}
             </Button>
           </div>
         </div>
