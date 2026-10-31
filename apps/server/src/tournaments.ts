@@ -181,7 +181,8 @@ export class TournamentManager {
     const pref = (key: string) => String(layer[key] ?? 'ask');
     const p = tour.state().players.find((x) => x.userId === userId);
     if (!p) return null;
-    if (p.status === 'deciding' && p.decideUntil !== null && p.decideLeftMs === undefined) {
+    // Odpočet stojí kvůli pauze nebo přestávce: odpověď počká na jeho obnovení; odpojenému hráči odpoví automatika, aby turnaj nečekal.
+    if (p.status === 'deciding' && ((p.decideUntil !== null && p.decideLeftMs === undefined) || p.decideOffline)) {
       const options: { action: 'rebuy' | 'reenter'; pref: string }[] = [];
       if (tour.canRebuy(userId)) options.push({ action: 'rebuy', pref: pref('ui.autoRebuy') });
       if (tour.canReenter(userId) || tour.canReenterNowPublic(userId)) options.push({ action: 'reenter', pref: pref('ui.autoReenter') });
@@ -199,27 +200,35 @@ export class TournamentManager {
   }
 
   private autoTimers = new Map<string, () => void>();
+  private autoTried = new Set<string>();
 
   private scheduleAuto(id: string): void {
     const tour = this.tours.get(id);
     const row = this.rows.get(id);
     if (!tour || !row || this.resolve(row)['tournament.live']) return;
     const st = tour.state();
-    if (st.status !== 'running') return;
+    if (st.status !== 'running') {
+      if (st.status === 'finished' || st.status === 'cancelled') for (const k of this.autoTried) if (k.startsWith(`${id}:`)) this.autoTried.delete(k);
+      return;
+    }
     const g = this.deps.settings.resolve();
     const now = this.deps.clock.now();
     for (const p of st.players) {
       const choice = p.status === 'deciding' || p.status === 'playing' ? this.autoChoice(tour, p.userId) : null;
       if (!choice) continue;
-      const until = choice.action === 'addon' || choice.action === 'declineAddon' ? tour.addonOfferUntil() : p.decideUntil;
+      const addon = choice.action === 'addon' || choice.action === 'declineAddon';
+      // Odpojenému hráči stojí odpočet; odpověď přijde do konce čekání na odpojené (pak by vypadl).
+      const until = addon ? tour.addonOfferUntil() : p.decideOffline ? now + Number(this.resolve(row)['tournament.rebuyOfflineMaxSeconds']) * 1000 : p.decideUntil;
       if (until === null || until === undefined) continue;
-      const key = `${id}:${p.userId}:${choice.action === 'addon' || choice.action === 'declineAddon' ? 'addon' : 'decide'}:${until}`;
-      if (this.autoTimers.has(key)) continue;
+      const key = `${id}:${p.userId}:${addon ? 'addon' : p.decideOffline ? 'offline' : 'decide'}:${addon ? until : p.decideOffline ? p.decideLeftMs : until}`;
+      // Co už se jednou zkusilo (a třeba selhalo pro nedostatek peněz), se znovu nezkouší: dotaz zůstane k ruční odpovědi.
+      if (this.autoTimers.has(key) || this.autoTried.has(key)) continue;
       const wanted = Number(choice.paid ? g['time.autoAnswerPaidSeconds'] : g['time.autoAnswerSeconds']) * 1000;
       // Nikdy ne po konci času na rozhodnutí: odpověď přijde nejpozději vteřinu před ním.
       const delay = Math.max(0, Math.min(wanted, until - now - 1000));
       const cancel = this.deps.clock.setTimeout(() => {
         this.autoTimers.delete(key);
+        this.autoTried.add(key);
         void this.runAuto(id, p.userId);
       }, delay);
       this.autoTimers.set(key, cancel);

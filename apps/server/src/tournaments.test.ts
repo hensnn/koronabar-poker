@@ -164,6 +164,120 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
       expect((await s.server.audit.list({ action: 'turnaj.auto_odpoved' })).length).toBeGreaterThan(0);
     });
 
+    /** Rozehraje turnaj, dokud někdo nezačne rozhodovat o rebuy; vrací ho a čas, kdy se to stalo. */
+    const untilDeciding = async (s: Awaited<ReturnType<typeof start>>, id: string, seed = 5) => {
+      const rnd = seededRandom(seed);
+      const actor = s.server.tables.actors.get(id)!;
+      for (let i = 0; i < 30_000; i++) {
+        const v = actor.viewFor(null);
+        if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
+          const p = v.seats.find((x) => x.seat === v.actingSeat)!;
+          const legal = actor.viewFor(p.playerId).legal;
+          if (legal) actor.act(p.playerId, randomLegalAction(legal, rnd));
+        }
+        const d = s.server.tournaments.get(id)!.state().players.find((p) => p.status === 'deciding');
+        if (d) return d;
+        s.clock.advance(Math.floor(rnd() * 500));
+        await new Promise((r) => setTimeout(r, 1));
+      }
+      throw new Error('nikdo nezačal rozhodovat');
+    };
+    const setup = async (decisionSeconds: number, prefs: Record<string, string>, extra: Record<string, unknown> = {}) => {
+      const s = await start();
+      const org = await s.user('organizator');
+      const ps = [await s.user(), await s.user(), await s.user()];
+      for (const p of ps) for (const [k, v] of Object.entries(prefs)) await s.server.settings.set(p, 'user', p, k, v);
+      const { id } = await s.server.tournaments.create(org, { name: 'Casy', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 5, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyDecisionSeconds': decisionSeconds, ...extra } });
+      for (const p of ps) await s.server.tournaments.register(p, id);
+      await s.server.tournaments.start(org, id);
+      return { s, id, ps };
+    };
+    const tick = async (s: { clock: FakeClock }, ms: number, step = 100) => {
+      for (let t = 0; t < ms; t += step) {
+        s.clock.advance(step);
+        await new Promise((r) => setTimeout(r, 1));
+      }
+    };
+
+    it('čas: odpověď přijde po nastaveném odpočtu placené akce (5 s), ne dřív a ne po konci času na rozhodnutí', async () => {
+      const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' });
+      const d = await untilDeciding(s, id);
+      const t0 = s.clock.now();
+      const rebuys = () => s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys;
+      const before = rebuys();
+      await tick(s, 4_500);
+      expect(rebuys()).toBe(before); // 4,5 s od vypadnutí: odpočet 5 s ještě neuplynul
+      await tick(s, 1_500);
+      expect(rebuys()).toBe(before + 1);
+      expect(s.clock.now() - t0).toBeLessThan(30_000);
+    });
+
+    it('čas: při krátkém čase na rozhodnutí (5 s) přijde odpověď vteřinu před koncem, hráč nevypadne', async () => {
+      const { s, id } = await setup(5, { 'ui.autoRebuy': 'always' });
+      const d = await untilDeciding(s, id);
+      const until = d.decideUntil!;
+      await tick(s, Math.max(0, until - s.clock.now() - 1_500));
+      expect(s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.status).toBe('deciding');
+      await tick(s, 1_000);
+      const after = s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!;
+      expect(after.rebuys).toBeGreaterThan(0);
+      expect(after.status).not.toBe('out');
+    });
+
+    it('souběh: když hráč odpoví sám dřív než automatika, zaplatí se jen jednou a automatika nic nedělá', async () => {
+      const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' });
+      const d = await untilDeciding(s, id);
+      await tick(s, 1_000);
+      await s.server.tournaments.rebuy(d.userId, id);
+      const paid = () => s.server.db.select().from(schema.ledgerTransactions).then((r) => r.filter((x) => x.kind === 'turnaj_rebuy' && x.idempotencyKey.includes(d.userId)).length);
+      await s.server.journal.flush();
+      const before = await paid();
+      await tick(s, 8_000);
+      await s.server.journal.flush();
+      expect(await paid()).toBe(before);
+      expect((await s.server.audit.list({ action: 'turnaj.auto_odpoved' })).filter((r) => r.actorId === d.userId)).toHaveLength(0);
+    });
+
+    it('souběh: předvolba změněná během odpočtu platí (z „vždy“ na „zeptat se“ se nekoupí nic)', async () => {
+      const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' });
+      const d = await untilDeciding(s, id);
+      await tick(s, 1_000);
+      await s.server.settings.set(d.userId, 'user', d.userId, 'ui.autoRebuy', 'ask');
+      const before = s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys;
+      await tick(s, 8_000);
+      expect(s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys).toBe(before);
+    });
+
+    it('odpojený hráč: odpočet stojí, ale automatika „vždy“ za něj rebuy koupí a turnaj na něj nečeká; „nikdy“ ho vyřadí hned', async () => {
+      for (const pref of ['always', 'never'] as const) {
+        const { s, id, ps } = await setup(30, { 'ui.autoRebuy': pref }, { 'tournament.rebuyWaitsForOffline': true, 'tournament.rebuyOfflineMaxSeconds': 120 });
+        for (const p of ps) s.server.tables.actors.get(id)!.setConnected(p, false);
+        const d = await untilDeciding(s, id);
+        const rec = () => s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!;
+        expect(rec().decideOffline).toBe(true);
+        await tick(s, 8_000);
+        if (pref === 'always') {
+          expect(rec().rebuys).toBeGreaterThan(0);
+          expect(rec().status).not.toBe('out');
+        } else expect(rec().status).toBe('out'); // dřív než po 120 s čekání na odpojené
+      }
+    });
+
+    it('pauza zastaví i automatiku: během pauzy se nekupuje, po obnovení přijde odpověď s novým odpočtem', async () => {
+      const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' }, { 'tournament.rebuyTimerStops': true });
+      const org = s.server.tournaments.get(id)!.state().players.length ? [...(await s.server.db.select().from(schema.tournaments))][0]!.ownerId : '';
+      const d = await untilDeciding(s, id);
+      await tick(s, 1_000);
+      await s.server.tournaments.pause(org as string, id, false);
+      const rebuys = () => s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys;
+      const before = rebuys();
+      await tick(s, 12_000);
+      expect(rebuys()).toBe(before);
+      await s.server.tournaments.pause(org as string, id, true);
+      await tick(s, 6_500);
+      expect(rebuys()).toBe(before + 1);
+    });
+
     it('„nikdy“: hráč vypadne hned, ne až po vypršení času na rozhodnutí', async () => {
       const { s, seen, t0 } = await run('never');
       expect(seen).toBeDefined();
