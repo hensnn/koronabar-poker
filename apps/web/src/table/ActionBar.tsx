@@ -40,14 +40,17 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
   const quick = preflop
     ? parseList(quickPre, quickBetDefaults.preflop).map((m) => ({ label: `${m}×`, value: clamp(m * info.bigBlind) }))
     : parseList(quickPost, quickBetDefaults.postflop).map((p) => ({ label: `${p} %`, value: clamp(myBet + (view.totalPot * p) / 100) }));
+  // Čelím sázce nad svůj stack: dorovnat jde jen všemi žetony, takže All-in (= call všeho) je vždy možný, i když zvyšovat nejde.
+  const callIsAllIn = !!legal && !legal.canCheck && legal.callAmount > 0 && !!mine && legal.callAmount >= mine.stack;
+  const allInOk = (aggress && !fixed) || callIsAllIn;
   const sliderOn = aggress && !fixed;
   // Klávesové zkratky (osobní nastavení): nereagují při psaní do polí a bez modifikátorů; šipky mění výšku sázky.
   const uiSettings = useSettings().values;
   const hotkeys = uiSettings['ui.hotkeysEnabled'] !== false;
   const keyOf = (k: string) => String(uiSettings[k] ?? '').trim().toLowerCase().slice(0, 1);
   const keys = { fold: keyOf('ui.hotkeyFold'), call: keyOf('ui.hotkeyCall'), bet: keyOf('ui.hotkeyBet'), raise: keyOf('ui.hotkeyRaise'), allIn: keyOf('ui.hotkeyAllIn') };
-  const live = useRef({ legal, amount, clamp, aggress, fixed, sliderOn, keys, onAct, step: info.bigBlind || 1 });
-  live.current = { legal, amount, clamp, aggress, fixed, sliderOn, keys, onAct, step: info.bigBlind || 1 };
+  const live = useRef({ legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: info.bigBlind || 1 });
+  live.current = { legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: info.bigBlind || 1 };
   useEffect(() => {
     if (!hotkeys) return;
     const onKey = (e: KeyboardEvent) => {
@@ -67,7 +70,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
       else if (k === s.keys.call) s.onAct(s.legal.canCheck ? { type: 'check' } : s.legal.callAmount > 0 ? { type: 'call' } : { type: 'check' });
       else if (k === s.keys.bet && s.legal.canBet) s.onAct({ type: 'bet', amount: s.clamp(s.amount) });
       else if (k === s.keys.raise && s.legal.canRaise) s.onAct({ type: 'raise', amount: s.clamp(s.amount) });
-      else if (k === s.keys.allIn && s.aggress && !s.fixed) s.onAct({ type: 'allIn' });
+      else if (k === s.keys.allIn && s.allInOk) s.onAct({ type: 'allIn' });
       else return;
       e.preventDefault();
     };
@@ -116,7 +119,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
           <button className={`${base} tk-act-raise`} disabled={!aggress} onClick={() => onAct({ type: legal.canBet ? 'bet' : 'raise', amount: clamp(amount) })}>
             {legal.canBet || !legal.canRaise ? t('table.bet') : t('table.raise')} {aggress ? formatAmount(clamp(amount), info, inBb) : ''}
           </button>
-          <button className={`${base} tk-act-allin`} disabled={!aggress || fixed} onClick={() => onAct({ type: 'allIn' })}>
+          <button className={`${base} tk-act-allin`} disabled={!allInOk} onClick={() => onAct({ type: 'allIn' })}>
             {t('table.allIn')}
           </button>
         </div>

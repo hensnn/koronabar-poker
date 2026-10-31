@@ -160,3 +160,31 @@ describe('čekání na big blind', () => {
     expect(waitedHands).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('all-in jako dorovnání (hráč čelí sázce nad svůj stack)', () => {
+  it('kdo čelí all-inu přesahujícímu jeho stack, nemůže zvyšovat, ale all-in (= call všeho) projde a nic nevznikne ani nezmizí', () => {
+    const a = table([1000, 300, 1000]);
+    a.startHand();
+    // p0 je UTG (button = seat 0 u tří hráčů): zahraje all-in; krátký stack p1 (small blind) čelí sázce nad svých 300
+    const first = actingId(a);
+    a.act(first, { type: 'allIn' });
+    let guard = 0;
+    let reached = false;
+    while (guard++ < 5 && !a.state().finished) {
+      const id = actingId(a);
+      const l = a.legalActions(id)!;
+      const stack = a.state().players.find((p) => p.playerId === id)!.stack;
+      if (l.callAmount >= stack && !l.canRaise && !l.canBet && l.callAmount > 0) {
+        // dorovnání celého stacku = all-in
+        reached = true;
+        a.act(id, { type: 'allIn' });
+        expect(a.state().players.find((p) => p.playerId === id)!.status).toBe('allIn');
+        expect(a.state().players.find((p) => p.playerId === id)!.stack).toBe(0);
+        break;
+      }
+      a.act(id, { type: 'fold' });
+    }
+    expect(reached).toBe(true);
+    expect(a.state().players.reduce((n, p) => n + p.stack + p.invested, 0) + a.state().deadMoney).toBe(2300);
+  });
+});
