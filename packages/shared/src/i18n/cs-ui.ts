@@ -161,7 +161,7 @@ export const csUi: Record<string, string> = {
   'error.HIERARCHY': 'Nemůžeš spravovat roli ani uživatele se stejnou nebo vyšší silou, než máš ty.',
   'error.LOCKED_ROLE': 'Tuto roli nelze měnit ani přidělovat.',
   'error.EXCEEDS_OWN_PERMISSIONS': 'Nemůžeš udělit oprávnění nebo limit, který sám nemáš.',
-  'error.LIMIT_EXCEEDED': 'Byl překročen limit.',
+  'error.LIMIT_EXCEEDED': 'Byl překročen limit oprávnění tvé role (nejvyšší částka za jednu operaci nebo za den). Změní se ve Správa → Role, u daného oprávnění (např. Dobít peněženku). Nastavení „největší převod“ je jiné: týká se převodů mezi aplikacemi.',
   'error.NOT_FOUND': 'Záznam nebyl nalezen.',
   'error.INVALID_TOKEN': 'Odkaz je neplatný, prošlý nebo už byl použit.',
   'error.ROLE_IN_USE': 'Roli někdo používá, nejdřív ji odeberte.',
