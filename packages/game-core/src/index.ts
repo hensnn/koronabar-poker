@@ -12,5 +12,6 @@ export * from './modules/index.js';
 export * from './tournament/tournament.js';
 export * from './tournament/live-table.js';
 export * from './tournament/table-set.js';
+export * from './tournament/break-plan.js';
 export * from './voting.js';
 export * from './runs.js';

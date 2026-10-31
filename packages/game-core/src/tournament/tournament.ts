@@ -119,7 +119,8 @@ export interface TournamentState {
   /** Kolik doplnila garance (rozdíl mezi garancí a vybraným prize poolem). */
   overlay?: number;
   /** Jednorázová nabídka add-onu po skončení posledního levelu s add-onem: do kdy platí a kdo ji odmítl. */
-  addonOffer?: { until: number; declined: string[] };
+  /** Nabídka add-onu: do kdy platí, kdo ji odmítl, kdo ještě rozhoduje o rebuy (add-on se mu nabídne až potom) a vlastní okna takových hráčů. */
+  addonOffer?: { until: number; declined: string[]; waiting?: string[]; late?: Record<string, number> };
   /** Level s add-onem skončil, ale ještě se dohrává handa: nabídka se otevře, až handa skončí. */
   addonOfferPending?: boolean;
   /** Level skončil a má následovat přestávka, ale ještě se dohrává handa: přestávka začne, až handa skončí. */
@@ -1011,6 +1012,12 @@ export class Tournament {
       p.decideUntil = null;
       delete p.decideLeftMs;
       delete p.decideOffline;
+      // Rebuy měl přednost: add-on se teď nabídne s vlastním plným časem.
+      const o = this.st.addonOffer;
+      if (o?.waiting?.includes(userId)) {
+        o.waiting = o.waiting.filter((x) => x !== userId);
+        o.late = { ...(o.late ?? {}), [userId]: this.deps.clock.now() + num(s, 'tournament.addonOfferSeconds') * 1000 };
+      }
       this.releaseAfterDecision();
     }
     this.save();
@@ -1027,20 +1034,23 @@ export class Tournament {
   private openAddonOffer(due = false): void {
     const s = this.deps.settings();
     if (!due && !this.addonOfferDue()) return;
-    this.st.addonOffer = { until: this.deps.clock.now() + num(s, 'tournament.addonOfferSeconds') * 1000, declined: [] };
+    // Kdo právě rozhoduje o rebuy, dostane add-on až po rozhodnutí (rebuy má přednost) a s vlastním plným časem.
+    const waiting = this.st.players.filter((p) => p.status === 'deciding').map((p) => p.userId);
+    this.st.addonOffer = { until: this.deps.clock.now() + num(s, 'tournament.addonOfferSeconds') * 1000, declined: [], ...(waiting.length > 0 ? { waiting, late: {} } : {}) };
   }
 
   /** Do kdy platí jednorázová nabídka add-onu (ms hodin), nebo null, když neběží. */
-  addonOfferUntil(): number | null {
+  addonOfferUntil(userId?: string): number | null {
     const o = this.st.addonOffer;
-    if (!o || this.st.status !== 'running' || this.deps.clock.now() >= o.until) return null;
-    return o.until;
+    if (!o || this.st.status !== 'running') return null;
+    const until = Math.max(o.until, (userId ? o.late?.[userId] : undefined) ?? 0);
+    return this.deps.clock.now() >= until ? null : until;
   }
 
   /** Hráči se právě nabízí add-on dialogem (nabídka běží, ještě ji neodmítl ani nekoupil). */
   addonOffered(userId: string): boolean {
     const p = this.rec(userId);
-    return this.addonOfferUntil() !== null && !!p && p.status === 'playing' && !p.addon && !this.st.addonOffer!.declined.includes(userId);
+    return this.addonOfferUntil(userId) !== null && !!p && p.status === 'playing' && !p.addon && !this.st.addonOffer!.declined.includes(userId);
   }
 
   /** Hráč jednorázovou nabídku odmítl. */

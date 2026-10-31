@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { and, eq, inArray, or } from 'drizzle-orm';
 import { accounts, Ledger, TournamentMoney, type CashService } from '@kb/ledger';
-import { poolPart, LiveTable, Tournament, TournamentError, TournamentTableSet, TableActor, type TableSetEvent, type Clock, type PersistedTable, type TableEvent, type TournamentEvent, type TournamentState } from '@kb/game-core';
+import { nextBreakPlan, poolPart, LiveTable, Tournament, TournamentError, TournamentTableSet, TableActor, type BreakPlan, type TableSetEvent, type Clock, type PersistedTable, type TableEvent, type TournamentEvent, type TournamentState } from '@kb/game-core';
 import {
   decideChange,
   scopeAllowed,
@@ -222,7 +222,7 @@ export class TournamentManager {
       if (!choice) continue;
       const addon = choice.action === 'addon' || choice.action === 'declineAddon';
       // Odpojenému hráči stojí odpočet; odpověď přijde do konce čekání na odpojené (pak by vypadl).
-      const until = addon ? tour.addonOfferUntil() : p.decideOffline ? now + Number(this.resolve(row)['tournament.rebuyOfflineMaxSeconds']) * 1000 : p.decideUntil;
+      const until = addon ? tour.addonOfferUntil(p.userId) : p.decideOffline ? now + Number(this.resolve(row)['tournament.rebuyOfflineMaxSeconds']) * 1000 : p.decideUntil;
       if (until === null || until === undefined) continue;
       const key = `${id}:${p.userId}:${addon ? 'addon' : p.decideOffline ? 'offline' : 'decide'}:${addon ? until : p.decideOffline ? p.decideLeftMs : until}`;
       // Co už se jednou zkusilo (a třeba selhalo pro nedostatek peněz), se znovu nezkouší: dotaz zůstane k ruční odpovědi.
@@ -1029,6 +1029,7 @@ export class TournamentManager {
       handsInLevel: st.handsInLevel,
       clockKind: st.clock.kind,
       clockMs: live.clockRemainingMs(),
+      nextBreak: nextBreakPlan({ every: Number(s['tournament.breakEveryLevels']), repeat: s['tournament.breakRepeat'] !== false, levelNumber: live.levelNumber(), onBreak: st.onBreak, mode: s['tournament.levelMode'] === 'hands' ? 'hands' : 'time', levelMinutes: Number(s['tournament.levelMinutes']), levelHands: Number(s['tournament.levelHands']), handsInLevel: st.handsInLevel, clockMs: st.clock.kind === 'level' ? live.clockRemainingMs() : null, breakMinutes: Number(s['tournament.breakMinutes']) }),
       lateRegLevels: Number(s['tournament.lateRegLevels']),
       lateRegOpen: live.lateRegOpen(),
       rebuy: { enabled: !!s['tournament.rebuyEnabled'], untilLevel: Number(s['tournament.rebuyUntilLevel']), cost: Number(s['tournament.rebuyCost']), chips: Number(s['tournament.rebuyChips']), max: Number(s['tournament.rebuyMax']), holdsGame: !!s['tournament.rebuyHoldsGame'], offlineMaxSeconds: s['tournament.rebuyWaitsForOffline'] ? Number(s['tournament.rebuyOfflineMaxSeconds']) : 0 },
@@ -1062,7 +1063,7 @@ export class TournamentManager {
         canUnregister: st.status === 'registering' && !!me,
         canRebuy: live.canRebuy(userId) && this.can(userId, 'turnaj.hrat').allowed,
         canAddon: live.canAddon(userId) && this.can(userId, 'turnaj.hrat').allowed,
-        addonOfferUntil: live.addonOffered(userId) ? live.addonOfferUntil() : null,
+        addonOfferUntil: live.addonOffered(userId) ? live.addonOfferUntil(userId) : null,
         autoAnswer: this.autoChoice(live, userId) ? (this.autoAt.get(`${id}:${userId}`) ?? null) : null,
         canReenter: (live.canReenter(userId) || live.canReenterNowPublic(userId)) && this.can(userId, 'turnaj.hrat').allowed,
         // Souhrn pro vyřazeného hráče, dokud turnaj běží: kolik investoval, kde skončil, výhra za umístění (vyplatí se po konci turnaje) a bounty.
@@ -1110,6 +1111,7 @@ export class TournamentManager {
       handsInLevel: 0,
       clockKind: null,
       clockMs: null,
+      nextBreak: null,
       lateRegLevels: Number(s['tournament.lateRegLevels']),
       lateRegOpen: false,
       rebuy: { enabled: !!s['tournament.rebuyEnabled'], untilLevel: Number(s['tournament.rebuyUntilLevel']), cost: Number(s['tournament.rebuyCost']), chips: Number(s['tournament.rebuyChips']), max: Number(s['tournament.rebuyMax']) },
@@ -1259,6 +1261,8 @@ export interface TournamentView {
   handsInLevel: number;
   clockKind: 'level' | 'break' | null;
   clockMs: number | null;
+  /** Nejbližší plánovaná přestávka (null: žádná nebude nebo právě probíhá). */
+  nextBreak: BreakPlan | null;
   lateRegLevels: number;
   lateRegOpen: boolean;
   rebuy: { enabled: boolean; untilLevel: number; cost: number; chips: number; max: number; holdsGame?: boolean; offlineMaxSeconds?: number };

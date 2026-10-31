@@ -16,6 +16,8 @@ interface Clock {
   nextLevel: { smallBlind: number; bigBlind: number; ante: number } | null;
   clockKind: 'level' | 'break' | null;
   clockMs: number | null;
+  /** Nejbližší plánovaná přestávka (po kterém levelu, za jak dlouho, jak dlouhá). */
+  nextBreak?: { afterLevel: number; levelsLeft: number; inMs: number | null; handsLeft: number | null; minutes: number } | null;
   alive: number;
   players: number;
   name?: string;
@@ -119,6 +121,17 @@ export function ClockWidget({ tournamentId, timeBank }: { tournamentId: string; 
       </div>
       <div className={`font-mono text-lg ${c.onBreak ? 'text-muted' : ''}`}>{blinds(c.level)}</div>
       {c.paused && <span className="text-muted">{t('tournament.paused')}</span>}
+      {c.nextBreak && !c.onBreak && (
+        <div role="status" className={`rounded-md border-2 border-warning px-2 py-1 text-sm font-semibold ${c.nextBreak.levelsLeft <= 1 ? 'bg-warning text-on-act' : 'bg-raised'}`}>
+          {c.nextBreak.inMs !== null
+            ? t('tournament.nextBreak.time', {
+                in: mmss(c.paused ? c.nextBreak.inMs : c.nextBreak.inMs - (now - c.fetchedAt)),
+                at: new Date(Date.now() + (c.paused ? c.nextBreak.inMs : c.nextBreak.inMs - (now - c.fetchedAt))).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+                min: c.nextBreak.minutes,
+              })
+            : t('tournament.nextBreak.hands', { level: c.nextBreak.afterLevel, hands: c.nextBreak.handsLeft ?? 0, min: c.nextBreak.minutes })}
+        </div>
+      )}
       {c.nextLevel && (
         <div className={c.onBreak ? 'rounded-md border border-warning px-2 py-1 text-base font-semibold' : 'text-xs text-muted'}>
           {t('tournament.nextLevelN', { n: c.levelNumber + 1 })}: <span className="font-mono">{blinds(c.nextLevel)}</span>

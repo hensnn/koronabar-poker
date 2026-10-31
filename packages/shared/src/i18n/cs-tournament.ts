@@ -2025,6 +2025,8 @@ export const csTournament: Record<string, string> = {
   'tournament.resultSpent': 'Zaplaceno',
   'tournament.resultProfit': 'Zisk',
   'tournament.resultHead': 'Odměny na hlavu',
+  'tournament.nextBreak.time': '☕ Přestávka za {in} (kolem {at}), potrvá {min} min',
+  'tournament.nextBreak.hands': '☕ Přestávka po levelu {level}, zhruba za {hands} hand, potrvá {min} min',
   'tournament.bust.title': 'Vypadl jsi z turnaje {name}',
   'tournament.bust.place': 'Skončil jsi na {place}. místě',
   'tournament.bust.button': 'Můj souhrn',

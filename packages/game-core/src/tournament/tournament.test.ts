@@ -269,6 +269,49 @@ describe('turnaj: registrace a peníze', () => {
       ]);
     });
   });
+  describe('rebuy má přednost před add-onem', () => {
+    const cfg = { 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 2, 'tournament.addonCost': 100, 'tournament.addonChips': 500, 'tournament.addonOfferSeconds': 30, 'tournament.levelMinutes': 1, 'tournament.breakEveryLevels': 0, 'tournament.addonMode': 'offer', 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'busted', 'tournament.rebuyUntilLevel': 9, 'tournament.rebuyDecisionSeconds': 600, 'tournament.rebuyWaitsForOffline': false };
+    const bust = (h: Harness, u: string) => h.tour.onTableEvent({ type: 'bust', players: [{ userId: u, startStack: 100 }], hand: [] } as never);
+    const status = (h: Harness, u: string) => h.tour.state().players.find((p) => p.userId === u)!.status;
+
+    it('kdo při nabídce add-onu rozhoduje o rebuy, dostane add-on až po něm a s vlastním plným časem', () => {
+      const h = harness(cfg);
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      expect(status(h, 'u1')).toBe('deciding');
+      for (let i = 0; i < 400 && h.tour.addonOfferUntil() === null; i++) h.clock.advance(1000);
+      // ostatním se add-on nabídne hned, vypadávajícímu ne
+      expect(h.tour.addonOffered('u2')).toBe(true);
+      expect(h.tour.addonOffered('u1')).toBe(false);
+      expect(h.tour.canAddon('u1')).toBe(false);
+      // celé společné okno uplyne, hráč se stále rozhoduje o rebuy
+      h.clock.advance(35_000);
+      expect(h.tour.addonOfferUntil()).toBeNull();
+      expect(status(h, 'u1')).toBe('deciding');
+      h.tour.rebuy('u1', { busted: true });
+      expect(status(h, 'u1')).toBe('playing');
+      // po rebuy má vlastní okno na add-on
+      expect(h.tour.addonOffered('u1')).toBe(true);
+      expect(h.tour.addonOfferUntil('u1')).not.toBeNull();
+      h.clock.advance(31_000);
+      expect(h.tour.addonOffered('u1')).toBe(false);
+    });
+
+    it('hráč, který rebuy odmítne a vypadne, add-on nedostane; ostatní kupují normálně', () => {
+      const h = harness(cfg);
+      registerAll(h);
+      h.tour.start();
+      bust(h, 'u1');
+      for (let i = 0; i < 400 && h.tour.addonOfferUntil() === null; i++) h.clock.advance(1000);
+      h.tour.declineDecision('u1');
+      expect(status(h, 'u1')).toBe('out');
+      expect(h.tour.addonOffered('u1')).toBe(false);
+      h.tour.addon('u2');
+      expect(h.tour.state().players.find((p) => p.userId === 'u2')!.addon).toBe(true);
+    });
+  });
+
   describe('rebuy: odpojený hráč', () => {
     const base = { 'tournament.rebuyEnabled': true, 'tournament.rebuyWhen': 'busted', 'tournament.rebuyUntilLevel': 9, 'tournament.rebuyDecisionSeconds': 60, 'tournament.rebuyOfflineMaxSeconds': 300, 'tournament.rebuyWaitsForOffline': true };
     const bust = (h: Harness, u: string) => h.tour.onTableEvent({ type: 'bust', players: [{ userId: u, startStack: 100 }], hand: [] } as never);
