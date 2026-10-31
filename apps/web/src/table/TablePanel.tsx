@@ -158,6 +158,13 @@ export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí 
   );
 }
 
+/** Předvolby odpovědí na turnajové dotazy; odpověď po odpočtu pošle server (viz TournamentManager.scheduleAuto). */
+const AUTO_ROWS = [
+  { key: 'ui.autoRebuy', label: 'table.plan.rebuy', tip: 'table.plan.autoRebuyTip' },
+  { key: 'ui.autoReenter', label: 'table.plan.reenter', tip: 'table.plan.autoReenterTip' },
+  { key: 'ui.autoAddon', label: 'table.plan.addon', tip: 'table.plan.autoAddonTip' },
+] as const;
+
 /** Co dělat s kartami: Win = výherní bez showdownu, Lose = poražené na showdownu. Osobní nastavení, platí u všech stolů. */
 export function ShowdownPrefs() {
   const settings = useSettings();
@@ -175,6 +182,23 @@ export function ShowdownPrefs() {
             <label key={o.setting} className="flex items-center gap-1" title={t(`settings.${o.setting}.help`)}>
               <input type="checkbox" role="switch" checked={settings.values[o.setting] !== false} onChange={(e) => void saveUserSetting(o.setting, e.target.checked, true).catch(() => undefined)} />
               {t(`table.plan.${o.plan}`)}
+            </label>
+          ))}
+        </div>
+      </details>
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted" title={t('table.plan.autoHelp')}>{t('table.plan.auto')}</summary>
+        <div className="mt-1 flex flex-col gap-1">
+          {AUTO_ROWS.map((r) => (
+            <label key={r.key} className="flex items-center gap-1 text-xs" title={t(r.tip)}>
+              <span className="text-muted">{t(r.label)}</span>
+              <select className="rounded-md border border-line bg-surface px-0.5 py-0 text-xs" value={String(settings.values[r.key] ?? 'ask')} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
+                {['ask', 'never', 'always'].map((value) => (
+                  <option key={value} value={value}>
+                    {t(`table.plan.opt.${value}`)}
+                  </option>
+                ))}
+              </select>
             </label>
           ))}
         </div>

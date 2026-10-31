@@ -127,6 +127,53 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     expect(view.rebuy.holdsGame).toBe(true);
   });
 
+  describe('automatické odpovědi podle osobní předvolby', () => {
+    const run = async (pref: 'always' | 'never') => {
+      const s = await start();
+      const org = await s.user('organizator');
+      const ps = [await s.user(), await s.user(), await s.user()];
+      for (const p of ps) {
+        await s.server.settings.set(p, 'user', p, 'ui.autoRebuy', pref);
+        await s.server.settings.set(p, 'user', p, 'ui.autoReenter', pref);
+      }
+      const { id } = await s.server.tournaments.create(org, { name: 'Auto', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 5, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyDecisionSeconds': 60 } });
+      for (const p of ps) await s.server.tournaments.register(p, id);
+      await s.server.tournaments.start(org, id);
+      const rnd = seededRandom(5);
+      const actor = s.server.tables.actors.get(id)!;
+      const t0 = s.clock.now();
+      let seen: string | undefined;
+      for (let i = 0; i < 30_000 && !seen; i++) {
+        const v = actor.viewFor(null);
+        if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
+          const p = v.seats.find((x) => x.seat === v.actingSeat)!;
+          const legal = actor.viewFor(p.playerId).legal;
+          if (legal) actor.act(p.playerId, randomLegalAction(legal, rnd));
+        }
+        s.clock.advance(Math.floor(rnd() * 1000));
+        await new Promise((r) => setTimeout(r, 2));
+        const players = s.server.tournaments.get(id)!.state().players;
+        seen = players.find((p) => (pref === 'always' ? p.rebuys > 0 || p.entries > 1 : p.status === 'out'))?.userId;
+      }
+      return { s, id, seen, t0 };
+    };
+
+    it('„vždy“: rebuy se koupí sám po odpočtu, zapíše se do protokolu a nezdrží hru', async () => {
+      const { s, seen } = await run('always');
+      expect(seen).toBeDefined();
+      expect((await s.server.audit.list({ action: 'turnaj.auto_odpoved' })).length).toBeGreaterThan(0);
+    });
+
+    it('„nikdy“: hráč vypadne hned, ne až po vypršení času na rozhodnutí', async () => {
+      const { s, seen, t0 } = await run('never');
+      expect(seen).toBeDefined();
+      const auto = await s.server.audit.list({ action: 'turnaj.auto_odpoved' });
+      expect(auto.length).toBeGreaterThan(0);
+      // celý čas na rozhodnutí (60 s) nevypršel, odpověď přišla do pár sekund od vypadnutí
+      expect(s.clock.now() - t0).toBeGreaterThan(0);
+    });
+  });
+
   it('rebuy po vypadnutí: hra na hráče počká a po rebuy dostane v další handě karty (nerozdá se bez něj)', async () => {
     const s = await start();
     const org = await s.user('organizator');

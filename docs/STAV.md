@@ -526,3 +526,7 @@ Typy, lint, produkční sestavení a celá sada testů (141 souborů, 1160 test�
 
 ## Zprávy členům (31. 10. 2026)
 Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihlášení do turnaje, jmenovitě, všichni, s vyloučením rolí a sebe; kanály aplikace (zvonek), push a e-mail (respektuje pravidla e-mailu, ověření adresy a osobní volbu `email.notifyMessages`); šablony (pozvánka, debug turnaj, připomenutí, obecná zpráva), náhled příjemců a vzorku, zkušební odeslání jen sobě, historie (tabulka `broadcast_messages`, migrace 0040) a audit. Oprávnění `zpravy.odeslat` (hlavní správce a administrátor). Příští rozšíření: plánované odeslání, Discord jako další kanál, skupiny příjemců k uložení.
+
+## Údržba a automatické odpovědi (31. 10. 2026)
+- Příprava na ostrý provoz, Vynulování (oblast Hry) i návrat k datu teď mažou i herní večery; otevřené večery dřív zůstávaly viset, protože v historii nejsou.
+- Automatické odpovědi na turnajové dotazy: osobní `ui.autoRebuy`, `ui.autoReenter`, `ui.autoAddon` (zeptat se / nikdy / vždy), odpočty `ui.autoAnswerSeconds` a `ui.autoAnswerPaidSeconds` (min. 3 s). Odpovídá server (`TournamentManager.scheduleAuto`), klient jen ukazuje odpočet. Cash top-up záměrně není (potřebuje částku). Add-on větev má jen ruční ověření, test pokrývá rebuy „vždy“ a „nikdy“.

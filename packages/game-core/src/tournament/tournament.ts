@@ -856,6 +856,13 @@ export class Tournament {
     this.deps.onChange?.();
   }
 
+  /** Hráč se při rozhodování o rebuy vzdal (např. podle své předvolby „nikdy“): vypadne hned, turnaj nečeká na konec času. */
+  declineDecision(userId: string): void {
+    const p = this.rec(userId);
+    if (!p || p.status !== 'deciding') throw new TournamentError('NOT_REGISTERED');
+    this.expireDecision(p);
+  }
+
   /** Odpojenému hráči odpočet stojí (volba správce); po nastavené době se vzdá, aby turnaj nečekal donekonečna. */
   private freezeOffline(p: PlayerRecord): void {
     const s = this.deps.settings();

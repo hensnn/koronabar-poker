@@ -172,6 +172,78 @@ export class TournamentManager {
     ]);
   }
 
+  /**
+   * Automatická odpověď podle osobní předvolby hráče (ui.autoRebuy / autoReenter / autoAddon): „vždy“ provede akci, „nikdy“ nabídku odmítne,
+   * „zeptat se“ nedělá nic. Dotaz se hráči pořád ukáže s odpočtem a jde přebít; odpověď přijde sama, i když je hráč odpojený.
+   */
+  private autoChoice(tour: Tournament, userId: string): { action: 'rebuy' | 'reenter' | 'addon' | 'decline' | 'declineAddon'; paid: boolean } | null {
+    const layer = this.deps.settings.layer('user', userId);
+    const pref = (key: string) => String(layer[key] ?? 'ask');
+    const p = tour.state().players.find((x) => x.userId === userId);
+    if (!p) return null;
+    if (p.status === 'deciding' && p.decideUntil !== null && p.decideLeftMs === undefined) {
+      const options: { action: 'rebuy' | 'reenter'; pref: string }[] = [];
+      if (tour.canRebuy(userId)) options.push({ action: 'rebuy', pref: pref('ui.autoRebuy') });
+      if (tour.canReenter(userId) || tour.canReenterNowPublic(userId)) options.push({ action: 'reenter', pref: pref('ui.autoReenter') });
+      const yes = options.find((o) => o.pref === 'always');
+      if (yes) return { action: yes.action, paid: true };
+      if (options.length > 0 && options.every((o) => o.pref === 'never')) return { action: 'decline', paid: false };
+      return null;
+    }
+    if (tour.addonOffered(userId) && tour.canAddon(userId)) {
+      const a = pref('ui.autoAddon');
+      if (a === 'always') return { action: 'addon', paid: true };
+      if (a === 'never') return { action: 'declineAddon', paid: false };
+    }
+    return null;
+  }
+
+  private autoTimers = new Map<string, () => void>();
+
+  private scheduleAuto(id: string): void {
+    const tour = this.tours.get(id);
+    const row = this.rows.get(id);
+    if (!tour || !row || this.resolve(row)['tournament.live']) return;
+    const st = tour.state();
+    if (st.status !== 'running') return;
+    const g = this.deps.settings.resolve();
+    const now = this.deps.clock.now();
+    for (const p of st.players) {
+      const choice = p.status === 'deciding' || p.status === 'playing' ? this.autoChoice(tour, p.userId) : null;
+      if (!choice) continue;
+      const until = choice.action === 'addon' || choice.action === 'declineAddon' ? tour.addonOfferUntil() : p.decideUntil;
+      if (until === null || until === undefined) continue;
+      const key = `${id}:${p.userId}:${choice.action === 'addon' || choice.action === 'declineAddon' ? 'addon' : 'decide'}:${until}`;
+      if (this.autoTimers.has(key)) continue;
+      const wanted = Number(choice.paid ? g['time.autoAnswerPaidSeconds'] : g['time.autoAnswerSeconds']) * 1000;
+      // Nikdy ne po konci času na rozhodnutí: odpověď přijde nejpozději vteřinu před ním.
+      const delay = Math.max(0, Math.min(wanted, until - now - 1000));
+      const cancel = this.deps.clock.setTimeout(() => {
+        this.autoTimers.delete(key);
+        void this.runAuto(id, p.userId);
+      }, delay);
+      this.autoTimers.set(key, cancel);
+    }
+  }
+
+  private async runAuto(id: string, userId: string): Promise<void> {
+    const tour = this.tours.get(id);
+    if (!tour) return;
+    // Předvolba se mohla mezitím změnit, nebo hráč odpověděl sám.
+    const choice = this.autoChoice(tour, userId);
+    if (!choice) return;
+    try {
+      if (choice.action === 'rebuy') await this.rebuy(userId, id);
+      else if (choice.action === 'reenter') await this.reenter(userId, id);
+      else if (choice.action === 'addon') await this.addon(userId, id);
+      else if (choice.action === 'declineAddon') await this.declineAddon(userId, id);
+      else tour.declineDecision(userId);
+      await this.deps.audit?.log({ actorId: userId, action: 'turnaj.auto_odpoved', targetType: 'tournament', targetId: id, after: { action: choice.action } });
+    } catch {
+      // nedostatek peněz, vyčerpaný limit apod.: dotaz zůstane hráči k ruční odpovědi
+    }
+  }
+
   private spawn(row: Row, state?: TournamentState, snaps: Map<string, PersistedTable | undefined> = new Map()): Tournament {
     this.rows.set(row.id, row);
     const settings = () => this.resolve(this.rows.get(row.id)!);
@@ -185,6 +257,7 @@ export class TournamentManager {
       onChange: () => {
         this.deps.onChanged?.(row.id);
         this.deps.onTableChange(row.id);
+        this.scheduleAuto(row.id);
       },
       onEvent: (e) => {
         if (e.type === 'finished' || e.type === 'cancelled') for (const p of tour.state().players) this.deps.onWallet?.(p.userId);

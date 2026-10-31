@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { t } from '@kb/shared';
 import type { TableView } from '@kb/game-core';
 import { errorText, get, post } from '../api';
@@ -6,6 +6,7 @@ import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { PostBountyDialog } from '../pages/bets';
 import { useSession } from '../session';
+import { useSettings } from '../settings';
 import { Button, Modal } from '../ui';
 import { actionOffSm, actionTone, actionToneSm } from './buttons';
 import { decideText, decideTitle } from './decide-text';
@@ -284,8 +285,20 @@ export function EntryActions({ tour, tournamentId }: { tour: TournamentInfo | nu
   );
 }
 
+/** Řádek s odpočtem automatické odpovědi podle osobní předvolby (odpověď pošle server; kliknutím ji hráč přebije). */
+function AutoHint({ pref, paid, leftMs, yes }: { pref: string; paid: boolean; leftMs: number; yes: boolean }) {
+  const values = useSettings().values;
+  const first = useRef(leftMs);
+  if (pref === 'ask') return null;
+  const wanted = Number(values[paid ? 'time.autoAnswerPaidSeconds' : 'time.autoAnswerSeconds'] ?? (paid ? 5 : 3)) * 1000;
+  const total = Math.max(0, Math.min(wanted, first.current - 1000));
+  const seconds = Math.max(0, Math.ceil((total - (first.current - leftMs)) / 1000));
+  return <p className="text-sm text-muted">{t('table.auto.counting', { answer: t(yes ? 'table.auto.yes' : 'table.auto.no'), seconds })}</p>;
+}
+
 /** Jednorázová nabídka add-onu po skončení levelu: okno ano/ne s odpočtem. Zavře se odpovědí, vypršením času nebo křížkem (tlačítko u stolu zůstane). */
 export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo | null; tournamentId: string | null }) {
+  const settings = useSettings().values;
   const until = tour?.me.addonOfferUntil ?? null;
   const [hidden, setHidden] = useState<number | null>(null);
   const [left, setLeft] = useState(0);
@@ -319,6 +332,7 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
     <Modal title={t('tournament.addon')} onClose={() => setHidden(until)}>
       <div className="flex flex-col gap-3">
         <p>{t('tournament.addonOfferText', { cost: tour.addon.cost, chips: tour.addon.chips, seconds: Math.ceil(left / 1000) })}</p>
+        <AutoHint pref={String(settings['ui.autoAddon'] ?? 'ask')} paid={settings['ui.autoAddon'] === 'always'} leftMs={left} yes={settings['ui.autoAddon'] === 'always'} />
         {error && (
           <p role="alert" className="text-sm text-danger">
             {error}
@@ -371,6 +385,7 @@ export function tournamentWaitLines(tour: TournamentInfo | null, myId: string | 
 
 /** Vypadl jsem a běží čas na rebuy / nový vstup: okno s odpočtem hned u stolu, aby o šanci nikdo nepřišel, ani když má panely schované. */
 export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentInfo | null; tournamentId: string | null }) {
+  const settings = useSettings().values;
   const until = tour?.me.status === 'deciding' ? (tour.me.decideUntil ?? null) : null;
   const [hidden, setHidden] = useState<number | null>(null);
   const [left, setLeft] = useState(0);
@@ -386,6 +401,10 @@ export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentIn
     return () => clearInterval(timer);
   }, [until, baseMs]);
   if (!tour || !tournamentId || !until || hidden === until || left <= 0 || !(tour.me.canRebuy || tour.me.canReenter)) return null;
+  // Stejné pravidlo jako na serveru: první dostupná možnost s „vždy“, jinak „nikdy“ u všech dostupných.
+  const prefs = [tour.me.canRebuy ? String(settings['ui.autoRebuy'] ?? 'ask') : null, tour.me.canReenter ? String(settings['ui.autoReenter'] ?? 'ask') : null].filter((x): x is string => x !== null);
+  const autoYes = prefs.includes('always');
+  const autoNo = !autoYes && prefs.length > 0 && prefs.every((x) => x === 'never');
   const act = async (what: 'rebuy' | 'reenter') => {
     setBusy(true);
     try {
@@ -402,6 +421,7 @@ export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentIn
     <Modal title={decideTitle(tour.me)} onClose={() => setHidden(until)}>
       <div className="flex flex-col gap-3">
         <p>{decideText(tour.me, `${Math.ceil(left / 1000)} s`)}</p>
+        {autoYes ? <AutoHint pref="always" paid leftMs={left} yes /> : autoNo ? <AutoHint pref="never" paid={false} leftMs={left} yes={false} /> : null}
         {error && (
           <p role="alert" className="text-sm text-danger">
             {error}

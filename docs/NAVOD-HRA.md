@@ -228,3 +228,16 @@ Správce (a role s oprávněním **Posílat zprávy členům**) může poslat zp
 
 ### Vlastní šablony zpráv
 Pod rychlými šablonami je část **Moje šablony**. Vyplň zprávu (předmět, text, odkaz, kanály, příjemci), napiš **Název šablony** a klikni na **Uložit jako novou**. Šablonu pak najdeš jako tlačítko: kliknutím se načte do formuláře, **Přepsat vybranou** ji upraví a **Smazat vybranou** odstraní. Ukládá se předmět, text, odkaz, kanály a příjemci podle rolí (včetně vyloučení). Vybraný turnaj se uloží jako zástupné `{turnaj}` (název) a `{turnaj_id}` (v odkazu), takže stejnou šablonu použiješ pro další turnaj: stačí vybrat turnaj a šablonu načíst. Šablony vidí a mohou upravovat všichni, kdo smějí posílat zprávy.
+
+## Automatické odpovědi na dotazy v turnaji
+
+U stolu je v panelu rozbalovátko **Automatické odpovědi** (vedle „Ukazování karet“). Pro **Rebuy**, **Nový vstup** a **Add-on** si zvolíš: *Zeptat se* (výchozí, nic se nemění), *Nikdy* nebo *Vždy*.
+
+- Dialog se ukáže dál, s odpočtem „Automatická odpověď … za N s“. Kdykoli ho můžeš přebít kliknutím.
+- Po odpočtu odpoví **server** za tebe, i když jsi odpojený. Zapíše se do protokolu jako `turnaj.auto_odpoved`.
+- *Vždy* provede placenou akci (rebuy, nový vstup, add-on). Limity turnaje a zůstatek peněženky platí dál; když akce nejde (nedostatek peněz, vyčerpaný počet rebuy), dotaz zůstane k ruční odpovědi.
+- *Nikdy* nabídku odmítne. U rebuy hráč vypadne hned a hra na vypršení času nečeká.
+- Má-li hráč na výběr rebuy i nový vstup, provede se první, který má *Vždy*. *Nikdy* platí, jen když je tak nastavené vše, co se nabízí.
+- Odpočet nastavuje správce: **Odpočet automatické odpovědi (zdarma)** (výchozí 3 s) a **(placené akce)** (výchozí 5 s, nejméně 3 s). Odpověď přijde nejpozději vteřinu před koncem času na rozhodnutí.
+- Hlasování o run it twice a ukazování karet mají své předvolby už dřív (řádky *Run it* a *Ukazování karet*).
+- Neplatí pro živé turnaje, kde zapisuje ředitel.
