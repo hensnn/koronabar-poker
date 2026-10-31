@@ -203,6 +203,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         style={panelStyle}
         w={size.pw}
         h={size.ph}
+        scale={area.a / 100}
         limits={{ minW: 160, maxW: 640, minH: 120, maxH: 3000 }}
         onChange={(pw, ph, commit) => {
           setDragging(!commit);

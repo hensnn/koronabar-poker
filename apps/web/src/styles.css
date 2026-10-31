@@ -750,7 +750,8 @@ h3,
 @media (min-width: 64rem) {
   .tk-tablepage {
     display: grid;
-    grid-template-columns: var(--tk-panel-w, 17rem) minmax(0, 1fr);
+    /* Panel se zmenšuje spolu s plochou hry (posuvník „Plocha hry“), aby si udržel stejný poměr ke stolu. */
+    grid-template-columns: max(10rem, calc(var(--tk-panel-w, 17rem) * var(--area-w, 100) / 100)) minmax(0, 1fr);
     grid-template-areas: 'panel main';
     align-items: start;
   }
