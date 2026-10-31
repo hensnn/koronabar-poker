@@ -236,7 +236,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
 
   return (
     <div className={`tk-screen flex flex-col gap-2 ${layout.hiddenSides.includes('right') ? 'tk-no-extra' : ''}`}>
-      <div className="tk-room relative" style={{ '--room-w': String(roomSize.w), '--room-h': String(roomSize.h) } as CSSProperties} {...myLook}>
+      <div className="tk-room relative" style={{ '--room-h': String(roomSize.h) } as CSSProperties} {...myLook}>
         {mine && canRabbit && (
           <div role="group" aria-label={t('table.widget.reveal')} className="tk-pop absolute bottom-1 right-1 z-20 flex flex-wrap items-center gap-1.5 rounded-md border border-info bg-surface p-1.5 shadow-lg">
             {canRabbit && (

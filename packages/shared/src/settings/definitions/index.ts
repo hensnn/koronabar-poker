@@ -775,7 +775,6 @@ const ui: SettingDef[] = [
   bool('ui.dealAnimation', { category: 'ui', mutability: A, scopes: USER }, true),
   int('ui.tableAreaWidthPercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 50, 100),
   choice('ui.tableAreaAlign', { category: 'ui', mutability: A, scopes: USER }, 'center', ['left', 'center', 'right']),
-  int('ui.tableWidthPercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 50, 100),
   int('ui.tableHeightPercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 50, 100),
   bool('ui.mobileBest', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.planFold', { category: 'ui', mutability: A, scopes: USER }, true),

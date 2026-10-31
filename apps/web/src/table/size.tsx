@@ -3,22 +3,21 @@ import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
 import { Button } from '../ui';
 
-const W = 'ui.tableWidthPercent';
 const H = 'ui.tableHeightPercent';
 const A = 'ui.tableAreaWidthPercent';
 const ALIGN = 'ui.tableAreaAlign';
 
 /** Rozpracovaná hodnota při tažení posuvníku (náhled hned, na server se uloží až po puštění). */
-let live: { w?: number; h?: number; a?: number } = {};
+let live: { h?: number; a?: number } = {};
 const listeners = new Set<() => void>();
 const publish = (next: typeof live) => {
   live = next;
   listeners.forEach((l) => l());
 };
-const field = (key: string): 'w' | 'h' | 'a' => (key === W ? 'w' : key === H ? 'h' : 'a');
+const field = (key: string): 'h' | 'a' => (key === H ? 'h' : 'a');
 
-/** Šířka a výška čtverce, na kterém je stůl, v procentech dostupného místa (100 = celé okno). */
-export function useTableSize(): { w: number; h: number; a: number } {
+/** Velikost stolu (h) a šířka plochy hry (a) v procentech dostupného místa (100 = celé okno). */
+export function useTableSize(): { h: number; a: number } {
   const values = useSettings().values;
   const l = useSyncExternalStore(
     (fn) => {
@@ -27,10 +26,10 @@ export function useTableSize(): { w: number; h: number; a: number } {
     },
     () => live,
   );
-  return { w: l.w ?? Number(values[W] ?? 100), h: l.h ?? Number(values[H] ?? 100), a: l.a ?? Number(values[A] ?? 100) };
+  return { h: l.h ?? Number(values[H] ?? 100), a: l.a ?? Number(values[A] ?? 100) };
 }
 
-/** Tlačítko 📐 v liště stolu: otevře malé okno se dvěma posuvníky (šířka a výška plochy se stolem). */
+/** Tlačítko 📐 v liště stolu: otevře malé okno s posuvníky (plocha hry a velikost stolu). */
 export function TableSizeButton({ iconOnly }: { iconOnly: boolean }) {
   const [open, setOpen] = useState(false);
   const size = useTableSize();
@@ -82,11 +81,9 @@ export function TableSizeButton({ iconOnly }: { iconOnly: boolean }) {
               </Button>
             ))}
           </div>
-          {slider(W, t('table.size.width'))}
           {slider(H, t('table.size.height'))}
           <Button
             onClick={() => {
-              void saveUserSetting(W, 100);
               void saveUserSetting(H, 100);
               void saveUserSetting(A, 100);
               void saveUserSetting(ALIGN, 'center');

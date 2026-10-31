@@ -9,7 +9,6 @@ export const SIZE_KEYS: ReadonlySet<string> = new Set([
   'ui.tablePanelHeight',
   'ui.tableChatHeight',
   'ui.tableAreaWidthPercent',
-  'ui.tableWidthPercent',
   'ui.tableHeightPercent',
   'ui.noteWindowWidth',
   'ui.noteWindowHeight',

@@ -85,9 +85,7 @@ h3,
   background-position: center;
   border-radius: var(--tk-shape-radiusLg);
   padding: calc(var(--spacing) * 3);
-  /* Šířka plochy se stolem (osobní nastavení Velikost stolu; 100 = celá dostupná šířka). */
-  width: calc(100% * var(--room-w, 100) / 100);
-  margin-inline: auto;
+  width: 100%;
 }
 /* Karty a sedadla rostou s šířkou stolu (min. velikost je token), takže velký stůl nezůstane prázdný. */
 .tk-table {
@@ -804,7 +802,7 @@ h3,
 .tk-drawer-body { flex: 1; overflow: auto; padding: calc(var(--spacing) * 3); }
 /* Na širokém displeji se stůl vejde nad akční lištu i na nižší monitor. */
 @media (min-width: 64rem) {
-  .tk-table { width: min(100%, calc(var(--tk-table-vh, max(22rem, calc(100vh - 22rem))) * var(--tk-table-aspect) * var(--room-h, 100) / 100)); }
+  .tk-table { width: calc(min(100%, calc(var(--tk-table-vh, max(22rem, calc(100vh - 22rem))) * var(--tk-table-aspect))) * var(--room-h, 100) / 100); }
 }
 /* Telefon: vyšší ovál, menší karty, prázdná sedadla jen jako tečka. */
 @media (max-width: 40rem) {
@@ -866,7 +864,7 @@ h3,
   }
   [data-focus] .tk-tp-panel { max-height: 100%; }
   [data-focus] .tk-tp-main { height: 100%; overflow: hidden; }
-  [data-focus] .tk-table { width: min(100%, calc((100vh - 21rem) * var(--tk-table-aspect) * var(--room-h, 100) / 100)); }
+  [data-focus] .tk-table { width: calc(min(100%, calc((100vh - 21rem) * var(--tk-table-aspect))) * var(--room-h, 100) / 100); }
 }
 
 /* ---------- mobilní rozložení stolu (data-mobile na <html>): vše v okně bez posuvníků ---------- */
