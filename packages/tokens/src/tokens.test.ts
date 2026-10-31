@@ -135,3 +135,19 @@ describe('vestavěné motivy', () => {
     }
   });
 });
+
+describe('sdílené tokeny platí v obou režimech', () => {
+  it('tvary, velikosti a styly uvedené jen ve světlém režimu motiv zdědí i tmavý; barvy ne', () => {
+    const minimal = BUILTIN_THEMES.find((x) => x.id === 'minimal')!;
+    const dark = resolveTokens(minimal, 'dark');
+    expect(dark['table.aspect']).toBe('1.8');
+    expect(dark['table.edgeWidth']).toBe('2px');
+    expect(dark['cards.style']).toBe('minimal');
+    // barvy si tmavý režim určuje sám
+    expect(dark['color.felt']).toBe(minimal.dark['color.felt']);
+  });
+
+  it('žádný vestavěný motiv nemá vlastní velikost karet (všechny motivy mají karty stejně velké)', () => {
+    for (const theme of BUILTIN_THEMES) for (const mode of ['light', 'dark'] as const) expect(resolveTokens(theme, mode)['size.cardWidth'], `${theme.id}/${mode}`).toBe(TOKEN_DEFS.find((d) => d.key === 'size.cardWidth')!.light);
+  });
+});

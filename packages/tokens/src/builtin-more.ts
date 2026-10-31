@@ -293,7 +293,6 @@ export const MORE_THEMES: Theme[] = [
       'color.cardBackAccent': '#e6b422',
       'cards.back': 'rays',
       'cards.style': 'bigIndex',
-      'size.cardWidth': '60px',
     },
     {
       'color.felt': '#17472d',
@@ -308,7 +307,6 @@ export const MORE_THEMES: Theme[] = [
       'color.cardBackAccent': '#e6b422',
       'cards.back': 'rays',
       'cards.style': 'bigIndex',
-      'size.cardWidth': '60px',
     },
   ),
   // Pastelový: světlé, klidné barvy, šachovnicový rub a obrysové karty.

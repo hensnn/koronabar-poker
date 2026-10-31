@@ -208,14 +208,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const turnText = !view.legal ? t('table.yourTurn') : toCall > 0 ? t(mine && toCall >= mine.stack ? 'table.turn.callAllIn' : 'table.turn.call') : t(view.legal.canRaise ? 'table.turn.checkOrRaise' : 'table.turn.checkOrBet');
   const settledPot = view.pots.reduce((n, p) => n + p.amount, 0);
   const potEl = (
-    <div className="tk-pot" aria-label={t('table.pot')}>
-      {betChips && settledPot > 0 && (
-        <div className="flex justify-center">
-          <ChipStack amount={settledPot} unit={info.smallBlind} />
-        </div>
-      )}
-      {t('table.pot')}: {formatAmount(view.totalPot, info, inBb)}
-      {view.bombPot && <span className="ml-2 rounded-md bg-accent px-2 text-on-act">{t('table.bombPot')}</span>}
+    <div className="tk-pot flex items-center justify-center gap-2" aria-label={t('table.pot')}>
+      {/* Text s hodnotou potu je nalevo od žetonů v banku. */}
+      <span>
+        {t('table.pot')}: {formatAmount(view.totalPot, info, inBb)}
+        {view.bombPot && <span className="ml-2 rounded-md bg-accent px-2 text-on-act">{t('table.bombPot')}</span>}
+      </span>
+      {betChips && settledPot > 0 && <ChipStack amount={settledPot} unit={info.smallBlind} />}
     </div>
   );
   const seatNumbers = Array.from({ length: info.seatCount }, (_, i) => i);

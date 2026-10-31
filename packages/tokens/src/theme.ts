@@ -3,7 +3,8 @@ import { TOKEN_DEFS, themeSchema, THEME_SCHEMA_VERSION, tokenDef, type Mode, typ
 /** Plné tokeny motivu pro režim. Chybějící hodnoty doplní výchozí. */
 export function resolveTokens(theme: Theme, mode: Mode): ResolvedTokens {
   const out: ResolvedTokens = {};
-  for (const d of TOKEN_DEFS) out[d.key] = theme[mode][d.key] ?? d[mode];
+  // Sdílené tokeny (tvary, velikosti, styly) platí pro oba režimy: motiv je smí uvést jen jednou (ve světlém), tmavý režim je zdědí.
+  for (const d of TOKEN_DEFS) out[d.key] = theme[mode][d.key] ?? (d.shared ? theme.light[d.key] : undefined) ?? d[mode];
   return out;
 }
 
