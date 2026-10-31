@@ -130,9 +130,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
           </button>
         </div>
       ) : (
-        <div className="flex min-h-10 flex-wrap items-center gap-2">
-          <PlanBar view={view} onStraddle={onStraddle} />
-        </div>
+        <PlanBar view={view} onStraddle={onStraddle} />
       )}
     </div>
   );

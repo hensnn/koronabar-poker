@@ -5,7 +5,7 @@ import { get } from '../api';
 import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
-import { PLAN_OPTIONS, setPlan, usePlan } from './plan';
+import { PLAN_OPTIONS, setPlan, usePlan, type Plan } from './plan';
 import { tournamentWaitLines, type TournamentInfo } from './InfoCard';
 
 interface Clock {
@@ -153,20 +153,37 @@ export function ClockWidget({ tournamentId, timeBank }: { tournamentId: string; 
 export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí dobrovolného straddle (jen u stolu s dobrovolným straddle). */ onStraddle?: (want: boolean) => void }) {
   const plan = usePlan();
   const values = useSettings().values;
-  const opts = PLAN_OPTIONS.filter((o) => values[o.setting] !== false).map((o) => o.plan);
-  return (
-    <div className="tk-planbar flex flex-wrap items-center gap-1" role="group" aria-label={t('table.widget.plan')} title={t('table.plan.help')}>
-      {opts.map((p) => (
-        <button key={p} className={`tk-plan-btn rounded-md border px-1.5 py-0.5 text-xs ${plan === p ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface'}`} aria-pressed={plan === p} onClick={() => setPlan(plan === p ? null : p, view.handId)}>
+  const on = (p: Plan) => values[PLAN_OPTIONS.find((o) => o.plan === p)!.setting] !== false;
+  // Stejná mřížka a barvy jako akční tlačítka (Fold | Check/Call | Bet/Raise | All-in): plánovaný tah leží přesně tam, kde bude potom akční tlačítko,
+  // takže klik na „Check“ nikdy nedopadne na jiné akční tlačítko, když přijde hráč na tah.
+  const cell = (plans: { plan: Plan; tone: string }[]) => (
+    <div className="flex gap-1">
+      {plans.filter((x) => on(x.plan)).map(({ plan: p, tone }) => (
+        <button
+          key={p}
+          className={`tk-act tk-plan-btn ${tone} h-[3.25rem] min-w-0 flex-1 px-1 text-xs font-semibold leading-tight ${plan === p ? 'ring-2 ring-text ring-offset-2 ring-offset-surface' : 'opacity-50'}`}
+          aria-pressed={plan === p}
+          onClick={() => setPlan(plan === p ? null : p, view.handId)}
+        >
           {t(`table.plan.${p}`)}
         </button>
       ))}
-      {view.info.straddle === 'optional' && onStraddle && (
-        <label className="ml-2 flex items-center gap-1 text-xs" title={t('table.straddleTip')}>
-          <input type="checkbox" role="switch" aria-label={t('table.straddle')} checked={view.myStraddle} onChange={(e) => onStraddle(e.target.checked)} />
-          <span className={view.myStraddle ? 'font-semibold text-accent' : ''}>{t('table.straddle')}</span>
-        </label>
-      )}
+    </div>
+  );
+  return (
+    <div className="tk-planbar grid w-full grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={t('table.widget.plan')} title={t('table.plan.help')}>
+      {cell([{ plan: 'fold', tone: 'tk-act-fold' }, { plan: 'checkFold', tone: 'tk-act-fold' }])}
+      {cell([{ plan: 'check', tone: 'tk-act-check' }, { plan: 'call', tone: 'tk-act-call' }])}
+      {/* místo tlačítka Bet/Raise: plán na zvýšení nelze, ale pozice zůstává; dobrovolný straddle je tady */}
+      <div className="flex items-center justify-center">
+        {view.info.straddle === 'optional' && onStraddle && (
+          <label className="flex items-center gap-1 text-xs" title={t('table.straddleTip')}>
+            <input type="checkbox" role="switch" aria-label={t('table.straddle')} checked={view.myStraddle} onChange={(e) => onStraddle(e.target.checked)} />
+            <span className={view.myStraddle ? 'font-semibold text-accent' : ''}>{t('table.straddle')}</span>
+          </label>
+        )}
+      </div>
+      {cell([{ plan: 'allIn', tone: 'tk-act-allin' }])}
     </div>
   );
 }
