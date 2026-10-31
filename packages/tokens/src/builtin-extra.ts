@@ -54,15 +54,15 @@ export const EXTRA_THEMES: Theme[] = [
   th(
     'ice',
     { 'table.pattern': 'diamonds', 'cards.style': 'frame', 'cards.back': 'zigzag', 'color.turnGlow': '#ff9f1c', 'color.dealerButton': '#ffffff' },
-    { 'color.bg': '#f2f8fb', 'color.surface': '#ffffff', 'color.surfaceRaised': '#e1eef4', 'color.text': '#0e2430', 'color.textMuted': '#455b68', 'color.border': '#c2d7e1', 'color.primary': '#1d5f7f', 'color.felt': '#8fc4d9', 'color.feltBorder': '#4d7f94', 'color.feltText': '#0b2530', 'color.roomBg': '#eaf4f8', 'color.feltPattern': '#ffffff55', 'color.cardBack': '#2c6f8f', 'color.cardBackAccent': '#e6f6fc' },
-    { 'color.bg': '#08141b', 'color.surface': '#102430', 'color.surfaceRaised': '#17323f', 'color.text': '#e4f2f8', 'color.textMuted': '#a2bccb', 'color.border': '#26485a', 'color.primary': '#8fd0ec', 'color.felt': '#3b7a93', 'color.feltBorder': '#1c3d4c', 'color.feltText': '#ffffff', 'color.roomBg': '#050d12', 'color.feltPattern': '#ffffff26', 'color.cardBack': '#1d4f66', 'color.cardBackAccent': '#bfe6f6' },
+    { 'color.bg': '#f2f8fb', 'color.turnGlow': '#8c5100', 'color.surface': '#ffffff', 'color.surfaceRaised': '#e1eef4', 'color.text': '#0e2430', 'color.textMuted': '#455b68', 'color.border': '#c2d7e1', 'color.primary': '#1d5f7f', 'color.felt': '#8fc4d9', 'color.feltBorder': '#4d7f94', 'color.feltText': '#0b2530', 'color.roomBg': '#eaf4f8', 'color.feltPattern': '#ffffff55', 'color.cardBack': '#2c6f8f', 'color.cardBackAccent': '#e6f6fc' },
+    { 'color.bg': '#08141b', 'color.turnGlow': '#ffd396', 'color.surface': '#102430', 'color.surfaceRaised': '#17323f', 'color.text': '#e4f2f8', 'color.textMuted': '#a2bccb', 'color.border': '#26485a', 'color.primary': '#8fd0ec', 'color.felt': '#3b7a93', 'color.feltBorder': '#1c3d4c', 'color.feltText': '#ffffff', 'color.roomBg': '#050d12', 'color.feltPattern': '#ffffff26', 'color.cardBack': '#1d4f66', 'color.cardBackAccent': '#bfe6f6' },
   ),
   // Pouštní: písková plátna, terakota, šípy a cik-cak rub.
   th(
     'desert',
     { 'table.pattern': 'chevron', 'cards.style': 'tinted', 'cards.back': 'zigzag', 'color.turnGlow': '#c2410c', 'color.dealerButton': '#7c2d12' },
-    { 'color.bg': '#fbf6ec', 'color.surface': '#ffffff', 'color.surfaceRaised': '#f2e6cf', 'color.text': '#2d2210', 'color.textMuted': '#5d4e33', 'color.border': '#e0d0ae', 'color.primary': '#8a3d12', 'color.felt': '#d4b483', 'color.feltBorder': '#7c4a1d', 'color.feltText': '#2b1d0a', 'color.roomBg': '#efe0c0', 'color.feltPattern': '#ffffff40', 'color.cardBack': '#9a4a1c', 'color.cardBackAccent': '#f5deb3' },
-    { 'color.bg': '#15100a', 'color.surface': '#231b11', 'color.surfaceRaised': '#2f2518', 'color.text': '#f4ead8', 'color.textMuted': '#c4b494', 'color.border': '#4a3b25', 'color.primary': '#f0a56a', 'color.felt': '#8a6a3f', 'color.feltBorder': '#3a2510', 'color.feltText': '#ffffff', 'color.roomBg': '#0c0905', 'color.feltPattern': '#ffffff1f', 'color.cardBack': '#6f3512', 'color.cardBackAccent': '#e8c898' },
+    { 'color.bg': '#fbf6ec', 'color.turnGlow': '#a5370a', 'color.surface': '#ffffff', 'color.surfaceRaised': '#f2e6cf', 'color.text': '#2d2210', 'color.textMuted': '#5d4e33', 'color.border': '#e0d0ae', 'color.primary': '#8a3d12', 'color.felt': '#d4b483', 'color.feltBorder': '#7c4a1d', 'color.feltText': '#2b1d0a', 'color.roomBg': '#efe0c0', 'color.feltPattern': '#ffffff40', 'color.cardBack': '#9a4a1c', 'color.cardBackAccent': '#f5deb3' },
+    { 'color.bg': '#15100a', 'color.turnGlow': '#fac9b4', 'color.surface': '#231b11', 'color.surfaceRaised': '#2f2518', 'color.text': '#f4ead8', 'color.textMuted': '#c4b494', 'color.border': '#4a3b25', 'color.primary': '#f0a56a', 'color.felt': '#8a6a3f', 'color.feltBorder': '#3a2510', 'color.feltText': '#ffffff', 'color.roomBg': '#0c0905', 'color.feltPattern': '#ffffff1f', 'color.cardBack': '#6f3512', 'color.cardBackAccent': '#e8c898' },
   ),
   // Grafit: šedé plátno, tečky, tučné karty a linkový rub; střídmý a vážný.
   th(
@@ -75,15 +75,15 @@ export const EXTRA_THEMES: Theme[] = [
   th(
     'sakura',
     { 'table.pattern': 'dots', 'cards.style': 'tinted', 'cards.back': 'scales', 'color.turnGlow': '#f59e0b', 'color.dealerButton': '#ffffff', 'shape.cardRadius': '8px' },
-    { 'color.bg': '#fff6f8', 'color.surface': '#ffffff', 'color.surfaceRaised': '#fbe4ea', 'color.text': '#321620', 'color.textMuted': '#69424e', 'color.border': '#eccbd5', 'color.primary': '#a1385c', 'color.felt': '#d98aa4', 'color.feltBorder': '#9c4a64', 'color.feltText': '#3a0f1f', 'color.roomBg': '#f5dce3', 'color.feltPattern': '#ffffff4d', 'color.cardBack': '#b25a78', 'color.cardBackAccent': '#ffe4ec' },
+    { 'color.bg': '#fff6f8', 'color.turnGlow': '#634004', 'color.surface': '#ffffff', 'color.surfaceRaised': '#fbe4ea', 'color.text': '#321620', 'color.textMuted': '#69424e', 'color.border': '#eccbd5', 'color.primary': '#a1385c', 'color.felt': '#d98aa4', 'color.feltBorder': '#9c4a64', 'color.feltText': '#3a0f1f', 'color.roomBg': '#f5dce3', 'color.feltPattern': '#ffffff4d', 'color.cardBack': '#b25a78', 'color.cardBackAccent': '#ffe4ec' },
     { 'color.bg': '#160d11', 'color.surface': '#25161c', 'color.surfaceRaised': '#322029', 'color.text': '#fbe9ee', 'color.textMuted': '#c9a9b3', 'color.border': '#4c2f3a', 'color.primary': '#f4a3bb', 'color.felt': '#8a4a62', 'color.feltBorder': '#3d1d2b', 'color.feltText': '#ffffff', 'color.roomBg': '#0e0709', 'color.feltPattern': '#ffffff26', 'color.cardBack': '#7a3a52', 'color.cardBackAccent': '#ffd1de' },
   ),
   // Starý papír: olivové plátno, patkové písmo, kostkovaný rub, zrnitý filc.
   th(
     'vintage',
     { 'table.pattern': 'speckle', 'cards.style': 'elegant', 'cards.back': 'plaid', 'font.heading': 'Georgia, "Times New Roman", Times, serif', 'font.body': 'Georgia, "Times New Roman", Times, serif', 'color.turnGlow': '#b45309', 'color.dealerButton': '#f3e7c4', 'color.cardBackAccent': '#e3cf9a' },
-    { 'color.bg': '#f6efe0', 'color.surface': '#fffaf0', 'color.surfaceRaised': '#ece1c8', 'color.text': '#2f2615', 'color.textMuted': '#5f5238', 'color.border': '#d8c9a4', 'color.primary': '#5b4a1f', 'color.felt': '#4f5d2f', 'color.feltBorder': '#3b2a15', 'color.roomBg': '#e6d9bd', 'color.feltPattern': '#ffffff1f', 'color.cardBack': '#6b4423' },
-    { 'color.bg': '#14100a', 'color.surface': '#201a10', 'color.surfaceRaised': '#2c2417', 'color.text': '#f0e6cf', 'color.textMuted': '#bfb08c', 'color.border': '#453a22', 'color.primary': '#e0c27a', 'color.felt': '#3d4824', 'color.feltBorder': '#241709', 'color.roomBg': '#0b0905', 'color.feltPattern': '#ffffff14', 'color.cardBack': '#4f3219' },
+    { 'color.bg': '#f6efe0', 'color.turnGlow': '#f79b55', 'color.surface': '#fffaf0', 'color.surfaceRaised': '#ece1c8', 'color.text': '#2f2615', 'color.textMuted': '#5f5238', 'color.border': '#d8c9a4', 'color.primary': '#5b4a1f', 'color.felt': '#4f5d2f', 'color.feltBorder': '#3b2a15', 'color.roomBg': '#e6d9bd', 'color.feltPattern': '#ffffff1f', 'color.cardBack': '#6b4423' },
+    { 'color.bg': '#14100a', 'color.turnGlow': '#f37311', 'color.surface': '#201a10', 'color.surfaceRaised': '#2c2417', 'color.text': '#f0e6cf', 'color.textMuted': '#bfb08c', 'color.border': '#453a22', 'color.primary': '#e0c27a', 'color.felt': '#3d4824', 'color.feltBorder': '#241709', 'color.roomBg': '#0b0905', 'color.feltPattern': '#ffffff14', 'color.cardBack': '#4f3219' },
   ),
   // Láva: ohnivé červené plátno se světelným kruhem a paprsky na rubu.
   th(

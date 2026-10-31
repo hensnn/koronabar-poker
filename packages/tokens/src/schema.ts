@@ -99,7 +99,7 @@ export const TOKEN_DEFS: TokenDef[] = [
   c('color.chipBlack', '#222a26', '#3a4540', 'chips'),
   en('chips.display', 'number', ['number', 'chips', 'both'], 'chips'),
   // Hráči u stolu
-  c('color.turnGlow', '#1f6b45', '#4cc38a', 'players'),
+  c('color.turnGlow', '#ffd166', '#4cc38a', 'players'),
   c('color.timerOk', '#1b7a3d', '#4cc38a', 'players'),
   c('color.timerBank', '#8a5a00', '#f0b64a', 'players'),
   c('color.dealerButton', '#8a6d1f', '#e0b84c', 'players'),

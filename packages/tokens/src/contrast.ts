@@ -42,6 +42,9 @@ export const CONTRAST_PAIRS: { fg: string; bg: string; min: number }[] = [
   { fg: 'color.suitDiamond', bg: 'color.cardFace', min: 4.5 },
   { fg: 'color.suitClub', bg: 'color.cardFace', min: 4.5 },
   { fg: 'color.suitSpade', bg: 'color.cardFace', min: 4.5 },
+  // Jména a částky u sedadel leží přímo na plátně; podsvícení hráče na tahu (jméno, rámeček karet) musí být na plátně vidět.
+  { fg: 'color.feltText', bg: 'color.felt', min: 4.5 },
+  { fg: 'color.turnGlow', bg: 'color.felt', min: 3 },
 ];
 
 export interface ContrastIssue {
