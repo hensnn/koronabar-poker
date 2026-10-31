@@ -73,6 +73,8 @@ async function makeBot(n: number): Promise<Bot> {
   const pick = <T,>(a: T[]): T => a[Math.floor(rnd() * a.length)]!;
   await server.settings.set(userId, 'user', userId, 'ui.showdownLosing', pick(['show', 'ask', 'muck']));
   await server.settings.set(userId, 'user', userId, 'ui.showdownWinning', pick(['never', 'ask', 'always']));
+  // osobní předvolby automatických odpovědí na turnajové dotazy (rebuy, nový vstup, add-on)
+  for (const key of ['ui.autoRebuy', 'ui.autoReenter', 'ui.autoAddon']) await server.settings.set(userId, 'user', userId, key, pick(['ask', 'ask', 'never', 'always']));
   const bot: Bot = { n, id: userId, nick, cookie: `kb_session=${token}`, socket: undefined as never, tables: new Set(), views: new Map(), paused: false, acted: new Set(), pending: new Set() };
   await connect(bot);
   return bot;
@@ -280,7 +282,8 @@ async function cashPhase(ms: number) {
 }
 
 // ---------- turnaj ----------
-async function tournamentPhase(name: string, over: Record<string, string | number | boolean>, ms: number) {
+async function tournamentPhase(name: string, over: Record<string, string | number | boolean>, ms: number, chaos = false) {
+  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
   console.log(`— TURNAJ: ${name} —`);
   const { id } = await server.tournaments.create(admin!, {
     name: `Sim ${name}`,
@@ -292,6 +295,12 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
     await server.tournaments.register(b.id, id).catch((e) => problem(`${b.nick}: registrace → ${(e as Error).message}`));
   }
   const walletsBefore = bots.map((b) => server.ledger.balance(accounts.wallet(b.id)));
+  if (chaos) {
+    // pevná směs předvoleb: 0–1 vždy, 2–3 nikdy, 4–5 zeptat se (ať se každá větev určitě vyzkouší)
+    for (const b of bots) for (const key of ['ui.autoRebuy', 'ui.autoReenter', 'ui.autoAddon']) await server.settings.set(b.id, 'user', b.id, key, b.n < 2 ? 'always' : b.n < 4 ? 'never' : 'ask');
+  }
+  const decidingSince = new Map<string, number>();
+  const maxDecideMs = (Number(over['tournament.rebuyDecisionSeconds'] ?? 30) + (over['tournament.rebuyWaitsForOffline'] ? Number(over['tournament.rebuyOfflineMaxSeconds'] ?? 0) : 0) + 20) * 1000;
   await server.tournaments.start(admin!, id);
   const end = Date.now() + ms;
   let tick = 0;
@@ -314,10 +323,24 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
     for (const b of bots) {
       const view = await server.tournaments.view(id, b.id).catch(() => null);
       if (!view) continue;
-      if (view.me.status === 'deciding') {
-        if (rnd() < 0.7 && view.me.canRebuy) await server.tournaments.rebuy(b.id, id).catch((e) => problem(`${b.nick}: rebuy → ${(e as Error).message}`));
+      // kolize časů: hráč se při rozhodování o rebuy někdy odpojí a po chvíli vrátí
+      if (chaos && view.me.status === 'deciding' && b.socket.connected && rnd() < 0.08) {
+        b.socket.close();
+        setTimeout(() => void connect(b), 1500 + Math.floor(rnd() * 4000));
       }
-      if (view.me.canAddon && rnd() < 0.5) await server.tournaments.addon(b.id, id).catch((e) => problem(`${b.nick}: addon → ${(e as Error).message}`));
+      // zaseknuté rozhodování: nikdo nesmí být ve stavu „rozhoduje se“ déle než čas na rozhodnutí + čekání na odpojeného + rezerva
+      if (view.me.status === 'deciding') {
+        const since = decidingSince.get(b.id) ?? Date.now();
+        decidingSince.set(b.id, since);
+        if (Date.now() - since > maxDecideMs) {
+          problem(`turnaj ${name}: ${b.nick} se rozhoduje o rebuy už ${Math.round((Date.now() - since) / 1000)} s (limit ${Math.round(maxDecideMs / 1000)} s)`);
+          decidingSince.set(b.id, Date.now());
+        }
+      } else decidingSince.delete(b.id);
+      if (view.me.status === 'deciding') {
+        if (!(chaos && b.n < 4) && rnd() < 0.7 && view.me.canRebuy) await server.tournaments.rebuy(b.id, id).catch((e) => problem(`${b.nick}: rebuy → ${(e as Error).message}`));
+      }
+      if (!(chaos && b.n < 4) && view.me.canAddon && rnd() < 0.5) await server.tournaments.addon(b.id, id).catch((e) => problem(`${b.nick}: addon → ${(e as Error).message}`));
     }
     if (tick % 7 === 0 && st.status === 'running') {
       await server.tournaments.pause(admin!, id, false).catch(() => undefined);
@@ -328,8 +351,8 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
     if (key !== lastKey) {
       lastKey = key;
       lastChange = Date.now();
-    } else if (Date.now() - lastChange > 45_000 && st.status === 'running') {
-      problem(`turnaj ${name}: 45 s beze změny (vyřazeno ${st.eliminations.length}, level ${tour.levelNumber()}, stoly ${server.tournaments.tableIdsOf(id).length})`);
+    } else if (Date.now() - lastChange > (chaos ? 100_000 : 45_000) && st.status === 'running') {
+      problem(`turnaj ${name}: beze změny (vyřazeno ${st.eliminations.length}, level ${tour.levelNumber()}, stoly ${server.tournaments.tableIdsOf(id).length})`);
       lastChange = Date.now();
     }
     if (tick % 4 === 0) checkInvariants(`turnaj ${name} t${tick}`);
@@ -340,6 +363,21 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
   if (st.status !== 'finished') problem(`turnaj ${name} se v limitu nedohrál (stav ${st.status})`);
   await sleep(500);
   checkInvariants(`turnaj ${name} konec`);
+  // automatika: po konci nesmí zůstat žádný rozdělaný časovač a odpovědět smí jen ten, kdo má předvolbu jinou než „zeptat se“
+  await sleep(6000);
+  const leftTimers = (server.tournaments as unknown as { autoTimers: Map<string, unknown> }).autoTimers.size;
+  if (leftTimers > 0) problem(`turnaj ${name}: po konci zůstalo ${leftTimers} časovačů automatických odpovědí`);
+  const autoRows = await server.audit.list({ action: 'turnaj.auto_odpoved' });
+  let autoMine = 0;
+  for (const row of autoRows) {
+    if (row.targetId !== id) continue;
+    autoMine++;
+    const layer = server.settings.layer('user', row.actorId as string);
+    const act = (row.after as { action?: string } | null)?.action;
+    const key = act === 'addon' || act === 'declineAddon' ? 'ui.autoAddon' : act === 'reenter' ? 'ui.autoReenter' : 'ui.autoRebuy';
+    if (String(layer[key] ?? 'ask') === 'ask' && !(act === 'decline')) problem(`turnaj ${name}: automatická odpověď „${act}“ hráči s předvolbou „zeptat se“`);
+  }
+  console.log(`  automatických odpovědí: ${autoMine}; rebuy celkem ${server.tournaments.get(id)!.state().players.reduce((n, p) => n + p.rebuys, 0)}, add-onů ${server.tournaments.get(id)!.state().players.filter((p) => p.addon).length}`);
   if (st.status === 'finished') {
     const walletsAfter = bots.map((b) => server.ledger.balance(accounts.wallet(b.id)));
     const delta = walletsAfter.reduce((a, x, i) => a + x - walletsBefore[i]!, 0);
@@ -360,10 +398,11 @@ try {
     await tournamentPhase('freezeout', {}, per);
     await tournamentPhase('rebuy+addon', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 2, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 2, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonCost': 100, 'tournament.addonChips': 300 }, per);
     await tournamentPhase('bounty', { 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30 }, per);
+    await tournamentPhase('auto odpovědi: kolize časů', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 4, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 3, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyTimerStops': true, 'tournament.rebuyWaitsForOffline': true, 'tournament.rebuyOfflineMaxSeconds': 30, 'tournament.rebuyDecisionSeconds': 6, 'tournament.addonEnabled': true, 'tournament.addonMode': 'both', 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonOfferSeconds': 6, 'tournament.addonCost': 100, 'tournament.addonChips': 300, 'tournament.breakEveryLevels': 2, 'tournament.breakMinutes': 1, 'tournament.reentryEnabled': true, 'tournament.reentryMax': 1 }, per, true);
     await tournamentPhase('rebuy: čekání hry + odpojení + nabídka add-onu', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 3, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 3, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyTimerStops': true, 'tournament.rebuyWaitsForOffline': true, 'tournament.rebuyOfflineMaxSeconds': 30, 'tournament.rebuyDecisionSeconds': 10, 'tournament.addonEnabled': true, 'tournament.addonMode': 'both', 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonOfferSeconds': 10, 'tournament.addonCost': 100, 'tournament.addonChips': 300 }, per);
   }
 } catch (e) {
-  const issues = JSON.stringify((e as { issues?: unknown }).issues ?? '');
+  const issues = JSON.stringify((e as { issues?: unknown; params?: unknown }).issues ?? (e as { params?: unknown }).params ?? '');
   problem('VÝJIMKA simulace: ' + (e instanceof Error ? `${e.message} ${issues}\n${e.stack}` : String(e)));
 }
 for (const b of bots) b.socket.close();
