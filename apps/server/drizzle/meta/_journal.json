@@ -288,6 +288,13 @@
       "when": 1793401227154,
       "tag": "0040_zpravy_clenum",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793428807978,
+      "tag": "0041_sablony_zprav",
+      "breakpoints": true
     }
   ]
 }

@@ -225,3 +225,6 @@ Správce (a role s oprávněním **Posílat zprávy členům**) může poslat zp
 4. **Proměnné:** v předmětu i textu jde použít `{prezdivka}` (jméno příjemce) a `{odkaz}` (odkaz ze spodního pole).
 5. **Náhled:** před odesláním vidíš, kolik lidí zprávu dostane, kdo to je, kolika půjde e-mail a jak zpráva vypadá. „Poslat zkušebně jen mně“ pošle zprávu jen tobě.
 6. **Historie:** pod formulářem je seznam odeslaných zpráv (kdo, kdy, komu, jakými kanály). Odeslání se zapisuje i do audit logu. Najednou jde poslat nejvýš 500 lidem.
+
+### Vlastní šablony zpráv
+Pod rychlými šablonami je část **Moje šablony**. Vyplň zprávu (předmět, text, odkaz, kanály, příjemci), napiš **Název šablony** a klikni na **Uložit jako novou**. Šablonu pak najdeš jako tlačítko: kliknutím se načte do formuláře, **Přepsat vybranou** ji upraví a **Smazat vybranou** odstraní. Ukládá se předmět, text, odkaz, kanály a příjemci podle rolí (včetně vyloučení). Vybraný turnaj se uloží jako zástupné `{turnaj}` (název) a `{turnaj_id}` (v odkazu), takže stejnou šablonu použiješ pro další turnaj: stačí vybrat turnaj a šablonu načíst. Šablony vidí a mohou upravovat všichni, kdo smějí posílat zprávy.

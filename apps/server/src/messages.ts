@@ -1,4 +1,4 @@
-import { desc, eq, inArray, ne } from 'drizzle-orm';
+import { asc, desc, eq, inArray, ne } from 'drizzle-orm';
 import type { PermissionChecker } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
@@ -40,6 +40,16 @@ interface Recipient {
   email: string | null;
   verified: boolean;
   roleKeys: string[];
+}
+
+export interface TemplateInput {
+  name: string;
+  title: string;
+  body: string;
+  link?: string | null;
+  channels: MessageChannel[];
+  /** Okruh příjemců bez konkrétního turnaje; `useTournament` = přihlášení do právě vybraného turnaje. */
+  audience: Omit<AudienceFilter, 'tournamentId' | 'userIds'> & { useTournament?: boolean };
 }
 
 type Meta = { ip?: string | null; source?: AuditSource; reason?: string | null };
@@ -173,6 +183,44 @@ export class MessageService {
       .returning({ id: schema.broadcastMessages.id });
     await this.deps.audit.log({ actorId, action: 'zpravy.odeslano', targetType: 'broadcast', targetId: row!.id, after: { title: input.title.trim(), channels: input.channels, recipients: to.length, result }, ...meta });
     return { id: row!.id, recipients: to.length, result };
+  }
+
+  // ---------- vlastní šablony ----------
+
+  async templates(actorId: string) {
+    this.can(actorId);
+    const rows = await this.deps.db.select().from(schema.messageTemplates).orderBy(asc(schema.messageTemplates.name));
+    return rows.map((r) => ({ id: r.id, name: r.name, title: r.title, body: r.body, link: r.link, channels: r.channels, audience: r.audience, updatedAt: r.updatedAt.getTime() }));
+  }
+
+  private checkTemplate(input: TemplateInput): void {
+    const name = input.name.trim();
+    if (!name || name.length > 80) throw new MessageError('INVALID');
+    this.validate({ title: input.title, body: input.body, link: input.link, channels: input.channels, audience: {} });
+  }
+
+  /** Uloží novou šablonu, nebo přepíše existující (podle `id`). */
+  async saveTemplate(actorId: string, input: TemplateInput, id?: string, meta: Meta = {}): Promise<{ id: string }> {
+    this.can(actorId);
+    this.checkTemplate(input);
+    const values = { name: input.name.trim(), title: input.title.trim(), body: input.body.trim(), link: input.link?.trim() || null, channels: input.channels, audience: input.audience as Record<string, unknown> };
+    let rowId = id;
+    if (id) {
+      const done = await this.deps.db.update(schema.messageTemplates).set({ ...values, updatedAt: new Date() }).where(eq(schema.messageTemplates.id, id)).returning({ id: schema.messageTemplates.id });
+      if (done.length === 0) throw new MessageError('INVALID');
+    } else {
+      const [row] = await this.deps.db.insert(schema.messageTemplates).values({ ...values, createdBy: actorId }).returning({ id: schema.messageTemplates.id });
+      rowId = row!.id;
+    }
+    await this.deps.audit.log({ actorId, action: id ? 'zpravy.sablona_zmenena' : 'zpravy.sablona_vytvorena', targetType: 'message_template', targetId: rowId, after: { name: values.name }, ...meta });
+    return { id: rowId! };
+  }
+
+  async deleteTemplate(actorId: string, id: string, meta: Meta = {}): Promise<void> {
+    this.can(actorId);
+    const done = await this.deps.db.delete(schema.messageTemplates).where(eq(schema.messageTemplates.id, id)).returning({ name: schema.messageTemplates.name });
+    if (done.length === 0) throw new MessageError('INVALID');
+    await this.deps.audit.log({ actorId, action: 'zpravy.sablona_smazana', targetType: 'message_template', targetId: id, before: { name: done[0]!.name }, ...meta });
   }
 
   /** Historie odeslaných zpráv (nejnovější první). */

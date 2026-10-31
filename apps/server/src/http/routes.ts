@@ -474,6 +474,21 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     excludeSelf: z.boolean().optional(),
   });
   const messageSchema = z.object({ title: z.string().max(200), body: z.string().max(8000), link: z.string().max(300).nullish(), channels: z.array(z.enum(['app', 'push', 'email'])).max(3), audience: audienceSchema });
+  const templateSchema = z.object({
+    name: z.string().max(200),
+    title: z.string().max(200),
+    body: z.string().max(8000),
+    link: z.string().max(300).nullish(),
+    channels: z.array(z.enum(['app', 'push', 'email'])).max(3),
+    audience: z.object({ everyone: z.boolean().optional(), roleKeys: z.array(z.string().max(60)).max(50).optional(), excludeRoleKeys: z.array(z.string().max(60)).max(50).optional(), excludeSelf: z.boolean().optional(), useTournament: z.boolean().optional() }),
+  });
+  app.get('/api/admin/messages/templates', guard(async (req, reply) => reply.send({ items: await svc.messages().templates(need(req).id) })));
+  app.post('/api/admin/messages/templates', guard(async (req, reply) => reply.send(await svc.messages().saveTemplate(need(req).id, templateSchema.parse(req.body ?? {}), undefined, meta(req)))));
+  app.put('/api/admin/messages/templates/:id', guard(async (req, reply) => reply.send(await svc.messages().saveTemplate(need(req).id, templateSchema.parse(req.body ?? {}), z.string().uuid().parse((req.params as { id: string }).id), meta(req)))));
+  app.delete('/api/admin/messages/templates/:id', guard(async (req, reply) => {
+    await svc.messages().deleteTemplate(need(req).id, z.string().uuid().parse((req.params as { id: string }).id), meta(req));
+    return reply.send({ ok: true });
+  }));
   app.get('/api/admin/messages', guard(async (req, reply) => reply.send({ items: await svc.messages().history(need(req).id) })));
   app.post('/api/admin/messages/preview', guard(async (req, reply) => reply.send(await svc.messages().preview(need(req).id, messageSchema.parse(req.body ?? {})))));
   app.post('/api/admin/messages/send', guard(async (req, reply) => reply.send(await svc.messages().send(need(req).id, messageSchema.parse(req.body ?? {}), meta(req)))));

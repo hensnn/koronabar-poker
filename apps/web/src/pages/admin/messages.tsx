@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
-import { errorText, get, post } from '../../api';
+import { del, errorText, get, post, put } from '../../api';
 import { useSession } from '../../session';
 import { Badge, Button, Card, Notice, Select, TextArea, TextInput } from '../../ui';
 
@@ -37,6 +37,15 @@ interface Preview {
   names: string[];
   sample: { title: string; body: string } | null;
 }
+interface CustomTemplate {
+  id: string;
+  name: string;
+  title: string;
+  body: string;
+  link: string | null;
+  channels: Channel[];
+  audience: { everyone?: boolean; roleKeys?: string[]; excludeRoleKeys?: string[]; excludeSelf?: boolean; useTournament?: boolean };
+}
 interface HistoryItem {
   id: string;
   title: string;
@@ -72,13 +81,22 @@ export function MessagesPage() {
   const [previewError, setPreviewError] = useState('');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [custom, setCustom] = useState<CustomTemplate[]>([]);
+  const [currentTpl, setCurrentTpl] = useState('');
+  const [tplName, setTplName] = useState('');
 
   const reloadHistory = useCallback(() => {
     get<{ items: HistoryItem[] }>('/api/admin/messages')
       .then((r) => setHistory(r.items))
       .catch(() => undefined);
   }, []);
+  const reloadTemplates = useCallback(() => {
+    get<{ items: CustomTemplate[] }>('/api/admin/messages/templates')
+      .then((r) => setCustom(r.items))
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
+    reloadTemplates();
     get<Role[]>('/api/admin/roles').then(setRoles).catch(() => undefined);
     get<{ tournaments: Tour[] }>('/api/tournaments').then((r) => setTours(r.tournaments.filter((x) => x.status === 'registering' || x.status === 'running'))).catch(() => undefined);
     get<UserRow[]>('/api/admin/users').then(setUsers).catch(() => undefined);
@@ -124,6 +142,57 @@ export function MessagesPage() {
     }, 400);
     return () => window.clearTimeout(id);
   }, [payload, ready]);
+
+  // Vlastní šablony smí obsahovat {turnaj} a {turnaj_id}: při použití se dosadí vybraný turnaj, při uložení se zpětně nahradí.
+  const expand = (text: string) => {
+    const tour = tours.find((x) => x.id === audience.tournamentId);
+    return text.replace(/{turnaj_id}/g, tour?.id ?? '').replace(/{turnaj}/g, tour?.name ?? t('messages.tpl.tournamentFallback'));
+  };
+  const collapse = (text: string) => {
+    const tour = tours.find((x) => x.id === audience.tournamentId);
+    return tour ? text.split(tour.id).join('{turnaj_id}').split(tour.name).join('{turnaj}') : text;
+  };
+  const applyCustom = (tpl: CustomTemplate) => {
+    setCurrentTpl(tpl.id);
+    setTplName(tpl.name);
+    setTitle(expand(tpl.title));
+    setBody(expand(tpl.body));
+    setLink(expand(tpl.link ?? ''));
+    setChannels(tpl.channels);
+    setAudience({ ...EMPTY_AUDIENCE, everyone: !!tpl.audience.everyone, roleKeys: tpl.audience.roleKeys ?? [], excludeRoleKeys: tpl.audience.excludeRoleKeys ?? [], excludeSelf: !!tpl.audience.excludeSelf, tournamentId: tpl.audience.useTournament ? audience.tournamentId : '' });
+  };
+  const saveTemplate = async (asNew: boolean) => {
+    setMsg(null);
+    try {
+      const input = {
+        name: tplName.trim(),
+        title: collapse(title),
+        body: collapse(body),
+        link: collapse(link).trim() || null,
+        channels,
+        audience: { everyone: audience.everyone || undefined, roleKeys: audience.roleKeys, excludeRoleKeys: audience.excludeRoleKeys, excludeSelf: audience.excludeSelf || undefined, useTournament: !!audience.tournamentId },
+      };
+      const r = asNew || !currentTpl ? await post<{ id: string }>('/api/admin/messages/templates', input) : await put<{ id: string }>(`/api/admin/messages/templates/${currentTpl}`, input);
+      setCurrentTpl(r.id);
+      setMsg({ kind: 'success', text: t('messages.tplSaved', { name: input.name }) });
+      reloadTemplates();
+    } catch (e) {
+      setMsg({ kind: 'error', text: errorOf(e) });
+    }
+  };
+  const deleteTemplate = async () => {
+    const tpl = custom.find((x) => x.id === currentTpl);
+    if (!tpl || !confirm(t('messages.tplDeleteConfirm', { name: tpl.name }))) return;
+    try {
+      await del(`/api/admin/messages/templates/${tpl.id}`);
+      setCurrentTpl('');
+      setTplName('');
+      setMsg({ kind: 'success', text: t('messages.tplDeleted', { name: tpl.name }) });
+      reloadTemplates();
+    } catch (e) {
+      setMsg({ kind: 'error', text: errorOf(e) });
+    }
+  };
 
   const applyTemplate = (id: TemplateId, tournamentId = audience.tournamentId) => {
     const tour = tours.find((x) => x.id === tournamentId);
@@ -188,10 +257,33 @@ export function MessagesPage() {
             ))}
           </Select>
           {TEMPLATES.map((id) => (
-            <Button key={id} onClick={() => applyTemplate(id)}>
+            <Button key={id} onClick={() => { setCurrentTpl(''); applyTemplate(id); }}>
               {t(`messages.tpl.${id}`)}
             </Button>
           ))}
+        </div>
+        <div className="mt-3 flex flex-col gap-2">
+          <span className="font-medium">{t('messages.customTitle')}</span>
+          {custom.length === 0 && <p className="text-sm text-muted">{t('messages.customEmpty')}</p>}
+          <div className="flex flex-wrap gap-2">
+            {custom.map((c) => (
+              <Button key={c.id} variant={c.id === currentTpl ? 'primary' : 'secondary'} onClick={() => applyCustom(c)}>
+                {c.name}
+              </Button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <TextInput label={t('messages.tplName')} value={tplName} maxLength={80} onChange={(e) => setTplName(e.target.value)} hint={t('messages.tplHint')} />
+            <Button disabled={!tplName.trim() || !title.trim() || !body.trim()} onClick={() => void saveTemplate(true)}>
+              {t('messages.tplSaveNew')}
+            </Button>
+            <Button disabled={!currentTpl || !tplName.trim() || !title.trim() || !body.trim()} onClick={() => void saveTemplate(false)}>
+              {t('messages.tplOverwrite')}
+            </Button>
+            <Button variant="danger" disabled={!currentTpl} onClick={() => void deleteTemplate()}>
+              {t('messages.tplDelete')}
+            </Button>
+          </div>
         </div>
       </Card>
 

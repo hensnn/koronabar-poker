@@ -110,3 +110,35 @@ describe('zprávy členům', () => {
     await expect(s.server.messages.history(a)).rejects.toBeInstanceOf(MessageError);
   });
 });
+
+describe('zprávy členům: vlastní šablony', () => {
+  it('uložení, přepsání, výpis a smazání; hráč bez oprávnění nesmí; neplatné vstupy se odmítnou', async () => {
+    const s = await start();
+    const player = await s.user('hrac');
+    const input = { name: 'Pátek turbo', title: 'Pozvánka na {turnaj}', body: 'Ahoj {prezdivka}, {odkaz}', link: '/turnaj/{turnaj_id}', channels: ['app' as const, 'email' as const], audience: { roleKeys: ['hrac'], excludeSelf: true, useTournament: true } };
+
+    await expect(s.server.messages.saveTemplate(player, input)).rejects.toBeInstanceOf(MessageError);
+    await expect(s.server.messages.templates(player)).rejects.toBeInstanceOf(MessageError);
+    await expect(s.server.messages.saveTemplate(s.admin, { ...input, name: '  ' })).rejects.toMatchObject({ code: 'INVALID' });
+    await expect(s.server.messages.saveTemplate(s.admin, { ...input, channels: [] })).rejects.toMatchObject({ code: 'INVALID' });
+
+    const { id } = await s.server.messages.saveTemplate(s.admin, input);
+    let list = await s.server.messages.templates(s.admin);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ id, name: 'Pátek turbo', link: '/turnaj/{turnaj_id}', channels: ['app', 'email'] });
+    expect(list[0]!.audience).toMatchObject({ roleKeys: ['hrac'], useTournament: true });
+
+    await s.server.messages.saveTemplate(s.admin, { ...input, name: 'Pátek turbo 2', body: 'Jiný text' }, id);
+    list = await s.server.messages.templates(s.admin);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ name: 'Pátek turbo 2', body: 'Jiný text' });
+    await expect(s.server.messages.saveTemplate(s.admin, input, '00000000-0000-4000-8000-000000000000')).rejects.toMatchObject({ code: 'INVALID' });
+
+    await expect(s.server.messages.deleteTemplate(player, id)).rejects.toBeInstanceOf(MessageError);
+    await s.server.messages.deleteTemplate(s.admin, id);
+    expect(await s.server.messages.templates(s.admin)).toHaveLength(0);
+    await expect(s.server.messages.deleteTemplate(s.admin, id)).rejects.toMatchObject({ code: 'INVALID' });
+    expect(await s.server.audit.list({ action: 'zpravy.sablona_vytvorena' })).toHaveLength(1);
+    expect(await s.server.audit.list({ action: 'zpravy.sablona_smazana' })).toHaveLength(1);
+  });
+});

@@ -1326,6 +1326,21 @@ export const broadcastMessages = pgTable(
   (t) => [index('broadcast_messages_created_idx').on(t.createdAt)],
 );
 
+/** Vlastní šablony zpráv členům (předmět, text, odkaz, kanály a okruh příjemců). */
+export const messageTemplates = pgTable('message_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  link: text('link'),
+  channels: jsonb('channels').$type<string[]>().notNull(),
+  /** Uložený okruh příjemců (bez konkrétního turnaje: `useTournament` = vzít přihlášené do právě vybraného turnaje). */
+  audience: jsonb('audience').$type<Record<string, unknown>>().notNull(),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Veřejné profily osobního nastavení: hráč si uloží své nastavení pod názvem a ostatní si ho smějí převzít. */
 export const settingsProfiles = pgTable(
   'settings_profiles',
