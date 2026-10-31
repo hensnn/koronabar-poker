@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { accounts } from '@kb/ledger';
 import { FakeClock, randomLegalAction, seededRandom, TournamentError } from '@kb/game-core';
 import { buildServer } from './app.js';
@@ -321,6 +322,53 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
       // celý čas na rozhodnutí (60 s) nevypršel, odpověď přišla do pár sekund od vypadnutí
       expect(s.clock.now() - t0).toBeGreaterThan(0);
     });
+  });
+
+  it('zrušený turnaj nezanechá statistiky: handy, vyřazení i z nich vzniklé XP zmizí, ostatní data zůstanou', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const ps = [await s.user(), await s.user(), await s.user()];
+    // jiná hra, jejíž statistiky musí zůstat: dohraný cash stůl s pár handami
+    const { id } = await s.server.tournaments.create(org, { name: 'Ke zrušení', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.startingStack': 300 } });
+    for (const p of ps) await s.server.tournaments.register(p, id);
+    await s.server.tournaments.start(org, id);
+    const tour = s.server.tournaments.get(id)!;
+    const rnd = seededRandom(9);
+    const actor = s.server.tables.actors.get(id)!;
+    for (let i = 0; i < 30_000 && tour.state().eliminations.length < 1; i++) {
+      const v = actor.viewFor(null);
+      if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
+        const p = v.seats.find((x) => x.seat === v.actingSeat)!;
+        const legal = actor.viewFor(p.playerId).legal;
+        if (legal) actor.act(p.playerId, randomLegalAction(legal, rnd));
+      }
+      s.clock.advance(Math.floor(rnd() * 3000));
+      await Promise.resolve();
+    }
+    expect(tour.state().eliminations.length).toBeGreaterThanOrEqual(1);
+    await s.server.stats.idle();
+    await s.server.progress.idle();
+    const count = async () => ({
+      hands: (await s.server.db.select().from(schema.hands).where(eq(schema.hands.tournamentId, id))).length,
+      elims: (await s.server.db.select().from(schema.tournamentEliminations).where(eq(schema.tournamentEliminations.tournamentId, id))).length,
+      xp: (await s.server.db.select().from(schema.xpEvents)).reduce((n, r) => n + r.amount, 0),
+    });
+    const before = await count();
+    expect(before.hands).toBeGreaterThan(0);
+    expect(before.elims).toBeGreaterThan(0);
+    expect(before.xp).toBeGreaterThan(0);
+
+    await s.server.tournaments.cancel(org, id);
+    for (let i = 0; i < 100; i++) {
+      await new Promise((r) => setTimeout(r, 30));
+      if ((await count()).hands === 0) break;
+    }
+    await s.server.stats.idle();
+    await s.server.progress.idle();
+    const after = await count();
+    expect(after.hands).toBe(0);
+    expect(after.elims).toBe(0);
+    expect(after.xp).toBe(0); // žádná jiná hra, takže z turnaje nezůstává žádné XP
   });
 
   it('rebuy po vypadnutí: hra na hráče počká a po rebuy dostane v další handě karty (nerozdá se bez něj)', async () => {

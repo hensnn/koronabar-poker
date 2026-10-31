@@ -248,6 +248,7 @@ Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vs
 
 - Peněženka nejde do mínusu. Pokud držitel bounty mezitím peníze utratil, vezme se jen to, co na peněžence je. Zbytek bounty se vrátí poměrně podle toho, kolik kdo do bounty vložil.
 - Sázky na turnaj a odměny na hlavu se při zrušení vrací jako dřív.
+- **Statistiky:** zrušený turnaj nezanechá žádné statistiky. Smažou se jeho handy a záznamy o vyřazení a XP všech hráčů se přepočítá z toho, co zbylo. Už získané úspěchy (achievementy) a jejich XP zůstávají. Rating se u zrušeného turnaje nikdy nepočítal.
 - Vrácení najdeš v účetní knize jako „Vrácení platby za turnaj“ (a „zrušení turnaje: vrácení vyplacené bounty“).
 
 ## Ovládání oken s volbou a odmítnutí rebuy

@@ -888,6 +888,23 @@ export class TournamentManager {
     await this.deps.audit?.log({ actorId, action: 'turnaj.zrusit', targetType: 'tournament', targetId: id, ...meta });
   }
 
+  /**
+   * Zrušený turnaj nesmí zanechat statistiky: smaže handy jeho stolů (a sdílení těchto hand) a záznamy o vyřazení.
+   * XP z nich se pak přepočítá z toho, co zbylo (volající). Platby a bounty řeší samotné zrušení.
+   */
+  async purgeStats(id: string): Promise<void> {
+    const db = this.deps.db;
+    const live = this.tours.get(id);
+    const [row] = await db.select({ state: schema.tournaments.state }).from(schema.tournaments).where(eq(schema.tournaments.id, id));
+    const state = (live?.state() ?? row?.state) as TournamentState | null | undefined;
+    const tableIds = [...new Set([id, ...this.tableIdsOf(id), ...(state?.tableIds ?? [])])];
+    const handIds = (await db.select({ id: schema.hands.id }).from(schema.hands).where(or(eq(schema.hands.tournamentId, id), inArray(schema.hands.tableId, tableIds)))).map((h) => h.id);
+    if (handIds.length > 0) await db.delete(schema.sharedHands).where(inArray(schema.sharedHands.handId, handIds));
+    await db.delete(schema.hands).where(or(eq(schema.hands.tournamentId, id), inArray(schema.hands.tableId, tableIds)));
+    await db.delete(schema.tournamentEliminations).where(eq(schema.tournamentEliminations.tournamentId, id));
+    await db.delete(schema.gameResults).where(and(eq(schema.gameResults.kind, 'tournament'), eq(schema.gameResults.ref, id)));
+  }
+
   // ---------- pohledy ----------
 
   /**

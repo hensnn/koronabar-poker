@@ -620,6 +620,15 @@ export async function buildServer(opts: ServerOptions = {}) {
       if (e.type === 'eliminated') void bountiesRef?.onEliminated(id, e.userId, e.by.map((k) => ({ userId: k.userId, weight: k.weight }))).catch((err) => console.error('Odměny na hlavu:', err instanceof Error ? err.message : err));
       if (e.type === 'finished' && e.results[0]) void sounds?.jingle(e.results[0].userId, 'win', { kind: 'table', id: tournaments.tableIdsOf(id)[0] ?? id }).catch(() => undefined);
       if (e.type === 'finished') void bountiesRef?.onFinished(id, e.results[0]?.userId ?? null).catch((err) => console.error('Odměny na hlavu:', err instanceof Error ? err.message : err));
+      // Zrušený turnaj nezanechá statistiky: smažou se jeho handy a vyřazení a XP se přepočítá z toho, co zbylo.
+      if (e.type === 'cancelled') {
+        void (async () => {
+          await stats.idle();
+          await tournaments.purgeStats(id);
+          await progress.recompute(false);
+          await progress.idle();
+        })().catch((err) => console.error('Statistiky zrušeného turnaje:', err instanceof Error ? err.message : err));
+      }
       if (e.type === 'cancelled') void bountiesRef?.onCancelled(id).catch((err) => console.error('Odměny na hlavu:', err instanceof Error ? err.message : err));
       if (e.type === 'started') void eveningRef?.attach('tournament', id).catch(() => undefined);
       if (e.type === 'eliminated') progress.onElimination(id, e);
