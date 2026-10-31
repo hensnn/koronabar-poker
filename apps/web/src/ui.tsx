@@ -139,8 +139,40 @@ function sizeStyle(w: number, h: number): CSSProperties | undefined {
   return style;
 }
 
+/**
+ * Přepínání výběru v oknech s volbou kurzorovými šipkami (Tab funguje sám): šipky vlevo/nahoru a vpravo/dolů posouvají fokus
+ * mezi tlačítky uvnitř `ref`. Když v okně zatím nic nemá fokus, první šipka zaměří hlavní (výrazné) tlačítko.
+ * Nereaguje při psaní do polí, u posuvníků ani s modifikátory.
+ */
+export function useArrowChoices(ref: { current: HTMLElement | null }, enabled = true, selector = 'button:not(:disabled)', maxItems = 6): void {
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const root = ref.current;
+      if (!root) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      const items = [...root.querySelectorAll<HTMLElement>(selector)];
+      // Jen okna s malou volbou; velké okna s mnoha tlačítky si šipky nechají pro posouvání.
+      if (items.length === 0 || items.length > maxItems) return;
+      const at = items.indexOf(document.activeElement as HTMLElement);
+      const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+      let next: HTMLElement | undefined;
+      if (at < 0) next = items.find((x) => x.classList.contains('bg-primary')) ?? items[forward ? 0 : items.length - 1];
+      else next = items[(at + (forward ? 1 : -1) + items.length) % items.length];
+      if (!next) return;
+      e.preventDefault();
+      next.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [ref, enabled, selector, maxItems]);
+}
+
 export function Modal({ title, onClose, children, dirty = false, wide = false, fit = false, sizeKey }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean; /** Okno se přizpůsobí šířce obsahu (tabulka se vejde bez posuvníku), nejvýš do šířky okna prohlížeče. */ fit?: boolean; /** Okno má nastavitelnou velikost (tažení za pravý dolní roh); rozměry se pamatují v osobním nastavení `<klíč>Width` a `<klíč>Height`. */ sizeKey?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  useArrowChoices(ref);
   const values = useSettings().values;
   const storedW = sizeKey ? Number(values[`${sizeKey}Width`] ?? 0) : 0;
   const storedH = sizeKey ? Number(values[`${sizeKey}Height`] ?? 0) : 0;

@@ -260,6 +260,19 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
       expect((await s.server.audit.list({ action: 'turnaj.auto_odpoved' })).filter((r) => r.actorId === d.userId)).toHaveLength(0);
     });
 
+    it('odmítnutí během odpočtu: hráč si to rozmyslí, rebuy odmítne a automatika už nic nekoupí', async () => {
+      const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' });
+      const d = await untilDeciding(s, id);
+      await tick(s, 2_000);
+      const before = s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys;
+      await s.server.tournaments.declineRebuy(d.userId, id);
+      const rec = () => s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!;
+      expect(rec().status).toBe('out');
+      await tick(s, 8_000);
+      expect(rec().rebuys).toBe(before);
+      expect((await s.server.audit.list({ action: 'turnaj.auto_odpoved' })).filter((r) => r.actorId === d.userId)).toHaveLength(0);
+    });
+
     it('souběh: předvolba změněná během odpočtu platí (z „vždy“ na „zeptat se“ se nekoupí nic)', async () => {
       const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' });
       const d = await untilDeciding(s, id);

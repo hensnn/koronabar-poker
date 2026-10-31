@@ -2074,6 +2074,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   tAction('register', (m, u, id, req) => m.register(u, id, meta(req)));
   tAction('unregister', (m, u, id, req) => m.unregister(u, id, meta(req)));
   tAction('rebuy', (m, u, id) => m.rebuy(u, id));
+  tAction('rebuy/decline', (m, u, id) => m.declineRebuy(u, id));
   tAction('addon', (m, u, id) => m.addon(u, id));
   tAction('addon/decline', (m, u, id) => m.declineAddon(u, id));
   tAction('reenter', (m, u, id) => m.reenter(u, id));

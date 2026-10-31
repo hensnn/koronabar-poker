@@ -394,7 +394,7 @@ export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentIn
     return () => clearInterval(timer);
   }, [until, baseMs]);
   if (!tour || !tournamentId || !until || hidden === until || left <= 0 || !(tour.me.canRebuy || tour.me.canReenter)) return null;
-  const act = async (what: 'rebuy' | 'reenter') => {
+  const act = async (what: 'rebuy' | 'reenter' | 'rebuy/decline') => {
     setBusy(true);
     try {
       setError('');
@@ -417,6 +417,9 @@ export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentIn
           </p>
         )}
         <div className="flex flex-wrap justify-end gap-2">
+          <Button disabled={busy} onClick={() => void act('rebuy/decline')}>
+            {t('tournament.rebuyDecline')}
+          </Button>
           {tour.me.canReenter && (
             <button className={actionTone.special} disabled={busy} onClick={() => void act('reenter')}>
               {t('tournament.reenter')} ({tour.buyIn + tour.fee})

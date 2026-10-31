@@ -249,3 +249,8 @@ Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vs
 - Peněženka nejde do mínusu. Pokud držitel bounty mezitím peníze utratil, vezme se jen to, co na peněžence je. Zbytek bounty se vrátí poměrně podle toho, kolik kdo do bounty vložil.
 - Sázky na turnaj a odměny na hlavu se při zrušení vrací jako dřív.
 - Vrácení najdeš v účetní knize jako „Vrácení platby za turnaj“ (a „zrušení turnaje: vrácení vyplacené bounty“).
+
+## Ovládání oken s volbou a odmítnutí rebuy
+
+- V každém okně s malou volbou (buy-in, rebuy, add-on, hlasování o run it twice, ukázání karet…) jde výběr přepínat **kurzorovými šipkami** (vlevo/nahoru a vpravo/dolů) i klávesou **Tab**. První šipka zaměří hlavní tlačítko. Enter nebo mezerník ho potvrdí, Esc okno zavře.
+- Okno o **rebuy** má tlačítko **Odmítnout**. Použiješ ho, když sis během odpočtu automatické odpovědi rozmyslel a rebuy už nechceš: vypadneš hned a automatika už nic nekoupí. Okno **add-onu** má tlačítko **Ne** a funguje stejně.

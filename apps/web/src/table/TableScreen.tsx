@@ -24,7 +24,7 @@ import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
 import { MobileMid } from './mobile-ui';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
-import { ErrorToast, isConfirmKey, Modal } from '../ui';
+import { ErrorToast, isConfirmKey, Modal, useArrowChoices } from '../ui';
 import { ChipStack } from './Chips';
 import { ChipSweeps, useChipSweeps } from './chip-fx';
 import { usePlanExecutor } from './plan';
@@ -179,6 +179,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const notices = useTableNotices(tableId);
   const waitInfo = useSettings().values['ui.tableWaitInfo'] !== false;
   const roomSize = useTableSize();
+  // Hlasování o run it twice a volba ukázat/zahodit karty: výběr jde přepínat kurzorovými šipkami (Tab funguje sám).
+  const choiceRef = useRef<HTMLDivElement>(null);
+  useArrowChoices(choiceRef, true, '[role=dialog] button:not(:disabled)');
   const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
   useEffect(() => {
     if (pinnedSeat === null) return;
@@ -363,7 +366,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           })}
         </div>
         {/* Hlasování a rozhodnutí o ukázání karet leží přes stůl, aby byly vidět i na celé obrazovce a na telefonu. */}
-        <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 p-2">
+        <div ref={choiceRef} className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 p-2">
       {view.vote && view.vote.kind === 'runit' && view.vote.status !== 'open' && (() => {
         const v = view.vote!;
         const times = String((v.payload as { times: number }).times);

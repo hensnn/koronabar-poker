@@ -753,6 +753,13 @@ export class TournamentManager {
     this.deps.onWallet?.(userId);
   }
 
+  /** Hráč při rozhodování o rebuy odmítá (např. si to během odpočtu automatické odpovědi rozmyslel): vypadne hned. */
+  async declineRebuy(userId: string, id: string): Promise<void> {
+    const { tour } = await this.actAs(userId, id, 'turnaj.hrat');
+    tour.declineDecision(userId);
+    this.deps.onWallet?.(userId);
+  }
+
   async declineAddon(userId: string, id: string): Promise<void> {
     const { tour } = await this.actAs(userId, id, 'turnaj.hrat');
     tour.declineAddon(userId);

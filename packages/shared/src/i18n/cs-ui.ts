@@ -93,6 +93,7 @@ export const csUi: Record<string, string> = {
   'table.runIt.resultNo': 'Run it twice zamítnuto: nesouhlasí {names}. Hraje se jednou.',
   'table.runIt.resultExpired': 'Run it twice: nestihl hlasovat {names}. Hraje se jednou.',
   'table.runIt.resultCancelled': 'Run it twice se nekoná. Hraje se jednou.',
+  'tournament.rebuyDecline': 'Odmítnout',
   'table.plan.auto': 'Automatické odpovědi',
   'table.plan.autoHelp': 'Předem si zvol, jak se odpoví na dotazy v turnaji. Dialog se ukáže s odpočtem a odpověď proběhne sama; do té doby ji můžeš přebít kliknutím. Platí jen pro tebe.',
   'table.plan.rebuy': 'Rebuy',
