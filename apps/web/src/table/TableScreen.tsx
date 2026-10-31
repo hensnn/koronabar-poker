@@ -621,6 +621,8 @@ function Seat({
   const acting = view.actingSeat === seat.seat;
   // Sit out (i ten, který začne po dohrání handy) musí být u stolu na první pohled vidět: šedé sedadlo a výrazný odznak.
   const out = seat.status === 'sittingOut' || seat.sitOut === true;
+  // Hráč, který se právě účastní handy (má karty a nesložil), je barevně zvýrazněný oproti složeným a sit outu.
+  const live = seat.hasCards && (seat.status === 'active' || seat.status === 'allIn') && !out;
   const dim = seat.status === 'folded' || seat.status === 'sittingOut' || seat.status === 'waiting';
   const oddsStyle = view.info.oddsStyle ?? 'both';
   const pct = oddsPct ? `${(oddsPct.win * 100).toFixed(view.info.oddsDecimals ?? 1)} %` : null;
@@ -635,7 +637,7 @@ function Seat({
   const voteBadge: 'yes' | 'no' | 'wait' | 'silent' | null = !runVote ? null : runVote.vote === true ? 'yes' : runVote.vote === false ? 'no' : view.vote?.status === 'open' ? 'wait' : 'silent';
   const status = seat.status === 'allIn' ? t('table.allIn') : seat.status === 'folded' ? t('table.fold') : seat.status === 'sittingOut' ? t('table.sittingOut') : seat.status === 'waiting' ? t('table.waiting') : null;
   return (
-    <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''}`}>
+    <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''} ${live ? 'tk-seat-live' : ''}`}>
       <div className="relative flex justify-center">
         <div
           className={`tk-seat-cards flex gap-1 ${frame.cls} ${hideMine ? 'cursor-pointer' : ''} ${seat.status === 'folded' ? 'tk-fold-away' : ''}`}

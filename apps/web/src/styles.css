@@ -608,6 +608,7 @@ h3,
   white-space: nowrap;
   text-shadow: none;
 }
+.tk-seat-live .tk-seat-name span { color: inherit; }
 /* Hráč v sit outu: šedé sedadlo a výrazný odznak (odznak zůstává plně čitelný). */
 .tk-seat-out { opacity: 1; }
 .tk-seat-out > *:not(.tk-dealer):not(.tk-straddle) { opacity: 0.5; filter: grayscale(0.85); }
@@ -636,7 +637,15 @@ h3,
   text-overflow: ellipsis;
 }
 .tk-seat-mine .tk-seat-name { font-size: 1.1rem; }
-.tk-seat-acting .tk-seat-name { color: var(--tk-color-turnGlow); }
+.tk-seat-acting .tk-seat-name { outline: 2px solid var(--tk-color-turnGlow); outline-offset: 1px; }
+/* Hráč v handě: jméno na barevném štítku (barva úspěchu); složený má jméno ztlumené a sit out šedé, takže je na první pohled vidět, kdo hraje. */
+.tk-seat-live .tk-seat-name {
+  padding: 0 calc(var(--spacing) * 2.5);
+  border-radius: 9999px;
+  background: var(--tk-color-success);
+  color: var(--tk-color-onPrimary);
+  text-shadow: none;
+}
 /* Stack je výrazný štítek (vlastní i soupeřův), aby se v něm dalo při hře snadno zorientovat. */
 .tk-seat-stack {
   font-family: var(--tk-font-mono);
