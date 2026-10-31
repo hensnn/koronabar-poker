@@ -80,6 +80,55 @@ describe('ukázání karet a rabbit hunt', () => {
     expect(m.actor.viewFor(null).seats.every((s) => s.exposed === undefined)).toBe(true);
   });
 
+  describe('ukázání karet složeným hráčem i po showdownu (special.showCardsFolded)', () => {
+    /** Tři hráči: první na tahu složí, zbylí dva dojdou do showdownu. */
+    function showdownWithFolder(over: Record<string, number | boolean | string>) {
+      const m = make({ 'special.showCards': true, ...over }, ['a', 'b', 'c']);
+      let folder: string | undefined;
+      for (let i = 0; i < 40 && m.actor.currentPhase() !== 'pause'; i++) {
+        const id = m.acting();
+        if (id) {
+          if (!folder) {
+            folder = id;
+            m.actor.act(id, { type: 'fold' });
+          } else {
+            const legal = m.actor.viewFor(id).legal!;
+            m.actor.act(id, { type: legal.canCheck ? 'check' : 'call' });
+          }
+        }
+        m.clock.advance(25);
+      }
+      for (let i = 0; i < 400 && m.actor.currentPhase() !== 'pause'; i++) m.clock.advance(25);
+      return { m, folder: folder! };
+    }
+
+    it('výchozí nastavení: po showdownu složený hráč karty ukázat nesmí', () => {
+      const { m, folder } = showdownWithFolder({});
+      expect(m.actor.currentPhase()).toBe('pause');
+      expect(m.actor.viewFor(null).info.showCardsFolded).toBe(false);
+      expect(() => m.actor.showCards(folder, 'both')).toThrow();
+    });
+
+    it('zapnuto: složený hráč smí po showdownu ukázat karty, ostatní je uvidí, hráč ze showdownu to stále nesmí', () => {
+      const { m, folder } = showdownWithFolder({ 'special.showCardsFolded': true });
+      expect(m.actor.currentPhase()).toBe('pause');
+      expect(m.actor.viewFor(null).info.showCardsFolded).toBe(true);
+      const other = ['a', 'b', 'c'].find((x) => x !== folder)!;
+      expect(m.actor.viewFor(other).seats.find((s) => s.playerId === folder)!.exposed).toBeUndefined();
+      m.actor.showCards(folder, 'both');
+      const seat = m.actor.viewFor(other).seats.find((s) => s.playerId === folder)!;
+      expect(seat.exposed!.every((c) => c !== null)).toBe(true);
+      // karty hráče, který byl ve showdownu, se tím neprozradí a on sám nic „ukazovat“ nemůže
+      expect(() => m.actor.showCards(other, 'both')).toThrow();
+    });
+
+    it('bez zapnutého ukázání karet (special.showCards) se nepovolí ani s tímto nastavením', () => {
+      const { m, folder } = showdownWithFolder({ 'special.showCards': false, 'special.showCardsFolded': true });
+      expect(m.actor.viewFor(null).info.showCardsFolded).toBe(false);
+      expect(() => m.actor.showCards(folder, 'both')).toThrow();
+    });
+  });
+
   it('vypnuté ukázání karet se nepovolí', () => {
     const off = make({ 'special.showCards': false });
     const f = foldOut(off);

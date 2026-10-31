@@ -555,6 +555,7 @@ export class TableActor {
         callClock: !!s['time.callClockEnabled'],
         timeBankMode: String(s['time.bankMode']),
         showCards: !!s['special.showCards'],
+        showCardsFolded: !!s['special.showCards'] && !!s['special.showCardsFolded'],
         rabbitHunt: !!s['special.rabbitHunt'],
         ante: num(s, 'table.ante') || (s['table.bbAnte'] ? bb : 0),
         bbAnte: !!s['table.bbAnte'],
@@ -825,7 +826,10 @@ export class TableActor {
   private showCardsOpen(): boolean {
     if (!this.opt.settings()['special.showCards'] || !this.hasHand()) return false;
     const h = this.adapter.state();
-    return h.finished && !wentToShowdown(h);
+    if (!h.finished) return false;
+    if (!wentToShowdown(h)) return true;
+    // Po showdownu smějí ukázat karty jen složení hráči a jen když to nastavení dovoluje.
+    return !!this.opt.settings()['special.showCardsFolded'] && h.players.some((p) => p.status === 'folded' && p.hole);
   }
 
   private scheduleNextHand(force = false, minDelayMs = 0): void {
@@ -1293,7 +1297,9 @@ export class TableActor {
       if (!s['special.showCards']) throw new GameError('NOT_ALLOWED');
       const h = this.finishedHandForExtras();
       const p = h.players.find((x) => x.playerId === userId);
-      if (!p?.hole || wentToShowdown(h)) throw new GameError('NOT_ALLOWED');
+      if (!p?.hole) throw new GameError('NOT_ALLOWED');
+      // Po showdownu jen složený hráč a jen když to nastavení dovoluje.
+      if (wentToShowdown(h) && !(s['special.showCardsFolded'] && p.status === 'folded')) throw new GameError('NOT_ALLOWED');
       const cur = this.shown.get(p.seat) ?? [null, null];
       const next: (Card | null)[] = [which === 'both' || which === 0 ? p.hole[0] : cur[0]!, which === 'both' || which === 1 ? p.hole[1] : cur[1]!];
       this.shown.set(p.seat, next);

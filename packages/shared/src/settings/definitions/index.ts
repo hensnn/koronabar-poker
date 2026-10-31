@@ -564,6 +564,7 @@ const special: SettingDef[] = [
   bool('special.rabbitHunt', { category: 'special', mutability: H, retroDefault: false }, false),
   bool('special.muckAllowed', { category: 'special', mutability: A, retroDefault: false }, true),
   bool('special.showCards', { category: 'special', mutability: A, retroDefault: false }, true),
+  bool('special.showCardsFolded', { category: 'special', mutability: A, dependsOn: { key: 'special.showCards', truthy: true } }, false),
   int('special.rabbitHuntSeconds', { category: 'special', mutability: A, unit: 's', dependsOn: { key: 'special.rabbitHunt', truthy: true } }, 8, 0, 60),
   choice('special.rabbitHuntWho', { category: 'special', mutability: H, dependsOn: { key: 'special.rabbitHunt', truthy: true } }, 'participants', ['participants', 'anyone']),
   bool('special.sevenTwoNeedsShowdown', { category: 'special', mutability: H, dependsOn: { key: 'special.sevenTwoBonus', truthy: true } }, true),

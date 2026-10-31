@@ -141,6 +141,8 @@ export interface TableInfo {
   timeBankMode?: string;
   /** Po handě lze ukázat karty / vyžádat rabbit hunt. */
   showCards?: boolean;
+  /** Smí karty po showdownu ukázat i hráč, který složil a do showdownu nedošel. */
+  showCardsFolded?: boolean;
   rabbitHunt?: boolean;
   /** Rake u tohoto stolu (průhlednost pro hráče); chybí, když se nevybírá. */
   rake?: { percent: number; capChips: number; noFlopNoDrop: boolean };

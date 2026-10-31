@@ -229,7 +229,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const shownSeat = hoverSeat ?? pinnedSeat;
   const hovered = shownSeat !== null ? view.seats.find((s) => s.seat === shownSeat) : undefined;
   // Co lze po handě ukázat (widget „Ukázat karty“ se ukazuje jen, když je co).
-  const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && !view.seats.some((s) => s.playerId !== userId && s.cards));
+  const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && (!view.seats.some((s) => s.playerId !== userId && s.cards) || (info.showCardsFolded && mine.status === 'folded')));
   const canCallClock = !!(mine && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled);
   // Plovoucí lišta „Ukázat karty“ (pravý dolní roh stolu): jen když je co ukázat; výherce s volbou „zahodit“ ji nevidí, už ukázané karty ji zavřou.
   const iWon = !!(mine && view.winners?.some((w) => w.seat === mine.seat));

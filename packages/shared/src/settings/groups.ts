@@ -8,7 +8,7 @@ export function groupOf(key: string, category: string): SpecialGroup | null {
   const rules: [RegExp, SpecialGroup][] = [
     [/^special\.runIt/, 'runIt'],
     [/^special\.rabbit/, 'rabbit'],
-    [/^special\.(muckAllowed|showCards)$/, 'showdown'],
+    [/^special\.(muckAllowed|showCards|showCardsFolded)$/, 'showdown'],
     [/^special\.sevenTwo/, 'sevenTwo'],
     [/^special\.bombPot/, 'bombPot'],
     [/^jackpot\.highHand/, 'highHand'],

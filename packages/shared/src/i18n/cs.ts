@@ -313,6 +313,8 @@ export const cs: Record<string, string> = {
   'settings.special.rabbitHunt.help': 'Po skončení handy ukázat, jaké karty by přišly.',
   'settings.special.showCards.label': 'Ukázání karet',
   'settings.special.showCards.help': 'Hráč může po foldu nebo vyhrané handě bez showdownu ukázat karty.',
+  'settings.special.showCardsFolded.label': 'Ukázání karet i po showdownu (složení hráči)',
+  'settings.special.showCardsFolded.help': 'Hráč, který složil a do showdownu nedošel, smí po skončené handě ukázat karty, i když se hand dohrála do showdownu. Čas na ukázání (Čas na ukázání karet) se pak přidá i po showdownu.',
   'settings.special.sevenTwoBonus.label': '7-2 bonus',
   'settings.special.sevenTwoBonus.help': 'Kdo vyhraje handu se sedmou a dvojkou (různých barev), dostane bonus od ostatních hráčů v handě. Platí jen u cash game, v turnaji se nepoužije.',
   'settings.special.sevenTwoAmountBb.label': 'Výše 7-2 bonusu',
