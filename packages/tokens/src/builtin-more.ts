@@ -4,7 +4,7 @@ const v = (id: string, light: Record<string, string>, dark: Record<string, strin
 
 /** Další vestavěné motivy: Kasino, Noční, Minimalistický, Retro. */
 export const MORE_THEMES: Theme[] = [
-  // Červený salon: v duchu klasických desktopových heren (červené plátno s tmavým okrajem, šedé okolí, velké indexy karet).
+  // Červený salon: v duchu klasických desktopových heren (červené plátno s tmavým okrajem, šedé okolí, velké indexy karet; velikost karet jako u ostatních motivů).
   v(
     'red-salon',
     {
@@ -19,7 +19,6 @@ export const MORE_THEMES: Theme[] = [
       'color.onPrimary': '#ffffff',
       'cards.style': 'bigIndex',
       'cards.back': 'solid',
-      'size.cardWidth': '64px',
       'table.vignetteSize': '140px',
       'table.edgeWidth': '10px',
       'timer.style': 'bar',
@@ -36,7 +35,6 @@ export const MORE_THEMES: Theme[] = [
       'color.onPrimary': '#1a0d0d',
       'cards.style': 'bigIndex',
       'cards.back': 'solid',
-      'size.cardWidth': '64px',
       'table.vignetteSize': '140px',
       'table.edgeWidth': '10px',
       'timer.style': 'bar',
