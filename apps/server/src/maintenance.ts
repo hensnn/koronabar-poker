@@ -37,6 +37,8 @@ interface Deps {
   idle: () => Promise<void>;
   history: () => HistoryService;
   chatImages: () => ChatImages;
+  /** Po smazání herních večerů znovu načte, který večer je právě otevřený. */
+  refreshEvenings: () => Promise<void>;
   /** Hlavní administrátor (smí úplný reset; hlavní administrátory nelze smazat). */
   isMainAdmin: (userId: string) => boolean;
   /** Po smazání účtů znovu načte role a přiřazení v paměti. */
@@ -184,6 +186,14 @@ export class MaintenanceService {
     };
   }
 
+  /** Smaže herní večery (otevřené i uzavřené; zařazení her zmizí kaskádou), volitelně jen od data. */
+  private async purgeEvenings(since?: Date): Promise<number> {
+    const db = this.deps.db;
+    const rows = await (since ? db.delete(schema.evenings).where(gte(schema.evenings.startsAt, since)) : db.delete(schema.evenings)).returning({ id: schema.evenings.id });
+    await this.deps.refreshEvenings();
+    return rows.length;
+  }
+
   /** Počet otevřených stolů a běžících turnajů. */
   private openGames(): number {
     const tournaments = this.deps.tournaments();
@@ -235,6 +245,7 @@ export class MaintenanceService {
       }
       done.historyItems = n;
     }
+    if (areas.games || areas.history) done.evenings = (done.evenings ?? 0) + (await this.purgeEvenings(since));
     if (areas.stats) {
       const handIds = (await db.select({ id: schema.hands.id }).from(schema.hands).where(gte(schema.hands.playedAt, since))).map((h) => h.id);
       if (handIds.length > 0) await db.delete(schema.sharedHands).where(inArray(schema.sharedHands.handId, handIds));
@@ -315,6 +326,7 @@ export class MaintenanceService {
     }
     await this.deps.idle();
     const db = this.deps.db;
+    if (areas.games) done.evenings = await this.purgeEvenings();
     if (areas.xp) {
       done.xpEvents = await this.count(schema.xpEvents);
       await db.delete(schema.xpEvents);
@@ -422,6 +434,7 @@ export class MaintenanceService {
       }
       done.historyItems = n;
     }
+    if (o.games || o.history) done.evenings = (done.evenings ?? 0) + (await this.purgeEvenings());
     if (o.chat) {
       done.chatMessages = await this.count(schema.chatMessages);
       await db.delete(schema.chatMessages);

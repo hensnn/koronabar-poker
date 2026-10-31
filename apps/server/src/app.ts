@@ -1062,6 +1062,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     tournaments: () => tournamentsRef.current!,
     history: () => historyRef.current!,
     chatImages: () => chatImages,
+    refreshEvenings: () => eveningRef.refreshOpen(),
     isMainAdmin: (id) => perms.mainAdminIds().includes(id),
     reloadPerms: () => perms.reload(),
     purgeFiles: async () => {

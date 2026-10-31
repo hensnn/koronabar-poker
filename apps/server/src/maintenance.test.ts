@@ -129,6 +129,10 @@ describe('údržba: příprava na ostrý provoz', () => {
     // zkušební stůl: hotový (zavřený) i s handami z historie
     const { id } = await s.server.tables.createTable(s.admin, { name: 'Zkušební', templateId: 'cash-klasika' });
     await s.server.tables.closeTable(s.admin, id);
+    // zbylý otevřený herní večer se hrou (v historii se neukazuje, přesto musí zmizet)
+    const open = await s.server.evenings.create(s.admin, 'Zkušební večer');
+    await s.server.evenings.addGame(s.admin, open.id, 'cash', id);
+    expect(s.server.evenings.currentStart()).not.toBeNull();
     const before = await s.server.maintenance.counts(s.admin);
     expect(before.chatMessages).toBeGreaterThanOrEqual(3);
     expect(before.notifications).toBe(1);
@@ -142,6 +146,10 @@ describe('údržba: příprava na ostrý provoz', () => {
     expect(done.chatMessages).toBeGreaterThanOrEqual(3);
     expect(done.notifications).toBe(1);
     expect(done.wallets).toBe(2);
+    expect(done.evenings).toBe(1);
+    expect(await s.server.db.select().from(schema.evenings)).toHaveLength(0);
+    expect(await s.server.db.select().from(schema.eveningGames)).toHaveLength(0);
+    expect(s.server.evenings.currentStart()).toBeNull();
 
     const after = await s.server.maintenance.counts(s.admin);
     expect(after).toMatchObject({ chatMessages: 0, chatImages: 0, notifications: 0, historyItems: 0, walletsNonZero: 0, walletsTotal: 0 });
