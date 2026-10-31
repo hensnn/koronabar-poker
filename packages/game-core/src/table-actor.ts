@@ -555,6 +555,7 @@ export class TableActor {
         callClock: !!s['time.callClockEnabled'],
         timeBankMode: String(s['time.bankMode']),
         showCards: !!s['special.showCards'],
+        winImpact: { mediumBb: num(s, 'table.winImpactMediumBb'), bigBb: num(s, 'table.winImpactBigBb') },
         showCardsFolded: !!s['special.showCards'] && !!s['special.showCardsFolded'],
         rabbitHunt: !!s['special.rabbitHunt'],
         ante: num(s, 'table.ante') || (s['table.bbAnte'] ? bb : 0),

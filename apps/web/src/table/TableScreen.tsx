@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { onSocket } from '../net';
 import { RankBadge } from '../progress-client';
 import { useSettings } from '../settings';
+import { useRollingNumber } from './rolling';
+import { chipLeaderOf } from './chip-leader';
 import { NoteDialog, NoteDot } from '../pages/notes';
 import type { SoundPlayEvent } from '../sound-client';
 import type { SeatView, TableView } from '@kb/game-core';
@@ -33,7 +35,7 @@ import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
 import { TableFx, useTableNotices, useTournamentFx } from './fx';
 import { useTableSize } from './size';
-import { DealButton, EntryActions } from './InfoCard';
+import { DealButton, EntryActions, useTournamentInfo } from './InfoCard';
 import { ShowdownPrefs } from './TablePanel';
 
 interface Props {
@@ -84,6 +86,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const rotate = useSettings().values['ui.rotateToMe'] !== false;
   const runItPref = String(useSettings().values['ui.runItResponse'] ?? 'ask');
   const winnerPref = String(useSettings().values['ui.showdownWinning'] ?? 'never');
+  const winImpactPref = String(useSettings().values['ui.winImpact'] ?? 'full');
   const mobile = useMobileLayout();
   const betChips = useSettings().values['ui.betChips'] !== false;
   // Pohyb žetonů: konec ulice (sázky do potu) a konec handy (pot k výherci); polohy se počítají jako u sedadel a sázek.
@@ -176,6 +179,10 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const [hoverSeat, setHoverSeat] = useState<number | null>(null);
   // Klepnutí (dotyk) na hráče kartu připne; zavře se klepnutím mimo hráče nebo znovu na něj.
   const fx = useTournamentFx(tournamentId, view);
+  // Chipleader turnaje: kdo má nejvíc žetonů ze všech stolů (jednoznačně a při aspoň třech hráčích ve hře); u stolu má u jména korunu.
+  const tourInfo = useTournamentInfo(tournamentId);
+  const crownOn = useSettings().values['ui.chipLeaderCrown'] !== false;
+  const leaderId = crownOn ? chipLeaderOf(tourInfo?.standings) : null;
   const notices = useTableNotices(tableId);
   const waitInfo = useSettings().values['ui.tableWaitInfo'] !== false;
   const roomSize = useTableSize();
@@ -230,6 +237,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const hovered = shownSeat !== null ? view.seats.find((s) => s.seat === shownSeat) : undefined;
   // Co lze po handě ukázat (widget „Ukázat karty“ se ukazuje jen, když je co).
   const winSet = winningCards(view);
+  const bigWin = winImpactPref === 'full' && !!view.winners && !!view.info.winImpact && view.winners.some((w) => w.amount >= view.info.winImpact!.bigBb * view.info.bigBlind);
   const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && (!view.seats.some((s) => s.playerId !== userId && s.cards) || (info.showCardsFolded && mine.status === 'folded')));
   const canCallClock = !!(mine && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled);
   // Plovoucí lišta „Ukázat karty“ (pravý dolní roh stolu): jen když je co ukázat; výherce s volbou „zahodit“ ji nevidí, už ukázané karty ji zavřou.
@@ -260,7 +268,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           </div>
         )}
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
-        <div ref={tableEl} className="tk-table relative mx-auto">
+        <div ref={tableEl} className="tk-table relative mx-auto" data-impact={bigWin ? 'big' : undefined}>
           {/* střed: board, pot, hlášky */}
           <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
@@ -350,7 +358,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
               // Sedadlo s bublinou nebo štítkem musí ležet nad sousedními sedadly i nad sázkami (každé sedadlo je vlastní vrstva).
               <div key={n} data-seat-wrap className="absolute -translate-x-1/2 -translate-y-1/2" onClick={seat ? () => setPinnedSeat((p) => (p === n ? null : n)) : undefined} onMouseEnter={seat ? () => setHoverSeat(n) : undefined} onMouseLeave={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} onFocus={seat ? () => setHoverSeat(n) : undefined} onBlur={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
                 {seat ? (
-                  <Seat seat={seat} view={view} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} onShowCard={seat.playerId === userId && showBar ? (i) => void run(table.show(tableId, i)) : undefined} />
+                  <Seat seat={seat} view={view} chipLeader={seat.playerId === leaderId} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} onShowCard={seat.playerId === userId && showBar ? (i) => void run(table.show(tableId, i)) : undefined} />
                 ) : info.tournament ? null : (
                   <button className="tk-seat-empty" disabled={seated} onClick={() => setDialog({ kind: 'join', seat: n })}>
                     {t('table.sit')}
@@ -590,8 +598,11 @@ function Seat({
   dealTo,
   bubbleSide,
   onShowCard,
+  chipLeader = false,
 }: {
   seat: SeatView;
+  /** Hráč má v turnaji nejvíc žetonů (koruna u jména). */
+  chipLeader?: boolean;
   /** Klepnutí na vlastní kartu ji ukáže (jen když je ukázání karet právě možné). */
   onShowCard?: (i: 0 | 1) => void;
   view: TableView;
@@ -625,6 +636,11 @@ function Seat({
   const out = seat.status === 'sittingOut' || seat.sitOut === true;
   // Hráč, který se právě účastní handy (má karty a nesložil), je barevně zvýrazněný oproti složeným a sit outu.
   const live = seat.hasCards && (seat.status === 'active' || seat.status === 'allIn') && !out;
+  // Dopad výhry: plynulé přičtení stacku vítěze a podle velikosti potu vlna u sedadla (nastavení ui.winImpact a prahy v hodnotách big blindu).
+  const winImpact = String(userSettings['ui.winImpact'] ?? 'full');
+  const wonBb = won && view.info.bigBlind > 0 ? won.amount / view.info.bigBlind : 0;
+  const tier = !won || winImpact !== 'full' || !view.info.winImpact ? null : wonBb >= view.info.winImpact.bigBb ? 'big' : wonBb >= view.info.winImpact.mediumBb ? 'medium' : null;
+  const stackShown = useRollingNumber(seat.stack, !!won && winImpact !== 'off', 900);
   const dim = seat.status === 'folded' || seat.status === 'sittingOut' || seat.status === 'waiting';
   const oddsStyle = view.info.oddsStyle ?? 'both';
   const pct = oddsPct ? `${(oddsPct.win * 100).toFixed(view.info.oddsDecimals ?? 1)} %` : null;
@@ -639,8 +655,8 @@ function Seat({
   const voteBadge: 'yes' | 'no' | 'wait' | 'silent' | null = !runVote ? null : runVote.vote === true ? 'yes' : runVote.vote === false ? 'no' : view.vote?.status === 'open' ? 'wait' : 'silent';
   const status = seat.status === 'allIn' ? t('table.allIn') : seat.status === 'folded' ? t('table.fold') : seat.status === 'sittingOut' ? t('table.sittingOut') : seat.status === 'waiting' ? t('table.waiting') : null;
   return (
-    <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''} ${live ? 'tk-seat-live' : ''}`}>
-      <div className="relative flex justify-center">
+    <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''} ${live ? 'tk-seat-live' : ''} ${tier ? `tk-impact-${tier}` : ''}`}>
+      <div className="tk-seat-stage relative flex justify-center">
         <div
           className={`tk-seat-cards flex gap-1 ${frame.cls} ${hideMine ? 'cursor-pointer' : ''} ${seat.status === 'folded' ? 'tk-fold-away' : ''}`}
           title={hideMine ? t('table.peek') : undefined}
@@ -707,12 +723,17 @@ function Seat({
       <div className="tk-seat-name" title={out ? (seat.status === 'sittingOut' ? t('table.sittingOut') : t('table.sitOutPending')) : undefined}>
         {out && <span aria-hidden="true">⏸</span>}
         {showRank && <RankBadge userId={seat.playerId} />}
+        {chipLeader && (
+          <span className="tk-crown" role="img" aria-label={t('table.chipLeader')} title={t('table.chipLeader')}>
+            👑
+          </span>
+        )}
         <LookName userId={seat.playerId}>{seat.name}</LookName>
         {!mine && <NoteDot userId={seat.playerId} onOpen={() => setNoteOpen(true)} />}
       </div>
       {noteOpen && <NoteDialog userId={seat.playerId} nickname={seat.name} onClose={() => setNoteOpen(false)} />}
       <div className="tk-seat-stack">
-        <Amount amount={seat.stack} text={formatAmount(seat.stack, view.info, inBb)} />
+        <Amount amount={stackShown} text={formatAmount(stackShown, view.info, inBb)} />
         {seat.hasCards && status && <span className="ml-1 text-xs opacity-80">{status}</span>}
       </div>
       {acting && <TimerBar deadline={view.deadline} offset={offset} bank={view.bankActive} />}

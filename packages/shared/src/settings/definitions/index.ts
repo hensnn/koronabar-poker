@@ -45,6 +45,8 @@ const USER = ['global', 'user', 'userDevice'] as const;
 /** Parametry stolu. */
 const table: SettingDef[] = [
   int('table.seats', { category: 'table', mutability: S }, 9, 2, 10),
+  int('table.winImpactMediumBb', { category: 'table', mutability: A, unit: 'BB' }, 20, 1, 100_000),
+  int('table.winImpactBigBb', { category: 'table', mutability: A, unit: 'BB' }, 100, 1, 100_000),
   choice('table.variant', { category: 'table', mutability: S }, 'nlhe', ['nlhe']),
   choice('table.bettingLimit', { category: 'table', mutability: S }, 'noLimit', [
     'noLimit',
@@ -743,6 +745,8 @@ const ui: SettingDef[] = [
   bool('ui.showChipLabelAtTable', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.rotateToMe', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.hideMyCards', { category: 'ui', mutability: A, scopes: USER }, false),
+  bool('ui.chipLeaderCrown', { category: 'ui', mutability: A, scopes: USER }, true),
+  choice('ui.winImpact', { category: 'ui', mutability: A, scopes: USER }, 'full', ['off', 'subtle', 'full']),
   int('ui.mobileTableAspect', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 115, 100, 200),
   bool('ui.hotkeysEnabled', { category: 'ui', mutability: A, scopes: USER }, true),
   text('ui.hotkeyFold', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'f', 1),

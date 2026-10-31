@@ -141,6 +141,8 @@ export interface TableInfo {
   timeBankMode?: string;
   /** Po handě lze ukázat karty / vyžádat rabbit hunt. */
   showCards?: boolean;
+  /** Od kolika big blindů výhry je „střední“ a „velká“ (animace dopadu výhry). */
+  winImpact?: { mediumBb: number; bigBb: number };
   /** Smí karty po showdownu ukázat i hráč, který složil a do showdownu nedošel. */
   showCardsFolded?: boolean;
   rabbitHunt?: boolean;
