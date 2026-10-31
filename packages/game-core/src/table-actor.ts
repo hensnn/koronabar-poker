@@ -66,6 +66,8 @@ export type TableEvent =
       /** Jen pro server (statistiky, historie): skryté karty a výsledek každého hráče. Nikdy se neposílá klientům. */
       record: HandRecordData;
     }
+  /** Handa je úplně dohraná: po showdownu, dokládání boardu (run it twice), přesunu potu i po čase na ukázání karet a rabbit hunt. */
+  | { type: 'handFinished'; handId: string }
   | { type: 'moduleError'; moduleId: string; hook: string; message: string }
   | { type: 'clockCalled'; by: string; target: string }
   | { type: 'bonus'; kind: 'sevenTwo'; userId: string; amount: number }
@@ -359,8 +361,9 @@ export class TableActor {
   }
 
   /** Pozastaví rozdávání dalších hand (přestávka, pauza). Rozehraná handa se dohraje. */
-  hold(): void {
-    if (!this.held) {
+  hold(fresh = false): void {
+    // `fresh`: odpočet minimální doby před „Jsem ready“ se počítá znovu od teď (přestávka začala až po dohrání handy, hold platil už dřív).
+    if (!this.held || fresh) {
       this.heldSince = this.opt.clock.now();
       this.ready.clear();
     }
@@ -1770,8 +1773,18 @@ export class TableActor {
     this.pipeline.run('onHandEnd', this.moduleCtx(), this.handState());
     this.phase = 'pause';
     this.persistBoundaryState();
+    // Handa je dohraná až po čase na ukázání karet a na rabbit hunt: teprve pak smí turnaj začít přestávku nebo nabídnout add-on.
+    // Časovač se zakládá před plánováním další handy, aby při stejném čase přišel dřív než její rozdání.
+    const s = this.opt.settings();
+    const handId = this.handState().handId;
+    let wait = 0;
+    if (this.showCardsOpen()) wait = Math.max(wait, this.scaled(num(s, 'time.showCardsMs')));
+    if (this.rabbitOpen()) wait = Math.max(wait, this.scaled(num(s, 'special.rabbitHuntSeconds') * 1000));
+    const done = () => this.opt.onEvent?.({ type: 'handFinished', handId });
+    if (wait > 0) this.later(wait, done);
     this.scheduleNextHand(true);
     this.changed();
+    if (wait <= 0) done();
   }
 
   private persistBoundaryState(): void {

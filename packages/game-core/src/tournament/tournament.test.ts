@@ -203,7 +203,9 @@ describe('turnaj: registrace a peníze', () => {
       expect(h.tour.levelNumber()).toBeGreaterThan(2); // level skončil uprostřed handy
       expect(h.tour.addonOfferUntil()).toBeNull(); // nabídka se zatím neukazuje
       h.tour.onTableEvent({ type: 'handEnd', handId: 'h1', board: [], winners: [], showdown: false, record: {} } as never);
-      expect(h.tour.addonOfferUntil()).not.toBeNull(); // po konci handy se nabídne
+      expect(h.tour.addonOfferUntil()).toBeNull(); // výsledek je znám, ale handa se ještě dokládá (run it twice, rabbit hunt…)
+      h.tour.onTableEvent({ type: 'handFinished', handId: 'h1' } as never);
+      expect(h.tour.addonOfferUntil()).not.toBeNull(); // až po úplném dohrání handy se nabídne
       expect(h.tour.addonOffered('u1')).toBe(true);
     });
 
@@ -939,6 +941,60 @@ describe('turnaj: dohoda (deal)', { timeout: 300_000 }, () => {
   });
 });
 
+describe('turnaj: odložená přestávka (ruční události stolu)', () => {
+  const setup = (over: Record<string, number | boolean | string> = {}) => {
+    const h = harness({ 'tournament.structure': '10/20, 20/40, 30/60', 'tournament.breakEveryLevels': 1, 'tournament.breakMinutes': 3, ...over }, 3);
+    registerAll(h);
+    h.tour.start();
+    h.table.stop(); // jen ruční události níže
+    h.tour.onTableEvent({ type: 'handStart', handId: 'h1', handNumber: 1, buttonSeat: 0, players: [] } as never);
+    return h;
+  };
+
+  it('level skončí uprostřed handy: přestávka nezačne ani po handEnd, až po handFinished', () => {
+    const h = setup();
+    h.clock.advance(60_000 + 10);
+    expect(h.tour.state().onBreak).toBe(false);
+    expect(h.tour.state().breakPending).toBe(true);
+    h.tour.onTableEvent({ type: 'handEnd', handId: 'h1', board: [], winners: [], showdown: true, record: {} } as never);
+    expect(h.tour.state().onBreak).toBe(false); // handa se ještě dokládá
+    h.tour.onTableEvent({ type: 'handFinished', handId: 'h1' } as never);
+    expect(h.tour.state().onBreak).toBe(true);
+    expect(h.tour.state().breakPending).toBe(false);
+    expect(h.events.some((e) => e.type === 'break')).toBe(true);
+  });
+
+  it('přestávka i nabídka add-onu se spustí společně až po konci handy (nejdřív add-on, pak přestávka)', () => {
+    const h = setup({ 'tournament.addonEnabled': true, 'tournament.addonMode': 'offer', 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 1, 'tournament.addonOfferSeconds': 30, 'tournament.addonCost': 50, 'tournament.addonChips': 500 });
+    h.clock.advance(60_000 + 10);
+    expect(h.tour.addonOfferUntil()).toBeNull();
+    expect(h.tour.state().onBreak).toBe(false);
+    h.tour.onTableEvent({ type: 'handFinished', handId: 'h1' } as never);
+    expect(h.tour.addonOfferUntil()).not.toBeNull();
+    expect(h.tour.state().onBreak).toBe(true);
+  });
+
+  it('nedohraná handa (pojistka): přestávka začne po nastavené době', () => {
+    const h = setup({ 'tournament.addonOfferMaxWaitSeconds': 45 });
+    h.clock.advance(60_000 + 10);
+    expect(h.tour.state().onBreak).toBe(false);
+    h.clock.advance(46_000);
+    expect(h.tour.state().onBreak).toBe(true);
+  });
+
+  it('bez rozehrané handy začne přestávka hned', () => {
+    const h = setup();
+    h.tour.onTableEvent({ type: 'handFinished', handId: 'h1' } as never);
+    h.clock.advance(60_000 + 10);
+    expect(h.tour.state().onBreak).toBe(true);
+  });
+});
+
+/** Posouvá hodiny po vteřině, dokud neplatí podmínka (přestávka začne až po dohrání rozehrané handy, takže o pár vteřin později než hodiny levelu). */
+const advanceUntil = (h: Harness, cond: () => boolean, maxSeconds = 300) => {
+  for (let i = 0; i < maxSeconds && !cond(); i++) h.clock.advance(1000);
+};
+
 describe('turnaj: hodiny a přestávky', () => {
   it('level roste podle času, přestávka zastaví rozdávání a hodiny, pauza zmrazí čas', () => {
     const h = harness({ 'tournament.structure': '10/20, 20/40, 30/60, 40/80', 'tournament.breakEveryLevels': 2, 'tournament.breakMinutes': 3 }, 3);
@@ -949,14 +1005,14 @@ describe('turnaj: hodiny a přestávky', () => {
     h.clock.advance(60_000);
     expect(h.tour.levelNumber()).toBe(2);
     expect(h.tableBlinds()).toEqual([20, 40]);
-    // konec 2. levelu = přestávka (rozdávání stojí, level se nemění)
-    h.clock.advance(60_000);
+    // konec 2. levelu = přestávka (rozdávání stojí, level se nemění); začne po dohrání rozehrané handy
+    advanceUntil(h, () => h.tour.state().onBreak);
     expect(h.tour.state().onBreak).toBe(true);
     expect(h.tour.levelNumber()).toBe(2);
     const startsBefore = h.handStarts.length;
     h.clock.advance(2 * 60_000);
     expect(h.handStarts.length).toBeLessThanOrEqual(startsBefore + 1);
-    h.clock.advance(60_000 + 100);
+    advanceUntil(h, () => !h.tour.state().onBreak);
     expect(h.tour.state().onBreak).toBe(false);
     expect(h.tour.levelNumber()).toBe(3);
     // pauza zmrazí hodiny
@@ -968,9 +1024,9 @@ describe('turnaj: hodiny a přestávky', () => {
     h.clock.advance(left + 10);
     expect(h.tour.levelNumber()).toBe(4);
     // konec 4. levelu = přestávka (i za posledním zadaným levelem); pak se blindy dál zdvojnásobují (turnaj se vždy dohraje)
-    h.clock.advance(60_000 + 10);
+    advanceUntil(h, () => h.tour.state().onBreak);
     expect(h.tour.state().onBreak).toBe(true);
-    h.clock.advance(3 * 60_000 + 10);
+    advanceUntil(h, () => h.tour.levelNumber() >= 5);
     expect(h.tour.levelNumber()).toBe(5);
     expect(h.tour.currentLevel()).toEqual({ smallBlind: 80, bigBlind: 160, ante: 0 });
     expect(h.tableBlinds()).toEqual([80, 160]);
@@ -980,9 +1036,9 @@ describe('turnaj: hodiny a přestávky', () => {
     const h = harness({ 'tournament.structure': '10/20, 20/40, 30/60, 40/80, 50/100', 'tournament.breakEveryLevels': 2, 'tournament.breakMinutes': 3, 'tournament.breakRepeat': false }, 3);
     registerAll(h);
     h.tour.start();
-    h.clock.advance(2 * 60_000 + 10);
+    advanceUntil(h, () => h.tour.state().onBreak);
     expect(h.tour.state().onBreak).toBe(true);
-    h.clock.advance(3 * 60_000 + 10);
+    advanceUntil(h, () => h.tour.levelNumber() >= 3);
     expect(h.tour.levelNumber()).toBe(3);
     h.clock.advance(2 * 60_000 + 10);
     expect(h.tour.state().onBreak).toBe(false);
@@ -1064,3 +1120,82 @@ describe('turnaj: nové volby rebuy a add-onu (simulace s boty)', { timeout: 300
     });
   });
 });
+
+describe('turnaj: přestávka a nabídka add-onu až po úplném dohrání handy', () => {
+  /** Rozehraje turnaj po malých krocích a zaznamená, v jaké fázi stolu začala přestávka a otevřela se nabídka add-onu. */
+  async function watch(over: Record<string, number | boolean | string>, seed: number, steps = 6000) {
+    const h = harness(
+      {
+        'tournament.structure': '10/20, 20/40, 40/80, 80/160, 160/320, 320/640',
+        'tournament.startingStack': 4000,
+        'tournament.rebuyEnabled': true,
+        'tournament.rebuyUntilLevel': 6,
+        'tournament.rebuyMax': 20,
+        'tournament.rebuyCost': 100,
+        'tournament.rebuyChips': 1000,
+        'tournament.breakEveryLevels': 1,
+        'tournament.breakMinutes': 1,
+        'tournament.addonEnabled': true,
+        'tournament.addonMode': 'both',
+        'tournament.addonFromLevel': 1,
+        'tournament.addonUntilLevel': 1,
+        'tournament.addonOfferSeconds': 20,
+        'tournament.addonCost': 100,
+        'tournament.addonChips': 300,
+        'special.runItTwice': true,
+        'special.runItVoteSeconds': 2,
+        'special.rabbitHunt': true,
+        'special.rabbitHuntSeconds': 3,
+        'time.runItDelayMs': 400,
+        'time.showdownMs': 600,
+        'time.potToWinnerMs': 400,
+        ...over,
+      },
+      6,
+      seed,
+    );
+    for (const u of h.users) h.tour.register(u, u);
+    h.tour.start();
+    const rnd = seededRandom(seed);
+    const bad: string[] = [];
+    let wasBreak = false;
+    let hadOffer = false;
+    let breaks = 0;
+    let offers = 0;
+    for (let i = 0; i < steps && h.tour.state().status === 'running'; i++) {
+      const v = h.table.viewFor(null);
+      if (h.table.currentPhase() === 'hand' && v.actingSeat !== null) {
+        const p = v.seats.find((x) => x.seat === v.actingSeat)!;
+        const legal = h.table.viewFor(p.playerId).legal;
+        if (legal) h.table.act(p.playerId, randomLegalAction(legal, rnd));
+      }
+      for (const p of h.tour.state().players) if (p.status === 'deciding') tryIt(() => h.tour.rebuy(p.userId));
+      h.clock.advance(50 + Math.floor(rnd() * 250));
+      await Promise.resolve();
+      const phase = h.table.currentPhase();
+      const mid = phase === 'hand' || phase === 'runout' || !!h.table.viewFor(null).choice || !!h.table.viewFor(null).vote;
+      const onBreak = h.tour.state().onBreak;
+      if (onBreak && !wasBreak) {
+        breaks++;
+        if (mid) bad.push(`přestávka začala za běhu handy (fáze ${phase}, krok ${i})`);
+      }
+      wasBreak = onBreak;
+      const offer = h.tour.addonOfferUntil() !== null;
+      if (offer && !hadOffer) {
+        offers++;
+        if (mid) bad.push(`nabídka add-onu se otevřela za běhu handy (fáze ${phase}, krok ${i})`);
+      }
+      hadOffer = offer;
+    }
+    return { h, bad, breaks, offers };
+  }
+
+  for (const seed of [3, 7, 11, 21]) {
+    it(`seed ${seed}: přestávka ani nabídka add-onu nezačne, dokud se hraje handa (all-in, run it twice, showdown)`, async () => {
+      const { bad, breaks } = await watch({}, seed);
+      expect(breaks).toBeGreaterThan(0);
+      expect(bad).toEqual([]);
+    });
+  }
+});
+

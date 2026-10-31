@@ -211,3 +211,41 @@ describe('settleRuns (čistý výpočet)', () => {
     expect(extraBoards(first, 0, deck.slice(0, 4), 2)).toBeNull();
   });
 });
+
+describe('událost handFinished (handa je úplně dohraná)', () => {
+  const finishedAt = (m: ReturnType<typeof make>) => m.events.filter((e) => e.type === 'handFinished').length;
+  const endedAt = (m: ReturnType<typeof make>) => m.events.filter((e) => e.type === 'handEnd').length;
+
+  it('run it twice: handFinished až po dokládání všech běhů a přesunu potu, ne při výsledku hlasování', () => {
+    const m = make({ 'special.runItTwice': true, 'time.runItResultMs': 500 }, ['a', 'b']);
+    m.allIn();
+    m.actor.voteRunIt('a', true);
+    m.actor.voteRunIt('b', true);
+    // během hlasování a pauzy s výsledkem ani během běhů handa není dohraná
+    for (let i = 0; i < 400 && m.actor.currentPhase() !== 'pause'; i++) {
+      expect(finishedAt(m)).toBe(0);
+      m.clock.advance(25);
+    }
+    expect(m.actor.currentPhase()).toBe('pause');
+    // po zobrazení výsledku ještě běží přesun potu k výherci
+    for (let i = 0; i < 200 && finishedAt(m) === 0; i++) m.clock.advance(25);
+    expect(endedAt(m)).toBe(1);
+    expect(finishedAt(m)).toBe(1);
+  });
+
+  it('čas na ukázání karet po handě bez showdownu: handFinished až po něm', () => {
+    const m = make({ 'special.showCards': true, 'time.showCardsMs': 4000, 'time.betweenHandsMs': 100 }, ['a', 'b', 'c']);
+    // všichni se složí
+    for (let i = 0; i < 6 && m.actor.currentPhase() === 'hand'; i++) {
+      const p = m.acting();
+      if (!p) break;
+      m.actor.act(p, { type: 'fold' });
+    }
+    m.clock.advance(300);
+    expect(endedAt(m)).toBe(1);
+    expect(finishedAt(m)).toBe(0); // karty se ještě smějí ukázat
+    m.clock.advance(4_000);
+    expect(finishedAt(m)).toBe(1);
+  });
+});
+

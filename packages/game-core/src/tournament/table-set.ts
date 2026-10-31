@@ -8,7 +8,7 @@ export interface SetTable {
   removeTournamentPlayer(userId: string): void;
   chipsOf(userId: string): number | null;
   isConnected?(userId: string): boolean | null;
-  hold(): void;
+  hold(fresh?: boolean): void;
   release(): void;
   playersSeated(): { userId: string; name: string; seat: number; chips: number; pendingChips: number; mode: string }[];
   close(): void;
@@ -197,8 +197,8 @@ export class TournamentTableSet implements TournamentTable {
     return this.find(userId)?.table.chipsOf(userId) ?? null;
   }
 
-  hold(): void {
-    for (const t of this.tables) t.table.hold();
+  hold(fresh?: boolean): void {
+    for (const t of this.tables) t.table.hold(fresh);
   }
 
   release(): void {

@@ -122,6 +122,8 @@ export interface TournamentState {
   addonOffer?: { until: number; declined: string[] };
   /** Level s add-onem skončil, ale ještě se dohrává handa: nabídka se otevře, až handa skončí. */
   addonOfferPending?: boolean;
+  /** Level skončil a má následovat přestávka, ale ještě se dohrává handa: přestávka začne, až handa skončí. */
+  breakPending?: boolean;
 }
 
 export type TournamentEvent =
@@ -152,7 +154,7 @@ export interface TournamentTable {
   chipsOf(userId: string): number | null;
   /** Je hráč připojený? (null = neznámo) */
   isConnected?(userId: string): boolean | null;
-  hold(): void;
+  hold(fresh?: boolean): void;
   release(): void;
   playersSeated(): { userId: string; seat: number }[];
   close(): void;
@@ -258,6 +260,8 @@ export class Tournament {
       else table.release();
       if (!this.st.paused) this.resumeClock();
       for (const p of this.st.players) if (p.status === 'deciding') this.armDecision(p);
+      // Po obnově žádná handa neběží: odložená nabídka add-onu a přestávka se rozběhnou hned.
+      this.afterHandsDone();
     } else if (this.st.status === 'registering') table.hold();
   }
 
@@ -691,6 +695,9 @@ export class Tournament {
   /** Level skončil: přestávka (pokud je na řadě), jinak další level od příští handy. */
   private levelDone(): void {
     const s = this.deps.settings();
+    const every = num(s, 'tournament.breakEveryLevels');
+    // Přestávka po každých N levelech, nebo jen jednou (po N-tém levelu), když je opakování vypnuté.
+    const due = every > 0 && (s['tournament.breakRepeat'] === false ? this.levelNumber() === every : this.levelNumber() % every === 0);
     // Nabídka add-onu po posledním levelu s add-onem: dokud se hraje handa, počká na její konec.
     if (this.addonOfferDue()) {
       if (this.liveHands.size > 0) {
@@ -705,20 +712,47 @@ export class Tournament {
         }, num(s, 'tournament.addonOfferMaxWaitSeconds') * 1000);
       } else this.openAddonOffer(true);
     }
-    const every = num(s, 'tournament.breakEveryLevels');
-    // Přestávka po každých N levelech, nebo jen jednou (po N-tém levelu), když je opakování vypnuté.
-    const due = every > 0 && (s['tournament.breakRepeat'] === false ? this.levelNumber() === every : this.levelNumber() % every === 0);
     if (due) {
-      this.st.onBreak = true;
-      const minutes = num(s, 'tournament.breakMinutes');
-      this.st.clock = { kind: 'break', remainingMs: minutes * 60_000 };
-      this.table?.hold();
-      this.freezeDecisions();
-      this.deps.onEvent?.({ type: 'break', minutes });
-      this.runClock();
+      // Přestávka nezačne, dokud se nedohraje každá rozehraná handa (showdown, run it twice, rabbit hunt); nová handa se mezitím nerozdává.
+      if (this.liveHands.size > 0) {
+        this.st.breakPending = true;
+        this.table?.hold();
+        // Pojistka: kdyby se rozehraná handa nedohrála, přestávka začne nejpozději po nastavené době.
+        this.deps.clock.setTimeout(() => {
+          if (!this.st.breakPending || this.st.status !== 'running') return;
+          this.liveHands.clear();
+          this.afterHandsDone();
+          this.save();
+          this.deps.onChange?.();
+        }, num(s, 'tournament.addonOfferMaxWaitSeconds') * 1000);
+        return;
+      }
+      this.startBreak();
       return;
     }
     this.advanceLevel();
+  }
+
+  private startBreak(): void {
+    const s = this.deps.settings();
+    this.st.breakPending = false;
+    this.st.onBreak = true;
+    const minutes = num(s, 'tournament.breakMinutes');
+    this.st.clock = { kind: 'break', remainingMs: minutes * 60_000 };
+    this.table?.hold(true);
+    this.freezeDecisions();
+    this.deps.onEvent?.({ type: 'break', minutes });
+    this.runClock();
+  }
+
+  /** Žádná handa už neběží: odložená nabídka add-onu se otevře a odložená přestávka začne. */
+  private afterHandsDone(): void {
+    if (this.liveHands.size > 0 || this.st.status !== 'running') return;
+    if (this.st.addonOfferPending) {
+      this.st.addonOfferPending = false;
+      this.openAddonOffer(true);
+    }
+    if (this.st.breakPending) this.startBreak();
   }
 
   private advanceLevel(): void {
@@ -743,17 +777,19 @@ export class Tournament {
       return;
     }
     if (e.type === 'handStart') this.liveHands.add(e.handId);
-    if (e.type === 'handEnd') {
+    if (e.type === 'handFinished') {
+      // Handa je úplně dohraná (i dokládání boardu a čas na ukázání karet): až teď smí začít přestávka a nabídka add-onu.
       this.liveHands.delete(e.handId);
+      this.afterHandsDone();
+      this.save();
+      this.deps.onChange?.();
+      return;
+    }
+    if (e.type === 'handEnd') {
       const s = this.deps.settings();
       if (s['tournament.levelMode'] === 'hands' && !this.st.onBreak && opts.lead !== false) {
         this.st.handsInLevel++;
         if (this.st.handsInLevel >= num(s, 'tournament.levelHands')) this.levelDone();
-      }
-      // Add-on se nabízí až po dohrání handy, ne uprostřed ní.
-      if (this.st.addonOfferPending && this.liveHands.size === 0) {
-        this.st.addonOfferPending = false;
-        this.openAddonOffer(true);
       }
       this.save();
     } else if (e.type === 'bust') {

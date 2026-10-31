@@ -299,8 +299,26 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
     // pevná směs předvoleb: 0–1 vždy, 2–3 nikdy, 4–5 zeptat se (ať se každá větev určitě vyzkouší)
     for (const b of bots) for (const key of ['ui.autoRebuy', 'ui.autoReenter', 'ui.autoAddon']) await server.settings.set(b.id, 'user', b.id, key, b.n < 2 ? 'always' : b.n < 4 ? 'never' : 'ask');
   }
+  // Přestávka ani nabídka add-onu nesmí začít, dokud na některém stole běží handa (showdown, dokládání boardu, run it twice, volba ukázat karty).
+  const boundaryStarts = { startBreak: 0, openAddonOffer: 0 };
+  {
+    const t = server.tournaments.get(id)! as unknown as Record<string, (...a: unknown[]) => unknown>;
+    for (const fn of ['startBreak', 'openAddonOffer'] as const) {
+      const orig = t[fn]!.bind(t);
+      t[fn] = (...a: unknown[]) => {
+        boundaryStarts[fn]++;
+        for (const tid of server.tournaments.tableIdsOf(id)) {
+          const actor = server.tables.actors.get(tid);
+          const phase = actor?.currentPhase();
+          const v = actor?.viewFor(null);
+          if (phase === 'hand' || phase === 'runout' || v?.vote || v?.choice) problem(`turnaj ${name}: ${fn} za běhu handy (stůl ${tid}, fáze ${phase}${v?.vote ? ', hlasování' : ''}${v?.choice ? ', volba karet' : ''})`);
+        }
+        return orig(...a);
+      };
+    }
+  }
   const decidingSince = new Map<string, number>();
-  const maxDecideMs = (Number(over['tournament.rebuyDecisionSeconds'] ?? 30) + (over['tournament.rebuyWaitsForOffline'] ? Number(over['tournament.rebuyOfflineMaxSeconds'] ?? 0) : 0) + 20) * 1000;
+  const maxDecideMs = (Number(over['tournament.rebuyDecisionSeconds'] ?? 30) + (over['tournament.rebuyWaitsForOffline'] ? Number(over['tournament.rebuyOfflineMaxSeconds'] ?? 0) : 0) + (over['tournament.breakEveryLevels'] ? Number(over['tournament.breakMinutes'] ?? 0) * 60 : 0) + 20) * 1000;
   await server.tournaments.start(admin!, id);
   const end = Date.now() + ms;
   let tick = 0;
@@ -351,8 +369,16 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
     if (key !== lastKey) {
       lastKey = key;
       lastChange = Date.now();
-    } else if (Date.now() - lastChange > (chaos ? 100_000 : 45_000) && st.status === 'running') {
-      problem(`turnaj ${name}: beze změny (vyřazeno ${st.eliminations.length}, level ${tour.levelNumber()}, stoly ${server.tournaments.tableIdsOf(id).length})`);
+    } else if (Date.now() - lastChange > (chaos ? 200_000 : 45_000) && st.status === 'running') {
+      {
+        const tables = server.tournaments.tableIdsOf(id).map((tid) => {
+          const a = server.tables.actors.get(tid);
+          const v = a?.viewFor(null);
+          return `${tid}:${a?.currentPhase()}${v?.paused ? ':held' : ''}${v?.vote ? ':vote' : ''}${v?.choice ? ':choice' : ''}${v?.nextHandAt ? ':next' : ''}`;
+        });
+        const live = (tour as unknown as { liveHands: Set<string> }).liveHands;
+        problem(`turnaj ${name}: beze změny (vyřazeno ${st.eliminations.length}, level ${tour.levelNumber()}, onBreak ${st.onBreak}, breakPending ${!!st.breakPending}, addonPending ${!!st.addonOfferPending}, paused ${!!st.paused}, rozehrané handy ${live.size}, stoly ${tables.join(',')}, hráči ${st.players.map((p) => p.status).join('/')})`);
+      }
       lastChange = Date.now();
     }
     if (tick % 4 === 0) checkInvariants(`turnaj ${name} t${tick}`);
@@ -377,6 +403,7 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
     const key = act === 'addon' || act === 'declineAddon' ? 'ui.autoAddon' : act === 'reenter' ? 'ui.autoReenter' : 'ui.autoRebuy';
     if (String(layer[key] ?? 'ask') === 'ask' && !(act === 'decline')) problem(`turnaj ${name}: automatická odpověď „${act}“ hráči s předvolbou „zeptat se“`);
   }
+  console.log(`  přestávek ${boundaryStarts.startBreak}, nabídek add-onu ${boundaryStarts.openAddonOffer}`);
   console.log(`  automatických odpovědí: ${autoMine}; rebuy celkem ${server.tournaments.get(id)!.state().players.reduce((n, p) => n + p.rebuys, 0)}, add-onů ${server.tournaments.get(id)!.state().players.filter((p) => p.addon).length}`);
   if (st.status === 'finished') {
     const walletsAfter = bots.map((b) => server.ledger.balance(accounts.wallet(b.id)));
@@ -398,7 +425,7 @@ try {
     await tournamentPhase('freezeout', {}, per);
     await tournamentPhase('rebuy+addon', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 2, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 2, 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonCost': 100, 'tournament.addonChips': 300 }, per);
     await tournamentPhase('bounty', { 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30 }, per);
-    await tournamentPhase('auto odpovědi: kolize časů', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 4, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 3, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyTimerStops': true, 'tournament.rebuyWaitsForOffline': true, 'tournament.rebuyOfflineMaxSeconds': 30, 'tournament.rebuyDecisionSeconds': 6, 'tournament.addonEnabled': true, 'tournament.addonMode': 'both', 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonOfferSeconds': 6, 'tournament.addonCost': 100, 'tournament.addonChips': 300, 'tournament.breakEveryLevels': 2, 'tournament.breakMinutes': 1, 'tournament.reentryEnabled': true, 'tournament.reentryMax': 1 }, per, true);
+    await tournamentPhase('auto odpovědi: kolize časů', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 4, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 3, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyTimerStops': true, 'tournament.rebuyWaitsForOffline': true, 'tournament.rebuyOfflineMaxSeconds': 30, 'tournament.rebuyDecisionSeconds': 6, 'tournament.addonEnabled': true, 'tournament.addonMode': 'both', 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 1, 'tournament.addonOfferSeconds': 6, 'tournament.addonCost': 100, 'tournament.addonChips': 300, 'tournament.breakEveryLevels': 1, 'tournament.breakMinutes': 1, 'special.runItTwice': true, 'special.runItVoteSeconds': 5, 'special.rabbitHunt': true, 'special.rabbitHuntSeconds': 3, 'tournament.reentryEnabled': true, 'tournament.reentryMax': 1 }, per, true);
     await tournamentPhase('rebuy: čekání hry + odpojení + nabídka add-onu', { 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 3, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 300, 'tournament.rebuyMax': 3, 'tournament.rebuyHoldsGame': true, 'tournament.rebuyTimerStops': true, 'tournament.rebuyWaitsForOffline': true, 'tournament.rebuyOfflineMaxSeconds': 30, 'tournament.rebuyDecisionSeconds': 10, 'tournament.addonEnabled': true, 'tournament.addonMode': 'both', 'tournament.addonFromLevel': 2, 'tournament.addonUntilLevel': 2, 'tournament.addonOfferSeconds': 10, 'tournament.addonCost': 100, 'tournament.addonChips': 300 }, per);
   }
 } catch (e) {
