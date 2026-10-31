@@ -150,8 +150,24 @@ export function AssistantMenuItem({ onPick }: { onPick?: () => void }) {
   );
 }
 
-/** Okno asistenta ve stylu chatu s návrhy změn, které si uživatel potvrdí. */
-export function AssistantLauncher() {
+/** Tlačítko asistenta v liště nástrojů stolu (úplně vpravo za zvukem): okno asistenta pak nepřekrývá boční widgety. */
+export function AssistantToolButton({ iconOnly }: { iconOnly: boolean }) {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    get<Status>('/api/assistant/status')
+      .then((s) => setAvailable(s.available))
+      .catch(() => setAvailable(false));
+  }, []);
+  if (!available) return null;
+  return (
+    <Button className={iconOnly ? 'px-2' : ''} title={t('assistant.open')} aria-label={t('assistant.open')} onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
+      🤖{iconOnly ? '' : ` ${t('assistant.title')}`}
+    </Button>
+  );
+}
+
+/** Okno asistenta ve stylu chatu s návrhy změn, které si uživatel potvrdí. `floating`: plovoucí tlačítko vpravo dole (u stolu je schované, asistent je v liště nástrojů). */
+export function AssistantLauncher({ floating = true }: { floating?: boolean } = {}) {
   const { path } = useLocation();
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
@@ -237,14 +253,16 @@ export function AssistantLauncher() {
 
   return (
     <>
-      <button
-        className="fixed bottom-4 right-4 z-40 hidden rounded-full border border-line bg-primary px-3 py-2 text-on-primary shadow-lg md:block md:px-4"
-        aria-label={t('assistant.open')}
-        title={t('assistant.open')}
-        onClick={() => setOpen((v) => !v)}
-      >
-        🤖 <span>{t('assistant.title')}</span>
-      </button>
+      {floating && (
+        <button
+          className="fixed bottom-4 right-4 z-40 hidden rounded-full border border-line bg-primary px-3 py-2 text-on-primary shadow-lg md:block md:px-4"
+          aria-label={t('assistant.open')}
+          title={t('assistant.open')}
+          onClick={() => setOpen((v) => !v)}
+        >
+          🤖 <span>{t('assistant.title')}</span>
+        </button>
+      )}
       {open && (
         <section role="dialog" aria-label={t('assistant.title')} className="fixed bottom-16 right-4 z-40 flex max-h-[70vh] w-[min(28rem,calc(100vw-2rem))] flex-col rounded-lg border border-line bg-surface shadow-lg">
           <header className="flex items-center gap-2 border-b border-line p-2">

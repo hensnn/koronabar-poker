@@ -22,6 +22,7 @@ import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
 import { SoundMenu } from '../sound-menu';
+import { AssistantToolButton } from './assistant';
 import { Button, Card, DataTable, ErrorToast, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
@@ -260,12 +261,14 @@ export function TablePage({ tableId }: { tableId: string }) {
             {more && (
               <div ref={moreRef} role="menu" className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col gap-1 rounded-md border border-line bg-surface p-2 shadow-lg" onClick={() => setMore(false)}>
                 {renderTools(false)}
+                {features.assistant && <AssistantToolButton iconOnly={false} />}
               </div>
             )}
           </span>
           <span className="tk-tp-desktop flex flex-wrap items-center gap-2">
             {renderTools(true)}
             <SoundMenu />
+            {features.assistant && <AssistantToolButton iconOnly />}
           </span>
         </div>
         )}

@@ -213,7 +213,7 @@ function Shell({ me }: { me: Me }) {
       <main className="flex-1">
         <Suspense fallback={<Spinner label={t('app.loading')} />}>{page}</Suspense>
       </main>
-      {!blocked && features.assistant && <AssistantLauncher />}
+      {!blocked && features.assistant && <AssistantLauncher floating={!stul} />}
     </div>
   );
 }
