@@ -201,6 +201,8 @@ export class TournamentManager {
 
   private autoTimers = new Map<string, () => void>();
   private autoTried = new Set<string>();
+  /** Kdy (hodiny serveru) a jak odpoví automatika hráči; klient z toho ukazuje odpočet, aby se čas nikdy nerozešel se skutečností. */
+  private autoAt = new Map<string, { at: number; yes: boolean }>();
 
   private scheduleAuto(id: string): void {
     const tour = this.tours.get(id);
@@ -226,7 +228,10 @@ export class TournamentManager {
       const wanted = Number(choice.paid ? g['time.autoAnswerPaidSeconds'] : g['time.autoAnswerSeconds']) * 1000;
       // Nikdy ne po konci času na rozhodnutí: odpověď přijde nejpozději vteřinu před ním.
       const delay = Math.max(0, Math.min(wanted, until - now - 1000));
+      const slot = `${id}:${p.userId}`;
+      this.autoAt.set(slot, { at: now + delay, yes: choice.paid });
       const cancel = this.deps.clock.setTimeout(() => {
+        this.autoAt.delete(slot);
         this.autoTimers.delete(key);
         this.autoTried.add(key);
         void this.runAuto(id, p.userId);
@@ -1031,6 +1036,7 @@ export class TournamentManager {
         canRebuy: live.canRebuy(userId) && this.can(userId, 'turnaj.hrat').allowed,
         canAddon: live.canAddon(userId) && this.can(userId, 'turnaj.hrat').allowed,
         addonOfferUntil: live.addonOffered(userId) ? live.addonOfferUntil() : null,
+        autoAnswer: this.autoChoice(live, userId) ? (this.autoAt.get(`${id}:${userId}`) ?? null) : null,
         canReenter: (live.canReenter(userId) || live.canReenterNowPublic(userId)) && this.can(userId, 'turnaj.hrat').allowed,
       },
       can: {
@@ -1094,7 +1100,7 @@ export class TournamentManager {
       summary: st?.results ? st.results.map((r) => resultSummary(st, r)) : null,
       live: null,
       pending: {},
-      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, addonOfferUntil: null, canReenter: false },
+      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, addonOfferUntil: null, autoAnswer: null, canReenter: false },
       can: { manage: false, start: false, pause: false, cancel: false },
     };
   }
@@ -1264,6 +1270,8 @@ export interface TournamentView {
     canRebuy: boolean;
     canAddon: boolean;
     addonOfferUntil: number | null;
+    /** Kdy (hodiny serveru) odpoví automatika podle předvolby hráče; null = nic nečeká. */
+    autoAnswer: { at: number; yes: boolean } | null;
     canReenter: boolean;
   };
   can: { manage: boolean; start: boolean; pause: boolean; cancel: boolean };

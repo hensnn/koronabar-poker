@@ -205,11 +205,33 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
       const t0 = s.clock.now();
       const rebuys = () => s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys;
       const before = rebuys();
+      // klient dostane od serveru přesný okamžik automatické odpovědi (odpočet v dialogu tak vždy sedí se skutečností)
+      const shown = (await s.server.tournaments.view(id, d.userId)).me.autoAnswer;
+      expect(shown).not.toBeNull();
+      expect(shown!.yes).toBe(true);
+      expect(shown!.at - t0).toBeLessThanOrEqual(5_000);
+      expect(shown!.at - t0).toBeGreaterThan(3_000);
       await tick(s, 4_500);
       expect(rebuys()).toBe(before); // 4,5 s od vypadnutí: odpočet 5 s ještě neuplynul
       await tick(s, 1_500);
       expect(rebuys()).toBe(before + 1);
       expect(s.clock.now() - t0).toBeLessThan(30_000);
+    });
+
+    it('čas: odpočet nastavený správcem (10 s) platí na server i při dalších rebuy, ne jen u prvního', async () => {
+      const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' });
+      await s.server.settings.set(s.admin, 'global', '', 'time.autoAnswerPaidSeconds', 10);
+      for (let round = 0; round < 3; round++) {
+        const d = await untilDeciding(s, id, 5 + round);
+        const rebuys = () => s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys;
+        const before = rebuys();
+        const t0 = s.clock.now();
+        await tick(s, 9_000);
+        expect(rebuys()).toBe(before); // 9 s od vypadnutí: odpočet 10 s ještě neuplynul
+        await tick(s, 2_000);
+        expect(rebuys()).toBe(before + 1);
+        expect(s.clock.now() - t0).toBeGreaterThanOrEqual(10_000);
+      }
     });
 
     it('čas: při krátkém čase na rozhodnutí (5 s) přijde odpověď vteřinu před koncem, hráč nevypadne', async () => {
