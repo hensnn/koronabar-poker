@@ -161,7 +161,7 @@ export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí 
       {plans.filter((x) => on(x.plan)).map(({ plan: p, tone }) => (
         <button
           key={p}
-          className={`tk-act tk-plan-btn ${tone} h-[3.25rem] min-w-0 flex-1 px-1 text-xs font-semibold leading-tight ${plan === p ? 'ring-2 ring-text ring-offset-2 ring-offset-surface' : 'opacity-50'}`}
+          className={`tk-act tk-plan-btn px-1 ${tone} h-13 min-w-0 flex-1 text-xs font-semibold leading-tight ${plan === p ? 'ring-2 ring-text ring-offset-2 ring-offset-surface' : 'opacity-50'}`}
           aria-pressed={plan === p}
           onClick={() => setPlan(plan === p ? null : p, view.handId)}
         >
