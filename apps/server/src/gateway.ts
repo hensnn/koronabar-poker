@@ -38,9 +38,40 @@ export function setupGateway(deps: GatewayDeps) {
   const walletOf = (userId: string) => deps.ledger.balance(accounts.wallet(userId));
   const sendWallet = (userId: string) => io.to(`user:${userId}`).emit('wallet', { balance: walletOf(userId) });
 
+  /** Diváci stolu: přihlášení k odběru stolu, kteří u něj nesedí (jen přezdívky). */
+  const observersOf = (tableId: string): string[] => {
+    const table = tables.get(tableId);
+    if (!table) return [];
+    const seated = new Set(table.playersSeated().map((p) => p.userId));
+    const names = new Map<string, string>();
+    for (const [, s] of io.sockets.sockets) {
+      if (!subscriptions.get(s.id)?.has(tableId)) continue;
+      const u = s.data.user as { userId: string; name: string } | undefined;
+      if (u && !seated.has(u.userId)) names.set(u.userId, u.name);
+    }
+    return [...names.values()].sort((a, b) => a.localeCompare(b, 'cs'));
+  };
+  const lastObservers = new Map<string, string>();
+  const observerTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Pošle stolu aktuální seznam diváků, jen když se změnil (zpožděně, ať se změny spojí). */
+  const broadcastObservers = (tableId: string) => {
+    if (observerTimers.has(tableId)) return;
+    const timer = setTimeout(() => {
+      observerTimers.delete(tableId);
+      const names = observersOf(tableId);
+      const key = JSON.stringify(names);
+      if (lastObservers.get(tableId) === key) return;
+      lastObservers.set(tableId, key);
+      io.to(`table:${tableId}`).emit('table:observers', { tableId, names });
+    }, 300);
+    timer.unref?.();
+    observerTimers.set(tableId, timer);
+  };
+
   function broadcast(tableId: string) {
     const table = tables.get(tableId);
     if (!table) return;
+    broadcastObservers(tableId);
     for (const [, socket] of io.sockets.sockets) {
       if (!subscriptions.get(socket.id)?.has(tableId)) continue;
       const user = socket.data.user as { userId: string } | undefined;
@@ -164,15 +195,25 @@ export function setupGateway(deps: GatewayDeps) {
       subscriptions.get(socket.id)!.add(tableId);
       socket.join(`table:${tableId}`);
       socket.emit('table:view', { tableId, view: table!.viewFor(user.userId), serverTime: Date.now() });
+      // Nový divák hned dostane aktuální seznam diváků a ostatním se doplní.
+      socket.emit('table:observers', { tableId, names: observersOf(tableId) });
+      // Klientův widget se může připojit až po první zprávě: pro jistotu znovu hned po usazení stránky.
+      const again = setTimeout(() => {
+        if (subscriptions.get(socket.id)?.has(tableId)) socket.emit('table:observers', { tableId, names: observersOf(tableId) });
+      }, 600);
+      again.unref?.();
+      broadcastObservers(tableId);
     });
     handle('table:unsubscribe', 'stul.zobrazit', ({ tableId }) => {
       subscriptions.get(socket.id)!.delete(tableId);
       socket.leave(`table:${tableId}`);
+      broadcastObservers(tableId);
     });
     handle('table:join', 'stul.hrat', ({ tableId, seat, amount }, table) => {
       table!.join(user.userId, user.name, seat, amount);
       subscriptions.get(socket.id)!.add(tableId);
       socket.join(`table:${tableId}`);
+      broadcastObservers(tableId);
       broadcastPresence();
     });
     handle('table:leave', 'stul.hrat', (_m, table) => {
@@ -192,7 +233,9 @@ export function setupGateway(deps: GatewayDeps) {
     handle('table:act', 'stul.hrat', ({ action }, table) => table!.act(user.userId, action as PlayerAction));
 
     socket.on('disconnect', () => {
+      const mine = [...(subscriptions.get(socket.id) ?? [])];
       subscriptions.delete(socket.id);
+      for (const id of mine) broadcastObservers(id);
       const left = (connections.get(user.userId) ?? 1) - 1;
       if (left <= 0) {
         connections.delete(user.userId);

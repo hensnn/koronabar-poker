@@ -13,6 +13,7 @@ import { ClockWidget, mmss } from './TablePanel';
 import { InfoSlot, MobileOptions } from './mobile-ui';
 import { BestHand } from './BestHand';
 import { useActionLog } from './actions-feed';
+import { PlayersBody } from './PlayersWidget';
 import { useMobileLayout } from './mobile';
 
 export interface WidgetDef {
@@ -162,22 +163,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     players: {
       title: t('table.widget.players'),
       show: !!view,
-      body: view && (
-        <ul className="flex flex-col gap-0.5">
-          {[...view.seats]
-            .sort((a, b) => b.stack - a.stack)
-            .map((s) => (
-              <li key={s.seat} className={`flex justify-between gap-2 ${s.seat === view.actingSeat ? 'font-bold' : ''} ${s.status === 'folded' || s.status === 'sittingOut' ? 'text-muted' : ''}`}>
-                <span className="truncate">
-                  {s.isDealer ? 'Ⓓ ' : ''}
-                  {(s.status === 'sittingOut' || s.sitOut === true) && <span title={t('table.sittingOut')}>⏸ </span>}
-                  {s.name}
-                </span>
-                <span className="font-mono">{formatAmount(s.stack, view.info, inBb)}</span>
-              </li>
-            ))}
-        </ul>
-      ),
+      body: view && <PlayersBody view={view} tableId={tableId} tour={tour} inBb={inBb} />,
     },
     chat: { title: t('table.chat'), show: !!chat && features.chat, body: chat?.body ?? null, badge: chat?.unread, actions: chat?.actions },
     sounds: { title: t('table.widget.sounds'), show: !!mine && !(mobile && settings.values['ui.mobileSounds'] === true), body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },

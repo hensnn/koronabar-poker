@@ -141,6 +141,23 @@ describe('server: Socket.IO brána s účty a oprávněními', () => {
     expect(server.ledger.balance(accounts.table('stul-1'))).toBe(2000);
   });
 
+  it('seznam diváků stolu: kdo se jen dívá, je v něm; kdo sedí, ne; po odpojení nebo usednutí zmizí', async () => {
+    const { url, server } = await start();
+    const [pa, pc] = [await player(server, 'Alice'), await player(server, 'Carol')];
+    const [a, c] = [await client(url, pa.cookie), await client(url, pc.cookie)];
+    const lists: string[][] = [];
+    a.on('table:observers', (m: { tableId: string; names: string[] }) => m.tableId === 'stul-1' && lists.push(m.names));
+    expect((await call(a, 'table:subscribe', { tableId: 'stul-1' })).ok).toBe(true);
+    expect((await call(a, 'table:join', { tableId: 'stul-1', seat: 0, amount: 1000 })).ok).toBe(true);
+    expect((await call(c, 'table:subscribe', { tableId: 'stul-1' })).ok).toBe(true);
+    await until(() => lists.some((l) => l.includes('Carol')));
+    // Alice usedla, takže mezi diváky už není (jen krátce před usednutím, než se seznam spojil)
+    expect(lists[lists.length - 1]).toEqual(['Carol']);
+    // divák odejde: seznam se vyprázdní
+    c.close();
+    await until(() => lists[lists.length - 1]!.length === 0);
+  });
+
   it('druhé zařízení téhož hráče dostane stav u stolu hned po přihlášení', async () => {
     const { url, server } = await start();
     const pa = await player(server, 'Alice');
