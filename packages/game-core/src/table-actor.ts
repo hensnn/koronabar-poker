@@ -151,6 +151,8 @@ export class TableActor {
   private lastTimeCharge: number | null = null;
   private voting: Voting;
   private pendingFinish: HandState | null = null;
+  /** Rozhodnuté hlasování o run it twice, jehož výsledek se ještě ukazuje u stolu, než se začne rozdávat. */
+  private runItResultId: string | null = null;
   private shown = new Map<number, (Card | null)[]>();
   private rabbit: Card[] | null = null;
   private bombPotHand: string | null = null;
@@ -525,7 +527,7 @@ export class TableActor {
     const isPlayer = !!userId && this.seats.has(userId);
     const showOdds = !!s['odds.enabled'] && (isPlayer || !!s['odds.forSpectators']);
     const h = this.showHand && this.hasHand() ? this.handState() : null;
-    const activeVote = this.voting.active('runit');
+    const activeVote = this.voting.active('runit') ?? (this.runItResultId ? this.voting.get(this.runItResultId) : undefined);
     const legal = h && userId && this.phase === 'hand' ? this.adapter.legalActions(userId) : null;
     const bb = num(s, 'table.bigBlind');
     return buildView(h, {
@@ -646,6 +648,7 @@ export class TableActor {
   close(): void {
     this.voting.stop();
     this.pendingFinish = null;
+    this.runItResultId = null;
     for (const c of this.timers) c();
     this.timers = [];
     this.turnTimer?.();
@@ -1259,9 +1262,21 @@ export class TableActor {
     if (!h) return;
     this.pendingFinish = null;
     this.deadline = null;
-    try {
+    const finish = () => {
+      this.runItResultId = null;
       const times = (vote.payload as { times: number }).times;
       this.onHandFinished(h, vote.status === 'passed' ? times : 1);
+    };
+    // Výsledek hlasování (kdo souhlasil, zda se hraje víckrát) se nejdřív na chvíli ukáže všem u stolu a teprve pak se začne rozdávat.
+    const holdMs = this.scaled(num(this.opt.settings(), 'time.runItResultMs'));
+    if (holdMs > 0 && (vote.status === 'passed' || vote.status === 'rejected' || vote.status === 'expired')) {
+      this.runItResultId = vote.id;
+      this.changed();
+      this.later(holdMs, finish);
+      return;
+    }
+    try {
+      finish();
     } catch (e) {
       this.error = e;
       this.stopOnError();

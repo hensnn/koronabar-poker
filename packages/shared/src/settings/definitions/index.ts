@@ -134,6 +134,7 @@ const time: SettingDef[] = [
   int('time.allInRiverDramaMs', { category: 'timing', mutability: A, unit: 'ms' }, 2500, 0, 15000),
   int('time.showdownChoiceMs', { category: 'timing', mutability: A, unit: 'ms' }, 6000, 1000, 60000),
   int('time.showdownMs', { category: 'timing', mutability: A, unit: 'ms' }, 2500, 0, 30000),
+  int('time.runItResultMs', { category: 'timing', mutability: A, unit: 'ms', dependsOn: { key: 'special.runItTwice', truthy: true } }, 2000, 0, 10000, 100),
   int('time.runItDelayMs', { category: 'timing', mutability: A, unit: 'ms' }, 2500, 0, 30000),
   int('time.potToWinnerMs', { category: 'timing', mutability: A, unit: 'ms' }, 600, 0, 10000),
   int('time.animationSpeedPercent', { category: 'timing', mutability: A, unit: '%' }, 100, 25, 400),

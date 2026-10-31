@@ -365,6 +365,19 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
         </div>
         {/* Hlasování a rozhodnutí o ukázání karet leží přes stůl, aby byly vidět i na celé obrazovce a na telefonu. */}
         <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 p-2">
+      {view.vote && view.vote.kind === 'runit' && view.vote.status !== 'open' && (() => {
+        const v = view.vote!;
+        const times = String((v.payload as { times: number }).times);
+        const nameOf = (id: string) => view.seats.find((x) => x.playerId === id)?.name ?? '?';
+        const against = v.voters.filter((x) => x.vote === false).map((x) => nameOf(x.userId));
+        const silent = v.voters.filter((x) => x.vote === null).map((x) => nameOf(x.userId));
+        const text = v.status === 'passed' ? t('table.runIt.resultYes', { times }) : against.length > 0 ? t('table.runIt.resultNo', { names: against.join(', ') }) : silent.length > 0 ? t('table.runIt.resultExpired', { names: silent.join(', ') }) : t('table.runIt.resultCancelled');
+        return (
+          <div role="status" className={`pointer-events-none w-full max-w-sm rounded-md border-2 bg-surface p-3 text-center font-semibold shadow-lg ${v.status === 'passed' ? 'border-info' : 'border-warning'}`}>
+            {text}
+          </div>
+        );
+      })()}
       {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && runItPref === 'ask' && (
         <div role="dialog" aria-label={t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })} className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
           <strong>{t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })}</strong>
@@ -615,6 +628,9 @@ function Seat({
   // Rozdávání: karta se objeví ve svém „kroku“ a doletí od tlačítka; mimo rozdávání se nic nenastavuje.
   const dealDelay = (i: number) => deal?.delayMs(seat.seat, i);
   const dealFly = deal?.active && dealFrom && dealTo ? flyOffset(dealFrom, dealTo) : undefined;
+  // Hlasování o run it twice: u každého hlasujícího je vidět, zda souhlasí, nesouhlasí, nebo se na něj čeká (vidí všichni u stolu včetně diváků).
+  const runVote = view.vote?.kind === 'runit' ? view.vote.voters.find((v) => v.userId === seat.playerId) : undefined;
+  const voteBadge: 'yes' | 'no' | 'wait' | 'silent' | null = !runVote ? null : runVote.vote === true ? 'yes' : runVote.vote === false ? 'no' : view.vote?.status === 'open' ? 'wait' : 'silent';
   const status = seat.status === 'allIn' ? t('table.allIn') : seat.status === 'folded' ? t('table.fold') : seat.status === 'sittingOut' ? t('table.sittingOut') : seat.status === 'waiting' ? t('table.waiting') : null;
   return (
     <div className={`tk-seat ${mine ? 'tk-seat-mine' : ''} ${acting ? 'tk-seat-acting' : ''} ${won ? 'tk-seat-won' : ''} ${dim ? 'tk-seat-dim' : ''} ${out ? 'tk-seat-out' : ''}`}>
@@ -653,6 +669,12 @@ function Seat({
         {(seat.isSmallBlind || seat.isBigBlind) && (
           <span className="tk-blind" data-blind={seat.isBigBlind ? 'big' : 'small'} title={t(seat.isBigBlind ? 'table.bigBlind' : 'table.smallBlind')}>
             {seat.isBigBlind ? 'BB' : 'SB'}
+          </span>
+        )}
+        {voteBadge && (
+          <span role="status" className={`absolute -top-5 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border bg-surface px-2 py-0.5 text-sm font-semibold shadow ${voteBadge === 'yes' ? 'border-info text-info' : voteBadge === 'no' || voteBadge === 'silent' ? 'border-danger text-danger' : 'border-warning text-warning motion-safe:animate-pulse'}`}>
+            {voteBadge === 'yes' ? '✓ ' : voteBadge === 'no' || voteBadge === 'silent' ? '✗ ' : '… '}
+            {t(`table.runIt.badge.${voteBadge}`)}
           </span>
         )}
         {revealLabel && (

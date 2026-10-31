@@ -94,9 +94,43 @@ describe('run it twice/třikrát', () => {
     late.allIn();
     late.actor.voteRunIt('a', true);
     late.clock.advance(5_001);
-    expect(late.actor.viewFor(null).vote).toBeNull();
+    // výsledek (vypršelo) se ještě chvíli ukazuje všem u stolu, pak se rozdává
+    expect(late.actor.viewFor(null).vote?.status).toBe('expired');
     late.clock.advance(3000);
+    expect(late.actor.viewFor(null).vote).toBeNull();
     expect(late.actor.viewFor('a').runs).toBeNull();
+  });
+
+  it('výsledek hlasování vidí všichni (i divák) po dobu pauzy a až pak se rozdává; kdo jak hlasoval je vidět', () => {
+    const t = make({ 'special.runItTwice': true, 'time.runItResultMs': 2000 }, ['a', 'b']);
+    t.allIn();
+    // během hlasování vidí divák, kdo už souhlasil
+    t.actor.voteRunIt('a', true);
+    const open = t.actor.viewFor(null).vote!;
+    expect(open.status).toBe('open');
+    expect(open.voters.find((v) => v.userId === 'a')).toMatchObject({ voted: true, vote: true });
+    expect(open.voters.find((v) => v.userId === 'b')).toMatchObject({ voted: false, vote: null });
+    t.actor.voteRunIt('b', true);
+    // rozhodnuto: výsledek je vidět, ale rozdávání ještě nezačalo
+    const decided = t.actor.viewFor(null).vote!;
+    expect(decided.status).toBe('passed');
+    expect(decided.voters.every((v) => v.vote === true)).toBe(true);
+    expect(t.actor.viewFor('a').runs).toBeNull();
+    t.clock.advance(1_000);
+    expect(t.actor.viewFor(null).vote?.status).toBe('passed');
+    t.clock.advance(1_100);
+    expect(t.actor.viewFor(null).vote).toBeNull();
+    t.untilPause();
+    expect(t.actor.viewFor('a').runs).toHaveLength(2);
+    expect(t.actor.totalChips()).toBe(2000);
+  });
+
+  it('pauza s výsledkem 0 = rozdává se hned jako dřív', () => {
+    const t = make({ 'special.runItTwice': true, 'time.runItResultMs': 0 }, ['a', 'b']);
+    t.allIn();
+    t.actor.voteRunIt('a', true);
+    t.actor.voteRunIt('b', false);
+    expect(t.actor.viewFor(null).vote).toBeNull();
   });
 
   it('třikrát; vypnuté nastavení se neptá; tři hráči s vedlejšími poty', () => {

@@ -148,6 +148,8 @@ export const csTournament: Record<string, string> = {
   'settings.special.runItTimes.help': 'Kolikrát se board rozdá (2 nebo 3). Každý pot se dělí mezi běhy rovným dílem.',
   'settings.special.runItVoteSeconds.label': 'Čas na hlasování o run it twice',
   'settings.special.runItVoteSeconds.help': 'Kdo do limitu neodpoví, nesouhlasí. Souhlasit musí všichni hráči, kteří jsou ještě ve hře.',
+  'settings.time.runItResultMs.label': 'Pauza s výsledkem hlasování (run it twice)',
+  'settings.time.runItResultMs.help': 'Jak dlouho se po skončení hlasování ukazuje jeho výsledek (kdo souhlasil, zda se hraje víckrát), než se začne rozdávat. 0 = rozdává se hned.',
   'settings.time.runItDelayMs.label': 'Prodleva mezi běhy (run it twice)',
   'settings.time.runItDelayMs.help': 'Jak dlouho se čeká, než se ukáže další běh boardu.',
   'table.runIt.title': 'Run it {times}×?',
