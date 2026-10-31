@@ -241,3 +241,11 @@ U stolu je v panelu rozbalovátko **Automatické odpovědi** (vedle „Ukazován
 - Odpočet nastavuje správce: **Odpočet automatické odpovědi (zdarma)** (výchozí 3 s) a **(placené akce)** (výchozí 5 s, nejméně 3 s). Odpověď přijde nejpozději vteřinu před koncem času na rozhodnutí.
 - Hlasování o run it twice a ukazování karet mají své předvolby už dřív (řádky *Run it* a *Ukazování karet*).
 - Neplatí pro živé turnaje, kde zapisuje ředitel.
+
+## Zrušení turnaje vrací všechno
+
+Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vstup, rebuy, add-on, poplatek) a **vyplacená bounty za vyřazení se vezme zpět** od těch, kdo ji dostali. Každý hráč je pak přesně tam, kde byl před turnajem.
+
+- Peněženka nejde do mínusu. Pokud držitel bounty mezitím peníze utratil, vezme se jen to, co na peněžence je. Zbytek bounty se vrátí poměrně podle toho, kolik kdo do bounty vložil.
+- Sázky na turnaj a odměny na hlavu se při zrušení vrací jako dřív.
+- Vrácení najdeš v účetní knize jako „Vrácení platby za turnaj“ (a „zrušení turnaje: vrácení vyplacené bounty“).

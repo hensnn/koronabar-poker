@@ -1121,14 +1121,22 @@ export class Tournament {
     this.save();
   }
 
-  /** Zrušení: všechny platby (buy-in, rebuy, add-on, poplatky) se vrátí do peněženek. */
+  /**
+   * Zrušení vrátí všechno: všechny platby (buy-in, rebuy, add-on, poplatky) se vrátí do peněženek a vyplacená bounty za vyřazení
+   * se vezme zpět od těch, kdo ji dostali. Peněženka nejde do mínusu, takže bounty, kterou držitel mezitím utratil, se vrátí jen z části
+   * (zbytek účtu bounty se rozdělí poměrně podle vložených částí).
+   */
   cancel(): void {
     if (this.st.status === 'finished' || this.st.status === 'cancelled') throw new TournamentError('STATE');
     this.cancelClock();
     this.voting.cancelAll();
     for (const t of this.decideTimers.values()) t();
     this.decideTimers.clear();
-    // Bounty, která už byla vyplacena za vyřazení, zůstává hráčům; co na účtu bounty zbylo, se vrátí poměrně podle vložených částí.
+    for (const p of this.st.players) {
+      const paid = (p.bountyEarned ?? 0) - (p.bountyUnpaid ?? 0);
+      if (paid > 0) this.deps.money.bountyClawback(this.deps.id, p.userId, paid, `trn:${this.deps.id}:cancel-clawback:${p.userId}`);
+    }
+    // Na účtu bounty je teď vše, co se podařilo získat zpět; vrátí se poměrně podle vložených částí (při plném vrácení přesně).
     const open = this.st.payments.filter((p) => !p.refunded);
     const bank = this.deps.money.bountyBank(this.deps.id);
     const paidIn = open.reduce((a, p) => a + (p.bounty ?? 0), 0);

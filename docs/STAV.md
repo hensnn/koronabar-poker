@@ -530,3 +530,4 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 ## Údržba a automatické odpovědi (31. 10. 2026)
 - Příprava na ostrý provoz, Vynulování (oblast Hry) i návrat k datu teď mažou i herní večery; otevřené večery dřív zůstávaly viset, protože v historii nejsou.
 - Automatické odpovědi na turnajové dotazy: osobní `ui.autoRebuy`, `ui.autoReenter`, `ui.autoAddon` (zeptat se / nikdy / vždy), odpočty `ui.autoAnswerSeconds` a `ui.autoAnswerPaidSeconds` (min. 3 s). Odpovídá server (`TournamentManager.scheduleAuto`), klient jen ukazuje odpočet. Cash top-up záměrně není (potřebuje částku). Add-on větev má jen ruční ověření, test pokrývá rebuy „vždy“ a „nikdy“.
+- Zrušení turnaje (31. 10. 2026): vrací úplně všechno, včetně vyplacené bounty za vyřazení (bere se zpět od držitelů, do výše jejich zůstatku; zbytek poměrně). Dřív vyplacená bounty zůstávala. `TournamentMoney.bountyClawback`, testy v `tournament.test.ts`.

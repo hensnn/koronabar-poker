@@ -643,7 +643,7 @@ describe('turnaj: bounty', { timeout: 300_000 }, () => {
     expect(h.tour.state().status).toBe('finished');
   });
 
-  it('odhlášení před startem vrací i bounty část, zrušení po vyřazeních vrací co zbylo na účtu bounty', async () => {
+  it('odhlášení před startem vrací i bounty část, zrušení po vyřazeních vrací všechno včetně vyplacené bounty', async () => {
     const h = harness({ 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30, 'tournament.fee': 10 }, 4, 5);
     registerAll(h);
     h.tour.unregister('u1');
@@ -669,10 +669,67 @@ describe('turnaj: bounty', { timeout: 300_000 }, () => {
     expect(h.money.bountyBank('T')).toBe(0);
     expect(h.money.pool('T')).toBe(0);
     expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
-    // domu nezůstane nic z vrácených vstupů, vyplacená bounty zůstala vítězi vyřazení
+    // domu nezůstane nic z vrácených vstupů a vyplacená bounty se hráčům vzala zpět: každý je přesně tam, kde začal
     expect(h.ledger.balance(accounts.house())).toBe(0);
-    const wallets = h.users.reduce((n, u) => n + h.ledger.balance(accounts.wallet(u)), 0);
-    expect(wallets).toBe(4 * WALLET);
+    for (const u of h.users) expect(h.ledger.balance(accounts.wallet(u))).toBe(WALLET);
+  });
+
+  it('zrušení s rebuy a bounty: všichni dostanou zpět přesně to, co zaplatili', async () => {
+    const h = harness({ 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30, 'tournament.fee': 10, 'tournament.rebuyEnabled': true, 'tournament.rebuyUntilLevel': 5, 'tournament.rebuyCost': 100, 'tournament.rebuyChips': 1500, 'tournament.rebuyMax': 5 }, 4, 9);
+    registerAll(h);
+    h.tour.start();
+    const rnd = seededRandom(9);
+    for (let i = 0; i < 20_000 && h.tour.state().status === 'running'; i++) {
+      const v = h.table.viewFor(null);
+      if (h.table.currentPhase() === 'hand' && v.actingSeat !== null) {
+        const p = v.seats.find((s) => s.seat === v.actingSeat)!;
+        const legal = h.table.viewFor(p.playerId).legal;
+        if (legal) h.table.act(p.playerId, randomLegalAction(legal, rnd));
+      }
+      for (const pl of h.tour.state().players) if (pl.status === 'deciding') h.tour.rebuy(pl.userId);
+      h.clock.advance(Math.floor(rnd() * 3000));
+      await Promise.resolve();
+      if (h.tour.state().players.reduce((n, pl) => n + pl.rebuys, 0) >= 3) break;
+    }
+    const st = h.tour.state();
+    expect(st.status).toBe('running');
+    expect(st.players.reduce((n, pl) => n + (pl.bountyEarned ?? 0), 0)).toBeGreaterThan(0);
+    h.tour.cancel();
+    expect(h.tour.state().status).toBe('cancelled');
+    for (const u of h.users) expect(h.ledger.balance(accounts.wallet(u))).toBe(WALLET);
+    expect(h.money.bountyBank('T')).toBe(0);
+    expect(h.money.pool('T')).toBe(0);
+    expect(h.ledger.balance(accounts.house())).toBe(0);
+    expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
+  });
+
+  it('zrušení: držitel už vyplacenou bounty utratil; vezme se, co je, zbytek se rozdělí poměrně a kniha zůstane vyrovnaná', async () => {
+    const h = harness({ 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30, 'tournament.fee': 10 }, 4, 5);
+    registerAll(h);
+    h.tour.start();
+    const rnd = seededRandom(5);
+    for (let i = 0; i < 20_000 && h.tour.state().eliminations.length < 1 && h.tour.state().status === 'running'; i++) {
+      const v = h.table.viewFor(null);
+      if (h.table.currentPhase() === 'hand' && v.actingSeat !== null) {
+        const p = v.seats.find((s) => s.seat === v.actingSeat)!;
+        const legal = h.table.viewFor(p.playerId).legal;
+        if (legal) h.table.act(p.playerId, randomLegalAction(legal, rnd));
+      }
+      h.clock.advance(Math.floor(rnd() * 3000));
+      await Promise.resolve();
+    }
+    const hunter = h.tour.state().players.find((pl) => (pl.bountyEarned ?? 0) > 0);
+    expect(hunter).toBeDefined();
+    // držitel peníze utratil (peněženka na nulu)
+    const bal = h.ledger.balance(accounts.wallet(hunter!.userId));
+    h.ledger.post({ kind: 'manual_adjustment', idempotencyKey: 'spend-all', entries: [{ account: accounts.wallet(hunter!.userId), amount: -bal }, { account: accounts.mint(), amount: bal }] });
+    h.tour.cancel();
+    expect(h.tour.state().status).toBe('cancelled');
+    expect(h.money.bountyBank('T')).toBe(0);
+    expect(h.money.pool('T')).toBe(0);
+    expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
+    // nikdo nezůstal v mínusu
+    for (const u of h.users) expect(h.ledger.balance(accounts.wallet(u))).toBeGreaterThanOrEqual(0);
   });
 
   it('bounty se sčítá i s rebuy, re-entry a pozdní registrací', async () => {

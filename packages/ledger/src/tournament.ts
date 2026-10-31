@@ -86,6 +86,26 @@ export class TournamentMoney {
     return this.ledger.balance(accounts.bounty(tournamentId));
   }
 
+  /**
+   * Zrušení turnaje: vyplacená bounty se bere zpět od držitele (jen do výše jeho zůstatku; peněženka nejde do mínusu)
+   * a vrací se na účet bounty, odkud se spolu s ostatními platbami vrátí plátcům. Vrací, kolik se podařilo získat zpět.
+   */
+  bountyClawback(tournamentId: string, userId: string, amount: number, key: string): number {
+    const take = Math.min(amount, Math.max(0, this.ledger.balance(accounts.wallet(userId))));
+    if (take <= 0) return 0;
+    this.ledger.post({
+      kind: 'turnaj_refund',
+      idempotencyKey: key,
+      gameId: tournamentId,
+      entries: [
+        { account: accounts.wallet(userId), amount: -take },
+        { account: accounts.bounty(tournamentId), amount: take },
+      ],
+      note: 'zrušení turnaje: vrácení vyplacené bounty',
+    });
+    return take;
+  }
+
   /** Výplata výhry z prize poolu. */
   payout(tournamentId: string, userId: string, amount: number, key: string): void {
     if (amount <= 0) return;
