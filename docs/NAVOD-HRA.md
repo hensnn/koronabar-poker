@@ -254,3 +254,4 @@ Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vs
 
 - V každém okně s malou volbou (buy-in, rebuy, add-on, hlasování o run it twice, ukázání karet…) jde výběr přepínat **kurzorovými šipkami** (vlevo/nahoru a vpravo/dolů) i klávesou **Tab**. První šipka zaměří hlavní tlačítko. Enter nebo mezerník ho potvrdí, Esc okno zavře.
 - Okno o **rebuy** má tlačítko **Odmítnout**. Použiješ ho, když sis během odpočtu automatické odpovědi rozmyslel a rebuy už nechceš: vypadneš hned a automatika už nic nekoupí. Okno **add-onu** má tlačítko **Ne** a funguje stejně.
+- **Výška sázky z klávesnice:** šipky ↑/↓ mění sázku po **malém blindu** (stejně kolečko myši), šipky ←/→ ji ladí **jemně po jedné jednotce**. Funguje i s fokusem na posuvníku.

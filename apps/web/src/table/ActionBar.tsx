@@ -49,19 +49,25 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
   const hotkeys = uiSettings['ui.hotkeysEnabled'] !== false;
   const keyOf = (k: string) => String(uiSettings[k] ?? '').trim().toLowerCase().slice(0, 1);
   const keys = { fold: keyOf('ui.hotkeyFold'), call: keyOf('ui.hotkeyCall'), bet: keyOf('ui.hotkeyBet'), raise: keyOf('ui.hotkeyRaise'), allIn: keyOf('ui.hotkeyAllIn') };
-  const live = useRef({ legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: info.bigBlind || 1 });
-  live.current = { legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: info.bigBlind || 1 };
+  // Výška sázky se mění po malém blindu (šipky nahoru/dolů, kolečko); šipky doleva/doprava ladí jemně po nejmenší jednotce.
+  const stepBig = info.smallBlind || 1;
+  const live = useRef({ legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: stepBig });
+  live.current = { legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: stepBig };
   useEffect(() => {
     if (!hotkeys) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      // Posuvník sázky sám šipky nechává na nás (aby skok byl malý blind); ostatní pole si je nechávají.
+      const slider = el?.tagName === 'INPUT' && (el as HTMLInputElement).type === 'range';
+      if (!slider && el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       const s = live.current;
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         if (!s.sliderOn) return;
         e.preventDefault();
-        setAmount((a) => s.clamp(a + (e.key === 'ArrowUp' ? s.step : -s.step)));
+        const up = e.key === 'ArrowUp' || e.key === 'ArrowRight';
+        const by = e.key === 'ArrowUp' || e.key === 'ArrowDown' ? s.step : 1;
+        setAmount((a) => s.clamp(a + (up ? by : -by)));
         return;
       }
       if (!s.legal) return;
@@ -84,12 +90,12 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
     if (!el || !sliderOn) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const step = info.bigBlind || 1;
+      const step = stepBig;
       setAmount((a) => clamp(a + (e.deltaY < 0 ? step : -step)));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [sliderOn, info.bigBlind, min, max]);
+  }, [sliderOn, stepBig, min, max]);
 
   return (
     <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" data-turn={legal ? 'mine' : 'wait'} role="group" aria-label={t('table.actions')} title={hotkeys ? t('table.hotkeysHint', { fold: keys.fold.toUpperCase(), call: keys.call.toUpperCase(), bet: keys.bet.toUpperCase(), raise: keys.raise.toUpperCase(), allIn: keys.allIn.toUpperCase() }) : undefined}>
@@ -99,7 +105,7 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
             {q.label}
           </button>
         ))}
-        <input aria-label={t('table.amount')} type="range" className="min-w-24 flex-1" disabled={!sliderOn} min={min} max={Math.max(min, max)} step={Math.max(1, Math.floor(info.smallBlind / 5) || 1)} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+        <input aria-label={t('table.amount')} type="range" className="min-w-24 flex-1" disabled={!sliderOn} min={min} max={Math.max(min, max)} step={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
         <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1.5 font-mono text-lg" disabled={!sliderOn} min={min} max={max} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
       </div>
       {legal ? (
