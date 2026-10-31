@@ -901,7 +901,11 @@ export async function buildServer(opts: ServerOptions = {}) {
     },
     notify: (userId: string, kind: string, params: Record<string, unknown>, link: string | null) => notifications.simple(userId, kind, params, link),
     // Zadavatel odměny na hlavu se výrazně dozví, že se uplatnila (okno kdekoli v aplikaci).
-    onClaimed: (c: ClaimedBounty) => void io.to(`user:${c.posterId}`).emit('bounty:claimed', c),
+    onClaimed: (c: ClaimedBounty) => {
+      void io.to(`user:${c.posterId}`).emit('bounty:claimed', c);
+      // Stručný řádek do widgetu Poslední akce u stolu (částky odměn jsou v turnaji veřejné).
+      void io.emit('tournament:log', { id: c.tournamentId, kind: 'headBounty', target: c.target, amount: c.amount, winners: c.paid.map((x) => x.nickname) });
+    },
   };
   betsRef = new BetService(betDeps);
   bountiesRef = new HeadBountyService(betDeps);

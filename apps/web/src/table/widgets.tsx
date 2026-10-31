@@ -104,7 +104,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const mine = view?.seats.find((s) => s.playerId === me?.user.id);
   const tournamentId = info?.tournament ? (info.tournamentId ?? tableId) : null;
   const tour = useTournamentInfo(tournamentId);
-  const actionLog = useActionLog(view, inBb, 80);
+  const actionLog = useActionLog(view, inBb, 80, tournamentId);
   const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
 
   const defs: Record<WidgetId, WidgetDef> = {

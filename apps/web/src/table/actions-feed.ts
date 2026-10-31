@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { formatAmount } from './format';
+import { onSocket } from '../net';
+import type { FxEvent } from './fx';
 
 export type SeatActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'reraise' | 'allIn';
 export interface SeatAction {
@@ -110,7 +112,7 @@ export function useActionBubbles(view: TableView | undefined, inBb: boolean, ttl
 }
 
 /** Poslední události u stolu (akce hráčů, výhra, nová handa) jako krátké věty; pro přehled na telefonu. */
-export function useActionLog(view: TableView | undefined, inBb: boolean, max = 3): { key: number; text: string; cards?: string[] }[] {
+export function useActionLog(view: TableView | undefined, inBb: boolean, max = 3, tournamentId: string | null = null): { key: number; text: string; cards?: string[] }[] {
   const prev = useRef<TableView | null>(null);
   const counter = useRef(0);
   const [log, setLog] = useState<{ key: number; text: string; cards?: string[] }[]>([]);
@@ -128,5 +130,27 @@ export function useActionLog(view: TableView | undefined, inBb: boolean, max = 3
     }
     if (lines.length > 0) setLog((l) => [...l, ...lines.map((x) => ({ key: ++counter.current, ...x }))].slice(-max));
   }, [view, inBb, max]);
+  // Turnajové události (rebuy, add-on, vyřazení, level, odměny na hlavu) jako stručné řádky mezi akcemi.
+  useEffect(() => {
+    if (!tournamentId) return;
+    const add = (text: string) => setLog((l) => [...l, { key: ++counter.current, text }].slice(-max));
+    const offFx = onSocket<{ id: string; e: FxEvent }>('tournament:fx', (m) => {
+      if (m.id !== tournamentId) return;
+      const e = m.e;
+      if (e.type === 'rebuy' || e.type === 'addon' || e.type === 'reentry') add(t(`table.log.${e.type}`, { name: e.name }));
+      else if (e.type === 'knockout') add(t('table.log.knockout', { by: e.by.join(', '), victim: e.victim }) + (e.amount > 0 ? t('table.log.knockoutBounty', { amount: e.amount }) : ''));
+      else if (e.type === 'eliminated') add(t('table.log.eliminated', { name: e.name, remaining: e.remaining }));
+      else if (e.type === 'level') add(t('table.log.level', { level: e.level, sb: e.smallBlind, bb: e.bigBlind }));
+      else if (e.type === 'bubble') add(t('table.log.bubble'));
+      else if (e.type === 'finished') add(t('table.log.finished', { name: e.results[0]?.name ?? '' }));
+    });
+    const offLog = onSocket<{ id: string; kind: string; target: string; amount: number; winners: string[] }>('tournament:log', (m) => {
+      if (m.id === tournamentId && m.kind === 'headBounty') add(t('table.log.headBounty', { target: m.target, amount: m.amount, winners: m.winners.join(', ') }));
+    });
+    return () => {
+      offFx();
+      offLog();
+    };
+  }, [tournamentId, max]);
   return log;
 }
