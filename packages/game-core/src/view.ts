@@ -176,7 +176,9 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     // Výhry z hlavního a vedlejších potů téhož hráče se sloučí do jednoho součtu (oznámení „Jméno: +částka“ ukazuje jedno číslo).
     winners: winnersVisible && h.winners
         ? [...h.winners.reduce((m, { seat, amount, cards }) => {
-            const hand = showdown && cards ? describeHand(cards) : null;
+            // Při showdownu jsou karty vítězné pětice veřejné (klient je zvýrazní); mimo showdown se nikdy neposílají.
+            const desc = showdown && cards ? describeHand(cards) : null;
+            const hand = desc && cards ? { ...desc, cards: [...cards] } : null;
             const cur = m.get(seat);
             m.set(seat, { seat, amount: (cur?.amount ?? 0) + amount, hand: cur?.hand ?? hand });
             return m;

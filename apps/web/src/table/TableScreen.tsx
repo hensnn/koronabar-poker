@@ -229,6 +229,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const shownSeat = hoverSeat ?? pinnedSeat;
   const hovered = shownSeat !== null ? view.seats.find((s) => s.seat === shownSeat) : undefined;
   // Co lze po handě ukázat (widget „Ukázat karty“ se ukazuje jen, když je co).
+  const winSet = winningCards(view);
   const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && (!view.seats.some((s) => s.playerId !== userId && s.cards) || (info.showCardsFolded && mine.status === 'folded')));
   const canCallClock = !!(mine && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled);
   // Plovoucí lišta „Ukázat karty“ (pravý dolní roh stolu): jen když je co ukázat; výherce s volbou „zahodit“ ji nevidí, už ukázané karty ji zavřou.
@@ -289,7 +290,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
             ) : (
               <div className="flex gap-1">
                 {Array.from({ length: 5 }, (_, i) =>
-                  view.board[i] ? <CardView key={i} card={view.board[i]!} delay={Math.min(4, Math.max(0, i - (view.street === 'TURN' ? 3 : view.street === 'RIVER' ? 4 : 0)) + 1)} /> : <span key={i} className="tk-card tk-card-slot" />,
+                  view.board[i] ? <CardView key={i} card={view.board[i]!} win={winSet ? winSet.has(view.board[i]!) : undefined} delay={Math.min(4, Math.max(0, i - (view.street === 'TURN' ? 3 : view.street === 'RIVER' ? 4 : 0)) + 1)} /> : <span key={i} className="tk-card tk-card-slot" />,
                 )}
               </div>
             )}
@@ -607,6 +608,7 @@ function Seat({
   /** Sedadla v dolní části stolu mají bublinu vedle karet, aby se nepřekrývala se sázkou, která leží nad nimi. */
   bubbleSide?: 'left' | 'right';
 }) {
+  const winSet = winningCards(view);
   const userSettings = useSettings().values;
   const showRank = userSettings['xp.showAtTable'] !== false;
   // Zakryté vlastní karty: ukážou se jen při přejetí myší (na dotykovém displeji klepnutím).
@@ -651,7 +653,7 @@ function Seat({
               ? <span className="tk-seat-status tk-muck-in">{t('table.muck')}</span>
               : seat.cards && !(hideMine && !peek)
               ? seat.cards.map((c, i) => {
-                  const card = <CardView key={seat.exposed?.[i] ? `${c}-shown` : c} card={c} small={!mine} reveal={!mine} shown={seat.exposed?.[i] ? (mine ? 'self' : 'other') : undefined} delayMs={dealDelay(i)} fly={dealFly} />;
+                  const card = <CardView key={seat.exposed?.[i] ? `${c}-shown` : c} card={c} win={winSet ? winSet.has(c) : undefined} small={!mine} reveal={!mine} shown={seat.exposed?.[i] ? (mine ? 'self' : 'other') : undefined} delayMs={dealDelay(i)} fly={dealFly} />;
                   // Klepnutí na vlastní kartu po handě ji ukáže ostatním (stejně jako lišta v rohu stolu).
                   return onShowCard && !seat.exposed?.[i] ? (
                     <span key={c} role="button" tabIndex={0} className="cursor-pointer" title={t('table.tapToShow')} onClick={(e) => { e.stopPropagation(); onShowCard(i as 0 | 1); }} onKeyDown={(e) => e.key === 'Enter' && onShowCard(i as 0 | 1)}>
@@ -736,6 +738,14 @@ function Seat({
       )}
     </div>
   );
+}
+
+/** Karty vítězné kombinace při showdownu (z pětic vítězů); null, když se nic zvýrazňovat nemá (bez showdownu, víc běhů). */
+function winningCards(view: TableView): Set<string> | null {
+  if (!view.winners || view.runs) return null;
+  const set = new Set<string>();
+  for (const w of view.winners) for (const c of w.hand?.cards ?? []) set.add(c);
+  return set.size > 0 ? set : null;
 }
 
 function AmountDialog({ title, topUp, view, balance, error, onCancel, onOk }: { title: string; /** Dokoupení: nejvýš do maximálního buy-inu (počítá se se současným stackem). */ topUp?: boolean; view: TableView; balance: number; /** Chyba z posledního pokusu (např. ochrana hit and run): ukáže se přímo v dialogu. */ error?: string; onCancel: () => void; onOk: (currency: number) => void }) {

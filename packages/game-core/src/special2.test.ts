@@ -129,6 +129,33 @@ describe('ukázání karet a rabbit hunt', () => {
     });
   });
 
+  describe('vítězná kombinace v pohledu (zvýraznění na konci handy)', () => {
+    it('po showdownu mají vítězové pětici karet viditelných u stolu; bez showdownu se žádné karty vítěze neposílají', () => {
+      const sd = (() => {
+        const m = make({}, ['a', 'b']);
+        for (let i = 0; i < 80 && m.actor.currentPhase() !== 'pause'; i++) {
+          const id = m.acting();
+          if (id) m.actor.act(id, { type: m.actor.viewFor(id).legal!.canCheck ? 'check' : 'call' });
+          m.clock.advance(25);
+        }
+        for (let i = 0; i < 400 && m.actor.currentPhase() !== 'pause'; i++) m.clock.advance(25);
+        return m;
+      })();
+      const v = sd.actor.viewFor(null);
+      expect(v.winners).not.toBeNull();
+      const visible = new Set([...v.board, ...v.seats.flatMap((s) => s.cards ?? [])]);
+      for (const w of v.winners!) {
+        expect(w.hand?.cards).toHaveLength(5);
+        for (const c of w.hand!.cards!) expect(visible.has(c)).toBe(true);
+      }
+      const nf = make({}, ['a', 'b']);
+      const folder = nf.acting()!;
+      nf.actor.act(folder, { type: 'fold' });
+      for (let i = 0; i < 400 && nf.actor.currentPhase() !== 'pause'; i++) nf.clock.advance(25);
+      for (const w of nf.actor.viewFor(null).winners ?? []) expect(w.hand).toBeNull();
+    });
+  });
+
   it('vypnuté ukázání karet se nepovolí', () => {
     const off = make({ 'special.showCards': false });
     const f = foldOut(off);

@@ -4,7 +4,7 @@ import type { Card } from './types.js';
 export interface HandDescription {
   key: string;
   params?: Record<string, string>;
-  /** Nejlepší pětice karet (jen u „Moje kombinace“) v pořadí k zobrazení: nejdřív dvojice, trojice a čtveřice, pak ostatní od nejvyšší. */
+  /** Nejlepší pětice karet („Moje kombinace“ v pořadí k zobrazení: nejdřív dvojice, trojice a čtveřice, pak ostatní od nejvyšší; u vítěze showdownu karty vítězné pětice). */
   cards?: Card[];
 }
 
