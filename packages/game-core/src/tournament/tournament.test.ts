@@ -703,6 +703,32 @@ describe('turnaj: bounty', { timeout: 300_000 }, () => {
     expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
   });
 
+  it('zrušení vrací i odvod domu a příspěvek do fondu (dům i fond skončí na nule)', async () => {
+    const h = harness({ 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 20, 'tournament.fee': 10, 'tournament.houseCutPercent': 10, 'tournament.fundPercent': 5, 'tournament.fundId': 'sezona' }, 4, 5);
+    registerAll(h);
+    expect(h.ledger.balance(accounts.house())).toBeGreaterThan(0);
+    expect(h.ledger.balance(accounts.fund('sezona'))).toBeGreaterThan(0);
+    h.tour.start();
+    h.tour.cancel();
+    for (const u of h.users) expect(h.ledger.balance(accounts.wallet(u))).toBe(WALLET);
+    expect(h.ledger.balance(accounts.house())).toBe(0);
+    expect(h.ledger.balance(accounts.fund('sezona'))).toBe(0);
+    expect(h.money.pool('T')).toBe(0);
+    expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
+  });
+
+  it('zrušení, když dům mezitím poplatky utratil: zrušení nespadne', async () => {
+    const h = harness({ 'tournament.fee': 10, 'tournament.houseCutPercent': 10 }, 4, 5);
+    registerAll(h);
+    h.tour.start();
+    const bal = h.ledger.balance(accounts.house());
+    h.ledger.post({ kind: 'manual_adjustment', idempotencyKey: 'house-spent', entries: [{ account: accounts.house(), amount: -bal }, { account: accounts.mint(), amount: bal }] });
+    expect(() => h.tour.cancel()).not.toThrow();
+    expect(h.tour.state().status).toBe('cancelled');
+    expect(h.ledger.totalIsZero(allAccounts(h))).toBe(true);
+    for (const u of h.users) expect(h.ledger.balance(accounts.wallet(u))).toBeGreaterThanOrEqual(0);
+  });
+
   it('zrušení: držitel už vyplacenou bounty utratil; vezme se, co je, zbytek se rozdělí poměrně a kniha zůstane vyrovnaná', async () => {
     const h = harness({ 'tournament.bountyType': 'fixed', 'tournament.bountyPercent': 30, 'tournament.fee': 10 }, 4, 5);
     registerAll(h);

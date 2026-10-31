@@ -47,9 +47,19 @@ export class TournamentMoney {
     const entries = [{ account: accounts.wallet(userId), amount: cost + fee - bounty + back }];
     if (pool > 0) entries.push({ account: accounts.tournament(tournamentId), amount: -pool });
     if (back > 0) entries.push({ account: accounts.bounty(tournamentId), amount: -back });
-    if (fee + house > 0) entries.push({ account: accounts.house(), amount: -(fee + house) });
-    if (fund > 0) entries.push({ account: accounts.fund(split.fundId ?? 'sezona'), amount: -fund });
-    this.ledger.post({ kind: 'turnaj_refund', idempotencyKey: key, gameId: tournamentId, entries });
+    // Dům a fond vrací, co mají. Pokud už peníze utratily (výdaje domu), hráč přesto dostane vše zpět a rozdíl se vydá jako nová měna
+    // (virtuální, bez hodnoty), aby zrušení nikdy neselhalo a kniha zůstala vyrovnaná.
+    let minted = 0;
+    const give = (account: string, amount: number) => {
+      if (amount <= 0) return;
+      const take = Math.min(amount, Math.max(0, this.ledger.balance(account)));
+      if (take > 0) entries.push({ account, amount: -take });
+      minted += amount - take;
+    };
+    give(accounts.house(), fee + house);
+    give(accounts.fund(split.fundId ?? 'sezona'), fund);
+    if (minted > 0) entries.push({ account: accounts.mint(), amount: -minted });
+    this.ledger.post({ kind: 'turnaj_refund', idempotencyKey: key, gameId: tournamentId, entries, note: minted > 0 ? 'dům nebo fond už peníze utratil, rozdíl vydán jako nová měna' : undefined });
   }
 
   /**
