@@ -66,12 +66,22 @@ const fold = (s: string) =>
     .replace(/[̀-ͯ]/g, '')
     .trim();
 
+/** Pořadí karet, které se mají řadit za sebou v tomto pořadí (ostatní karty zůstávají na svých místech): Chat, Zvukové emotikony, Hlasatel, E-mail. */
+const CATEGORY_ORDER = ['chat', 'sounds', 'announcer', 'email'];
+
+/** Karty z `CATEGORY_ORDER` zaberou tytéž pozice jako dosud, jen v uvedeném pořadí. */
+export function orderCategories(cats: string[]): string[] {
+  const wanted = CATEGORY_ORDER.filter((c) => cats.includes(c));
+  let i = 0;
+  return cats.map((c) => (CATEGORY_ORDER.includes(c) ? wanted[i++]! : c));
+}
+
 /** Formulář vygenerovaný z registru nastavení: žádný parametr se nepíše ručně. */
 export function SettingsForm(p: Props) {
   const [query, setQuery] = useState('');
   const [onlyChanged, setOnlyChanged] = useState(false);
   const cats = useMemo(
-    () => p.registry.categories().filter((c) => p.registry.all().some((d) => d.category === c && p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind))),
+    () => orderCategories(p.registry.categories().filter((c) => p.registry.all().some((d) => d.category === c && p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind)))),
     [p.registry, p.allowedKeys, p.values, p.gameKind],
   );
   const changedBy = useMemo(() => {
