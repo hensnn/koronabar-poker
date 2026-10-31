@@ -94,6 +94,8 @@ interface Deps {
   nickOf: (userId: string) => Promise<string>;
   /** Zda je hráč právě připojený (kvůli sit outu neonline hráčů při automatickém startu). */
   isOnline?: (userId: string) => boolean;
+  /** Součty odměn na hlavu za turnaj podle hráče (získal / ztratil jako zadavatel); do přehledu výsledků. */
+  headTotals?: (tournamentId: string) => Promise<Map<string, { earned: number; lost: number }>>;
   /** Upozornění registrovaným hráčům (plánované turnaje). */
   notify?: (userIds: string[], notice: TournamentNotice) => void;
 }
@@ -980,9 +982,10 @@ export class TournamentManager {
     if (!live) {
       const [r] = await this.deps.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
       if (!r) throw new TournamentError('NOT_FOUND');
-      return this.archivedView(r);
+      return this.archivedView(r, (r.state as TournamentState | null)?.results ? await this.deps.headTotals?.(id) : undefined);
     }
     const row = this.rows.get(id)!;
+    const head = live.state().results ? await this.deps.headTotals?.(id) : undefined;
     const s = this.resolve(row);
     const st = live.state();
     const level = live.currentLevel();
@@ -1042,7 +1045,7 @@ export class TournamentManager {
       payoutPreset: String(s['tournament.payoutPreset']),
       standings,
       results,
-      summary: results ? results.map((r) => resultSummary(st, r)) : null,
+      summary: results ? results.map((r) => resultSummary(st, r, head?.get(r.userId))) : null,
       pending: this.pending.get(id) ?? {},
       tables: this.sets.get(id)?.overview().map((tb) => ({ id: tb.id, no: this.tableNo(id, tb.id), players: tb.players.map((p) => ({ userId: p.userId, name: p.name, seat: p.seat + 1, chips: p.chips })) })) ?? [],
       maxTables: Math.max(1, Number(s['tournament.maxTables']) || 1),
@@ -1062,6 +1065,10 @@ export class TournamentManager {
         addonOfferUntil: live.addonOffered(userId) ? live.addonOfferUntil() : null,
         autoAnswer: this.autoChoice(live, userId) ? (this.autoAt.get(`${id}:${userId}`) ?? null) : null,
         canReenter: (live.canReenter(userId) || live.canReenterNowPublic(userId)) && this.can(userId, 'turnaj.hrat').allowed,
+        // Souhrn pro vyřazeného hráče, dokud turnaj běží: kolik investoval, kde skončil, výhra za umístění (vyplatí se po konci turnaje) a bounty.
+        bustSummary: ((mine) => (me && me.status === 'out' && st.status === 'running' && mine
+          ? { ...resultSummary(st, { userId, name: me.name ?? '', place: mine.place, payout: live.payoutPreview().find((x) => x.place === mine.place)?.amount ?? 0, bounty: me.bountyEarned ?? 0 }), payoutPending: true }
+          : null))(standings.find((x) => x.userId === userId)),
       },
       can: {
         manage,
@@ -1072,7 +1079,7 @@ export class TournamentManager {
     };
   }
 
-  private archivedView(r: typeof schema.tournaments.$inferSelect): TournamentView {
+  private archivedView(r: typeof schema.tournaments.$inferSelect, head?: Map<string, { earned: number; lost: number }>): TournamentView {
     const st = r.state as TournamentState | null;
     const s = this.deps.settings.resolve([{ scope: 'table', values: (r.settings ?? {}) as Record<string, SettingValue> }]);
     return {
@@ -1121,10 +1128,10 @@ export class TournamentManager {
       maxTables: 1,
       standings: (st?.results ?? []).map((x) => ({ userId: x.userId, name: x.name, chips: null, seat: null, tableNo: null, place: x.place, status: 'out' as const, payout: x.payout, head: null, bounty: x.bounty ?? 0 })),
       results: st?.results ?? null,
-      summary: st?.results ? st.results.map((r) => resultSummary(st, r)) : null,
+      summary: st?.results ? st.results.map((r) => resultSummary(st, r, head?.get(r.userId))) : null,
       live: null,
       pending: {},
-      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, addonOfferUntil: null, autoAnswer: null, canReenter: false },
+      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, addonOfferUntil: null, autoAnswer: null, canReenter: false, bustSummary: null },
       can: { manage: false, start: false, pause: false, cancel: false },
     };
   }
@@ -1297,16 +1304,18 @@ export interface TournamentView {
     /** Kdy (hodiny serveru) odpoví automatika podle předvolby hráče; null = nic nečeká. */
     autoAnswer: { at: number; yes: boolean } | null;
     canReenter: boolean;
+    /** Souhrn vyřazeného hráče za běhu turnaje (výhra za umístění se vyplatí až po konci turnaje); jinak null. */
+    bustSummary: (ReturnType<typeof resultSummary> & { payoutPending: boolean }) | null;
   };
   can: { manage: boolean; start: boolean; pause: boolean; cancel: boolean };
 }
 
-/** Přehled jednoho hráče po konci turnaje: kolikrát vstoupil, rebuy, add-on (počty i částky včetně poplatků), kolik zaplatil celkem, výhra, bounty a zisk. */
-export function resultSummary(st: Pick<TournamentState, 'payments' | 'players'>, r: { userId: string; name: string; place: number; payout: number; bounty?: number }) {
+/** Přehled jednoho hráče po konci turnaje: kolikrát vstoupil, rebuy, add-on (počty i částky včetně poplatků), kolik zaplatil celkem, výhra, bounty, odměny na hlavu (získané a ztracené zadané) a zisk. */
+export function resultSummary(st: Pick<TournamentState, 'payments' | 'players'>, r: { userId: string; name: string; place: number; payout: number; bounty?: number }, head?: { earned: number; lost: number }) {
   const mine = st.payments.filter((p) => p.userId === r.userId && !p.refunded);
   const count = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon') => mine.filter((p) => p.kind === kind).length;
   const amount = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon') => mine.filter((p) => p.kind === kind).reduce((n, p) => n + p.cost + p.fee, 0);
   const spent = mine.reduce((n, p) => n + p.cost + p.fee, 0);
   const bounty = r.bounty ?? 0;
-  return { userId: r.userId, name: r.name, place: r.place, entries: count('turnaj_buyin'), rebuys: count('turnaj_rebuy'), addons: count('turnaj_addon'), entryAmount: amount('turnaj_buyin'), rebuyAmount: amount('turnaj_rebuy'), addonAmount: amount('turnaj_addon'), spent, payout: r.payout, bounty, profit: r.payout + bounty - spent };
+  return { userId: r.userId, name: r.name, place: r.place, entries: count('turnaj_buyin'), rebuys: count('turnaj_rebuy'), addons: count('turnaj_addon'), entryAmount: amount('turnaj_buyin'), rebuyAmount: amount('turnaj_rebuy'), addonAmount: amount('turnaj_addon'), spent, payout: r.payout, bounty, headEarned: head?.earned ?? 0, headLost: head?.lost ?? 0, profit: r.payout + bounty + (head?.earned ?? 0) - (head?.lost ?? 0) - spent };
 }

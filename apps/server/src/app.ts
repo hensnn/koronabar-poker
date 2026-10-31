@@ -48,7 +48,7 @@ import { LiveCashService } from './live-cash.js';
 import { TvService } from './tv.js';
 import { AnnouncerService } from './announcer.js';
 import { EveningService } from './evenings.js';
-import { BetService, HeadBountyService } from './bets.js';
+import { BetService, HeadBountyService, type ClaimedBounty } from './bets.js';
 import { LimitsService } from './limits.js';
 import { NotesService } from './notes.js';
 import { SharedHandService } from './shared-hands.js';
@@ -645,8 +645,13 @@ export async function buildServer(opts: ServerOptions = {}) {
         }
         if (st?.results && st.results.length > 0) {
           // Každému, kdo se turnaje účastnil, se kdekoli v aplikaci ukáže přehled výsledků (výsledky všech hráčů jsou veřejné).
-          const summary = st.results.map((r) => resultSummary(st, r));
-          for (const r of st.results) emitTournamentResult(r.userId, { id, name: tournaments.nameOf(id) ?? '', summary });
+          // Až po vypořádání odměn na hlavu, ať jsou v přehledu i ony.
+          void (async () => {
+            await bountiesRef?.idle();
+            const head = await bountiesRef?.totals(id);
+            const summary = st.results!.map((r) => resultSummary(st, r, head?.get(r.userId)));
+            for (const r of st.results!) emitTournamentResult(r.userId, { id, name: tournaments.nameOf(id) ?? '', summary });
+          })().catch((err) => console.error('Přehled výsledků:', err instanceof Error ? err.message : err));
         }
         if (st?.results && st.results.length > 0) {
           const results = st.results.slice(0, 3).map((r) => `${r.place}. ${r.name}${r.payout > 0 ? ` (+${r.payout})` : ''}`).join(', ');
@@ -662,6 +667,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     },
     nickOf,
     isOnline: (userId) => isOnline(userId),
+    headTotals: async (id) => (await bountiesRef?.totals(id)) ?? new Map(),
     notify: (to, notice) => notifyTournament(to, notice),
   });
   tournamentsRef.current = tournaments;
@@ -894,6 +900,8 @@ export async function buildServer(opts: ServerOptions = {}) {
       for (const tableId of tournaments.tableIdsOf(tournamentId)) broadcast(tableId);
     },
     notify: (userId: string, kind: string, params: Record<string, unknown>, link: string | null) => notifications.simple(userId, kind, params, link),
+    // Zadavatel odměny na hlavu se výrazně dozví, že se uplatnila (okno kdekoli v aplikaci).
+    onClaimed: (c: ClaimedBounty) => void io.to(`user:${c.posterId}`).emit('bounty:claimed', c),
   };
   betsRef = new BetService(betDeps);
   bountiesRef = new HeadBountyService(betDeps);

@@ -39,6 +39,17 @@ interface Deps {
   onWallet?: (userId: string) => void;
   onChanged?: (tournamentId: string) => void;
   notify?: (userId: string, kind: string, params: Record<string, unknown>, link: string | null) => Promise<void>;
+  /** Odměna na hlavu byla uplatněna: zadavatel se to dozví výrazně (okno, upozornění). */
+  onClaimed?: (c: ClaimedBounty) => void;
+}
+
+export interface ClaimedBounty {
+  tournamentId: string;
+  posterId: string;
+  targetId: string;
+  target: string;
+  amount: number;
+  paid: { userId: string; nickname: string; amount: number }[];
 }
 
 type Meta = { ip?: string | null };
@@ -473,6 +484,27 @@ export class HeadBountyService {
     await this.move(b, [{ account: accounts.house(), amount: b.amount }], 'head_bounty_house', 'forfeited', null);
   }
 
+  /** Oznámí zadavateli, že se jeho odměna uplatnila (kdo ji dostal a za koho). */
+  private async claimed(b: Bounty, paid: { userId: string; amount: number }[]): Promise<void> {
+    const [target, ...names] = await Promise.all([this.deps.nickOf(b.targetId).catch(() => ''), ...paid.map((x) => this.deps.nickOf(x.userId).catch(() => ''))]);
+    const payload: ClaimedBounty = { tournamentId: b.tournamentId, posterId: b.posterId, targetId: b.targetId, target: target ?? '', amount: b.amount, paid: paid.map((x, i) => ({ userId: x.userId, nickname: names[i] ?? '', amount: x.amount })) };
+    void this.deps.notify?.(b.posterId, 'headBountyClaimed', { target: payload.target, amount: b.amount, winners: payload.paid.map((x) => x.nickname).join(', ') }, `/turnaj/${b.tournamentId}`);
+    this.deps.onClaimed?.(payload);
+  }
+
+  /** Součty odměn na hlavu za turnaj podle hráče: co získal a co ztratil jako zadavatel (odměna vyplacená jinému, nebo propadlá domu). */
+  async totals(tournamentId: string): Promise<Map<string, { earned: number; lost: number }>> {
+    const out = new Map<string, { earned: number; lost: number }>();
+    const at = (id: string) => out.get(id) ?? out.set(id, { earned: 0, lost: 0 }).get(id)!;
+    for (const b of await this.deps.db.select().from(schema.headBounties).where(eq(schema.headBounties.tournamentId, tournamentId))) {
+      if (b.status === 'paid') {
+        for (const x of (b.paidTo as { userId: string; amount: number }[] | null) ?? []) at(x.userId).earned += x.amount;
+        at(b.posterId).lost += b.amount;
+      } else if (b.status === 'forfeited') at(b.posterId).lost += b.amount;
+    }
+    return out;
+  }
+
   /** Hráč vypadl: odměny na jeho hlavu dostane ten, kdo ho vyřadil. */
   onEliminated(tournamentId: string, victimId: string, killers: { userId: string; weight: number }[]): Promise<void> {
     return this.serial.run(async () => {
@@ -484,6 +516,7 @@ export class HeadBountyService {
           const paid = valid.map((k, i) => ({ userId: k.userId, amount: shares[i]! })).filter((x) => x.amount > 0);
           await this.move(b, paid.map((x) => ({ account: accounts.wallet(x.userId), userId: x.userId, amount: x.amount })), 'head_bounty_payout', 'paid', paid);
           for (const x of paid) void this.deps.notify?.(x.userId, 'headBountyPaid', { amount: x.amount }, `/turnaj/${tournamentId}`);
+          await this.claimed(b, paid);
         } else {
           const rule = String(this.s()['headBounty.noKiller']);
           if (rule === 'house') await this.toHouse(b);
@@ -507,6 +540,7 @@ export class HeadBountyService {
         if (toWinner && winnerId && winnerId !== b.targetId) {
           await this.move(b, [{ account: accounts.wallet(winnerId), userId: winnerId, amount: b.amount }], 'head_bounty_payout', 'paid', [{ userId: winnerId, amount: b.amount }]);
           void this.deps.notify?.(winnerId, 'headBountyPaid', { amount: b.amount }, `/turnaj/${tournamentId}`);
+          await this.claimed(b, [{ userId: winnerId, amount: b.amount }]);
         } else if (rule === 'house' && b.status === 'open') await this.toHouse(b);
         else await this.toPoster(b);
       }

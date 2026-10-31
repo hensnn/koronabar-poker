@@ -27,7 +27,7 @@ import { Button, Card, DataTable, ErrorToast, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
 import { useFeatures } from '../features';
-import { useTournamentResultFallback } from './tournament-result';
+import { BustSummaryButton, useTournamentResultFallback } from './tournament-result';
 import { useKeepInView } from '../keep-in-view';
 
 /** Turnaj na více stolech: když hráče přesadí k jinému stolu, stránka ho tam sama přesměruje. */
@@ -286,6 +286,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {isTournament && <TournamentBanner tournamentId={tournamentId} handRunning={!!(view?.handId && view.winners === null && view.street !== null)} />}
         {isTournament && <DealPanel id={tournamentId} onlyOpen />}
+        {isTournament && <BustSummaryButton tournamentId={tournamentId} />}
         <TableScreen
           tableId={tableId}
           inBb={inBb}

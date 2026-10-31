@@ -248,6 +248,8 @@ U stolu je v panelu rozbalovátko **Automatické odpovědi** (vedle „Ukazován
 Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vstup, rebuy, add-on, poplatek) a **vyplacená bounty za vyřazení se vezme zpět** od těch, kdo ji dostali. Každý hráč je pak přesně tam, kde byl před turnajem.
 
 - Peněženka nejde do mínusu. Pokud držitel bounty mezitím peníze utratil, vezme se jen to, co na peněžence je. Zbytek bounty se vrátí poměrně podle toho, kolik kdo do bounty vložil.
+- **Souhrn po vypadnutí:** kdo vypadne z běžícího turnaje, dostane okno se souhrnem (kolik vložil: buy-in, rebuy, add-on, na kterém místě skončil, výhra za umístění a bounty). Znovu ho vyvoláš tlačítkem **Můj souhrn** nad stolem, i když ostatní ještě hrají. Výhra za umístění se vyplatí až po konci turnaje.
+- **Odměna na hlavu:** když se tvoje vypsaná odměna uplatní, ukáže se ti nahoře výrazný pruh (kdo byl vyřazen a kdo odměnu dostal) a přijde upozornění do zvonečku. V tabulce výsledků (okno po konci turnaje i stránka turnaje) je sloupec **Odměny na hlavu**: zeleně získané za vyřazení, červeně ztracené (odměna, kterou jsi vypsal a dostal ji někdo jiný); započítává se i do zisku, a je i v CSV.
 - Sázky na turnaj a odměny na hlavu se při zrušení vrací jako dřív.
 - **Statistiky:** zrušený turnaj nezanechá žádné statistiky. Smažou se jeho handy a záznamy o vyřazení a XP všech hráčů se přepočítá z toho, co zbylo. Už získané úspěchy (achievementy) a jejich XP zůstávají. Rating se u zrušeného turnaje nikdy nepočítal.
 - Vrácení najdeš v účetní knize jako „Vrácení platby za turnaj“ (a „zrušení turnaje: vrácení vyplacené bounty“).

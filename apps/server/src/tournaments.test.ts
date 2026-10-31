@@ -324,6 +324,39 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     });
   });
 
+  it('vyřazený hráč dostane za běhu turnaje souhrn (investice, místo, výhra za umístění, bounty); ostatním je souhrn prázdný', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const ps = [await s.user(), await s.user(), await s.user()];
+    const { id } = await s.server.tournaments.create(org, { name: 'Souhrn', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.startingStack': 300 } });
+    for (const p of ps) await s.server.tournaments.register(p, id);
+    await s.server.tournaments.start(org, id);
+    const tour = s.server.tournaments.get(id)!;
+    expect((await s.server.tournaments.view(id, ps[0]!)).me.bustSummary).toBeNull();
+    const rnd = seededRandom(9);
+    const actor = s.server.tables.actors.get(id)!;
+    for (let i = 0; i < 30_000 && tour.state().eliminations.length < 1; i++) {
+      const v = actor.viewFor(null);
+      if (actor.currentPhase() === 'hand' && v.actingSeat !== null) {
+        const p = v.seats.find((x) => x.seat === v.actingSeat)!;
+        const legal = actor.viewFor(p.playerId).legal;
+        if (legal) actor.act(p.playerId, randomLegalAction(legal, rnd));
+      }
+      s.clock.advance(Math.floor(rnd() * 3000));
+      await Promise.resolve();
+    }
+    const out = tour.state().players.find((p) => p.status === 'out')!;
+    expect(out).toBeTruthy();
+    const mine = (await s.server.tournaments.view(id, out.userId)).me.bustSummary!;
+    expect(mine).not.toBeNull();
+    expect(mine.place).toBe(3);
+    expect(mine.entries).toBe(1);
+    expect(mine.spent).toBeGreaterThan(0);
+    expect(mine.payoutPending).toBe(true);
+    expect(mine.profit).toBe(mine.payout + mine.bounty - mine.spent);
+    for (const p of ps.filter((x) => x !== out.userId)) expect((await s.server.tournaments.view(id, p)).me.bustSummary).toBeNull();
+  });
+
   it('zrušený turnaj nezanechá statistiky: handy, vyřazení i z nich vzniklé XP zmizí, ostatní data zůstanou', async () => {
     const s = await start();
     const org = await s.user('organizator');
@@ -359,7 +392,7 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     expect(before.xp).toBeGreaterThan(0);
 
     await s.server.tournaments.cancel(org, id);
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 400; i++) {
       await new Promise((r) => setTimeout(r, 30));
       if ((await count()).hands === 0) break;
     }
@@ -769,7 +802,7 @@ describe('resultSummary (přehled po konci turnaje)', () => {
     const { resultSummary } = await import('./tournaments.js');
     const pay = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon', cost: number, fee = 0, refunded = false) => ({ userId: 'a', kind, cost, fee, key: `${kind}-${cost}-${refunded}`, refunded });
     const st = { payments: [pay('turnaj_buyin', 100, 10), pay('turnaj_rebuy', 100, 10), pay('turnaj_rebuy', 100, 10, true), pay('turnaj_addon', 50), { ...pay('turnaj_buyin', 100, 10), userId: 'b' }], players: [] };
-    expect(resultSummary(st, { userId: 'a', name: 'A', place: 1, payout: 300, bounty: 40 })).toEqual({ userId: 'a', name: 'A', place: 1, entries: 1, rebuys: 1, addons: 1, entryAmount: 110, rebuyAmount: 110, addonAmount: 50, spent: 270, payout: 300, bounty: 40, profit: 70 });
+    expect(resultSummary(st, { userId: 'a', name: 'A', place: 1, payout: 300, bounty: 40 })).toEqual({ userId: 'a', name: 'A', place: 1, entries: 1, rebuys: 1, addons: 1, entryAmount: 110, rebuyAmount: 110, addonAmount: 50, spent: 270, payout: 300, bounty: 40, headEarned: 0, headLost: 0, profit: 70 });
     expect(resultSummary(st, { userId: 'b', name: 'B', place: 2, payout: 0 }).profit).toBe(-110);
   });
 });

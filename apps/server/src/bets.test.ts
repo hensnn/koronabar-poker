@@ -318,6 +318,23 @@ describe('odměna na hlavu', { timeout: 90_000 }, () => {
     expect(list.bounties.every((x) => x.status === 'paid')).toBe(true);
   });
 
+  it('součty odměn na hlavu do přehledu výsledků: kdo získal a kdo ztratil jako zadavatel; vrácená odměna se nepočítá', async () => {
+    const s = await start();
+    const g = await setup(s);
+    await s.server.headBounties.post(g.a, g.id, g.c, 50);
+    await s.server.headBounties.post(g.b, g.id, g.c, 30);
+    await s.server.headBounties.post(g.c, g.id, g.a, 20);
+    await s.server.tournaments.start(g.org, g.id);
+    await s.server.tournaments.liveEliminate(g.org, g.id, g.c, [g.b]);
+    await idle(s);
+    const t = await s.server.headBounties.totals(g.id);
+    expect(t.get(g.b)).toEqual({ earned: 80, lost: 30 });
+    expect(t.get(g.a)).toEqual({ earned: 0, lost: 50 });
+    // odměna na hlavu hráče a zatím nevyplacená (a zůstává otevřená) se do ztráty nepočítá
+    expect(t.get(g.c)?.lost ?? 0).toBe(0);
+    expect(t.get(g.c)?.earned ?? 0).toBe(0);
+  });
+
   it('víc vyřazujících dělí odměnu podle váhy a součet sedí', async () => {
     const s = await start();
     const g = await setup(s);

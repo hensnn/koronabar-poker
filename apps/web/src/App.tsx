@@ -16,7 +16,7 @@ import { TablesPage } from './pages/tables';
 import { TablePage } from './pages/table';
 import { SoundHost } from './pages/sounds';
 import { useFeatures } from './features';
-import { TournamentResultHost } from './pages/tournament-result';
+import { HeadBountyClaimedHost, TournamentResultHost } from './pages/tournament-result';
 import { BrandFavicon, BrandMark } from './brand';
 import { useApplyDensity } from './density';
 import { AssistantLauncher, AssistantMenuItem } from './pages/assistant';
@@ -207,6 +207,7 @@ function Shell({ me }: { me: Me }) {
       </header>
       {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}
       <TournamentResultHost />
+      <HeadBountyClaimedHost />
       {features.xp && <LevelUpToast />}
       <OfflineBanner />
       {!me.user.emailVerified && !blocked && <VerifyBanner />}
