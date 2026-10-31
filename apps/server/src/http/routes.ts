@@ -2164,6 +2164,22 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const { target, ...rest } = b;
     return reply.send({ id: await svc.wallet.createRequest(need(req).id, { ...rest, payload: target ? { target } : undefined }) });
   }));
+  // Úvěr: čerpání virtuálních Koron na dluh a splátka (vše přes účetní knihu).
+  app.get('/api/wallet/credit', guard(async (req, reply) => reply.send(await svc.wallet.creditInfo(need(req).id))));
+  app.post('/api/wallet/credit/draw', guard(async (req, reply) => {
+    const b = z.object({ amount }).parse(req.body);
+    const u = need(req).id;
+    const r = await svc.wallet.creditDraw(u, b.amount, meta(req));
+    svc.hooks.pushWallet(u);
+    return reply.send(r);
+  }));
+  app.post('/api/wallet/credit/repay', guard(async (req, reply) => {
+    const b = z.object({ amount }).parse(req.body);
+    const u = need(req).id;
+    const r = await svc.wallet.creditRepay(u, b.amount, meta(req));
+    svc.hooks.pushWallet(u);
+    return reply.send(r);
+  }));
   /** Nastavení převodů do jiných aplikací pro formulář v peněžence. */
   app.get('/api/wallet/transfer', guard(async (req, reply) => {
     need(req);

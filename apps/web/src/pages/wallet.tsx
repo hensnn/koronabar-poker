@@ -26,6 +26,16 @@ interface RequestRow {
   payload?: { target?: string } | null;
   createdAt: string;
 }
+interface CreditInfo {
+  enabled: boolean;
+  limit: number;
+  debt: number;
+  available: number;
+  minDraw: number;
+  maxDraw: number;
+  approval: 'none' | 'admin';
+  pending: { id: string; amount: number } | null;
+}
 interface TransferInfo {
   enabled: boolean;
   targets: string[];
@@ -43,6 +53,10 @@ export function WalletPage() {
   const [error, setError] = useState('');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
+  const [credit, setCredit] = useState<CreditInfo | null>(null);
+  const [cAmount, setCAmount] = useState('');
+  const [cRepay, setCRepay] = useState('');
+  const [cMsg, setCMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [transfer, setTransfer] = useState<TransferInfo | null>(null);
   const [tTarget, setTTarget] = useState('');
   const [tAmount, setTAmount] = useState('');
@@ -52,6 +66,7 @@ export function WalletPage() {
   const reload = useCallback(() => {
     get<HistoryRow[]>('/api/wallet/history').then(setHist).catch((e) => setError(errorText(e)));
     get<RequestRow[]>('/api/requests').then(setReqs).catch(() => undefined);
+    get<CreditInfo>('/api/wallet/credit').then(setCredit).catch(() => undefined);
     get<TransferInfo>('/api/wallet/transfer')
       .then((i) => {
         setTransfer(i);
@@ -70,6 +85,59 @@ export function WalletPage() {
         </p>
       </Card>
       {error && <Notice kind="error">{error}</Notice>}
+
+      {canRequest && credit && (credit.enabled || credit.debt > 0) && (
+        <Card title={t('wallet.credit.title')}>
+          <p className="mb-2 text-sm text-muted">{t('wallet.credit.help', { limit: credit.limit })}</p>
+          <p className="mb-2">
+            {t('wallet.credit.debt')}: <strong className="font-mono">{credit.debt}</strong> · {t('wallet.credit.available')}: <strong className="font-mono">{credit.available}</strong>
+          </p>
+          {cMsg && <Notice kind={cMsg.kind}>{cMsg.text}</Notice>}
+          {credit.pending && <Notice>{t('wallet.credit.pending', { amount: credit.pending.amount })}</Notice>}
+          {credit.enabled && !credit.pending && credit.available >= credit.minDraw && (
+            <form
+              className="mt-2 flex flex-wrap items-end gap-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const r = await post<{ done: boolean }>('/api/wallet/credit/draw', { amount: Number(cAmount) });
+                  setCAmount('');
+                  setCMsg({ kind: 'success', text: t(r.done ? 'wallet.credit.drawn' : 'wallet.credit.requested') });
+                  reload();
+                } catch (er) {
+                  setCMsg({ kind: 'error', text: errorText(er) });
+                }
+              }}
+            >
+              <TextInput label={t('wallet.credit.amount', { min: credit.minDraw, max: Math.min(credit.maxDraw, credit.available) })} type="number" min={credit.minDraw} max={Math.min(credit.maxDraw, credit.available)} value={cAmount} onChange={(e) => setCAmount(e.target.value)} required />
+              <Button variant="primary" type="submit">
+                {t(credit.approval === 'admin' ? 'wallet.credit.request' : 'wallet.credit.draw')}
+              </Button>
+            </form>
+          )}
+          {credit.debt > 0 && (
+            <form
+              className="mt-2 flex flex-wrap items-end gap-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await post('/api/wallet/credit/repay', { amount: Number(cRepay) });
+                  setCRepay('');
+                  setCMsg({ kind: 'success', text: t('wallet.credit.repaid') });
+                  reload();
+                } catch (er) {
+                  setCMsg({ kind: 'error', text: errorText(er) });
+                }
+              }}
+            >
+              <TextInput label={t('wallet.credit.repayAmount')} type="number" min={1} max={Math.min(credit.debt, me?.balance ?? 0)} value={cRepay} onChange={(e) => setCRepay(e.target.value)} required />
+              <Button type="submit" disabled={(me?.balance ?? 0) <= 0}>
+                {t('wallet.credit.repay')}
+              </Button>
+            </form>
+          )}
+        </Card>
+      )}
 
       {canRequest && (
         <Card title={t('wallet.request.title')}>

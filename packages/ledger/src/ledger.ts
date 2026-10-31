@@ -51,6 +51,8 @@ export type EntryKind =
   | 'head_bounty_house'
   | 'shop_purchase'
   | 'transfer_out'
+  | 'credit_draw'
+  | 'credit_repay'
   | 'manual_adjustment';
 
 export interface Entry {
