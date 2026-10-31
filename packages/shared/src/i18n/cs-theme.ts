@@ -209,6 +209,8 @@ export const csTheme: Record<string, string> = {
   'token.cards.fourColor': '4barevný balíček',
   'token.cards.back': 'Vzor rubu karet',
   'token.size.cardWidth': 'Šířka karty',
+  'token.size.seatCardLive': 'Karty soupeřů v handě (násobek)',
+  'token.size.seatCardFolded': 'Karty složených hráčů a sit outu (násobek)',
   'token.shape.cardRadius': 'Zaoblení rohů karty',
   'token.anim.flip': 'Rychlost otočení karty (ms)',
   'token.image.cardBack': 'Rub karty (vlastní obrázek)',

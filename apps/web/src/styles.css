@@ -168,10 +168,10 @@ h3,
 .tk-card {
   border-radius: var(--tk-shape-cardRadius);
   box-shadow: var(--tk-shape-shadow);
-  width: calc(var(--cw, var(--tk-size-cardWidth)) * var(--card-scale, 1));
+  width: calc(var(--cw, var(--tk-size-cardWidth)) * var(--card-scale, 1) * var(--seat-card-k, 1));
   aspect-ratio: 5 / 7;
   /* Index a barva vyplní celou kartu, aby byly čitelné i z dálky a na malých kartách soupeřů. */
-  font-size: calc(var(--cw, var(--tk-size-cardWidth)) * var(--card-scale, 1) * 0.6);
+  font-size: calc(var(--cw, var(--tk-size-cardWidth)) * var(--card-scale, 1) * var(--seat-card-k, 1) * 0.6);
   transition: transform calc(var(--tk-anim-flip) * 1ms / var(--tk-anim-speed));
 }
 .tk-card-rank { line-height: 0.95; }
@@ -589,6 +589,9 @@ h3,
   transition: opacity calc(200ms / var(--tk-anim-speed));
 }
 .tk-seat-dim { opacity: 1; }
+/* Velikost karet u sedadla: kdo je v handě, má karty větší (soupeři), složený, čekající a sit out menší. Násobí se s velikostí podle zařízení a motivu. */
+.tk-seat-live:not(.tk-seat-mine) { --seat-card-k: var(--tk-size-seatCardLive); }
+.tk-seat-dim { --seat-card-k: var(--tk-size-seatCardFolded); }
 /* Odznaky dealera a straddlu se u složeného hráče nebo hráče v sit outu nezašednou: button musí být u stolu vždy dobře vidět. */
 .tk-seat-dim > *:not(.tk-dealer):not(.tk-straddle) { opacity: 0.55; }
 /* Co hráč udělal s kartami po handě (ukázal / muck / rozhoduje se): štítek přes spodní okraj karet. */

@@ -88,6 +88,8 @@ export const TOKEN_DEFS: TokenDef[] = [
   en('cards.fourColor', 'off', ['off', 'on'], 'cards'),
   en('cards.back', 'stripes', ['solid', 'stripes', 'dots', 'diamonds', 'crosshatch', 'checker', 'rays', 'frame', 'plaid', 'zigzag', 'rings', 'scales', 'lines'], 'cards'),
   len('size.cardWidth', '56px', 'cards'),
+  num('size.seatCardLive', 1.18, 'cards', 0.8, 1.6, 0.02),
+  num('size.seatCardFolded', 0.78, 'cards', 0.4, 1.2, 0.02),
   len('shape.cardRadius', '4px', 'cards'),
   num('anim.flip', 250, 'cards', 0, 1000, 25),
   image('image.cardBack', 'cards'),
