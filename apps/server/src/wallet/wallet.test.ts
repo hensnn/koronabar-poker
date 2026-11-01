@@ -28,7 +28,9 @@ async function setup() {
   });
   const ledger = new Ledger(new MemoryLedgerStore(), { negativeBalanceLimit: 0 }, () => clock.getTime(), (tx) => journal.push('tx', ledgerTxOp(tx)));
   const approvals = new ApprovalService(db, perms, audit, { now: () => clock });
-  const wallet = new WalletService({ db, ledger, perms, audit, approvals, settings: () => resolveSettings(reg, [{ scope: 'global', values: { 'economy.topupRequestsEnabled': true } }]).values, flush: () => journal.flush() });
+  // Nastavení základní služby jde v testu změnit (jinak by její automatické splácení běželo vedle služby s jiným nastavením).
+  let baseOver: Record<string, number | boolean | string> = {};
+  const wallet = new WalletService({ db, ledger, perms, audit, approvals, settings: () => resolveSettings(reg, [{ scope: 'global', values: { 'economy.topupRequestsEnabled': true, ...baseOver } }]).values, flush: () => journal.flush() });
   let n = 0;
   const user = async (nick: string, role?: string) => {
     const [u] = await db.insert(schema.users).values({ nickname: nick, nicknameLower: `${nick.toLowerCase()}${n++}`, passwordHash: 'x' }).returning({ id: schema.users.id });
@@ -36,7 +38,7 @@ async function setup() {
     else await perms.reload();
     return u!.id;
   };
-  return { db, audit, perms, ledger, approvals, wallet, journal, user, cash: new CashService(ledger), advance: (ms: number) => void (clock = new Date(clock.getTime() + ms)) };
+  return { db, audit, perms, ledger, approvals, wallet, journal, user, base: (o: Record<string, number | boolean | string>) => void (baseOver = o), cash: new CashService(ledger), advance: (ms: number) => void (clock = new Date(clock.getTime() + ms)) };
 }
 const code = async (p: Promise<unknown>) => {
   try {
@@ -294,7 +296,7 @@ describe('přehledy a vyúčtování', () => {
   });
 });
 
-describe('úvěr (předschválená úvěrová linka)', () => {
+describe('kontokorent (předschválený polštář s automatickým splácením)', () => {
   const settingsWith = (over: Record<string, number | boolean | string>) => resolveSettings(reg, [{ scope: 'global', values: over }]).values;
   async function withCredit(over: Record<string, number | boolean | string> = {}) {
     const s = await setup();
@@ -365,22 +367,44 @@ describe('úvěr (předschválená úvěrová linka)', () => {
     expect((await s.audit.list({ action: 'mena.uver_limit' })).length).toBe(3);
   });
 
-  it('splátka jen do výše dluhu a zůstatku; po splacení je limit zase volný', async () => {
+  it('kontokorent se splácí jako první z každého příjmu (výhra, dobití); zbytek zůstane hráči, výhra ve hře zůstává celá', async () => {
     const s = await withCredit({ 'economy.creditLimit': 300 });
     const pok = await s.user('Pok', 'pokladnik');
     const hrac = await s.user('Hrac', 'hrac');
-    buyIn(s, hrac, 200, 'bi:6'); // celé na dluh
-    s.ledger.post({ kind: 'turnaj_vyplata', idempotencyKey: 'win', entries: [{ account: accounts.table('t1'), amount: -200 }, { account: accounts.wallet(hrac), amount: 200 }] });
-    expect(await code(s.wallet.creditRepay(hrac, 500))).toBe('INVALID'); // víc než dluh
-    await s.wallet.creditRepay(hrac, 150);
-    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 50, available: 250 });
-    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(50);
-    expect(s.ledger.balance(accounts.mint())).toBe(-50);
-    // Koruny, které hráč prohrál, splácet nejde
-    s.ledger.post({ kind: 'manual_adjustment', idempotencyKey: 'lose', entries: [{ account: accounts.wallet(hrac), amount: -50 }, { account: accounts.house(), amount: 50 }] });
-    expect(await code(s.wallet.creditRepay(hrac, 50))).toBe('INVALID');
+    buyIn(s, hrac, 200, 'bi:6'); // celé na kontokorent
+    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 200, available: 100, autoRepay: true });
+    // výhra 150 < dluh: celá jde na splátku
+    s.ledger.post({ kind: 'turnaj_vyplata', idempotencyKey: 'win:1', gameId: 'g1', entries: [{ account: accounts.table('t1'), amount: -150 }, { account: accounts.wallet(hrac), amount: 150 }] });
     expect(s.wallet.creditInfo(hrac).debt).toBe(50);
-    void pok;
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(0);
+    // dobití 100: nejdřív zbylých 50 dluhu, zbytek hráči
+    await s.wallet.topUp(pok, hrac, 100, 'dobití');
+    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 0, available: 300 });
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(50);
+    // splátky jsou samostatné pohyby zpět na účet vydání měny; součet knihy je 0
+    const repays = s.ledger.transactions().filter((t) => t.kind === 'credit_repay');
+    expect(repays.map((t) => t.entries.find((e) => e.account === accounts.mint())!.amount)).toEqual([150, 50]);
+    expect(s.ledger.totalIsZero([accounts.mint(), accounts.wallet(hrac), accounts.table('t1')])).toBe(true);
+    // další příjem už nic nesplácí
+    await s.wallet.topUp(pok, hrac, 70, 'další');
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(120);
+    expect(s.ledger.transactions().filter((t) => t.kind === 'credit_repay')).toHaveLength(2);
+  });
+
+  it('automatické splácení vypne správce v nastavení; pak jde splatit ručně jen do výše dluhu a zůstatku', async () => {
+    const s = await withCredit({ 'economy.creditLimit': 300, 'economy.creditAutoRepay': false });
+    s.base({ 'economy.creditAutoRepay': false });
+    const pok = await s.user('Pok', 'pokladnik');
+    const hrac = await s.user('Hrac', 'hrac');
+    buyIn(s, hrac, 200, 'bi:8');
+    await s.wallet.topUp(pok, hrac, 150, 'dobití');
+    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 200, autoRepay: false }); // nic se nesplatilo samo
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(150);
+    expect(await code(s.wallet.creditRepay(hrac, 500))).toBe('INVALID'); // víc než dluh
+    await s.wallet.creditRepay(hrac, 120);
+    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 80, available: 220 });
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(30);
+    expect(await code(s.wallet.creditRepay(hrac, 80))).toBe('INVALID'); // zůstatek nestačí
   });
 
   it('po restartu serveru (kniha v paměti drží jen zůstatky) dluh, osobní limity i přehled vydané měny zůstávají', async () => {

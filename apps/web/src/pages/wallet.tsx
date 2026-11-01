@@ -28,6 +28,7 @@ interface RequestRow {
 }
 interface CreditInfo {
   enabled: boolean;
+  autoRepay?: boolean;
   limit: number;
   debt: number;
   available: number;
@@ -85,7 +86,7 @@ export function WalletPage() {
       {canRequest && credit && (credit.debt > 0 || (credit.enabled && credit.limit > 0)) && (
         <Card title={t('wallet.credit.title')}>
           <p className="mb-2 text-sm text-muted">{t(credit.enabled ? 'wallet.credit.help' : 'wallet.credit.helpOff')}</p>
-          <dl className="mb-2 grid grid-cols-3 gap-3">
+          <dl className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
             <div>
               <dt className="text-sm text-muted">{t('wallet.credit.limit')}</dt>
               <dd className="font-mono text-lg font-bold">{credit.limit}</dd>
@@ -98,10 +99,15 @@ export function WalletPage() {
               <dt className="text-sm text-muted">{t('wallet.credit.available')}</dt>
               <dd className="font-mono text-lg font-bold">{credit.available}</dd>
             </div>
+            <div>
+              <dt className="text-sm text-muted">{t('wallet.credit.net')}</dt>
+              <dd className={`font-mono text-lg font-bold ${(me?.balance ?? 0) - credit.debt < 0 ? 'text-danger' : ''}`}>{(me?.balance ?? 0) - credit.debt}</dd>
+            </div>
           </dl>
+          {credit.autoRepay !== false && credit.debt > 0 && <p className="mb-2 text-sm text-muted">{t('wallet.credit.auto')}</p>}
           {credit.enabled && credit.debt > credit.limit && <p className="mb-2 text-sm text-warning">{t('wallet.credit.overLimit')}</p>}
           {cMsg && <Notice kind={cMsg.kind}>{cMsg.text}</Notice>}
-          {credit.debt > 0 && (
+          {credit.debt > 0 && credit.autoRepay === false && (
             <form
               className="mt-2 flex flex-wrap items-end gap-3"
               onSubmit={async (e) => {
@@ -125,7 +131,7 @@ export function WalletPage() {
               </Button>
             </form>
           )}
-          {credit.debt > 0 && (me?.balance ?? 0) <= 0 && <p className="mt-2 text-sm text-muted">{t('wallet.credit.noMoney')}</p>}
+          {credit.debt > 0 && credit.autoRepay === false && (me?.balance ?? 0) <= 0 && <p className="mt-2 text-sm text-muted">{t('wallet.credit.noMoney')}</p>}
         </Card>
       )}
 
@@ -324,7 +330,7 @@ interface CreditLines {
   players: { userId: string; nickname: string; custom: number | null; limit: number; debt: number }[];
 }
 
-/** Pokladník: úvěrové linky hráčů (osobní limit předschváleného úvěru nebo výchozí z nastavení). */
+/** Pokladník: kontokorent hráčů (osobní limit nebo výchozí z nastavení). */
 function CreditLinesCard() {
   const [data, setData] = useState<CreditLines | null>(null);
   const [edit, setEdit] = useState<Record<string, string>>({});

@@ -797,6 +797,27 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
   });
 });
 
+describe('vyúčtování období: turnaj se počítá celý', { timeout: 120_000 }, () => {
+  it('zrušený turnaj: okno posledních 24 h ukáže vklady i jejich vrácení (nulu), ne jen vrácení', async () => {
+    const s = await start();
+    s.clock.advance(Date.parse('2026-06-01T10:00:00Z') - s.clock.now());
+    const org = await s.user('organizator');
+    const [a, b] = [await s.user(), await s.user()];
+    const { id } = await s.server.tournaments.create(org, { name: 'Zrušený', templateId: 'tour-turbo', settings: { 'tournament.live': true, 'tournament.minPlayers': 2, 'tournament.buyIn': 100, 'tournament.fee': 0, 'tournament.startingStack': 1500, 'table.seats': 9, 'tournament.payoutPreset': 'wta' } });
+    for (const p of [a, b]) await s.server.tournaments.liveRegister(org, id, p);
+    s.clock.advance(3 * 24 * 3600_000); // vstupy byly před třemi dny
+    await s.server.tournaments.cancel(org, id);
+    await s.server.journal.flush();
+    const now = s.clock.now();
+    const day = await s.server.wallet.settlementForPeriod(s.admin, now - 24 * 3600_000, now + 1000);
+    const week = await s.server.wallet.settlementForPeriod(s.admin, now - 7 * 24 * 3600_000, now + 1000);
+    const total = (r: typeof day, u: string) => r.players.find((p) => p.userId === u)?.total ?? 0;
+    expect(total(week, a)).toBe(0);
+    expect(total(day, a)).toBe(total(week, a)); // stejný výsledek bez ohledu na okno
+    expect(day.games.find((g) => g.id === id)!.parts[a]).toMatchObject({ buyIn: -100, refund: 100 });
+  });
+});
+
 describe('widget Informace u turnaje: data odpovídají tomu, co se hrálo', { timeout: 120_000 }, () => {
   it('skončený a z paměti uvolněný turnaj ukáže buy-in, poplatek, startovní stack a rebuy ze šablony i plateb, ne výchozí hodnoty', async () => {
     const s = await start();

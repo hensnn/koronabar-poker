@@ -245,6 +245,7 @@ const stats: SettingDef[] = [
   bool('economy.creditEnabled', { category: 'economy', mutability: ADM, scopes: GLOBAL }, true),
   int('economy.creditLimit', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.creditEnabled', truthy: true } }, 1000, 0, 1_000_000_000),
   bool('economy.topupRequestsEnabled', { category: 'economy', mutability: ADM, scopes: GLOBAL }, false),
+  bool('economy.creditAutoRepay', { category: 'economy', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'economy.creditEnabled', truthy: true } }, true),
   choice('economy.debitTarget', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'mint', ['mint', 'house']),
   bool('economy.transferEnabled', { category: 'economy', mutability: ADM, scopes: GLOBAL }, false),
   text('economy.transferTargets', { category: 'economy', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 'jiná hra', 300),

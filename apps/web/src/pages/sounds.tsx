@@ -188,7 +188,7 @@ function peaksOf(buf: AudioBuffer): number[] {
   return out;
 }
 
-function UploadDialog({ maxSeconds, onClose, onDone }: { maxSeconds: number; onClose: () => void; onDone: () => void }) {
+function UploadDialog({ maxSeconds, onClose, onDone, replace }: { maxSeconds: number; onClose: () => void; onDone: () => void; /** Nahrazuje soubor existujícího zvuku (název, zkratka a sdílení zůstávají). */ replace?: SoundItem }) {
   const [file, setFile] = useState<{ name: string; ext: string; data: ArrayBuffer } | null>(null);
   const [decoded, setDecoded] = useState<AudioBuffer | null>(null);
   const [peaks, setPeaks] = useState<number[]>([]);
@@ -248,7 +248,8 @@ function UploadDialog({ maxSeconds, onClose, onDone }: { maxSeconds: number; onC
     setBusy(true);
     setError('');
     try {
-      await post('/api/sounds', { name, shortcut, emoji, category, ext: file.ext, data: toBase64(file.data), startMs: range[0], endMs: range[1], share });
+      if (replace) await post(`/api/sounds/${replace.id}/replace`, { ext: file.ext, data: toBase64(file.data), startMs: range[0], endMs: range[1] });
+      else await post('/api/sounds', { name, shortcut, emoji, category, ext: file.ext, data: toBase64(file.data), startMs: range[0], endMs: range[1], share });
       onDone();
       onClose();
     } catch (e) {
@@ -258,7 +259,7 @@ function UploadDialog({ maxSeconds, onClose, onDone }: { maxSeconds: number; onC
     }
   };
   return (
-    <Modal title={t('sounds.upload')} onClose={onClose}>
+    <Modal title={replace ? t('sounds.replaceTitle', { name: replace.name }) : t('sounds.upload')} onClose={onClose}>
       <div className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
           <span>{t('sounds.file')}</span>
@@ -289,22 +290,26 @@ function UploadDialog({ maxSeconds, onClose, onDone }: { maxSeconds: number; onC
               <Button onClick={preview}>{t('sounds.previewPlay')}</Button>
               <Button onClick={stop}>{t('sounds.previewStop')}</Button>
             </div>
+            {!replace && (
             <div className="grid gap-2 sm:grid-cols-2">
               <TextInput label={t('sounds.name')} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
               <TextInput label={t('sounds.shortcut')} hint={t('sounds.shortcutHint')} value={shortcut} maxLength={20} onChange={(e) => setShortcut(e.target.value.toLowerCase())} />
               <TextInput label={t('sounds.emoji')} value={emoji} maxLength={8} onChange={(e) => setEmoji(e.target.value)} />
               <TextInput label={t('sounds.category')} value={category} maxLength={30} onChange={(e) => setCategory(e.target.value)} />
             </div>
+            )}
+            {!replace && (
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
               {t('sounds.shareOnUpload')}
             </label>
+            )}
           </>
         )}
         {error && <Notice kind="error">{error}</Notice>}
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>{t('table.cancel')}</Button>
-          <Button variant="primary" disabled={!decoded || tooLong || busy || !name.trim() || shortcut.length < 2} onClick={() => void save()}>
+          <Button variant="primary" disabled={!decoded || tooLong || busy || (!replace && (!name.trim() || shortcut.length < 2))} onClick={() => void save()}>
             {t('sounds.save')}
           </Button>
         </div>
@@ -317,7 +322,9 @@ function UploadDialog({ maxSeconds, onClose, onDone }: { maxSeconds: number; onC
 
 const STATUS_TONE: Record<string, 'muted' | 'warning' | 'success' | 'danger'> = { private: 'muted', pending: 'warning', shared: 'success', hidden: 'danger' };
 
-function RenameDialog({ sound, onClose, onDone }: { sound: SoundItem; onClose: () => void; onDone: () => void }) {
+function RenameDialog({ sound, maxSeconds, onClose, onDone }: { sound: SoundItem; maxSeconds: number; onClose: () => void; onDone: () => void }) {
+  const [replacing, setReplacing] = useState(false);
+  const [shortcut, setShortcut] = useState(sound.shortcut);
   const [name, setName] = useState(sound.name);
   const [emoji, setEmoji] = useState(sound.emoji);
   const [category, setCategory] = useState(sound.category);
@@ -326,8 +333,13 @@ function RenameDialog({ sound, onClose, onDone }: { sound: SoundItem; onClose: (
     <Modal title={t('sounds.edit')} onClose={onClose}>
       <div className="flex flex-col gap-3">
         <TextInput label={t('sounds.name')} value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
+        {!sound.builtin && <TextInput label={t('sounds.shortcut')} hint={t('sounds.shortcutChangeHint')} value={shortcut} maxLength={20} onChange={(e) => setShortcut(e.target.value.toLowerCase())} />}
         <TextInput label={t('sounds.emoji')} value={emoji} maxLength={8} onChange={(e) => setEmoji(e.target.value)} />
         <TextInput label={t('sounds.category')} value={category} maxLength={30} onChange={(e) => setCategory(e.target.value)} />
+        <div>
+          <Button onClick={() => setReplacing(true)}>{t('sounds.replaceFile')}</Button>
+        </div>
+        {replacing && <UploadDialog maxSeconds={maxSeconds} replace={sound} onClose={() => setReplacing(false)} onDone={() => { onDone(); onClose(); }} />}
         {error && <Notice kind="error">{error}</Notice>}
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>{t('table.cancel')}</Button>
@@ -335,7 +347,7 @@ function RenameDialog({ sound, onClose, onDone }: { sound: SoundItem; onClose: (
             variant="primary"
             onClick={async () => {
               try {
-                await patch(`/api/sounds/${sound.id}`, { name, emoji, category });
+                await patch(`/api/sounds/${sound.id}`, { name, emoji, category, ...(sound.builtin ? {} : { shortcut }) });
                 onDone();
                 onClose();
               } catch (e) {
@@ -486,6 +498,7 @@ export function SoundLibrary() {
                 <Td>
                   <div className="flex flex-wrap gap-1">
                     <Button onClick={() => previewSound(s.id, volume)}>▶</Button>
+                    {manage && <Button onClick={() => setEdit(s)}>{t('sounds.edit')}</Button>}
                     <Button aria-pressed={s.favorite} onClick={() => run(() => toggleFavorite(s.id, !s.favorite))}>
                       {s.favorite ? '★' : '☆'}
                     </Button>
@@ -567,6 +580,7 @@ export function SoundLibrary() {
                   <Td>
                     <div className="flex gap-1">
                       <Button onClick={() => previewSound(s.id, volume)}>▶</Button>
+                      <Button onClick={() => setEdit(s)}>{t('sounds.edit')}</Button>
                       <Button onClick={() => run(() => post(`/api/sounds/${s.id}/hide`, { hidden: s.status !== 'hidden' }))}>{s.status === 'hidden' ? t('sounds.unhide') : t('sounds.hide')}</Button>
                       {!s.builtin && (
                         <Button variant="danger" onClick={() => confirm(t('sounds.deleteConfirm', { name: s.name })) && void run(() => del(`/api/sounds/${s.id}`))}>
@@ -582,7 +596,7 @@ export function SoundLibrary() {
         )}
       </div>
       {upload && <UploadDialog maxSeconds={maxSeconds} onClose={() => setUpload(false)} onDone={() => void run(async () => undefined)} />}
-      {edit && <RenameDialog sound={edit} onClose={() => setEdit(null)} onDone={() => void run(async () => undefined)} />}
+      {edit && <RenameDialog sound={edit} maxSeconds={maxSeconds} onClose={() => setEdit(null)} onDone={() => void run(async () => undefined)} />}
     </Card>
   );
 }

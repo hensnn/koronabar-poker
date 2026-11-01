@@ -60,5 +60,15 @@ describe('předschválený úvěr při platbě za hru', { timeout: 90_000 }, () 
     const rec = (await s.server.wallet.balances(s.admin)).reconciliation;
     expect(rec.issued).toBe(rec.wallets + rec.house + rec.funds + rec.tables + rec.tournaments + rec.external);
     expect(rec.byKind.find((k) => k.kind === 'credit_draw')).toMatchObject({ issued: 140, count: 2 });
+
+    // zrušení turnaje: vrácený vstup se nejdřív použije na splacení kontokorentu (priorita), zbytek zůstane hráči
+    await s.server.tournaments.cancel(org, id);
+    await s.server.journal.flush();
+    for (const p of [a, b]) {
+      expect(s.server.wallet.creditInfo(p).debt).toBe(0);
+      expect(s.server.ledger.balance(accounts.wallet(p))).toBe(30); // původních 30, dluh 70 se splatil z vráceného vstupu 100
+    }
+    const after = (await s.server.wallet.balances(s.admin)).reconciliation;
+    expect(after.byKind.find((k) => k.kind === 'credit_repay')).toMatchObject({ destroyed: 140, count: 2 });
   });
 });

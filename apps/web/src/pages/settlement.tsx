@@ -12,10 +12,8 @@ interface Settlement {
   to: number;
   players: { userId: string; cash: number; tournament: number; total: number; parts: Parts }[];
   games: { id: string; name: string; kind: 'cash' | 'tournament'; results: Record<string, number>; parts: Record<string, Parts> }[];
-  transfers: { from: string; to: string; amount: number }[];
   names: Record<string, string>;
   house: number | null;
-  note: string;
 }
 
 const HOUR = 3600_000;
@@ -64,7 +62,7 @@ function PartsTable({ rows, names, withSum }: { rows: { userId: string; parts: P
   );
 }
 
-/** Vyúčtování večera nebo období: cash a turnaje zvlášť i dohromady, rozpad po hrách a minimální převody. */
+/** Vyúčtování večera nebo období: cash a turnaje zvlášť i dohromady a rozpad po hrách. */
 export function SettlementPanel() {
   const [from, setFrom] = useState(startOfToday());
   const [to, setTo] = useState(Date.now());
@@ -163,18 +161,7 @@ export function SettlementPanel() {
                 </div>
               </details>
             )}
-            {kind !== 'all' && <p className="text-sm text-muted">{t('settlement.filter.transfersNote')}</p>}
-            <h3 className="font-medium">{t('settlement.transfers')}</h3>
-            {data.transfers.length === 0 ? (
-              <p className="text-muted">{t('settlement.none')}</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {data.transfers.map((x, i) => (
-                  <li key={i}>{t('settlement.transfer', { from: data.names[x.from] ?? x.from, to: data.names[x.to] ?? x.to, amount: x.amount })}</li>
-                ))}
-              </ul>
-            )}
-            <p className="text-sm text-muted">{data.note}</p>
+            <p className="text-sm text-muted">{t('settlement.virtualNote')}</p>
           </>
         )}
       </div>

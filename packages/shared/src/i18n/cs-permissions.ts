@@ -96,7 +96,7 @@ export const csPermissions: Record<string, string> = {
   ...perm('chat.vytvorit_kanal', 'Zakládat kanály', 'Vytvořit nový kanál chatu.'),
   ...perm('emotikon.nahrat', 'Nahrávat zvukové emotikony', 'Nahrát vlastní zvuk.'),
   ...perm('emotikon.schvalit', 'Schvalovat zvukové emotikony', 'Schvalovat sdílené zvuky.'),
-  ...perm('emotikon.spravovat', 'Spravovat knihovnu zvuků', 'Skrýt nebo smazat jakýkoli zvuk.'),
+  ...perm('emotikon.spravovat', 'Spravovat knihovnu zvuků', 'Upravit (název, zkratku, kategorii, soubor), skrýt nebo smazat jakýkoli zvuk ve společné knihovně.'),
   ...perm('motiv.vytvorit', 'Vytvářet motivy', 'Ukládat a sdílet vlastní motivy.'),
   ...perm('motiv.schvalit', 'Schvalovat motivy', 'Schvalovat sdílené motivy.'),
   ...perm('motiv.zamknout_prvky', 'Zamykat prvky vzhledu', 'Zamknout vybrané prvky, aby je hráči nemohli měnit.'),

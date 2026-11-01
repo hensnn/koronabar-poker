@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from 'drizzle-orm';
-import { accounts, minimalTransfers, type Entry, type Ledger, type Transfer, type TxRequest } from '@kb/ledger';
+import { accounts, minimalTransfers, type Entry, type Ledger, type Transfer, type Tx, type TxRequest } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
 import { PermissionError, type PermissionService } from '../auth/permissions.js';
 import type { ApprovalService } from '../auth/approvals.js';
@@ -134,7 +134,10 @@ export class WalletService {
     // Předschválený úvěr: při nedostatku Koron na platbu za hru se chybějící částka sama načerpá (v mezích limitu hráče).
     deps.ledger.setOverdraft(this.autoCredit);
     deps.ledger.addListener((tx) => {
-      if (tx.kind !== 'credit_draw' && tx.kind !== 'credit_repay') return;
+      if (tx.kind !== 'credit_draw' && tx.kind !== 'credit_repay') {
+        this.autoRepay(tx);
+        return;
+      }
       for (const e of tx.entries) {
         if (!e.account.startsWith('wallet:')) continue;
         const id = e.account.slice('wallet:'.length);
@@ -267,12 +270,48 @@ export class WalletService {
     return this.lines.get(userId) ?? Number(this.deps.settings()['economy.creditLimit']);
   }
 
-  /** Stav úvěru pro peněženku: zapnuto, limit, dluh a kolik jde ještě načerpat. */
+  /** Stav kontokorentu pro peněženku: zapnuto, limit, dluh, kolik zbývá v limitu a zda se splácí automaticky z příjmů. */
   creditInfo(userId: string) {
-    const enabled = !!this.deps.settings()['economy.creditEnabled'];
+    const s = this.deps.settings();
+    const enabled = !!s['economy.creditEnabled'];
     const limit = enabled ? this.creditLimitOf(userId) : 0;
     const debt = this.creditDebt(userId);
-    return { enabled, limit, debt, available: Math.max(0, limit - debt) };
+    return { enabled, limit, debt, available: Math.max(0, limit - debt), autoRepay: s['economy.creditAutoRepay'] !== false };
+  }
+
+  /**
+   * Kontokorent se splácí jako první: z každého příjmu na peněženku hráče (dobití, výhra, vrácení vkladu, výběr od stolu…)
+   * se nejdřív uhradí dluh a teprve zbytek zůstane hráči. Platí vždy, hráč to nemůže změnit; vypnout to smí jen správce v nastavení.
+   * Splátka je samostatný pohyb (`credit_repay` zpět na účet vydání měny), takže výhra hráče ve hře i ve statistikách zůstává celá.
+   */
+  private autoRepay(tx: Tx): void {
+    if (this.deps.settings()['economy.creditAutoRepay'] === false) return;
+    const delta = new Map<string, number>();
+    for (const e of tx.entries) if (e.account.startsWith('wallet:')) delta.set(e.account, (delta.get(e.account) ?? 0) + e.amount);
+    for (const [account, income] of delta) {
+      if (income <= 0) continue;
+      const userId = account.slice('wallet:'.length);
+      const pay = Math.min(this.creditDebt(userId), income, this.deps.ledger.balance(account));
+      if (pay <= 0) continue;
+      try {
+        this.deps.ledger.post({
+          kind: 'credit_repay',
+          idempotencyKey: `credit:autorepay:${tx.id}:${userId}`,
+          gameId: tx.gameId,
+          entries: [
+            { account, amount: -pay },
+            { account: accounts.mint(), amount: pay },
+          ],
+          createdBy: userId,
+          note: 'kontokorent: automatická splátka z příjmu',
+        });
+      } catch {
+        continue; // příjem zůstane hráči, splátka se zkusí při dalším příjmu
+      }
+      const logged = this.deps.audit.log({ actorId: userId, action: 'mena.uver_splatit_auto', targetType: 'user', targetId: userId, after: { amount: pay, from: tx.kind, txId: tx.id } }).catch(() => undefined);
+      this.pendingAudits.add(logged);
+      void logged.finally(() => this.pendingAudits.delete(logged));
+    }
   }
 
   /**
@@ -296,7 +335,7 @@ export class WalletService {
         { account: accounts.wallet(userId), amount: shortfall },
       ],
       createdBy: userId,
-      note: 'úvěr: automatické čerpání',
+      note: 'kontokorent: automatické čerpání',
     };
   };
 
@@ -344,7 +383,7 @@ export class WalletService {
         { account: accounts.mint(), amount },
       ],
       createdBy: userId,
-      note: 'úvěr: splátka',
+      note: 'kontokorent: splátka',
     });
     await this.deps.audit.log({ actorId: userId, action: 'mena.uver_splatit', targetType: 'user', targetId: userId, after: { amount, txId: tx.id }, ...meta });
     return { txId: tx.id };
@@ -581,7 +620,17 @@ export class WalletService {
       .select({ id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind, gameId: schema.ledgerTransactions.gameId })
       .from(schema.ledgerTransactions)
       .where(and(gte(schema.ledgerTransactions.at, new Date(fromMs)), lte(schema.ledgerTransactions.at, new Date(toMs)), or(like(schema.ledgerTransactions.kind, 'cash_%'), like(schema.ledgerTransactions.kind, 'turnaj_%'), eq(schema.ledgerTransactions.kind, 'bounty'), eq(schema.ledgerTransactions.kind, 'jackpot_payout'), inArray(schema.ledgerTransactions.kind, SIDE_KINDS))));
-    const byId = new Map(txs.map((t) => [t.id, t]));
+    // Turnaj (a sázky a odměny k němu) patří do období celý: jakmile v něm má turnaj jakýkoli pohyb, počítají se i jeho dřívější pohyby
+    // (vstupy před začátkem okna). Jinak by u zrušeného turnaje okno „posledních 24 h“ ukázalo jen vrácení vkladů bez vkladů.
+    const isTournamentKind = (k: string) => k.startsWith('turnaj_') || k === 'bounty' || SIDE_SET.has(k);
+    const tourGames = [...new Set(txs.filter((t) => t.gameId && isTournamentKind(t.kind)).map((t) => t.gameId!))];
+    const earlier = tourGames.length
+      ? await this.deps.db
+          .select({ id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind, gameId: schema.ledgerTransactions.gameId })
+          .from(schema.ledgerTransactions)
+          .where(and(inArray(schema.ledgerTransactions.gameId, tourGames), or(like(schema.ledgerTransactions.kind, 'turnaj_%'), eq(schema.ledgerTransactions.kind, 'bounty'), inArray(schema.ledgerTransactions.kind, SIDE_KINDS))))
+      : [];
+    const byId = new Map([...txs, ...earlier].map((t) => [t.id, t]));
     const ids = [...byId.keys()];
     const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(and(inArray(schema.ledgerEntries.transactionId, ids), like(schema.ledgerEntries.account, 'wallet:%'))) : [];
 

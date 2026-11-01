@@ -1824,6 +1824,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const a = await svc.sounds().audio(need(req).id, (req.params as { id: string }).id);
     reply.header('content-type', a.mime).header('cache-control', 'private, max-age=3600').send(a.data);
   }));
+  app.post('/api/sounds/:id/replace', { ...UPLOAD }, soundGuard(async (req, reply) => reply.send(await svc.sounds().replaceAudio(need(req).id, (req.params as { id: string }).id, parseUpload(req)))));
   app.patch('/api/sounds/:id', soundGuard(async (req, reply) => {
     await svc.sounds().update(need(req).id, (req.params as { id: string }).id, (req.body ?? {}) as never);
     reply.send({ ok: true });

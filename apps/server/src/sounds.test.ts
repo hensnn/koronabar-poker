@@ -119,6 +119,39 @@ describe('zvukové emotikony', { timeout: 60_000 }, () => {
     expect(t.status).toBe('shared');
   });
 
+  it('úprava společné knihovny: autor upraví svůj zvuk, správce knihovny i cizí; zkratka je jedinečná a u vestavěných se nemění; soubor jde nahradit', async () => {
+    const c = await start({ 'sounds.maxSeconds': 3, 'sounds.requireApproval': false });
+    const a = await c.user();
+    const b = await c.user();
+    const curator = await c.user('kurator'); // schvaluje a spravuje knihovnu
+    const s1 = await c.server.sounds.upload(a, up('prvni', { share: true }));
+    const s2 = await c.server.sounds.upload(a, up('druhy', { share: true }));
+    // autor: název, emoji, kategorie i zkratka
+    await c.server.sounds.update(a, s1.id, { name: 'Nový název', emoji: '🎺', category: 'sranda', shortcut: ':Trubka:' });
+    expect((await c.server.sounds.list(a)).find((x) => x.id === s1.id)).toMatchObject({ name: 'Nový název', emoji: '🎺', category: 'sranda', shortcut: 'trubka' });
+    expect(await code(c.server.sounds.update(a, s1.id, { shortcut: 'druhy' }))).toBe('SHORTCUT_TAKEN');
+    expect(await code(c.server.sounds.update(a, s1.id, { shortcut: 'X!' }))).toBe('INVALID_SHORTCUT');
+    // cizí zvuk běžný hráč upravit nemůže, kurátor (má právo spravovat knihovnu) ano
+    expect(await code(c.server.sounds.update(b, s2.id, { name: 'cizí' }))).toBe('FORBIDDEN');
+    await c.server.sounds.update(curator, s2.id, { name: 'od kurátora' });
+    expect((await c.server.sounds.list(b)).find((x) => x.id === s2.id)!.name).toBe('od kurátora');
+    // správce knihovny (hlavní admin) upraví cizí zvuk
+    await c.server.sounds.update(c.admin, s2.id, { name: 'Upraveno správcem', category: 'moderace' });
+    expect((await c.server.sounds.list(b)).find((x) => x.id === s2.id)).toMatchObject({ name: 'Upraveno správcem', category: 'moderace' });
+    // vestavěný zvuk: název ano, zkratka ne
+    const builtin = (await c.server.sounds.list(a)).find((x) => x.builtin)!;
+    await c.server.sounds.update(c.admin, builtin.id, { name: 'Přejmenovaný vestavěný' });
+    expect(await code(c.server.sounds.update(c.admin, builtin.id, { shortcut: 'jina' }))).toBe('BUILTIN');
+    // nahrazení souboru: zůstává název i zkratka, změní se délka
+    const before = (await c.server.sounds.list(a)).find((x) => x.id === s1.id)!;
+    const replaced = await c.server.sounds.replaceAudio(a, s1.id, { data: WAV, ext: 'wav' });
+    expect(replaced).toMatchObject({ id: s1.id, name: 'Nový název', shortcut: 'trubka' });
+    expect(replaced.durationMs).toBeGreaterThan(0);
+    expect(before.id).toBe(replaced.id);
+    expect(await code(c.server.sounds.replaceAudio(b, s1.id, { data: WAV, ext: 'wav' }))).toBe('FORBIDDEN');
+    await c.server.sounds.replaceAudio(c.admin, s2.id, { data: WAV, ext: 'wav' }); // správce knihovny smí nahradit cizí
+  });
+
   it('odeslání do chatu: zpráva se zapíše, cooldowny a limit za minutu vedou na zvuk bez přehrání', async () => {
     const c = await start({ 'sounds.userCooldownSeconds': 5, 'sounds.soundCooldownSeconds': 30, 'sounds.perMinuteLimit': 3 });
     const a = await c.user();

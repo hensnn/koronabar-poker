@@ -261,9 +261,9 @@ export class SoundService {
   // ---------- nahrávání ----------
 
   /** Zkontroluje a zpracuje soubor, ale nic neukládá (náhled před uložením). */
-  async check(userId: string, input: Pick<UploadInput, 'data' | 'ext' | 'startMs' | 'endMs'>): Promise<{ format: AudioFormat; sourceMs: number; startMs: number; endMs: number }> {
+  async check(userId: string, input: Pick<UploadInput, 'data' | 'ext' | 'startMs' | 'endMs'>, asManager = false): Promise<{ format: AudioFormat; sourceMs: number; startMs: number; endMs: number }> {
     this.enabled();
-    if (!this.can(userId, 'emotikon.nahrat')) throw new SoundError('FORBIDDEN');
+    if (!this.can(userId, 'emotikon.nahrat') && !(asManager && this.can(userId, 'emotikon.spravovat'))) throw new SoundError('FORBIDDEN');
     const allowed = String(this.s['sounds.formats']).split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
     const maxBytes = Number(this.s['sounds.maxFileKb']) * 1024;
     if (input.data.length > maxBytes) throw new SoundError('FILE_TOO_LARGE', { max: Number(this.s['sounds.maxFileKb']) });
@@ -324,10 +324,21 @@ export class SoundService {
     return r;
   }
 
-  async update(userId: string, id: string, patch: { name?: string; emoji?: string; category?: string }): Promise<void> {
+  async update(userId: string, id: string, patch: { name?: string; emoji?: string; category?: string; shortcut?: string }): Promise<void> {
     const r = await this.own(userId, id, true);
     if (r.builtin && !this.can(userId, 'emotikon.spravovat')) throw new SoundError('BUILTIN');
     const set: Partial<typeof schema.soundEmotes.$inferInsert> = {};
+    if (patch.shortcut !== undefined) {
+      // Zkratka se v chatu píše jako :zkratka:, proto se u vestavěných zvuků nemění a jinde musí být jedinečná.
+      const sc = patch.shortcut.trim().toLowerCase().replace(/^:|:$/g, '');
+      if (sc !== r.shortcut) {
+        if (r.builtin) throw new SoundError('BUILTIN');
+        if (!SHORTCUT.test(sc)) throw new SoundError('INVALID_SHORTCUT');
+        const [taken] = await this.deps.db.select({ id: schema.soundEmotes.id }).from(schema.soundEmotes).where(eq(schema.soundEmotes.shortcut, sc));
+        if (taken) throw new SoundError('SHORTCUT_TAKEN');
+        set.shortcut = sc;
+      }
+    }
     if (patch.name !== undefined) {
       const n = patch.name.trim();
       if (!n || n.length > 40) throw new SoundError('INVALID_NAME');
@@ -336,6 +347,24 @@ export class SoundService {
     if (patch.emoji !== undefined) set.emoji = patch.emoji.slice(0, 8) || '🔊';
     if (patch.category !== undefined) set.category = patch.category.slice(0, 30) || 'ostatni';
     if (Object.keys(set).length) await this.deps.db.update(schema.soundEmotes).set(set).where(eq(schema.soundEmotes.id, id));
+  }
+
+  /** Nahradí zvukový soubor existujícího zvuku (autor, nebo správce knihovny); název, zkratka a sdílení zůstávají. */
+  async replaceAudio(userId: string, id: string, input: Pick<UploadInput, 'data' | 'ext' | 'startMs' | 'endMs'>): Promise<SoundDto> {
+    this.enabled();
+    const r = await this.own(userId, id, true);
+    const c = await this.check(userId, input, r.ownerId !== userId);
+    let out;
+    try {
+      out = await this.deps.processor.process(input.data, c.format, { startMs: c.startMs, endMs: c.endMs, loudness: Number(this.s['sounds.loudnessTarget']) });
+    } catch (e) {
+      throw new SoundError(e instanceof Error && e.message === 'TOOL_MISSING' ? 'TOOL_MISSING' : 'INVALID_AUDIO');
+    }
+    const u = await this.usage();
+    if (u.bytes - Number(r.sizeBytes) + out.data.length > u.quotaBytes) throw new SoundError('QUOTA_EXCEEDED');
+    await writeFile(this.file(id), out.data);
+    await this.deps.db.update(schema.soundEmotes).set({ mime: out.mime, durationMs: out.durationMs, sizeBytes: out.data.length }).where(eq(schema.soundEmotes.id, id));
+    return (await this.dtos([await this.load(id)], userId))[0]!;
   }
 
   /** Autor nabídne zvuk do společné knihovny (nebo ho stáhne zpět). */
