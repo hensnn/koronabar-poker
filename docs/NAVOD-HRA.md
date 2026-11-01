@@ -167,7 +167,7 @@ Ve výchozím stavu se **button posouvá na dalšího hráče u stolu** a malý 
 
 ## Znovu otevřít uzavřený večer
 
-Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu otevřít večer** na jeho stránce (jen pro správce večerů a jen když není otevřený jiný večer). Uložený souhrn se smaže a spočítá se znovu při dalším uzavření. Co po prvním uzavření už odešlo (zpráva v chatu, e-maily hráčům, hlasování o handě večera), se nevrací a při dalším uzavření se pošle znovu podle nastavení večerů (shrnutí do chatu, e-maily, automatické hlasování); chceš-li to nechtít, vypni je před uzavřením. Znovuotevření se zapíše do auditu.
+Večer uzavřený omylem (nebo předčasně) jde vrátit tlačítkem **Znovu otevřít večer** na jeho stránce (jen pro správce večerů a jen když není otevřený jiný večer). Uložený souhrn se smaže a spočítá se znovu při dalším uzavření. Co po prvním uzavření už odešlo (zpráva v chatu, e-maily hráčům), se nevrací a při dalším uzavření se pošle znovu podle nastavení večerů (shrnutí do chatu, e-maily); chceš-li to nechtít, vypni je před uzavřením. Znovuotevření se zapíše do auditu.
 
 ## Informační řádka a označení blindů
 
@@ -277,3 +277,5 @@ Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vs
 - **Profit a pořadí sloupců:** ve všech tabulkách (večer, výsledek turnaje, vyúčtování v peněžence, živý cash) i v CSV exportech je sloupec peněžního výsledku **Profit** a složky jdou vždy stejně: cash vklady a výběry, buy-in, rebuy, add-on, výhra, bounty, odměny na hlavu, sázky, vrácení.
 - **Stůl vyplní okno:** v 📐 *Velikost stolu* u stolu (nebo v Osobním nastavení → *Stůl vyplní okno*) jde zapnout přizpůsobení stolu oknu: stůl se zvětší na zbývající výšku okna a při změně velikosti okna aplikace se sám přepočítá. Posuvník *Stůl: velikost* ho dál zmenšuje. Ve výchozím stavu je vypnuto.
 - **Stránka večera:** shora pořadí a výsledek v penězích, ocenění (MVP = hráč s nejvíc body, číslo v závorce jsou jeho body z peněz, umístění, vyřazení a XP podle vah v nastavení večerů), statistiky večera, hry večera (u každé tlačítko *Otevřít výsledek*) a na konci sbalitelný *Rozpis všech pohybů*.
+
+- **Ocenění večera:** *Smolař* ukáže handu graficky (společné karty, jeho karty, čemu čelil, a karty, které ho porazily, s názvy kombinací). *Handa večera* je nejsilnější kombinace, která na showdownu padla (jen z ukázaných karet), pětice karet zvýrazněná. Hlasování o handě večera už není. Pod oceněními je sbalitelná *Legenda* (MVP, Lovec, Bankér, Smolař, Handa večera).

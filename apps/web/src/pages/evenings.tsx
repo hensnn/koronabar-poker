@@ -3,7 +3,8 @@ import { t } from '@kb/shared';
 import { del, errorText, get, patch, post } from '../api';
 import { onSocket } from '../net';
 import { Link, navigate } from '../router';
-import { HandCard } from './hand-share';
+import type { Card as PokerCard } from '@kb/game-core';
+import { CardView } from '../table/CardView';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Td, TextInput } from '../ui';
 
 interface ListItem {
@@ -30,6 +31,23 @@ interface Player {
   score: number;
 }
 
+interface HandShowPlayer {
+  userId: string;
+  nickname: string;
+  hole: [string, string] | null;
+  won: number;
+  role: 'loser' | 'winner' | 'best';
+  five: string[] | null;
+  desc: { key: string; params?: Record<string, string> } | null;
+}
+
+interface HandShow {
+  handId: string;
+  game: string;
+  board: string[];
+  players: HandShowPlayer[];
+}
+
 interface Summary {
   games: { kind: 'tournament' | 'live_cash' | 'cash'; ref: string; name: string }[];
   players: Player[];
@@ -41,10 +59,10 @@ interface Summary {
   awards: {
     hunter: { nickname: string; count: number } | null;
     banker: { nickname: string; game: string; bb: number; amount: number } | null;
-    badBeat: { nickname: string; game: string; equity: number } | null;
+    badBeat: { nickname: string; game: string; equity: number; hand?: HandShow | null } | null;
   };
   stats: { games: number; players: number; turnover: number; biggestPotBb: number | null };
-  handOfEvening?: { label: string; sharedId: string | null; votes: number } | null;
+  bestHand?: (HandShow & { userId: string; nickname: string }) | null;
 }
 
 interface View {
@@ -55,7 +73,6 @@ interface View {
   endsAt: number | null;
   canManage: boolean;
   summary: Summary;
-  handVote?: { pollId: string; candidates: { kind: string; label: string }[]; decided: boolean } | null;
 }
 
 const when = (ms: number) => new Date(ms).toLocaleString();
@@ -253,30 +270,22 @@ export function EveningPage({ id }: { id: string }) {
           <Award label={t('evening.award.banker')} value={s.awards.banker ? t('evening.award.bankerText', { nick: s.awards.banker.nickname, amount: s.awards.banker.amount, bb: s.awards.banker.bb, game: s.awards.banker.game }) : null} />
           <Award label={t('evening.award.badBeat')} value={s.awards.badBeat ? t('evening.award.badBeatText', { nick: s.awards.badBeat.nickname, equity: s.awards.badBeat.equity, game: s.awards.badBeat.game }) : null} />
         </dl>
-        <p className="mt-2 text-sm text-muted">{t('evening.mvpHelp')}</p>
-        <div className="mt-3 flex flex-col gap-1">
-          <h3 className="font-bold">{t('evening.handVoteTitle')}</h3>
-          {s.handOfEvening ? (
-            <>
-              <p className="text-sm">{t('evening.handOfEvening', { label: s.handOfEvening.label })}</p>
-              {s.handOfEvening.sharedId && <HandCard id={s.handOfEvening.sharedId} />}
-            </>
-          ) : view.handVote && !view.handVote.decided ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="success">{t('evening.handVoteOpen')}</Badge>
-              <Link to={`/ankety/${view.handVote.pollId}`} className="rounded-md border border-line bg-surface px-3 py-1">
-                {t('evening.handVoteGo')}
-              </Link>
-            </div>
-          ) : (
-            <p className="text-sm text-muted">{t('evening.handVoteNone')}</p>
-          )}
-          {view.canManage && !view.handVote && (
-            <div>
-              <Button onClick={() => void run(() => post(`/api/evenings/${id}/hand-vote`))}>{t('evening.handVoteStart')}</Button>
-            </div>
-          )}
+        {s.awards.badBeat?.hand && <BadBeatHand hand={s.awards.badBeat.hand} equity={s.awards.badBeat.equity} />}
+        <div className="mt-4 flex flex-col gap-2 border-t border-line pt-3">
+          <h3 className="font-bold">{t('evening.bestHandTitle')}</h3>
+          {s.bestHand ? <BestHandView hand={s.bestHand} /> : <p className="text-sm text-muted">{t('evening.bestHandNone')}</p>}
         </div>
+        <details className="mt-4 rounded-md border border-line">
+          <summary className="cursor-pointer px-3 py-2 font-semibold">{t('evening.legend.title')}</summary>
+          <dl className="flex flex-col gap-2 px-3 pb-3 text-sm">
+            {(['mvp', 'hunter', 'banker', 'badBeat', 'bestHand'] as const).map((k) => (
+              <div key={k}>
+                <dt className="font-semibold">{t(`evening.legend.${k}`)}</dt>
+                <dd className="text-muted">{t(`evening.legend.${k}.text`)}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
       </Card>
 
       <Card title={t('evening.stats')}>
@@ -369,6 +378,60 @@ export function EveningPage({ id }: { id: string }) {
         )}
         </div>
       </details>
+    </div>
+  );
+}
+
+const asCard = (c: string): PokerCard => c as PokerCard;
+
+/** Karty v řadě (rub, když je karta neznámá). */
+function CardRow({ cards, win }: { cards: string[]; win?: boolean }) {
+  return (
+    <div className="flex gap-1">
+      {cards.map((c) => (
+        <CardView key={c} card={asCard(c)} small still win={win} />
+      ))}
+    </div>
+  );
+}
+
+/** Smolař: společné karty, jeho karty (čemu čelil) a karty vítěze (co ho porazilo), s názvy kombinací. */
+function BadBeatHand({ hand, equity }: { hand: HandShow; equity: number }) {
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-md border border-line bg-raised p-3">
+      <h3 className="font-bold">{t('evening.badBeatTitle', { equity })}</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="w-28 text-sm text-muted">{t('evening.board')}</span>
+        <CardRow cards={hand.board} />
+      </div>
+      {[...hand.players].sort((a, b) => (a.role === 'loser' ? -1 : 0) - (b.role === 'loser' ? -1 : 0)).map((p) => (
+        <div key={p.userId} className="flex flex-wrap items-center gap-2">
+          <span className="w-28 text-sm">
+            <span className="text-muted">{t(p.role === 'loser' ? 'evening.faced' : 'evening.beatBy')}</span> {p.nickname}
+          </span>
+          {p.hole && <CardRow cards={p.hole} win={p.role === 'winner'} />}
+          {p.desc && <span className="text-sm">{t(p.desc.key, p.desc.params)}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Handa večera: nejlepší kombinace, která na showdownu padla (pětice karet zvýrazněná). */
+function BestHandView({ hand }: { hand: HandShow & { userId: string; nickname: string } }) {
+  const mine = hand.players.find((p) => p.role === 'best');
+  if (!mine) return null;
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-line bg-raised p-3">
+      <p className="text-sm">{t('evening.bestHandText', { nick: hand.nickname, game: hand.game })}</p>
+      {mine.five && <CardRow cards={mine.five} win />}
+      {mine.desc && <p className="text-lg font-semibold">{t(mine.desc.key, mine.desc.params)}</p>}
+      {mine.hole && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">{t('evening.holeCards')}</span>
+          <CardRow cards={mine.hole} />
+        </div>
+      )}
     </div>
   );
 }

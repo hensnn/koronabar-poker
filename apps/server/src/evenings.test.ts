@@ -103,7 +103,7 @@ describe('herní večery', { timeout: 90_000 }, () => {
     expect(sum.awards.badBeat).toMatchObject({ userId: b, equity: 85 });
     expect(sum.mvp?.userId).toBe(b); // a prodělal na cashi, takže vede b
     expect(sum.stats).toMatchObject({ games: 2, players: 3 });
-    expect(sum.handOfEvening).toBeNull();
+    expect(sum.bestHand).toBeNull(); // bez ukázaných karet není handa večera
 
     // otevřený večer vidí jen účastník a správce
     const outsider = await s.user();

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
 import { eq } from 'drizzle-orm';
+import { bestFive } from '@kb/game-core';
 import { buildServer } from './app.js';
 import { PassthroughProcessor } from './audio.js';
 import { schema } from './db/index.js';
@@ -115,9 +116,9 @@ describe('sdílené handy', { timeout: 90_000 }, () => {
   });
 });
 
-describe('handa večera', { timeout: 90_000 }, () => {
-  it('kandidáty vybere server, hráči večera hlasují v anketě a vítězná handa se sdílí do chatu', async () => {
-    const c = await start({ 'tournament.live': true, 'tournament.minPlayers': 2, 'tournament.buyIn': 100, 'tournament.fee': 0, 'tournament.startingStack': 1500, 'table.seats': 9, 'tournament.payoutPreset': 'wta', 'evening.handVoteAuto': false });
+describe('handa večera a smolař graficky', { timeout: 90_000 }, () => {
+  it('smolař má handu, které čelil a která ho porazila; handa večera je nejlepší kombinace z ukázaných karet; hlasování už neexistuje', async () => {
+    const c = await start({ 'tournament.live': true, 'tournament.minPlayers': 2, 'tournament.buyIn': 100, 'tournament.fee': 0, 'tournament.startingStack': 1500, 'table.seats': 9, 'tournament.payoutPreset': 'wta' });
     const org = await c.user('organizator');
     const [a, b, d] = [await c.user(), await c.user(), await c.user()];
     const { id: tId } = await c.server.tournaments.create(org, { name: 'Páteční', templateId: 'tour-turbo', settings: { 'tournament.live': true, 'tournament.minPlayers': 2, 'tournament.buyIn': 100, 'tournament.fee': 0, 'tournament.startingStack': 1500, 'table.seats': 9, 'tournament.payoutPreset': 'wta' } });
@@ -125,41 +126,45 @@ describe('handa večera', { timeout: 90_000 }, () => {
     await c.server.tournaments.start(org, tId);
     await c.server.tournaments.liveEliminate(org, tId, d, [a]);
     await c.server.tournaments.liveEliminate(org, tId, b, [a]);
-
-    const list = await c.server.evenings.list(org);
-    const eveningId = list.evenings[0]!.id;
-    // jen jedna handa = jediný kandidát, hlasovat nemá smysl
-    await insertHand(c, 'ev-1', a, b, { pot: 6000, tournamentId: tId });
-    expect(await c.server.evenings.startHandVote(org, eveningId)).toBe(false);
-
-    // druhá handa s bad beatem (d prohrál se šancí 90 %)
+    const eveningId = (await c.server.evenings.list(org)).evenings[0]!.id;
     const now = new Date(c.clock.now());
-    await c.server.db.insert(schema.hands).values({ id: 'ev-2', tableId: 'tx', kind: 'tournament', tournamentId: tId, handNumber: 2, playedAt: now, pot: 300, blinds: { sb: 5, bb: 10, ante: 0 }, chipsPerUnit: 1, showdown: true });
+    const score = (hole: [string, string], board: string[]) => bestFive(hole as never, board as never).score;
+    // ev-1: a má barvu (nejlepší kombinace večera), b dvě dámy
+    const board1 = ['2h', '7h', '9h', 'Jd', '3s'];
+    await c.server.db.insert(schema.hands).values({ id: 'ev-1', tableId: 'tx', kind: 'tournament', tournamentId: tId, handNumber: 1, playedAt: now, pot: 600, board: board1, blinds: { sb: 5, bb: 10, ante: 0 }, chipsPerUnit: 1, showdown: true });
     await c.server.db.insert(schema.handPlayers).values([
-      { handId: 'ev-2', userId: a, seat: 0, kind: 'tournament', playedAt: now, startStack: 1000, invested: 150, won: 300 },
-      { handId: 'ev-2', userId: d, seat: 1, kind: 'tournament', playedAt: now, startStack: 1000, invested: 150, won: 0, allInEquity: 0.9 },
+      { handId: 'ev-1', userId: a, seat: 0, kind: 'tournament', playedAt: now, startStack: 1000, invested: 300, won: 600, hole: ['Ah', 'Kh'], revealed: true, showdown: true, handScore: score(['Ah', 'Kh'], board1) },
+      { handId: 'ev-1', userId: b, seat: 1, kind: 'tournament', playedAt: now, startStack: 1000, invested: 300, won: 0, hole: ['Qs', 'Qd'], revealed: true, showdown: true, handScore: score(['Qs', 'Qd'], board1) },
     ]);
-    expect(await c.server.evenings.startHandVote(org, eveningId)).toBe(true);
-    expect(await c.server.evenings.startHandVote(org, eveningId)).toBe(false); // jen jednou
-    const view = await c.server.evenings.view(eveningId, org);
-    expect(view.handVote?.candidates.map((x) => x.kind)).toEqual(['bigPot', 'badBeat']);
-    expect(view.handVote?.decided).toBe(false);
+    // ev-2: d prohrál s esy (90 %) proti sedmičkám, které dorovnaly trojici
+    const board2 = ['2h', '7d', '9c', 'Kd', '7s'];
+    await c.server.db.insert(schema.hands).values({ id: 'ev-2', tableId: 'tx', kind: 'tournament', tournamentId: tId, handNumber: 2, playedAt: now, pot: 300, board: board2, blinds: { sb: 5, bb: 10, ante: 0 }, chipsPerUnit: 1, showdown: true });
+    await c.server.db.insert(schema.handPlayers).values([
+      { handId: 'ev-2', userId: a, seat: 0, kind: 'tournament', playedAt: now, startStack: 1000, invested: 150, won: 300, hole: ['7c', '5s'], revealed: true, showdown: true, handScore: score(['7c', '5s'], board2) },
+      { handId: 'ev-2', userId: d, seat: 1, kind: 'tournament', playedAt: now, startStack: 1000, invested: 150, won: 0, hole: ['Ah', 'Ad'], revealed: true, showdown: true, allInEquity: 0.9, handScore: score(['Ah', 'Ad'], board2) },
+    ]);
+    const sum = (await c.server.evenings.view(eveningId, org)).summary;
 
-    // dokud anketa běží, nic se nevyhodnotí
-    expect(await c.server.evenings.finalizeHandVotes()).toBe(0);
-    await c.server.polls.vote(a, view.handVote!.pollId, { type: 'single', option: 'o2' });
-    await c.server.polls.vote(b, view.handVote!.pollId, { type: 'single', option: 'o2' });
-    const [poll] = await c.server.db.select().from(schema.polls).where(eq(schema.polls.id, view.handVote!.pollId));
-    if (poll!.status === 'open') await c.server.polls.close(c.admin, view.handVote!.pollId);
-    expect(await c.server.evenings.finalizeHandVotes()).toBe(1);
+    // smolař: on a vítěz s kartami a společnými kartami
+    const bad = sum.awards.badBeat!;
+    expect(bad).toMatchObject({ userId: d, equity: 90 });
+    expect(bad.hand!.board).toEqual(board2);
+    const loser = bad.hand!.players.find((p) => p.role === 'loser')!;
+    const winner = bad.hand!.players.find((p) => p.role === 'winner')!;
+    expect(loser).toMatchObject({ userId: d, hole: ['Ah', 'Ad'] });
+    expect(winner).toMatchObject({ userId: a, hole: ['7c', '5s'] });
+    expect(winner.five).toHaveLength(5);
+    expect(winner.desc?.key).toBeTruthy();
 
-    const after = await c.server.evenings.view(eveningId, org);
-    expect(after.handVote?.decided).toBe(true);
-    expect(after.summary.handOfEvening).toMatchObject({ kind: 'badBeat', handId: 'ev-2' });
-    expect(after.summary.handOfEvening?.sharedId).toBeTruthy();
-    const msgs = await c.server.db.select().from(schema.chatMessages);
-    expect(msgs.some((m) => m.body.includes(`{{ruka:${after.summary.handOfEvening!.sharedId}}}`))).toBe(true);
-    expect(await c.server.evenings.finalizeHandVotes()).toBe(0); // už vyhodnoceno
+    // handa večera: nejlepší kombinace (barva hráče a), s pěticí a názvem
+    const best = sum.bestHand!;
+    expect(best).toMatchObject({ handId: 'ev-1', userId: a });
+    const mine = best.players.find((p) => p.role === 'best')!;
+    expect(mine.hole).toEqual(['Ah', 'Kh']);
+    expect(mine.five).toHaveLength(5);
+    expect(mine.five!.every((card) => card[1] === 'h')).toBe(true); // barva
+    // hlasování o handě večera už neexistuje
+    expect((c.server.evenings as unknown as Record<string, unknown>).startHandVote).toBeUndefined();
   });
 });
 

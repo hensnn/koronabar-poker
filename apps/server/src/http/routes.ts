@@ -1514,9 +1514,6 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     await svc.evenings().reopen(need(req).id, eid(req), meta(req));
     reply.send({ ok: true });
   }));
-  app.post('/api/evenings/:id/hand-vote', evGuard(async (req, reply) => {
-    reply.send({ started: await svc.evenings().startHandVote(need(req).id, eid(req)) });
-  }));
   app.post('/api/evenings/:id/recompute', evGuard(async (req, reply) => {
     await svc.evenings().recompute(need(req).id, eid(req), meta(req));
     reply.send({ ok: true });

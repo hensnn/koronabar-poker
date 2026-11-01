@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { bestFive, describeHand, type Card } from '@kb/game-core';
 import { minimalTransfers, type Transfer } from '@kb/ledger';
 import { formatLocal, t, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
@@ -61,34 +62,36 @@ export interface EveningSummary {
   awards: {
     hunter: { userId: string; nickname: string; count: number } | null;
     banker: { userId: string; nickname: string; handId: string; game: string; bb: number; amount: number; unit: 'currency' | 'chips' } | null;
-    badBeat: { userId: string; nickname: string; handId: string; game: string; equity: number } | null;
+    badBeat: { userId: string; nickname: string; handId: string; game: string; equity: number; hand: HandShow | null } | null;
   };
   stats: { games: number; players: number; turnover: number; biggestPotBb: number | null };
-  /** Handa večera podle hlasování hráčů. */
-  handOfEvening: HandOfEvening | null;
+  /** Handa večera: nejlepší kombinace, která na showdownu padla (ukázané karty, pětice a název kombinace). */
+  bestHand: BestHand | null;
 }
 
-/** Kandidát na handu večera (jedna možnost ankety). */
-export interface HandCandidate {
-  kind: 'bigPot' | 'badBeat' | 'bluff' | 'longshot';
-  handId: string;
+/** Hráč u handy pro zobrazení kartami: jeho karty (jen ukázané), kolik vyhrál, jeho nejlepší pětice a název kombinace. */
+export interface HandShowPlayer {
   userId: string;
   nickname: string;
+  hole: [string, string] | null;
+  won: number;
+  role: 'loser' | 'winner' | 'best';
+  five: string[] | null;
+  desc: { key: string; params?: Record<string, string> } | null;
+}
+
+/** Handa pro zobrazení: společné karty a zúčastnění hráči s ukázanými kartami. */
+export interface HandShow {
+  handId: string;
   game: string;
-  /** Velký pot v BB, nebo šance na výhru v procentech. */
-  value: number;
-  label: string;
+  board: string[];
+  players: HandShowPlayer[];
 }
 
-export interface HandOfEvening extends HandCandidate {
-  sharedId: string | null;
-  votes: number;
-}
-
-export interface HandVote {
-  pollId: string;
-  candidates: HandCandidate[];
-  result?: HandOfEvening | null;
+/** Nejlepší kombinace večera; `userId` je držitel. */
+export interface BestHand extends HandShow {
+  userId: string;
+  nickname: string;
 }
 
 interface Deps {
@@ -101,12 +104,6 @@ interface Deps {
   seated: () => { userId: string; tableId: string; chips: number }[];
   /** Zpráva do hlavního chatu. */
   postChat: (text: string) => Promise<void>;
-  /** Anketa o handě večera: vrací id ankety (možnosti mají id o1, o2… v pořadí kandidátů). */
-  createHandPoll?: (title: string, labels: string[], voterIds: string[], hours: number) => Promise<string>;
-  /** Stav a výsledek ankety. */
-  pollResult?: (pollId: string) => Promise<{ open: boolean; winners: string[]; votes: number } | null>;
-  /** Sdílí handu jménem systému a vrací id sdílení (karta v chatu). */
-  shareHand?: (handId: string) => Promise<string>;
   /** Nepovinný e-mail hráči (respektuje jeho předvolbu). */
   mail: (userId: string, template: string, vars: Record<string, string | number>) => Promise<void>;
   onChanged?: (id: string) => void;
@@ -421,7 +418,23 @@ export class EveningService {
         .where(and(handFilter, eq(schema.handPlayers.won, 0), gte(schema.handPlayers.allInEquity, min)))
         .orderBy(desc(schema.handPlayers.allInEquity))
         .limit(1);
-      if (bb?.equity != null) badBeat = { userId: bb.userId, nickname: bb.nick, handId: bb.handId, game: await nameOfGame(bb.tableId, bb.tournamentId), equity: Math.round(bb.equity * 1000) / 10 };
+      if (bb?.equity != null) badBeat = { userId: bb.userId, nickname: bb.nick, handId: bb.handId, game: await nameOfGame(bb.tableId, bb.tournamentId), equity: Math.round(bb.equity * 1000) / 10, hand: await this.handShow(bb.handId, 'loser', bb.userId) };
+    }
+    // handa večera: nejlepší kombinace na showdownu (nižší skóre je lepší), jen z ukázaných karet
+    let bestHand: BestHand | null = null;
+    if (tourIds.length || cashIds.length) {
+      const [top] = await db
+        .select({ userId: schema.handPlayers.userId, handId: schema.hands.id, nick: schema.users.nickname })
+        .from(schema.handPlayers)
+        .innerJoin(schema.hands, eq(schema.hands.id, schema.handPlayers.handId))
+        .innerJoin(schema.users, eq(schema.users.id, schema.handPlayers.userId))
+        .where(and(handFilter, eq(schema.handPlayers.revealed, true), sql`${schema.handPlayers.handScore} is not null`, sql`${schema.handPlayers.hole} is not null`, eq(schema.hands.purged, false)))
+        .orderBy(asc(schema.handPlayers.handScore), desc(schema.hands.pot))
+        .limit(1);
+      if (top) {
+        const show = await this.handShow(top.handId, 'best', top.userId);
+        if (show) bestHand = { ...show, userId: top.userId, nickname: top.nick };
+      }
     }
     const hunterTop = [...players].filter((p) => p.knockouts > 0).sort((a, b) => b.knockouts - a.knockouts)[0];
 
@@ -438,7 +451,7 @@ export class EveningService {
       mvp: players[0] && players[0].score > 0 ? { userId: players[0].userId, nickname: players[0].nickname, score: players[0].score } : null,
       awards: { hunter: hunterTop ? { userId: hunterTop.userId, nickname: hunterTop.nickname, count: hunterTop.knockouts } : null, banker, badBeat },
       stats: { games: games.length, players: players.length, turnover, biggestPotBb },
-      handOfEvening: ((ev.handVote as HandVote | null)?.result ?? null) as HandOfEvening | null,
+      bestHand,
     };
   }
 
@@ -458,7 +471,6 @@ export class EveningService {
       auto: ev.auto,
       canManage: manager,
       summary,
-      handVote: ev.handVote ? { pollId: (ev.handVote as HandVote).pollId, candidates: (ev.handVote as HandVote).candidates.map((c) => ({ kind: c.kind, label: c.label, handId: c.handId, nickname: c.nickname, game: c.game })), decided: (ev.handVote as HandVote).result !== undefined } : null,
     };
   }
 
@@ -514,7 +526,6 @@ export class EveningService {
     this.deps.onClosed?.({ id, name: ev.name, games: summary.stats.games, players: summary.stats.players, mvp: summary.mvp?.nickname ?? '' });
     const s = this.s();
     if (s['evening.chatSummary'] && summary.stats.games > 0) await this.deps.postChat(this.summaryText(closed, summary)).catch(() => undefined);
-    if (s['evening.handVoteAuto']) await this.startHandVote(null, id).catch(() => undefined);
     if (s['evening.emailEnabled'] && summary.stats.players > 0) {
       const text = this.summaryText(closed, summary);
       for (const p of summary.players) await this.deps.mail(p.userId, 'vecer_souhrn', { nazev: ev.name, souhrn: text, odkaz: `${String(s['system.publicUrl'] ?? '').replace(/\/$/, '')}/vecery/${id}` }).catch(() => undefined);
@@ -602,99 +613,32 @@ export class EveningService {
     };
   }
 
-  // ---------- handa večera ----------
+  // ---------- handy pro zobrazení kartami ----------
 
-  /** Kandidáti na handu večera z uložených hand: největší pot, nejhorší bad beat, ukázaný bluff, nejnepravděpodobnější výhra. */
-  async handCandidates(ev: Row): Promise<HandCandidate[]> {
+  /**
+   * Handa pro grafické zobrazení: společné karty a hráči, kteří ukázali karty. Smolař (`loser`): on a vítězové handy; nejlepší kombinace (`best`): držitel.
+   * U handy, jejíž podrobnosti už byly smazány, nebo bez ukázaných karet se vrací `null`.
+   */
+  private async handShow(handId: string, focus: 'loser' | 'best', focusUserId: string): Promise<HandShow | null> {
     const db = this.deps.db;
-    const from = ev.startsAt.getTime();
-    const to = ev.endsAt?.getTime() ?? this.deps.now();
-    const games = await this.games(ev.id);
-    const tourIds = games.filter((g) => g.kind === 'tournament').map((g) => g.ref);
-    const cashIds = games.filter((g) => g.kind === 'cash').map((g) => g.ref);
-    if (!tourIds.length && !cashIds.length) return [];
-    const filter = or(
-      tourIds.length ? inArray(schema.hands.tournamentId, tourIds) : undefined,
-      cashIds.length ? and(inArray(schema.hands.tableId, cashIds), gte(schema.hands.playedAt, new Date(from)), lte(schema.hands.playedAt, new Date(to))) : undefined,
-    );
-    const base = () =>
-      db
-        .select({ handId: schema.hands.id, tableId: schema.hands.tableId, tournamentId: schema.hands.tournamentId, pot: schema.hands.pot, blinds: schema.hands.blinds, userId: schema.handPlayers.userId, equity: schema.handPlayers.allInEquity, nickname: schema.users.nickname })
-        .from(schema.handPlayers)
-        .innerJoin(schema.hands, eq(schema.hands.id, schema.handPlayers.handId))
-        .innerJoin(schema.users, eq(schema.users.id, schema.handPlayers.userId));
-    const gameName = async (tableId: string, tournamentId: string | null) => (await this.gameName(tournamentId ? 'tournament' : 'cash', tournamentId ?? tableId)) ?? tableId;
-    const bb = (r: { pot: number; blinds: { bb: number } }) => (r.blinds.bb > 0 ? Math.round((r.pot / r.blinds.bb) * 10) / 10 : 0);
-    const out: HandCandidate[] = [];
-    const used = new Set<string>();
-    const add = async (kind: HandCandidate['kind'], r: { handId: string; tableId: string; tournamentId: string | null; userId: string; nickname: string }, value: number) => {
-      if (used.has(r.handId)) return;
-      used.add(r.handId);
-      const label = t(`evening.handVote.${kind}`, { nick: r.nickname, bb: value, equity: value });
-      out.push({ kind, handId: r.handId, userId: r.userId, nickname: r.nickname, game: await gameName(r.tableId, r.tournamentId), value, label });
-    };
-    // největší pot (vítěz handy)
-    const winners = await base().where(and(filter, gte(schema.handPlayers.won, 1)));
-    const pots = winners.filter((r) => r.blinds.bb > 0).sort((a, b) => b.pot / b.blinds.bb - a.pot / a.blinds.bb);
-    if (pots[0]) await add('bigPot', pots[0], bb(pots[0]));
-    // nejhorší bad beat: nejvyšší šance na výhru u prohry
-    const min = Number(this.s()['evening.badBeatMinPercent']) / 100;
-    const [bad] = await base().where(and(filter, eq(schema.handPlayers.won, 0), gte(schema.handPlayers.allInEquity, min))).orderBy(desc(schema.handPlayers.allInEquity)).limit(1);
-    if (bad) await add('badBeat', bad, Math.round((bad.equity ?? 0) * 1000) / 10);
-    // ukázaný bluff: vítěz bez showdownu, který dobrovolně ukázal karty
-    const bluffs = await base().where(and(filter, eq(schema.hands.showdown, false), eq(schema.handPlayers.revealed, true), gte(schema.handPlayers.won, 1)));
-    const bluff = bluffs.filter((r) => r.blinds.bb > 0).sort((a, b) => b.pot / b.blinds.bb - a.pot / a.blinds.bb)[0];
-    if (bluff) await add('bluff', bluff, bb(bluff));
-    // nejnepravděpodobnější výhra: výherce s nejmenší šancí na výhru v all-inu
-    const [long] = await base().where(and(filter, gte(schema.handPlayers.won, 1), isNotNull(schema.handPlayers.allInEquity))).orderBy(asc(schema.handPlayers.allInEquity)).limit(1);
-    if (long && (long.equity ?? 1) < 0.5) await add('longshot', long, Math.round((long.equity ?? 0) * 1000) / 10);
-    return out;
-  }
-
-  /** Spustí hlasování o handě večera mezi hráči večera. Vrací false, když není z čeho vybírat. */
-  async startHandVote(actorId: string | null, id: string): Promise<boolean> {
-    if (actorId) this.manage(actorId);
-    const ev = await this.load(id);
-    if (ev.handVote || !this.deps.createHandPoll) return false;
-    const candidates = await this.handCandidates(ev);
-    if (candidates.length < 2) return false;
-    const summary = ev.status === 'closed' && ev.summary ? (ev.summary as EveningSummary) : await this.compute(ev);
-    const voters = summary.players.map((p) => p.userId);
-    if (voters.length < 2) return false;
-    const pollId = await this.deps.createHandPoll(t('evening.handVote.title', { name: ev.name }), candidates.map((c) => c.label), voters, Number(this.s()['evening.handVoteHours']));
-    const vote: HandVote = { pollId, candidates };
-    await this.deps.db.update(schema.evenings).set({ handVote: vote as unknown as Record<string, unknown> }).where(eq(schema.evenings.id, id));
-    await this.deps.audit.log({ actorId: actorId ?? undefined, action: 'vecer.hlasovani_handy', targetType: 'evening', targetId: id, after: { pollId, candidates: candidates.length } });
-    await this.deps.postChat(t('evening.handVote.chat', { name: ev.name })).catch(() => undefined);
-    this.deps.onChanged?.(id);
-    return true;
-  }
-
-  /** Uzavřená hlasování o handě večera: vybere vítěze, uloží ho do souhrnu a pošle handu do chatu. */
-  async finalizeHandVotes(): Promise<number> {
-    if (!this.deps.pollResult) return 0;
-    const rows = await this.deps.db.select().from(schema.evenings).where(isNotNull(schema.evenings.handVote));
-    let n = 0;
-    for (const ev of rows) {
-      const vote = ev.handVote as HandVote | null;
-      if (!vote || vote.result !== undefined) continue;
-      const r = await this.deps.pollResult(vote.pollId);
-      if (!r || r.open) continue;
-      const index = r.winners.length ? Number(r.winners[0]!.replace(/^o/, '')) - 1 : 0;
-      const pick = vote.candidates[index] ?? vote.candidates[0] ?? null;
-      let result: HandOfEvening | null = null;
-      if (pick) {
-        const sharedId = this.deps.shareHand ? await this.deps.shareHand(pick.handId).catch(() => null) : null;
-        result = { ...pick, sharedId, votes: r.votes };
-      }
-      const next: HandVote = { ...vote, result };
-      const summary = ev.summary ? ({ ...(ev.summary as EveningSummary), handOfEvening: result } as EveningSummary) : null;
-      await this.deps.db.update(schema.evenings).set({ handVote: next as unknown as Record<string, unknown>, ...(summary ? { summary } : {}) }).where(eq(schema.evenings.id, ev.id));
-      if (result) await this.deps.postChat(t('evening.handVote.winner', { name: ev.name, label: result.label, card: result.sharedId ? `{{ruka:${result.sharedId}}}` : '' })).catch(() => undefined);
-      this.deps.onChanged?.(ev.id);
-      n++;
+    const [h] = await db.select({ board: schema.hands.board, purged: schema.hands.purged, tableId: schema.hands.tableId, tournamentId: schema.hands.tournamentId }).from(schema.hands).where(eq(schema.hands.id, handId));
+    if (!h || h.purged) return null;
+    const ps = await db
+      .select({ userId: schema.handPlayers.userId, hole: schema.handPlayers.hole, won: schema.handPlayers.won, revealed: schema.handPlayers.revealed, nick: schema.users.nickname })
+      .from(schema.handPlayers)
+      .innerJoin(schema.users, eq(schema.users.id, schema.handPlayers.userId))
+      .where(eq(schema.handPlayers.handId, handId));
+    const board = h.board ?? [];
+    const players: HandShowPlayer[] = [];
+    for (const p of ps) {
+      const role: HandShowPlayer['role'] | null = p.userId === focusUserId ? focus : focus === 'loser' && p.won > 0 ? 'winner' : null;
+      if (!role || !p.hole || !p.revealed) continue;
+      const five = board.length === 5 ? bestFive(p.hole as [Card, Card], board as Card[]).cards : null;
+      const desc = five ? describeHand(five) : null;
+      players.push({ userId: p.userId, nickname: p.nick, hole: p.hole, won: p.won, role, five: five ? (desc?.cards ?? five) : null, desc: desc ? { key: desc.key, params: desc.params } : null });
     }
-    return n;
+    if (!players.some((p) => p.role === focus)) return null;
+    return { handId, game: (await this.gameName(h.tournamentId ? 'tournament' : 'cash', h.tournamentId ?? h.tableId)) ?? h.tableId, board, players };
   }
 
   /** CSV souhrnu (hráči a převody) pro tabulky. */

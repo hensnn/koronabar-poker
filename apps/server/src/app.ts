@@ -878,19 +878,6 @@ export async function buildServer(opts: ServerOptions = {}) {
     now: () => clock.now(),
     seated: () => tablesRef.current!.list().flatMap((row) => (tablesRef.current!.get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, tableId: row.id, chips: s.chips + s.pendingChips }))),
     postChat: async (text) => void (await chat.system(await chat.ensureMainChannel(), text)),
-    createHandPoll: (title, labels, voterIds, hours) =>
-      pollsRef.create(
-        perms.mainAdminIds()[0]!,
-        { title, config: { type: 'single', options: labels.map((label) => ({ label })) }, condition: { type: 'players', keys: voterIds }, eligibility: 'fixed', durationMinutes: hours * 60, results: 'afterVote' },
-        { trusted: true },
-      ),
-    pollResult: async (pollId) => {
-      const [p] = await db.select({ status: schema.polls.status, result: schema.polls.result }).from(schema.polls).where(eq(schema.polls.id, pollId));
-      if (!p) return null;
-      const r = (p.result ?? {}) as { winners?: string[]; voted?: number };
-      return { open: p.status === 'open' || p.status === 'tie', winners: r.winners ?? [], votes: r.voted ?? 0 };
-    },
-    shareHand: (handId) => sharedHandsRef.shareSystem(handId),
     mail: (userId, template, vars) => mailUser(userId, 'email.notifyEvening', template, (prezdivka) => ({ prezdivka, ...vars })),
     onChanged: (id) => void io.emit('evening:changed', { id }),
   });
@@ -1027,7 +1014,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   const cosmeticsTimer = setInterval(() => void cosmeticsRef.syncAll().catch(() => undefined), 3_600_000);
   const limitsTimer = setInterval(() => void limitsRef.tick().catch(() => undefined), 30_000);
   const betTimer = setInterval(() => void betsRef.tick().catch(() => undefined), 60_000);
-  const eveningTimer = setInterval(() => void eveningRef.closeStale().then(() => eveningRef.finalizeHandVotes()).catch(() => undefined), 60_000);
+  const eveningTimer = setInterval(() => void eveningRef.closeStale().catch(() => undefined), 60_000);
   liveCashRef = new LiveCashService({
     onCreated: (id) => void eveningRef.attach('live_cash', id).catch(() => undefined),
     onClosed: (id, userIds, at) => progress.onLiveCashClosed(id, userIds, at),

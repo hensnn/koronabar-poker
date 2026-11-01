@@ -374,8 +374,6 @@ const themeSettings: SettingDef[] = [
   bool('evening.autoCreate', { category: 'evening', mutability: ADM, scopes: GLOBAL }, true),
   bool('evening.autoClose', { category: 'evening', mutability: ADM, scopes: GLOBAL }, true),
   int('evening.gapHours', { category: 'evening', mutability: ADM, scopes: GLOBAL, unit: 'h' }, 6, 1, 48),
-  bool('evening.handVoteAuto', { category: 'evening', mutability: ADM, scopes: GLOBAL }, true),
-  int('evening.handVoteHours', { category: 'evening', mutability: ADM, scopes: GLOBAL, unit: 'h' }, 12, 1, 168),
   bool('evening.chatSummary', { category: 'evening', mutability: ADM, scopes: GLOBAL }, true),
   bool('evening.emailEnabled', { category: 'evening', mutability: ADM, scopes: GLOBAL }, false),
   int('evening.mvpNetWeight', { category: 'evening', mutability: ADM, scopes: GLOBAL, unit: '%' }, 100, 0, 10000),
