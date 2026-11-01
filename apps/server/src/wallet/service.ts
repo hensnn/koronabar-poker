@@ -143,30 +143,37 @@ export class WalletService {
     return { txId: tx.id };
   }
 
-  async debit(actorId: string, userId: string, amount: number, reason: string, meta: WalletMeta = {}): Promise<WalletResult> {
+  /** Kam strhnutá měna jde: do mintu (Koruny zaniknou, opak dobití), nebo na účet domu (např. pokuta jako příjem herny). Bez volby platí nastavení. */
+  private debitTarget(target?: 'mint' | 'house'): 'mint' | 'house' {
+    return target ?? (String(this.deps.settings()['economy.debitTarget']) === 'house' ? 'house' : 'mint');
+  }
+
+  async debit(actorId: string, userId: string, amount: number, reason: string, meta: WalletMeta = {}, target?: 'mint' | 'house'): Promise<WalletResult> {
     AMOUNT(amount);
     if (!reason?.trim()) throw new PermissionError('INVALID', { field: 'reason' });
     await this.assertUser(userId);
     const d = this.deps.perms.can(actorId, 'mena.strhnout', { amount });
     if (!d.allowed) throw new PermissionError(d.reasonKey === 'permission.limitExceeded' ? 'LIMIT_EXCEEDED' : 'FORBIDDEN', { limits: d.limits });
-    if (d.needsApproval) return { done: false, approvalId: await this.deps.approvals.request(actorId, 'mena.strhnout', { userId, amount, reason }, meta) };
+    const to = this.debitTarget(target);
+    if (d.needsApproval) return { done: false, approvalId: await this.deps.approvals.request(actorId, 'mena.strhnout', { userId, amount, reason, to }, meta) };
     await this.deps.perms.consumeDaily(actorId, 'mena.strhnout', amount);
-    return { done: true, txId: (await this.execDebit(actorId, { userId, amount, reason }, meta)).txId };
+    return { done: true, txId: (await this.execDebit(actorId, { userId, amount, reason, to }, meta)).txId };
   }
 
-  private async execDebit(actorId: string, p: { userId: string; amount: number; reason: string }, meta: WalletMeta = {}) {
-    // Strhnutá měna se nevytrácí: jde na účet domu (a ze zůstatku, který hráč opravdu má).
+  private async execDebit(actorId: string, p: { userId: string; amount: number; reason: string; to?: 'mint' | 'house' }, meta: WalletMeta = {}) {
+    // Jen ze zůstatku, který hráč opravdu má. Cíl: mint (Koruny zanikají jako opak dobití) nebo dům (příjem herny).
+    const to = this.debitTarget(p.to);
     const tx = this.deps.ledger.post({
       kind: 'manual_adjustment',
       idempotencyKey: `debit:${randomUUID()}`,
       entries: [
         { account: accounts.wallet(p.userId), amount: -p.amount },
-        { account: accounts.house(), amount: p.amount },
+        { account: to === 'house' ? accounts.house() : accounts.mint(), amount: p.amount },
       ],
       createdBy: actorId,
       note: p.reason,
     });
-    await this.deps.audit.log({ actorId, action: 'mena.strhnout', targetType: 'user', targetId: p.userId, after: { amount: p.amount, txId: tx.id }, reason: p.reason, ...meta });
+    await this.deps.audit.log({ actorId, action: 'mena.strhnout', targetType: 'user', targetId: p.userId, after: { amount: p.amount, to, txId: tx.id }, reason: p.reason, ...meta });
     return { txId: tx.id };
   }
 

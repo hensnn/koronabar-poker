@@ -87,16 +87,21 @@ describe('dobíjení a strhávání měny', () => {
     expect(s.ledger.balance(accounts.wallet(hrac))).toBe(0);
   });
 
-  it('strhnutí jde na účet domu a nejde pod nulu', async () => {
+  it('strhnutí ve výchozím stavu Koruny ruší (do mintu, opak dobití), jde ale zvolit i dům; pod nulu nejde', async () => {
     const s = await setup();
     const pok = await s.user('Pok', 'pokladnik');
     const hrac = await s.user('Hrac', 'hrac');
     await s.wallet.topUp(pok, hrac, 1000, 'start');
-    await s.wallet.debit(pok, hrac, 300, 'pokuta');
+    const mintBefore = s.ledger.balance(accounts.mint());
+    await s.wallet.debit(pok, hrac, 300, 'oprava omylu');
     expect(s.ledger.balance(accounts.wallet(hrac))).toBe(700);
-    expect(s.ledger.balance(accounts.house())).toBe(300);
+    expect(s.ledger.balance(accounts.mint())).toBe(mintBefore + 300); // Koruny zanikly
+    expect(s.ledger.balance(accounts.house())).toBe(0);
+    await s.wallet.debit(pok, hrac, 100, 'pokuta', {}, 'house');
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(600);
+    expect(s.ledger.balance(accounts.house())).toBe(100);
     await expect(s.wallet.debit(pok, hrac, 5000, 'moc')).rejects.toThrow(/INSUFFICIENT/);
-    expect(s.wallet.houseBalances(pok)).toEqual({ house: 300 });
+    expect(s.wallet.houseBalances(pok)).toEqual({ house: 100 });
     expect(() => s.wallet.houseBalances(hrac)).toThrow(PermissionError);
   });
 });

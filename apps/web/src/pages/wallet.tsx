@@ -237,7 +237,9 @@ export function CashierPanel() {
   const { me } = useSession();
   const [users, setUsers] = useState<{ id: string; nickname: string }[]>([]);
   const [reqs, setReqs] = useState<RequestRow[]>([]);
-  const [form, setForm] = useState({ userId: '', amount: '', reason: '', mode: 'topup' });
+  const settings = useSettings();
+  const [form, setForm] = useState({ userId: '', amount: '', reason: '', mode: 'topup', target: '' });
+  const target = form.target || (settings.values['economy.debitTarget'] === 'house' ? 'house' : 'mint');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const reload = useCallback(() => {
     get<RequestRow[]>('/api/requests?all=1&status=pending').then(setReqs).catch(() => setReqs([]));
@@ -257,7 +259,7 @@ export function CashierPanel() {
           onSubmit={async (e) => {
             e.preventDefault();
             try {
-              const r = await post<{ done: boolean }>(`/api/admin/wallet/${form.mode}`, { userId: form.userId, amount: Number(form.amount), reason: form.reason });
+              const r = await post<{ done: boolean }>(`/api/admin/wallet/${form.mode}`, { userId: form.userId, amount: Number(form.amount), reason: form.reason, ...(form.mode === 'debit' ? { target } : {}) });
               setMsg({ kind: 'success', text: r.done ? t('cashier.done') : t('cashier.pending') });
               setForm({ ...form, amount: '', reason: '' });
             } catch (er) {
@@ -280,6 +282,12 @@ export function CashierPanel() {
           </Select>
           <TextInput label={t('wallet.amount')} type="number" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} hint={limits?.maxPerOperation ? t('cashier.limit', { n: limits.maxPerOperation }) : undefined} required />
           </div>
+          {form.mode === 'debit' && (
+            <Select label={t('cashier.debitTarget')} value={target} onChange={(e) => setForm({ ...form, target: e.target.value })}>
+              <option value="mint">{t('cashier.target.mint')}</option>
+              <option value="house">{t('cashier.target.house')}</option>
+            </Select>
+          )}
           <TextArea label={t('cashier.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
           {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
           <Button className="self-start" variant="primary" type="submit">

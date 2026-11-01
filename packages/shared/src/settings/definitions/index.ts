@@ -246,6 +246,7 @@ const stats: SettingDef[] = [
   int('economy.creditLimit', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.creditEnabled', truthy: true } }, 1000, 1, 1_000_000_000),
   int('economy.creditMinDraw', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.creditEnabled', truthy: true } }, 10, 1, 1_000_000_000),
   int('economy.creditMaxDraw', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.creditEnabled', truthy: true } }, 500, 1, 1_000_000_000),
+  choice('economy.debitTarget', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'mint', ['mint', 'house']),
   choice('economy.creditApproval', { category: 'economy', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'economy.creditEnabled', truthy: true } }, 'admin', ['none', 'admin']),
   bool('economy.transferEnabled', { category: 'economy', mutability: ADM, scopes: GLOBAL }, false),
   text('economy.transferTargets', { category: 'economy', mutability: ADM, scopes: GLOBAL, dependsOn: { key: 'economy.transferEnabled', truthy: true } }, 'jiná hra', 300),

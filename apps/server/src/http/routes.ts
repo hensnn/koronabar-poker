@@ -2098,8 +2098,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     return reply.send(r);
   }));
   app.post('/api/admin/wallet/debit', guard(async (req, reply) => {
-    const b = z.object({ userId: id, amount, reason: z.string().min(1).max(300) }).parse(req.body);
-    const r = await svc.wallet.debit(need(req).id, b.userId, b.amount, b.reason, meta(req));
+    const b = z.object({ userId: id, amount, reason: z.string().min(1).max(300), target: z.enum(['mint', 'house']).optional() }).parse(req.body);
+    const r = await svc.wallet.debit(need(req).id, b.userId, b.amount, b.reason, meta(req), b.target);
     if (r.done) svc.hooks.pushWallet(b.userId);
     return reply.send(r);
   }));
