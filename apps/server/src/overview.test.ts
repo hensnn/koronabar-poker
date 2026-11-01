@@ -86,6 +86,56 @@ describe('kategorie kdo je v čem nejlepší (HTTP)', () => {
   });
 });
 
+describe('kategorie kdo je v čem nejlepší: správná data', () => {
+  it('každá kategorie se počítá z předvídatelného zdroje (kniha, výsledky turnajů, cash ruce, XP)', async () => {
+    const s = await start({ 'stats.categoryMinGames': 1, 'stats.categoryTop': 5 });
+    const a = s.admin;
+    const p = s.player;
+    const db = s.server.db;
+    const at = new Date();
+    const res = (ref: string, userId: string, place: number, spent: number, payout: number, bounty = 0) => ({ kind: 'tournament', ref, userId, finishedAt: at, place, field: 5, spent, payout, bounty });
+    await db.insert(schema.gameResults).values([res('T1', p, 1, 100, 400, 50), res('T2', p, 3, 100, 0), res('T3', p, 2, 100, 150), res('T1', a, 4, 100, 0)]);
+    const post = (kind: 'turnaj_buyin' | 'turnaj_vyplata' | 'cash_buyin' | 'cash_cashout', userId: string, amount: number, key: string) =>
+      s.server.ledger.post({ kind, idempotencyKey: key, entries: [{ account: accounts.wallet(userId), amount }, { account: accounts.mint(), amount: -amount }] });
+    post('turnaj_buyin', p, -300, 'cat-1');
+    post('turnaj_vyplata', p, 600, 'cat-2');
+    post('turnaj_buyin', a, -100, 'cat-3');
+    post('cash_buyin', p, -200, 'cat-4');
+    post('cash_cashout', p, 260, 'cat-5');
+    // ruce: p 2 cash + 1 turnajová, a 1 cash; turnajové ruce se do cash hand nepočítají
+    const hand = (id: string, kind: 'cash' | 'tournament') => db.insert(schema.hands).values({ id, tableId: 't-cat', kind, tournamentId: kind === 'tournament' ? 't-cat' : null, handNumber: 1, playedAt: at, pot: 100, blinds: { sb: 1, bb: 2, ante: 0 } });
+    const hp = (handId: string, userId: string, kind: 'cash' | 'tournament') => db.insert(schema.handPlayers).values({ handId, userId, seat: 0, kind, playedAt: at, startStack: 100, invested: 10, won: 0 });
+    for (const [id, kind] of [['h1', 'cash'], ['h2', 'cash'], ['h3', 'tournament'], ['h4', 'cash']] as const) await hand(id, kind);
+    await hp('h1', p, 'cash');
+    await hp('h2', p, 'cash');
+    await hp('h3', p, 'tournament');
+    await hp('h4', a, 'cash');
+    s.server.progress.grant(p, 'x', 90);
+    await s.server.progress.idle();
+    await s.server.journal.flush();
+    const login = await s.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: 'Hrac', password: 'heslo-hrace-123' }, headers: { origin: 'http://localhost' } });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+    const res2 = await s.server.app.inject({ method: 'GET', url: '/api/stats/categories', headers: { cookie } });
+    const cats = new Map((res2.json() as { categories: { id: string; entries: { userId: string; value: number }[] }[] }).categories.map((c) => [c.id, c.entries]));
+    const val = (id: string, userId: string) => cats.get(id)?.find((e) => e.userId === userId)?.value;
+    expect(val('tournamentNet', p)).toBe(300); // výplata 600 − vstupy 300
+    expect(val('cashNet', p)).toBe(60); // 260 − 200
+    expect(val('total', p)).toBe(360);
+    expect(val('hands', p)).toBe(2); // jen cash, turnajová ruka ne
+    expect(val('hands', a)).toBe(1);
+    expect(val('games', p)).toBe(3);
+    expect(val('wins', p)).toBe(1);
+    expect(val('winRate', p)).toBe(33.3);
+    expect(val('itmRate', p)).toBe(66.7);
+    expect(val('avgPlace', p)).toBe(2);
+    expect(val('avgPlace', a)).toBe(4);
+    expect(cats.get('avgPlace')![0]!.userId).toBe(p); // nižší průměrné místo je lepší
+    expect(val('bounty', p)).toBe(50);
+    expect(val('xp', p)).toBe(90);
+    expect(cats.get('tournamentNet')![0]!.userId).toBe(p);
+  });
+});
+
 describe('účet domu: vklad a výdaje (HTTP)', () => {
   it('správce vloží měnu do domu a zapíše výdaje s kategorií; přehled je sečte, dům nejde do mínusu, hráč nemá přístup', async () => {
     const s = await start();
