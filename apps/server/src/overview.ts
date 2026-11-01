@@ -36,6 +36,7 @@ export interface OverviewRow {
   ratingCash: number | null;
   /** Divize hráče podle ratingu (turnajový, jinak cash); null, když hráč ještě není v žebříčku ratingu. */
   division: { name: string; icon: string; color: string } | null;
+  /** Počet hand odehraných u cash stolů (bez hand z turnajů). */
   hands: number;
   tournaments: number;
   tournamentNet: number;
@@ -68,7 +69,8 @@ export class OverviewService {
     if (ids.length === 0) return { rows: [] };
     const briefs = new Map((await this.deps.brief(ids)).map((b) => [b.userId, b]));
     const xp = new Map((await db.select({ userId: schema.playerProgress.userId, xp: schema.playerProgress.xp }).from(schema.playerProgress)).map((p) => [p.userId, Number(p.xp)]));
-    const handsRows = await db.select({ userId: schema.handPlayers.userId, n: sql<number>`count(*)::int` }).from(schema.handPlayers).groupBy(schema.handPlayers.userId);
+    // Jen cash ruce; ruce odehrané v turnajích se sem nepočítají (turnaje mají vlastní sloupec).
+    const handsRows = await db.select({ userId: schema.handPlayers.userId, n: sql<number>`count(*)::int` }).from(schema.handPlayers).where(eq(schema.handPlayers.kind, 'cash')).groupBy(schema.handPlayers.userId);
     const hands = new Map(handsRows.map((r) => [r.userId, Number(r.n)]));
     // Peníze podle účetní knihy (stejný zdroj jako vyúčtování v peněžence a výsledky večerů): cash včetně živého, turnaje včetně sázek a odměn na hlavu.
     const nets = await gameNets(db);

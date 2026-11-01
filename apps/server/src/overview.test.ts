@@ -50,6 +50,15 @@ describe('přehled mezi hráči', () => {
     await expect(s.server.overview.compare([], 'balance')).rejects.toThrow('INVALID');
   });
 
+  it('počet hand v přehledu zahrnuje jen cash, ne ruce z turnajů', async () => {
+    const s = await start();
+    const at = new Date();
+    await s.server.db.insert(schema.hands).values({ id: 'h-ov-t', tableId: 't-ov', kind: 'tournament', tournamentId: 't-ov', handNumber: 1, playedAt: at, pot: 100, blinds: { sb: 1, bb: 2, ante: 0 } });
+    await s.server.db.insert(schema.handPlayers).values({ handId: 'h-ov-t', userId: s.player, seat: 0, kind: 'tournament', playedAt: at, startStack: 100, invested: 50, won: 0 });
+    const me = (await s.server.overview.overview()).rows.find((r) => r.userId === s.player)!;
+    expect(me.hands).toBe(0);
+  });
+
   it('správce přehled vypne: čísla ostatních se nevydají', async () => {
     const s = await start({ 'stats.publicOverview': false });
     await expect(s.server.overview.overview()).rejects.toThrow('HIDDEN');

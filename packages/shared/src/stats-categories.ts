@@ -38,7 +38,7 @@ const positive = (n: number) => (n > 0 ? n : null);
 export const CATEGORY_DEFS: readonly CategoryDef[] = [
   { id: 'total', group: 'money', best: 'high', value: (p) => (p.games > 0 || p.hands > 0 || p.total !== 0 ? p.total : null) },
   { id: 'tournamentNet', group: 'money', best: 'high', value: (p) => (p.games > 0 ? p.tournamentNet : null) },
-  { id: 'cashNet', group: 'money', best: 'high', value: (p) => (p.hands > 0 ? p.cashNet : null) },
+  { id: 'cashNet', group: 'money', best: 'high', value: (p) => (p.hands > 0 || p.cashNet !== 0 ? p.cashNet : null) },
   { id: 'balance', group: 'money', best: 'high', value: (p) => p.balance },
   { id: 'bounty', group: 'money', best: 'high', value: (p) => positive(p.bounty) },
   { id: 'wins', group: 'tournament', best: 'high', value: (p) => positive(p.wins) },

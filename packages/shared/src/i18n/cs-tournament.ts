@@ -395,6 +395,7 @@ export const csTournament: Record<string, string> = {
   'stats.seasonCurrent': 'Právě běžící sezóna',
   'stats.empty': 'Zatím nemáš odehrané žádné handy ani turnaje.',
   'stats.hands': 'Handy',
+  'overview.cashHands': 'Cash handy',
   'stats.aggression': 'Faktor agrese',
   'stats.biggestPot': 'Největší výhra v handě',
   'stats.cashNet': 'Zisk z cash her',

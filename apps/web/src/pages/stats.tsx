@@ -329,7 +329,7 @@ function PlayersOverview({ meId }: { meId: string }) {
         </div>
       </Card>
       <CategoriesView meId={meId} />
-      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('total', t('overview.earn')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('overview.cashNet')), head('balance', t('overview.balance')), head('level', t('overview.level')), head('ratingTournament', t('overview.ratingT')), head('ratingCash', t('overview.ratingC')), head('hands', t('stats.hands')), head('tournaments', t('stats.games'))]}>
+      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('total', t('overview.earn')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('overview.cashNet')), head('balance', t('overview.balance')), head('level', t('overview.level')), head('ratingTournament', t('overview.ratingT')), head('ratingCash', t('overview.ratingC')), head('hands', t('overview.cashHands')), head('tournaments', t('stats.games'))]}>
         {sorted.map((r) => (
           <tr key={r.userId} className={r.userId === meId ? 'bg-raised' : ''}>
             <Td>
