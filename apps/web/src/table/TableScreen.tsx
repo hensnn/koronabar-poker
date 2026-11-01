@@ -35,7 +35,7 @@ import { useMobileLayout } from './mobile';
 import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
 import { TableFx, useTableNotices, useTournamentFx } from './fx';
-import { useTableSize } from './size';
+import { useTableFit, useTableSize } from './size';
 import { DealButton, EntryActions, useTournamentInfo } from './InfoCard';
 import { ShowdownPrefs } from './TablePanel';
 
@@ -187,6 +187,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const notices = useTableNotices(tableId);
   const waitInfo = useSettings().values['ui.tableWaitInfo'] !== false;
   const roomSize = useTableSize();
+  useTableFit();
   // Hlasování o run it twice a volba ukázat/zahodit karty: výběr jde přepínat kurzorovými šipkami (Tab funguje sám).
   const choiceRef = useRef<HTMLDivElement>(null);
   useArrowChoices(choiceRef, true, '[role=dialog] button:not(:disabled)');

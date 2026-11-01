@@ -936,8 +936,14 @@ h3,
 /* Stálé rozložení okna stolu: stavový řádek a akční lišta mají pevnou výšku. */
 /* Obal pravého sloupce je mimo telefon na šířku průhledný: jeho děti jsou přímo prvky mřížky stolu. */
 .tk-side-col { display: contents; }
-.tk-turn-row { min-height: 2.75rem; display: flex; align-items: center; justify-content: center; }
-.tk-actionbar { min-height: 7.25rem; }
+:root { --tk-turnrow-h: 2.75rem; --tk-actionbar-h: 7.25rem; }
+.tk-turn-row { min-height: var(--tk-turnrow-h); display: flex; align-items: center; justify-content: center; }
+.tk-actionbar { min-height: var(--tk-actionbar-h); }
+/* Přizpůsobení stolu oknu (osobní volba, `html[data-fit]`): stůl dostane zbytek výšky okna nad stavovým řádkem a akční lištou; začátek stolu změří skript. */
+html[data-fit] { --tk-fit-v: calc(100dvh - var(--tk-fit-top, 6rem) - var(--tk-turnrow-h) - var(--tk-actionbar-h) - var(--spacing) * 14); }
+@media (min-width: 64rem) {
+  html[data-fit]:not([data-mobile]) .tk-table { width: calc(min(100%, calc(var(--tk-fit-v) * var(--tk-table-aspect))) * var(--room-h, 100) / 100); }
+}
 
 /* Celá obrazovka: vše se vejde do okna bez posuvníků; panel a chat rolují uvnitř sebe. */
 [data-focus] body { overflow: hidden; }
