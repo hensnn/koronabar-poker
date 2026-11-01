@@ -42,6 +42,18 @@ const code = async (p: Promise<unknown>) => {
 };
 
 describe('vlastní šablony nastavení', () => {
+  it('šablony smí spravovat i role s oprávněním „Spravovat šablony“ (bez globálního nastavení); bez něj ne', async () => {
+    const s = await start();
+    expect(await code(s.server.templates.create(s.player, { name: 'Cizí', kind: 'tournament', values: {} }))).toBe('FORBIDDEN');
+    // organizátor má v předvolbě nastaveni.sablony.sprava, ale ne nastaveni.globalni
+    await s.server.perms.assignRole(s.admin, s.player, s.server.perms.roleByKey('organizator')!.id);
+    expect(s.server.perms.can(s.player, 'nastaveni.globalni').allowed).toBe(false);
+    expect(s.server.perms.can(s.player, 'nastaveni.sablony.sprava').allowed).toBe(true);
+    const tpl = await s.server.templates.create(s.player, { name: 'Organizátorova', kind: 'tournament', values: { 'tournament.minPlayers': 2 } });
+    expect(tpl.builtin).toBe(false);
+    await s.server.templates.remove(s.player, tpl.id);
+  });
+
   it('správce založí šablonu turnaje a turnaj z ní; pozdější úprava šablony běžící turnaj nemění', async () => {
     const s = await start();
     const tpl = await s.server.templates.create(s.admin, { name: 'Páteční turbo', kind: 'tournament', values: { 'tournament.minPlayers': 2, 'tournament.levelMinutes': 4, 'tournament.startingStack': 3000 } });

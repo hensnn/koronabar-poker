@@ -261,6 +261,8 @@ export async function buildServer(opts: ServerOptions = {}) {
       })();
     },
   });
+  // Dluhy z úvěru a osobní limity se načtou z databáze (paměť knihy po startu drží jen zůstatky).
+  await wallet.loadCredit();
   let sounds!: SoundService;
   let chatImages!: ChatImages;
   const hooks = { pushWallet: (_userId: string) => undefined as void };

@@ -54,7 +54,7 @@ const SECTIONS: Section[] = [
   { group: 'system', path: '/admin/nastaveni', label: 'admin.settings', show: (m) => can(m, 'nastaveni.globalni'), render: () => <GlobalSettingsPage /> },
   { group: 'system', path: '/admin/logo', label: 'admin.logo', show: (m) => can(m, 'nastaveni.globalni'), render: () => <LogoAdminPage /> },
   { group: 'system', path: '/admin/osobni-vychozi', label: 'admin.personalDefaults', show: (m) => can(m, 'nastaveni.globalni'), render: () => <GlobalSettingsPage personal /> },
-  { group: 'game', path: '/admin/sablony', label: 'admin.templates', show: (m) => can(m, 'nastaveni.globalni'), render: () => <TemplatesPage /> },
+  { group: 'game', path: '/admin/sablony', label: 'admin.templates', show: (m) => can(m, 'nastaveni.sablony.sprava') || can(m, 'nastaveni.globalni'), render: () => <TemplatesPage /> },
   { group: 'game', path: '/admin/struktury', label: 'admin.structures', show: (m) => can(m, 'nastaveni.globalni'), render: () => <StructuresPage /> },
   { group: 'game', path: '/admin/prehledy', label: 'admin.boards', show: (m) => can(m, 'nastaveni.globalni'), render: () => <BoardsPage /> },
   { group: 'game', path: '/admin/rocni-statistika', label: 'admin.year', show: (m) => can(m, 'nastaveni.globalni'), render: () => <YearAdminPage /> },

@@ -295,6 +295,13 @@
       "when": 1793428807978,
       "tag": "0041_sablony_zprav",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793527812130,
+      "tag": "0042_uverove_linky",
+      "breakpoints": true
     }
   ]
 }

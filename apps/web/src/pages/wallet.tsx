@@ -3,7 +3,7 @@ import { BalancesCard } from './admin/balances';
 import { useCallback, useEffect, useState } from 'react';
 import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { useSettings } from '../settings';
-import { del, errorText, get, post } from '../api';
+import { del, errorText, get, post, put } from '../api';
 import { can, useSession } from '../session';
 import { Badge, Button, Card, DataTable, Notice, Td, TextInput, Select, TextArea } from '../ui';
 
@@ -31,10 +31,6 @@ interface CreditInfo {
   limit: number;
   debt: number;
   available: number;
-  minDraw: number;
-  maxDraw: number;
-  approval: 'none' | 'admin';
-  pending: { id: string; amount: number } | null;
 }
 interface TransferInfo {
   enabled: boolean;
@@ -54,7 +50,6 @@ export function WalletPage() {
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
   const [credit, setCredit] = useState<CreditInfo | null>(null);
-  const [cAmount, setCAmount] = useState('');
   const [cRepay, setCRepay] = useState('');
   const [cMsg, setCMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [transfer, setTransfer] = useState<TransferInfo | null>(null);
@@ -90,31 +85,9 @@ export function WalletPage() {
         <Card title={t('wallet.credit.title')}>
           <p className="mb-2 text-sm text-muted">{t('wallet.credit.help', { limit: credit.limit })}</p>
           <p className="mb-2">
-            {t('wallet.credit.debt')}: <strong className="font-mono">{credit.debt}</strong> · {t('wallet.credit.available')}: <strong className="font-mono">{credit.available}</strong>
+            {t('wallet.credit.debt')}: <strong className="font-mono">{credit.debt}</strong> · {t('wallet.credit.limit')}: <strong className="font-mono">{credit.limit}</strong> · {t('wallet.credit.available')}: <strong className="font-mono">{credit.available}</strong>
           </p>
           {cMsg && <Notice kind={cMsg.kind}>{cMsg.text}</Notice>}
-          {credit.pending && <Notice>{t('wallet.credit.pending', { amount: credit.pending.amount })}</Notice>}
-          {credit.enabled && !credit.pending && credit.available >= credit.minDraw && (
-            <form
-              className="mt-2 flex flex-wrap items-end gap-3"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  const r = await post<{ done: boolean }>('/api/wallet/credit/draw', { amount: Number(cAmount) });
-                  setCAmount('');
-                  setCMsg({ kind: 'success', text: t(r.done ? 'wallet.credit.drawn' : 'wallet.credit.requested') });
-                  reload();
-                } catch (er) {
-                  setCMsg({ kind: 'error', text: errorText(er) });
-                }
-              }}
-            >
-              <TextInput label={t('wallet.credit.amount', { min: credit.minDraw, max: Math.min(credit.maxDraw, credit.available) })} type="number" min={credit.minDraw} max={Math.min(credit.maxDraw, credit.available)} value={cAmount} onChange={(e) => setCAmount(e.target.value)} required />
-              <Button variant="primary" type="submit">
-                {t(credit.approval === 'admin' ? 'wallet.credit.request' : 'wallet.credit.draw')}
-              </Button>
-            </form>
-          )}
           {credit.debt > 0 && (
             <form
               className="mt-2 flex flex-wrap items-end gap-3"
@@ -319,9 +292,77 @@ export function CashierPanel() {
           </DataTable>
         </Card>
       )}
+      {can(me, 'mena.dobit') && <CreditLinesCard />}
       {can(me, 'mena.zobrazit_knihu') && <BalancesCard refreshKey={me?.balance} />}
       {can(me, 'mena.zobrazit_knihu') && <LedgerPanel />}
     </div>
+  );
+}
+
+interface CreditLines {
+  enabled: boolean;
+  defaultLimit: number;
+  players: { userId: string; nickname: string; custom: number | null; limit: number; debt: number }[];
+}
+
+/** Pokladník: úvěrové linky hráčů (osobní limit předschváleného úvěru nebo výchozí z nastavení). */
+function CreditLinesCard() {
+  const [data, setData] = useState<CreditLines | null>(null);
+  const [edit, setEdit] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
+  const load = useCallback(() => {
+    get<CreditLines>('/api/admin/credit').then(setData).catch((e) => setMsg({ kind: 'error', text: errorText(e) }));
+  }, []);
+  useEffect(load, [load]);
+  const save = async (userId: string, limit: number | null) => {
+    try {
+      await put(`/api/admin/credit/${userId}`, { limit });
+      setEdit((x) => {
+        const { [userId]: _drop, ...rest } = x;
+        return rest;
+      });
+      setMsg({ kind: 'success', text: t('cashier.creditSaved') });
+      load();
+    } catch (er) {
+      setMsg({ kind: 'error', text: errorText(er) });
+    }
+  };
+  if (!data) return null;
+  return (
+    <Card title={t('cashier.creditLines')}>
+      <p className="mb-2 text-sm text-muted">{t('cashier.creditHelp', { limit: data.defaultLimit })}</p>
+      {!data.enabled && <Notice>{t('cashier.creditOff')}</Notice>}
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      <DataTable head={[t('cashier.user'), t('cashier.creditLimit'), t('cashier.creditDebt'), '']}>
+        {data.players.map((p) => (
+          <tr key={p.userId}>
+            <Td>{p.nickname}</Td>
+            <Td>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  aria-label={t('cashier.creditLimit')}
+                  className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono text-text"
+                  value={edit[p.userId] ?? String(p.limit)}
+                  onChange={(e) => setEdit({ ...edit, [p.userId]: e.target.value })}
+                />
+                {p.custom === null && <span className="text-sm text-muted">{t('cashier.creditDefault')}</span>}
+              </div>
+            </Td>
+            <Td className="font-mono">{p.debt || ''}</Td>
+            <Td>
+              <div className="flex gap-2">
+                <Button disabled={edit[p.userId] === undefined} onClick={() => void save(p.userId, Number(edit[p.userId]))}>
+                  {t('cashier.creditSet')}
+                </Button>
+                {p.custom !== null && <Button onClick={() => void save(p.userId, null)}>{t('cashier.creditReset')}</Button>}
+              </div>
+            </Td>
+          </tr>
+        ))}
+      </DataTable>
+    </Card>
   );
 }
 

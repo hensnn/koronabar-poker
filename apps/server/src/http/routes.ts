@@ -723,7 +723,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   const templateBody = z.object({ name: z.string().max(100), description: z.string().max(300).optional(), kind: z.enum(['cash', 'tournament', 'live']), tags: z.array(z.string().max(30)).max(20).optional(), values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])) });
   const templateDto = (t: SettingsTemplate) => ({ id: t.id, kind: t.kind, name: t.name, description: t.description, tags: t.tags, builtin: !!t.builtin, overridden: svc.templates().isOverridden(t.id), values: t.values });
   app.get('/api/admin/templates', guard(async (req, reply) => {
-    if (!svc.perms.can(need(req).id, 'nastaveni.globalni').allowed) throw new AccountError('FORBIDDEN');
+    if (!svc.perms.can(need(req).id, 'nastaveni.sablony.sprava').allowed && !svc.perms.can(need(req).id, 'nastaveni.globalni').allowed) throw new AccountError('FORBIDDEN');
     return reply.send({ templates: svc.templates().list().map(templateDto), deleted: svc.templates().deletedBuiltin().map((x) => ({ id: x.id, kind: x.kind, name: x.name })) });
   }));
   app.post('/api/admin/templates', guard(async (req, reply) => reply.send(templateDto(await svc.templates().create(need(req).id, templateBody.parse(req.body), meta(req))))));
@@ -2164,21 +2164,21 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const { target, ...rest } = b;
     return reply.send({ id: await svc.wallet.createRequest(need(req).id, { ...rest, payload: target ? { target } : undefined }) });
   }));
-  // Úvěr: čerpání virtuálních Koron na dluh a splátka (vše přes účetní knihu).
-  app.get('/api/wallet/credit', guard(async (req, reply) => reply.send(await svc.wallet.creditInfo(need(req).id))));
-  app.post('/api/wallet/credit/draw', guard(async (req, reply) => {
-    const b = z.object({ amount }).parse(req.body);
-    const u = need(req).id;
-    const r = await svc.wallet.creditDraw(u, b.amount, meta(req));
-    svc.hooks.pushWallet(u);
-    return reply.send(r);
-  }));
+  // Úvěr: předschválená linka (Koruny se při nedostatku na platbu za hru načerpají samy), splátka a správa linek.
+  app.get('/api/wallet/credit', guard(async (req, reply) => reply.send(svc.wallet.creditInfo(need(req).id))));
   app.post('/api/wallet/credit/repay', guard(async (req, reply) => {
     const b = z.object({ amount }).parse(req.body);
     const u = need(req).id;
     const r = await svc.wallet.creditRepay(u, b.amount, meta(req));
     svc.hooks.pushWallet(u);
     return reply.send(r);
+  }));
+  app.get('/api/admin/credit', guard(async (req, reply) => reply.send(await svc.wallet.creditLines(need(req).id))));
+  app.put('/api/admin/credit/:userId', guard(async (req, reply) => {
+    const b = z.object({ limit: z.number().int().min(0).max(1_000_000_000).nullable() }).parse(req.body);
+    const userId = id.parse((req.params as { userId: string }).userId);
+    await svc.wallet.setCreditLimit(need(req).id, userId, b.limit, meta(req));
+    return reply.send({ ok: true });
   }));
   /** Nastavení převodů do jiných aplikací pro formulář v peněžence. */
   app.get('/api/wallet/transfer', guard(async (req, reply) => {

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from 'drizzle-orm';
-import { accounts, minimalTransfers, type Entry, type Ledger, type Transfer } from '@kb/ledger';
+import { accounts, minimalTransfers, type Entry, type Ledger, type Transfer, type TxRequest } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
 import { PermissionError, type PermissionService } from '../auth/permissions.js';
 import type { ApprovalService } from '../auth/approvals.js';
@@ -102,6 +102,9 @@ const AMOUNT = (n: unknown): number => {
  * Peněžní operace správců nad peněženkami hráčů. Každá jde přes oprávnění (limity za operaci a za den),
  * volitelně přes schválení druhou osobou, a vždy přes účetní knihu a audit. Měna je čistě virtuální.
  */
+/** Platby za hru, u kterých se při nedostatku Koron automaticky čerpá úvěr. */
+const AUTO_CREDIT_KINDS = new Set(['cash_buyin', 'cash_topup', 'turnaj_buyin', 'turnaj_rebuy', 'turnaj_addon', 'bet_stake', 'head_bounty_post']);
+
 export class WalletService {
   constructor(
     private deps: {
@@ -116,6 +119,16 @@ export class WalletService {
       notify?: (e: { kind: 'request_created' | 'request_decided'; requestId: string; userId: string; approved?: boolean }) => void;
     },
   ) {
+    // Předschválený úvěr: při nedostatku Koron na platbu za hru se chybějící částka sama načerpá (v mezích limitu hráče).
+    deps.ledger.setOverdraft(this.autoCredit);
+    deps.ledger.addListener((tx) => {
+      if (tx.kind !== 'credit_draw' && tx.kind !== 'credit_repay') return;
+      for (const e of tx.entries) {
+        if (!e.account.startsWith('wallet:')) continue;
+        const id = e.account.slice('wallet:'.length);
+        this.debts.set(id, (this.debts.get(id) ?? 0) + e.amount);
+      }
+    });
     deps.approvals.register('mena.dobit', async (p, by) => (await this.execTopUp(by, p as never)).txId);
     deps.approvals.register('mena.strhnout', async (p, by) => (await this.execDebit(by, p as never)).txId);
     deps.approvals.register('mena.upravit_knihu', async (p, by) => (await this.execAdjust(by, p as never)).txId);
@@ -206,79 +219,109 @@ export class WalletService {
     if (!u) throw new PermissionError('NOT_FOUND', { what: 'user' });
   }
 
-  // ---------- úvěr (čerpání virtuálních Koron na dluh) ----------
+  // ---------- úvěr (předschválená úvěrová linka) ----------
 
-  /** Nesplacený dluh hráče: součet čerpání a splátek z účetní knihy (jediný zdroj pravdy, nic se neukládá zvlášť). */
-  async creditDebt(userId: string): Promise<number> {
-    await this.deps.flush?.();
-    const [r] = await this.deps.db
-      .select({ sum: sql<number>`coalesce(sum(${schema.ledgerEntries.amount}), 0)::int` })
-      .from(schema.ledgerEntries)
-      .innerJoin(schema.ledgerTransactions, eq(schema.ledgerTransactions.id, schema.ledgerEntries.transactionId))
-      .where(and(eq(schema.ledgerEntries.account, accounts.wallet(userId)), inArray(schema.ledgerTransactions.kind, ['credit_draw', 'credit_repay'])));
-    return Math.max(0, Number(r?.sum ?? 0));
+  /** Dluhy hráčů (čerpání − splátky) a osobní limity; drží se v paměti, aby je šlo číst synchronně při platbě. Po startu je plní `loadCredit`. */
+  private debts = new Map<string, number>();
+  private lines = new Map<string, number>();
+  private pendingAudits = new Set<Promise<unknown>>();
+
+  /** Počká na dopsání auditních záznamů automatického čerpání (platba je synchronní, záznam se píše na pozadí). */
+  async idle(): Promise<void> {
+    await Promise.all([...this.pendingAudits]);
   }
 
-  /** Stav úvěru pro peněženku: zapnuto, limity, dluh, kolik jde ještě načerpat a čekající žádost. */
-  async creditInfo(userId: string) {
+  /** Po startu serveru načte dluhy z účetní knihy v databázi a osobní limity; paměť knihy drží jen zůstatky, ne historii pohybů. */
+  async loadCredit(): Promise<void> {
+    await this.deps.flush?.();
+    const db = this.deps.db;
+    const rows = await db
+      .select({ account: schema.ledgerEntries.account, sum: sql<number>`coalesce(sum(${schema.ledgerEntries.amount}), 0)::int` })
+      .from(schema.ledgerEntries)
+      .innerJoin(schema.ledgerTransactions, eq(schema.ledgerTransactions.id, schema.ledgerEntries.transactionId))
+      .where(and(like(schema.ledgerEntries.account, 'wallet:%'), inArray(schema.ledgerTransactions.kind, ['credit_draw', 'credit_repay'])))
+      .groupBy(schema.ledgerEntries.account);
+    this.debts = new Map(rows.map((r) => [r.account.slice('wallet:'.length), Number(r.sum)]));
+    this.lines = new Map((await db.select().from(schema.creditLines)).map((r) => [r.userId, Number(r.limitAmount)]));
+  }
+
+  /** Nesplacený dluh hráče: součet čerpání a splátek z účetní knihy (jediný zdroj pravdy, nic se neukládá zvlášť). */
+  creditDebt(userId: string): number {
+    return Math.max(0, this.debts.get(userId) ?? 0);
+  }
+
+  /** Úvěrový limit hráče: osobní, který nastavil správce, jinak výchozí z nastavení. */
+  creditLimitOf(userId: string): number {
+    return this.lines.get(userId) ?? Number(this.deps.settings()['economy.creditLimit']);
+  }
+
+  /** Stav úvěru pro peněženku: zapnuto, limit, dluh a kolik jde ještě načerpat. */
+  creditInfo(userId: string) {
+    const enabled = !!this.deps.settings()['economy.creditEnabled'];
+    const limit = enabled ? this.creditLimitOf(userId) : 0;
+    const debt = this.creditDebt(userId);
+    return { enabled, limit, debt, available: Math.max(0, limit - debt) };
+  }
+
+  /**
+   * Předschválený úvěr: když hráči při platbě za hru (vstup, dokoupení, rebuy, sázka) chybí Koruny, doplní se chybějící částka
+   * z účtu vydání měny jako dluh, pokud se vejde do jeho volného limitu. Jinak se platba zamítne jako dosud.
+   */
+  private autoCredit = (account: string, shortfall: number, req: TxRequest): TxRequest | null => {
+    if (!AUTO_CREDIT_KINDS.has(req.kind)) return null;
+    const userId = account.slice('wallet:'.length);
+    const info = this.creditInfo(userId);
+    if (!info.enabled || shortfall > info.available) return null;
+    const logged = this.deps.audit.log({ actorId: userId, action: 'mena.uver_automaticky', targetType: 'user', targetId: userId, after: { amount: shortfall, kind: req.kind, gameId: req.gameId } }).catch(() => undefined);
+    this.pendingAudits.add(logged);
+    void logged.finally(() => this.pendingAudits.delete(logged));
+    return {
+      kind: 'credit_draw',
+      idempotencyKey: `credit:auto:${req.idempotencyKey}`,
+      gameId: req.gameId,
+      entries: [
+        { account: accounts.mint(), amount: -shortfall },
+        { account: accounts.wallet(userId), amount: shortfall },
+      ],
+      createdBy: userId,
+      note: 'úvěr: automatické čerpání',
+    };
+  };
+
+  /** Seznam hráčů s jejich úvěrovou linkou (pro správce): osobní limit, výchozí, dluh. */
+  async creditLines(actorId: string) {
+    if (!this.deps.perms.can(actorId, 'mena.dobit').allowed) throw new PermissionError('FORBIDDEN');
+    const users = await this.deps.db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users);
     const s = this.deps.settings();
-    const debt = await this.creditDebt(userId);
-    const limit = Number(s['economy.creditLimit']);
-    const [pending] = await this.deps.db
-      .select({ id: schema.userRequests.id, amount: schema.userRequests.amount })
-      .from(schema.userRequests)
-      .where(and(eq(schema.userRequests.userId, userId), eq(schema.userRequests.kind, 'uver'), eq(schema.userRequests.status, 'pending')));
     return {
       enabled: !!s['economy.creditEnabled'],
-      limit,
-      debt,
-      available: Math.max(0, limit - debt),
-      minDraw: Number(s['economy.creditMinDraw']),
-      maxDraw: Number(s['economy.creditMaxDraw']),
-      approval: String(s['economy.creditApproval']) as 'none' | 'admin',
-      pending: pending ? { id: pending.id, amount: Number(pending.amount) } : null,
+      defaultLimit: Number(s['economy.creditLimit']),
+      players: users
+        .map((u) => ({ userId: u.id, nickname: u.nickname, custom: this.lines.get(u.id) ?? null, limit: this.creditLimitOf(u.id), debt: this.creditDebt(u.id) }))
+        .sort((a, b) => b.debt - a.debt || a.nickname.localeCompare(b.nickname)),
     };
   }
 
-  /** Smí si hráč teď načerpat tuto částku? (zapnuto, v mezích čerpání a volného limitu, žádná jiná čekající žádost) */
-  private async checkCredit(userId: string, amount: number | undefined): Promise<void> {
-    const s = this.deps.settings();
-    if (!s['economy.creditEnabled']) throw new PermissionError('INVALID', { field: 'credit_disabled' });
-    AMOUNT(amount);
-    const info = await this.creditInfo(userId);
-    if (amount! < info.minDraw || amount! > info.maxDraw) throw new PermissionError('INVALID', { field: 'amount', min: info.minDraw, max: info.maxDraw });
-    if (amount! > info.available) throw new PermissionError('LIMIT_EXCEEDED', { what: 'credit', available: info.available });
-  }
-
-  private postCreditDraw(actorId: string, userId: string, amount: number, note: string): number {
-    return this.deps.ledger.post({
-      kind: 'credit_draw',
-      idempotencyKey: `credit:draw:${randomUUID()}`,
-      entries: [
-        { account: accounts.mint(), amount: -amount },
-        { account: accounts.wallet(userId), amount },
-      ],
-      createdBy: actorId,
-      note,
-    }).id;
-  }
-
-  /** Hráč si načerpá Koruny na dluh: hned, nebo (podle nastavení) žádostí ke schválení správcem. */
-  async creditDraw(userId: string, amount: number, meta: WalletMeta = {}): Promise<{ done: boolean; txId?: number; requestId?: string }> {
-    if (!this.deps.perms.can(userId, 'zadost.vytvorit').allowed) throw new PermissionError('FORBIDDEN');
-    await this.checkCredit(userId, amount);
-    if (String(this.deps.settings()['economy.creditApproval']) === 'admin') {
-      return { done: false, requestId: await this.createRequest(userId, { kind: 'uver', amount, message: 'úvěr' }) };
+  /** Správce nastaví hráči osobní úvěrový limit (0 = žádný úvěr), nebo ho zruší (null = platí výchozí). */
+  async setCreditLimit(actorId: string, userId: string, limit: number | null, meta: WalletMeta = {}): Promise<void> {
+    if (!this.deps.perms.can(actorId, 'mena.dobit').allowed) throw new PermissionError('FORBIDDEN');
+    if (limit !== null && (!Number.isSafeInteger(limit) || limit < 0)) throw new PermissionError('INVALID', { field: 'limit' });
+    await this.assertUser(userId);
+    const db = this.deps.db;
+    if (limit === null) {
+      await db.delete(schema.creditLines).where(eq(schema.creditLines.userId, userId));
+      this.lines.delete(userId);
+    } else {
+      await db.insert(schema.creditLines).values({ userId, limitAmount: limit, updatedBy: actorId }).onConflictDoUpdate({ target: schema.creditLines.userId, set: { limitAmount: limit, updatedBy: actorId, updatedAt: new Date() } });
+      this.lines.set(userId, limit);
     }
-    const txId = this.postCreditDraw(userId, userId, amount, 'úvěr: čerpání');
-    await this.deps.audit.log({ actorId: userId, action: 'mena.uver_cerpat', targetType: 'user', targetId: userId, after: { amount, txId }, ...meta });
-    return { done: true, txId };
+    await this.deps.audit.log({ actorId, action: 'mena.uver_limit', targetType: 'user', targetId: userId, after: { limit }, ...meta });
   }
 
   /** Splátka úvěru z peněženky zpět na účet vydání měny (Koruny zanikají, dluh klesá). */
   async creditRepay(userId: string, amount: number, meta: WalletMeta = {}): Promise<{ txId: number }> {
     AMOUNT(amount);
-    const debt = await this.creditDebt(userId);
+    const debt = this.creditDebt(userId);
     if (amount > debt) throw new PermissionError('INVALID', { field: 'amount', max: debt });
     if (this.deps.ledger.balance(accounts.wallet(userId)) < amount) throw new PermissionError('INVALID', { field: 'balance' });
     const tx = this.deps.ledger.post({
@@ -297,10 +340,9 @@ export class WalletService {
 
   // ---------- žádosti hráčů ----------
 
-  async createRequest(userId: string, input: { kind: 'dobiti' | 'role' | 'schvaleni' | 'prevod' | 'uver'; amount?: number; message?: string; payload?: unknown }): Promise<string> {
+  async createRequest(userId: string, input: { kind: 'dobiti' | 'role' | 'schvaleni' | 'prevod'; amount?: number; message?: string; payload?: unknown }): Promise<string> {
     if (!this.deps.perms.can(userId, 'zadost.vytvorit').allowed) throw new PermissionError('FORBIDDEN');
     if (input.kind === 'dobiti') AMOUNT(input.amount);
-    if (input.kind === 'uver') await this.checkCredit(userId, input.amount);
     if (input.kind === 'prevod') this.checkTransfer(userId, input.amount, (input.payload as { target?: string } | null)?.target);
     const pending = await this.deps.db.select({ id: schema.userRequests.id }).from(schema.userRequests).where(and(eq(schema.userRequests.userId, userId), eq(schema.userRequests.kind, input.kind), eq(schema.userRequests.status, 'pending')));
     if (pending.length >= 3) throw new PermissionError('LIMIT_EXCEEDED', { what: 'pending_requests' });
@@ -358,11 +400,6 @@ export class WalletService {
       const d = this.deps.perms.can(actorId, 'mena.vyridit_zadost', { amount: r.amount ?? 0 });
       if (!d.allowed) throw new PermissionError('LIMIT_EXCEEDED', { limits: d.limits });
       txId = (await this.execTopUp(actorId, { userId: r.userId, amount: r.amount!, reason: `žádost ${id}${note ? `: ${note}` : ''}` }, meta)).txId;
-    }
-    if (approve && r.kind === 'uver') {
-      // Schválení úvěru: znovu se ověří nastavení i volný limit (mezitím se mohlo změnit) a Koruny se vydají z účtu vydání měny.
-      await this.checkCredit(r.userId, r.amount ?? undefined);
-      txId = this.postCreditDraw(actorId, r.userId, r.amount!, `žádost ${id}${note ? `: ${note}` : ''}`);
     }
     if (approve && r.kind === 'prevod') {
       // Odepsání z peněženky na účet „převod ven“ (žádné peníze); znovu se ověří zůstatek i nastavení.

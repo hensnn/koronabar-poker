@@ -304,6 +304,14 @@ export const emailQueue = pgTable(
   (t) => [index('email_queue_status_idx').on(t.status, t.nextAttemptAt)],
 );
 
+/** Osobní úvěrové linky: předschválený limit dluhu hráče, který nastavil správce (bez řádku platí výchozí limit z nastavení). */
+export const creditLines = pgTable('credit_lines', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  limitAmount: money('limit_amount').notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Žádosti hráčů (dobití měny, role, schválení obsahu) s frontou a historií vyřízení. */
 export const userRequests = pgTable(
   'user_requests',

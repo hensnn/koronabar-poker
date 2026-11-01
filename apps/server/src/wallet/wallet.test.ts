@@ -284,84 +284,111 @@ describe('přehledy a vyúčtování', () => {
   });
 });
 
-describe('úvěr (čerpání virtuálních Koron na dluh)', () => {
-  const settingsWith = (over: Record<string, unknown>) => resolveSettings(reg, [{ scope: 'global', values: { 'economy.creditEnabled': true, ...over } }]).values;
-  async function withCredit(over: Record<string, unknown> = {}) {
+describe('úvěr (předschválená úvěrová linka)', () => {
+  const settingsWith = (over: Record<string, number | boolean | string>) => resolveSettings(reg, [{ scope: 'global', values: over }]).values;
+  async function withCredit(over: Record<string, number | boolean | string> = {}) {
     const s = await setup();
     const wallet = new WalletService({ db: s.db, ledger: s.ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => settingsWith(over), flush: () => s.journal.flush() });
+    cleanups.push(async () => {
+      await wallet.idle();
+      await s.journal.flush();
+    });
     return { ...s, wallet };
   }
-
-  it('vypnutý úvěr nejde čerpat', async () => {
-    const s = await setup();
-    const hrac = await s.user('Hrac', 'hrac');
-    expect(await code(s.wallet.creditDraw(hrac, 100))).toBe('INVALID');
+  const cleanups: (() => Promise<void>)[] = [];
+  afterEach(async () => {
+    for (const c of cleanups.splice(0)) await c();
   });
+  const buyIn = (s: Awaited<ReturnType<typeof withCredit>>, userId: string, amount: number, key: string) =>
+    s.ledger.post({ kind: 'cash_buyin', idempotencyKey: key, entries: [{ account: accounts.wallet(userId), amount: -amount }, { account: accounts.table('t1'), amount }] });
 
-  it('bez schvalování: čerpání je hned, v knize je z účtu vydání měny, dluh se vede z knihy a splátka ho snižuje; součet knihy je 0', async () => {
-    const s = await withCredit({ 'economy.creditApproval': 'none', 'economy.creditLimit': 300, 'economy.creditMinDraw': 50, 'economy.creditMaxDraw': 200 });
-    const hrac = await s.user('Hrac', 'hrac');
-    expect(await code(s.wallet.creditDraw(hrac, 10))).toBe('INVALID'); // pod minimem
-    expect(await code(s.wallet.creditDraw(hrac, 250))).toBe('INVALID'); // nad jedním čerpáním
-    const r = await s.wallet.creditDraw(hrac, 200);
-    expect(r.done).toBe(true);
-    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(200);
-    expect(s.ledger.balance(accounts.mint())).toBe(-200);
-    expect((await s.wallet.creditInfo(hrac)).debt).toBe(200);
-    expect((await s.wallet.creditInfo(hrac)).available).toBe(100);
-    expect(await code(s.wallet.creditDraw(hrac, 150))).toBe('LIMIT_EXCEEDED'); // nad volným limitem
-    await s.wallet.creditDraw(hrac, 100);
-    expect((await s.wallet.creditInfo(hrac)).available).toBe(0);
-    expect(await code(s.wallet.creditDraw(hrac, 50))).toBe('LIMIT_EXCEEDED');
-    // splátka: jen do výše dluhu a zůstatku
-    expect(await code(s.wallet.creditRepay(hrac, 400))).toBe('INVALID');
-    await s.wallet.creditRepay(hrac, 120);
-    expect((await s.wallet.creditInfo(hrac)).debt).toBe(180);
-    expect((await s.wallet.creditInfo(hrac)).available).toBe(120);
-    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(180);
-    expect(s.ledger.balance(accounts.mint())).toBe(-180);
-    // Koruny, které hráč prohrál, splácet nejde (zůstatek nestačí) a dluh zůstává
-    s.ledger.post({ kind: 'manual_adjustment', idempotencyKey: 'lose', entries: [{ account: accounts.wallet(hrac), amount: -170 }, { account: accounts.house(), amount: 170 }] });
-    expect(await code(s.wallet.creditRepay(hrac, 100))).toBe('INVALID');
-    expect((await s.wallet.creditInfo(hrac)).debt).toBe(180);
-    expect(s.ledger.totalIsZero([accounts.mint(), accounts.house(), accounts.wallet(hrac)])).toBe(true);
-  });
-
-  it('po restartu serveru (kniha v paměti drží jen zůstatky) dluh i přehled vydané měny zůstávají', async () => {
-    const s = await withCredit({ 'economy.creditApproval': 'none', 'economy.creditLimit': 300, 'economy.creditMinDraw': 50, 'economy.creditMaxDraw': 200 });
-    const hrac = await s.user('Hrac', 'hrac');
-    const pok = await s.user('Pok', 'pokladnik');
-    await s.wallet.creditDraw(hrac, 200);
-    await s.wallet.creditRepay(hrac, 50);
-    await s.wallet.topUp(pok, hrac, 1000, 'dobití');
-    await s.wallet.debit(pok, hrac, 100, 'oprava');
-    await s.journal.flush();
-    // restart: nová kniha se stejnými zůstatky, ale bez historie pohybů
-    const ledger = new Ledger(new MemoryLedgerStore(await loadLedger(s.db)), { negativeBalanceLimit: 0 }, () => Date.now(), (tx) => s.journal.push('tx', ledgerTxOp(tx)));
-    const again = new WalletService({ db: s.db, ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => settingsWith({ 'economy.creditApproval': 'none', 'economy.creditLimit': 300, 'economy.creditMinDraw': 50, 'economy.creditMaxDraw': 200 }), flush: () => s.journal.flush() });
-    expect((await again.creditInfo(hrac)).debt).toBe(150);
-    const rec = (await again.balances(pok)).reconciliation;
-    expect(rec.issuedTotal).toBe(200 + 1000);
-    expect(rec.destroyedTotal).toBe(50 + 100);
-    expect(rec.issued).toBe(1050);
-    expect(rec.byKind.find((k) => k.kind === 'credit_draw')).toMatchObject({ issued: 200, destroyed: 0, count: 1 });
-  });
-
-  it('se schvalováním správcem: čerpání je žádost, peníze se vydají až po schválení a limit se hlídá znovu', async () => {
-    const s = await withCredit({ 'economy.creditApproval': 'admin', 'economy.creditLimit': 500, 'economy.creditMinDraw': 50, 'economy.creditMaxDraw': 500 });
+  it('chybějící Koruny na buy-in se samy načerpají na dluh (bez žádosti), v knize z účtu vydání měny; součet knihy je 0', async () => {
+    const s = await withCredit({ 'economy.creditLimit': 500 });
     const pok = await s.user('Pok', 'pokladnik');
     const hrac = await s.user('Hrac', 'hrac');
-    const r = await s.wallet.creditDraw(hrac, 400);
-    expect(r.done).toBe(false);
+    await s.wallet.topUp(pok, hrac, 100, 'start');
+    buyIn(s, hrac, 300, 'bi:1');
     expect(s.ledger.balance(accounts.wallet(hrac))).toBe(0);
-    expect((await s.wallet.creditInfo(hrac)).pending?.amount).toBe(400);
-    const res = await s.wallet.decideRequest(pok, r.requestId!, true, 'ok');
-    expect(res.status).toBe('approved');
-    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(400);
-    expect((await s.wallet.creditInfo(hrac)).debt).toBe(400);
-    // zamítnutá žádost nic nevydá
-    const r2 = await s.wallet.creditDraw(hrac, 50);
-    await s.wallet.decideRequest(pok, r2.requestId!, false, 'ne');
-    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(400);
+    expect(s.ledger.balance(accounts.table('t1'))).toBe(300);
+    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 200, limit: 500, available: 300 });
+    const draw = s.ledger.transactions().find((t) => t.kind === 'credit_draw')!;
+    expect(draw.entries).toEqual([{ account: accounts.mint(), amount: -200 }, { account: accounts.wallet(hrac), amount: 200 }]);
+    expect(s.ledger.totalIsZero([accounts.mint(), accounts.wallet(hrac), accounts.table('t1')])).toBe(true);
+    // opakování téže platby (stejný klíč) dluh nezdvojí
+    buyIn(s, hrac, 300, 'bi:1');
+    expect(s.wallet.creditInfo(hrac).debt).toBe(200);
+  });
+
+  it('nad limitem, u plateb mimo hru, při vypnutém úvěru a s nulovým limitem se platba zamítne a nic se nezmění', async () => {
+    const s = await withCredit({ 'economy.creditLimit': 150 });
+    const pok = await s.user('Pok', 'pokladnik');
+    const hrac = await s.user('Hrac', 'hrac');
+    await s.wallet.topUp(pok, hrac, 100, 'start');
+    expect(() => buyIn(s, hrac, 300, 'bi:2')).toThrow(/INSUFFICIENT/); // chybí 200 > limit 150
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(100);
+    expect(s.wallet.creditInfo(hrac).debt).toBe(0);
+    // mimo platby za hru (např. nákup v obchodě) se úvěr nečerpá
+    expect(() => s.ledger.post({ kind: 'shop_purchase', idempotencyKey: 'shop:1', entries: [{ account: accounts.wallet(hrac), amount: -300 }, { account: accounts.house(), amount: 300 }] })).toThrow(/INSUFFICIENT/);
+    // vypnuto
+    const off = await withCredit({ 'economy.creditEnabled': false });
+    const h2 = await off.user('H2', 'hrac');
+    expect(() => buyIn(off, h2, 50, 'bi:3')).toThrow(/INSUFFICIENT/);
+  });
+
+  it('správce nastaví hráči osobní limit, nulou úvěr odebere a zrušením se vrátí výchozí; hráč to nesmí', async () => {
+    const s = await withCredit({ 'economy.creditLimit': 100 });
+    const pok = await s.user('Pok', 'pokladnik');
+    const hrac = await s.user('Hrac', 'hrac');
+    expect(await code(s.wallet.setCreditLimit(hrac, hrac, 5000))).toBe('FORBIDDEN');
+    expect(await code(s.wallet.setCreditLimit(pok, hrac, -5))).toBe('INVALID');
+    await s.wallet.setCreditLimit(pok, hrac, 800);
+    expect(s.wallet.creditInfo(hrac).limit).toBe(800);
+    buyIn(s, hrac, 700, 'bi:4'); // zůstatek 0, chybí 700 ≤ 800
+    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 700, available: 100 });
+    await s.wallet.setCreditLimit(pok, hrac, 0);
+    expect(() => buyIn(s, hrac, 50, 'bi:5')).toThrow(/INSUFFICIENT/);
+    await s.wallet.setCreditLimit(pok, hrac, null);
+    expect(s.wallet.creditInfo(hrac).limit).toBe(100);
+    const list = await s.wallet.creditLines(pok);
+    expect(list.defaultLimit).toBe(100);
+    expect(list.players.find((p) => p.userId === hrac)).toMatchObject({ custom: null, limit: 100, debt: 700 });
+    expect((await s.audit.list({ action: 'mena.uver_limit' })).length).toBe(3);
+  });
+
+  it('splátka jen do výše dluhu a zůstatku; po splacení je limit zase volný', async () => {
+    const s = await withCredit({ 'economy.creditLimit': 300 });
+    const pok = await s.user('Pok', 'pokladnik');
+    const hrac = await s.user('Hrac', 'hrac');
+    buyIn(s, hrac, 200, 'bi:6'); // celé na dluh
+    s.ledger.post({ kind: 'turnaj_vyplata', idempotencyKey: 'win', entries: [{ account: accounts.table('t1'), amount: -200 }, { account: accounts.wallet(hrac), amount: 200 }] });
+    expect(await code(s.wallet.creditRepay(hrac, 500))).toBe('INVALID'); // víc než dluh
+    await s.wallet.creditRepay(hrac, 150);
+    expect(s.wallet.creditInfo(hrac)).toMatchObject({ debt: 50, available: 250 });
+    expect(s.ledger.balance(accounts.wallet(hrac))).toBe(50);
+    expect(s.ledger.balance(accounts.mint())).toBe(-50);
+    // Koruny, které hráč prohrál, splácet nejde
+    s.ledger.post({ kind: 'manual_adjustment', idempotencyKey: 'lose', entries: [{ account: accounts.wallet(hrac), amount: -50 }, { account: accounts.house(), amount: 50 }] });
+    expect(await code(s.wallet.creditRepay(hrac, 50))).toBe('INVALID');
+    expect(s.wallet.creditInfo(hrac).debt).toBe(50);
+    void pok;
+  });
+
+  it('po restartu serveru (kniha v paměti drží jen zůstatky) dluh, osobní limity i přehled vydané měny zůstávají', async () => {
+    const s = await withCredit({ 'economy.creditLimit': 300 });
+    const hrac = await s.user('Hrac', 'hrac');
+    const pok = await s.user('Pok', 'pokladnik');
+    await s.wallet.topUp(pok, hrac, 100, 'dobití');
+    buyIn(s, hrac, 300, 'bi:7'); // chybí 200 → dluh
+    await s.wallet.creditRepay(hrac, 0 + 0 === 0 ? 1 : 1).catch(() => undefined); // nic: zůstatek je 0
+    await s.wallet.setCreditLimit(pok, hrac, 900);
+    await s.journal.flush();
+    const ledger = new Ledger(new MemoryLedgerStore(await loadLedger(s.db)), { negativeBalanceLimit: 0 }, () => Date.now(), (tx) => s.journal.push('tx', ledgerTxOp(tx)));
+    const again = new WalletService({ db: s.db, ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => settingsWith({ 'economy.creditLimit': 300 }), flush: () => s.journal.flush() });
+    await again.loadCredit();
+    expect(again.creditInfo(hrac)).toMatchObject({ debt: 200, limit: 900 });
+    const rec = (await again.balances(pok)).reconciliation;
+    expect(rec.issuedTotal).toBe(100 + 200);
+    expect(rec.issued).toBe(300);
+    expect(rec.byKind.find((k) => k.kind === 'credit_draw')).toMatchObject({ issued: 200, destroyed: 0, count: 1 });
   });
 });

@@ -108,7 +108,9 @@ export class TemplateService {
   }
 
   private can(userId: string): void {
-    if (!this.deps.perms.can(userId, 'nastaveni.globalni').allowed) throw new TemplateError('FORBIDDEN');
+    // Šablony smí spravovat ten, kdo má oprávnění „Spravovat šablony“, i správce s globálním nastavením.
+    const p = this.deps.perms;
+    if (!p.can(userId, 'nastaveni.sablony.sprava').allowed && !p.can(userId, 'nastaveni.globalni').allowed) throw new TemplateError('FORBIDDEN');
   }
 
   /** Ověří hodnoty šablony: jen známé, nesoukromé klíče povolené pro vrstvu „šablona“, všechny platné. */

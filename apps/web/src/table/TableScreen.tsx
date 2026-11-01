@@ -10,6 +10,7 @@ import type { SoundPlayEvent } from '../sound-client';
 import type { SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { table, useNet } from '../net';
+import { get } from '../api';
 import { useSession } from '../session';
 import { ActionBar } from './ActionBar';
 import { CardView } from './CardView';
@@ -769,9 +770,15 @@ function winningCards(view: TableView): Set<string> | null {
   return set.size > 0 ? set : null;
 }
 
-function AmountDialog({ title, topUp, view, balance, error, onCancel, onOk }: { title: string; /** Dokoupení: nejvýš do maximálního buy-inu (počítá se se současným stackem). */ topUp?: boolean; view: TableView; balance: number; /** Chyba z posledního pokusu (např. ochrana hit and run): ukáže se přímo v dialogu. */ error?: string; onCancel: () => void; onOk: (currency: number) => void }) {
+function AmountDialog({ title, topUp, view, balance: wallet, error, onCancel, onOk }: { title: string; /** Dokoupení: nejvýš do maximálního buy-inu (počítá se se současným stackem). */ topUp?: boolean; view: TableView; balance: number; /** Chyba z posledního pokusu (např. ochrana hit and run): ukáže se přímo v dialogu. */ error?: string; onCancel: () => void; onOk: (currency: number) => void }) {
   const info = view.info;
   const rate = info.chipsPerCurrencyUnit;
+  // Předschválený úvěr: chybějící Koruny se při platbě samy načerpají, takže se počítá s peněženkou plus volným úvěrem.
+  const [credit, setCredit] = useState(0);
+  useEffect(() => {
+    void get<{ enabled: boolean; available: number }>('/api/wallet/credit').then((c) => setCredit(c.enabled ? c.available : 0)).catch(() => setCredit(0));
+  }, []);
+  const balance = wallet + credit;
   // Kdo nedávno odešel s větším stackem než je maximum, se smí vrátit se stejným stackem (nad maximální buy-in).
   const back = Math.ceil((view.returnStack ?? 0) / rate);
   const min = topUp ? 1 : Math.max(Math.ceil(info.minBuyIn / rate), back);
@@ -784,9 +791,16 @@ function AmountDialog({ title, topUp, view, balance, error, onCancel, onOk }: { 
       <p className="text-sm text-muted">
         {t('table.wallet')}:{' '}
         <span className="font-mono">
-          {tableMoney(balance, info)}
+          {tableMoney(wallet, info)}
         </span>
+        {credit > 0 && (
+          <>
+            {' + '}
+            {t('table.creditAvailable')}: <span className="font-mono">{tableMoney(credit, info)}</span>
+          </>
+        )}
       </p>
+      {v > wallet && <p className="text-sm text-muted">{t('table.creditWillUse', { amount: tableMoney(v - wallet, info) })}</p>}
       <div className="flex items-center gap-3">
         <input aria-label={t('table.amount')} type="range" className="flex-1" min={min} max={Math.max(min, max)} value={v} onChange={(e) => setV(Number(e.target.value))} />
         <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono" min={min} max={max} value={v} onChange={(e) => setV(Number(e.target.value))} />

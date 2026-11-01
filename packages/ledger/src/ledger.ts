@@ -100,6 +100,17 @@ export class LedgerGuardError extends LedgerError {
   }
 }
 
+/** Peněžence by při transakci chybělo `shortfall` do povoleného minima. */
+export class InsufficientFundsError extends LedgerError {
+  constructor(
+    public readonly account: string,
+    public readonly shortfall: number,
+    next: number,
+  ) {
+    super('INSUFFICIENT_FUNDS', `Účet ${account} by klesl na ${next}`);
+  }
+}
+
 export interface LedgerPolicy {
   negativeBalanceLimit: number;
 }
@@ -206,6 +217,7 @@ export class Ledger {
   ) {}
 
   private guardFn: ((req: TxRequest) => void) | null = null;
+  private overdraftFn: ((account: string, shortfall: number, req: TxRequest) => TxRequest | null) | null = null;
   private listeners: ((tx: Tx) => void)[] = [];
 
   setPolicy(p: LedgerPolicy) {
@@ -215,6 +227,14 @@ export class Ledger {
   /** Hlídač se volá před každou novou transakcí a smí ji zamítnout výjimkou. */
   setGuard(fn: ((req: TxRequest) => void) | null) {
     this.guardFn = fn;
+  }
+
+  /**
+   * Předschválený úvěr: když by transakci chybělo na peněžence, zavolá se `fn`; může vrátit transakci, která chybějící částku
+   * doplní (např. čerpání úvěru z mintu). Doplnění a původní transakce se provedou po sobě, původní jen když se doplnění povedlo.
+   */
+  setOverdraft(fn: ((account: string, shortfall: number, req: TxRequest) => TxRequest | null) | null) {
+    this.overdraftFn = fn;
   }
 
   /** Posluchač dostane každou nově zapsanou transakci. */
@@ -246,6 +266,18 @@ export class Ledger {
 
   /** Provede transakci. Opakované volání se stejným klíčem a stejným obsahem vrátí původní výsledek. */
   post(req: TxRequest): Tx {
+    try {
+      return this.postCore(req);
+    } catch (e) {
+      if (!(e instanceof InsufficientFundsError) || !this.overdraftFn || !e.account.startsWith('wallet:')) throw e;
+      const topUp = this.overdraftFn(e.account, e.shortfall, req);
+      if (!topUp) throw e;
+      this.postCore(topUp);
+      return this.postCore(req);
+    }
+  }
+
+  private postCore(req: TxRequest): Tx {
     let created = false;
     const tx = this.store.atomic((s) => {
       const existing = s.find(req.idempotencyKey);
@@ -269,7 +301,7 @@ export class Ledger {
       for (const [account, d] of delta) {
         const next = s.balance(account) + d;
         if (account !== accounts.mint() && next < this.floor(account)) {
-          throw new LedgerError('INSUFFICIENT_FUNDS', `Účet ${account} by klesl na ${next}`);
+          throw new InsufficientFundsError(account, this.floor(account) - next, next);
         }
         s.setBalance(account, next);
       }
