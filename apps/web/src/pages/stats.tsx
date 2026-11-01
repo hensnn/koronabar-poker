@@ -9,6 +9,7 @@ import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Tabs, T
 import { CategoriesView } from './stats-categories';
 import { YearView } from './stats-year';
 import { useSettings } from '../settings';
+import { useFeatures } from '../features';
 import { BarChart, LineChart, MultiLineChart, type Pt, type Series } from './charts';
 
 interface Season {
@@ -261,6 +262,21 @@ interface OverviewRow {
   lastSeenAt: number | null;
 }
 
+const PREF_KEY = 'kb.overview.compare';
+interface ComparePref {
+  picked?: string[];
+  metric?: 'profit' | 'balance' | 'xp';
+  range?: '30' | '90' | '365' | 'all';
+}
+/** Poslední výběr srovnání se pamatuje v tomto prohlížeči (jen pohodlí; bez úložiště se použije výchozí). */
+function loadPref(): ComparePref {
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') as ComparePref;
+  } catch {
+    return {};
+  }
+}
+
 type SortKey = 'nickname' | 'balance' | 'total' | 'tournamentNet' | 'cashNet' | 'level' | 'ratingTournament' | 'ratingCash' | 'hands' | 'tournaments';
 
 /** Přehled mezi hráči: tabulka všech hráčů (řazení klepnutím na sloupec) a srovnání vývoje vybraných hráčů v čase. */
@@ -268,17 +284,29 @@ function PlayersOverview({ meId }: { meId: string }) {
   const [rows, setRows] = useState<OverviewRow[] | null>(null);
   const [error, setError] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'total', dir: -1 });
-  const [picked, setPicked] = useState<string[] | null>(null);
-  const [metric, setMetric] = useState<'profit' | 'balance' | 'xp'>('profit');
+  const pref = useMemo(loadPref, []);
+  const features = useFeatures();
+  const { values } = useSettings();
+  const tournamentRating = features.rating && values['rating.tournamentsEnabled'] !== false;
+  const cashRating = features.rating && values['rating.cashEnabled'] !== false;
+  const [picked, setPicked] = useState<string[] | null>(Array.isArray(pref.picked) ? pref.picked : null);
+  const [metric, setMetric] = useState<'profit' | 'balance' | 'xp'>(pref.metric === 'xp' && !features.xp ? 'profit' : (pref.metric ?? 'profit'));
   const [series, setSeries] = useState<Series[]>([]);
-  const [range, setRange] = useState<'30' | '90' | '365' | 'all'>('all');
+  const [range, setRange] = useState<'30' | '90' | '365' | 'all'>(pref.range ?? 'all');
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREF_KEY, JSON.stringify({ picked: picked ?? undefined, metric, range }));
+    } catch {
+      /* úložiště nemusí být dostupné */
+    }
+  }, [picked, metric, range]);
   useEffect(() => {
     get<{ rows: OverviewRow[] }>('/api/stats/overview')
       .then((d) => setRows(d.rows))
       .catch((e) => setError(errorText(e)));
   }, []);
   // výchozí výběr: já a první tři podle celkového výsledku
-  const selected = useMemo(() => picked ?? (rows ? [meId, ...rows.filter((r) => r.userId !== meId).slice(0, 3).map((r) => r.userId)].slice(0, 4) : []), [picked, rows, meId]);
+  const selected = useMemo(() => (picked && rows ? picked.filter((id) => rows.some((r) => r.userId === id)) : picked) ?? (rows ? [meId, ...rows.filter((r) => r.userId !== meId).slice(0, 3).map((r) => r.userId)].slice(0, 4) : []), [picked, rows, meId]);
   useEffect(() => {
     if (selected.length === 0) return;
     get<{ series: { userId: string; nickname: string; points: Pt[] }[] }>(`/api/stats/compare?users=${selected.join(',')}&metric=${metric}`)
@@ -310,7 +338,7 @@ function PlayersOverview({ meId }: { meId: string }) {
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div role="tablist" className="flex flex-wrap gap-1">
-              {(['profit', 'balance', 'xp'] as const).map((m) => (
+              {(['profit', 'balance', ...(features.xp ? (['xp'] as const) : [])] as const).map((m) => (
                 <button key={m} role="tab" aria-selected={metric === m} onClick={() => setMetric(m)} className={`rounded-md border border-line px-2 py-0.5 text-sm ${metric === m ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
                   {t(`overview.metric.${m}`)}
                 </button>
@@ -329,7 +357,7 @@ function PlayersOverview({ meId }: { meId: string }) {
         </div>
       </Card>
       <CategoriesView meId={meId} />
-      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('total', t('overview.earn')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('overview.cashNet')), head('balance', t('overview.balance')), head('level', t('overview.level')), head('ratingTournament', t('overview.ratingT')), head('ratingCash', t('overview.ratingC')), head('hands', t('overview.cashHands')), head('tournaments', t('stats.games'))]}>
+      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('total', t('overview.earn')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('overview.cashNet')), head('balance', t('overview.balance')), ...(features.xp ? [head('level', t('overview.level'))] : []), ...(tournamentRating ? [head('ratingTournament', t('overview.ratingT'))] : []), ...(cashRating ? [head('ratingCash', t('overview.ratingC'))] : []), head('hands', t('overview.cashHands')), head('tournaments', t('stats.games'))]}>
         {sorted.map((r) => (
           <tr key={r.userId} className={r.userId === meId ? 'bg-raised' : ''}>
             <Td>
@@ -344,11 +372,13 @@ function PlayersOverview({ meId }: { meId: string }) {
             <Td className="font-mono">{signed(r.tournamentNet)}</Td>
             <Td className="font-mono">{signed(r.cashNet)}</Td>
             <Td className="font-mono text-muted">{r.balance}</Td>
-            <Td className="text-sm">
-              <span className="font-mono">{r.level}</span> {r.rank.name}
-            </Td>
-            <Td className="font-mono">{r.ratingTournament ?? '–'}</Td>
-            <Td className="font-mono">{r.ratingCash ?? '–'}</Td>
+            {features.xp && (
+              <Td className="text-sm">
+                <span className="font-mono">{r.level}</span> {r.rank.name}
+              </Td>
+            )}
+            {tournamentRating && <Td className="font-mono">{r.ratingTournament ?? '–'}</Td>}
+            {cashRating && <Td className="font-mono">{r.ratingCash ?? '–'}</Td>}
             <Td className="font-mono">{r.hands}</Td>
             <Td className="font-mono">{r.tournaments}</Td>
           </tr>
