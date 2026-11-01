@@ -589,6 +589,24 @@ export class RatingService {
     });
   }
 
+  /** Divize všech hráčů včetně provizorních; kdo ještě nehrál, je v divizi podle výchozího ratingu. */
+  async divisionsOfAll(scope: Scope): Promise<{ byUser: Map<string, { name: string; icon: string; color: string }>; fallback: { name: string; icon: string; color: string } }> {
+    const at = this.deps.now();
+    const p = this.params();
+    const pick = (display: number) => {
+      const d = divisionFor(display, this.divText());
+      return { name: d.name, icon: d.icon, color: d.color };
+    };
+    const rows = await this.db.select().from(schema.ratingState).where(eq(schema.ratingState.scope, scope));
+    const byUser = new Map<string, { name: string; icon: string; color: string }>();
+    for (const r of rows) {
+      const days = r.lastPlayedAt ? Math.max(0, (at - r.lastPlayedAt.getTime()) / DAY) : 0;
+      const skill = inactiveSkill({ mu: r.mu, sigma: r.sigma }, days, num(this.s, 'rating.inactivityGraceDays'), num(this.s, 'rating.inactivitySigmaGrowthHundredths') / 100, p);
+      byUser.set(r.userId, pick(displayRating(skill, p)));
+    }
+    return { byUser, fallback: pick(p.base) };
+  }
+
   /** Žebříček ratingu: jen hráči, kteří už nejsou provizorní. */
   async leaderboard(scope: Scope) {
     const rows = await this.db

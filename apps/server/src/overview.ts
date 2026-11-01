@@ -19,6 +19,8 @@ interface Deps {
   brief: (userIds: string[]) => Promise<BriefDto[]>;
   /** Žebříček ratingu podle druhu hry (čísla jen když je povoleno jejich zobrazení). */
   rating: (scope: 'tournament' | 'cash') => Promise<{ userId: string; rating: number | null; division?: { name: string; icon: string; color: string } }[]>;
+  /** Divize všech hráčů (i provizorních) pro daný druh hry. */
+  divisions?: (scope: 'tournament' | 'cash') => Promise<{ byUser: Map<string, { name: string; icon: string; color: string }>; fallback: { name: string; icon: string; color: string } }>;
   /** Hráči, kteří právě sedí u cash stolů (jejich žetony se do cash výsledku počítají jako výběr). */
   seated?: () => { userId: string; chips: number }[];
 }
@@ -84,7 +86,9 @@ export class OverviewService {
     const lc = await this.deps.rating('cash');
     const rt = new Map(lt.map((r) => [r.userId, r.rating]));
     const rc = new Map(lc.map((r) => [r.userId, r.rating]));
-    const dv = new Map([...lc, ...lt].map((r) => [r.userId, r.division ?? null]));
+    const dt = await this.deps.divisions?.('tournament');
+    const dc = await this.deps.divisions?.('cash');
+    const divisionOf = (id: string) => dt?.byUser.get(id) ?? dc?.byUser.get(id) ?? dt?.fallback ?? null;
     const rows: OverviewRow[] = users.map((u) => {
       const b = briefs.get(u.id);
       const tn = nets.get(u.id)?.tournament ?? 0;
@@ -98,7 +102,7 @@ export class OverviewService {
         rank: b?.rank ?? { name: '', icon: '', color: 'muted' },
         ratingTournament: rt.get(u.id) ?? null,
         ratingCash: rc.get(u.id) ?? null,
-        division: dv.get(u.id) ?? null,
+        division: divisionOf(u.id),
         hands: hands.get(u.id) ?? 0,
         tournaments: tour.get(u.id) ?? 0,
         tournamentNet: tn,

@@ -302,7 +302,8 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
   const tour = values['rating.tournamentsEnabled'] !== false ? row.ratingTournament : null;
   const cash = values['rating.cashEnabled'] !== false ? row.ratingCash : null;
   const value = tour ?? cash;
-  const shownDivision = row.division && (tour != null || cash != null || (values['rating.tournamentsEnabled'] !== false && values['rating.cashEnabled'] !== false)) ? row.division : null;
+  const ratingOn = useFeatures().rating && (values['rating.tournamentsEnabled'] !== false || values['rating.cashEnabled'] !== false);
+  const shownDivision = ratingOn ? row.division : null;
   return (
     <li
       className={`flex items-center gap-3 rounded-md border px-3 py-1 ${me ? 'border-primary bg-raised' : 'border-line'}`}

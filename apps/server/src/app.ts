@@ -1119,6 +1119,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     settings: () => settings.resolve(),
     brief: (ids) => progress.brief(ids),
     rating: async (scope) => (settings.resolve()['rating.enabled'] === false ? [] : await rating.leaderboard(scope)).map((r) => ({ userId: r.userId, rating: r.rating, division: { name: r.division, icon: r.divisionIcon, color: r.divisionColor } })),
+    divisions: (scope) => rating.divisionsOfAll(scope),
     seated: () => tablesRef.current?.list().flatMap((row) => (tablesRef.current!.get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, chips: s.chips + s.pendingChips }))) ?? [],
   });
 
