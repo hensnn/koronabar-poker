@@ -19,6 +19,9 @@ interface Recon {
   tournaments: number;
   external: number;
   issuedBy: { id: number; at: number; kind: string; note: string; amount: number; to: string }[];
+  issuedTotal?: number;
+  destroyedTotal?: number;
+  byKind?: { kind: string; issued: number; destroyed: number; count: number }[];
 }
 interface Data {
   rows: Row[];
@@ -60,6 +63,21 @@ export function BalancesCard({ refreshKey = 0 }: { refreshKey?: number }) {
               </div>
             ))}
           </dl>
+          {data.reconciliation.byKind && (
+            <>
+              <p className="font-mono text-sm">{t('cashier.recon.mintSummary', { issued: num(data.reconciliation.issuedTotal ?? 0), destroyed: num(data.reconciliation.destroyedTotal ?? 0), net: num(data.reconciliation.issued) })}</p>
+              <DataTable head={[t('wallet.kind'), t('cashier.recon.issuedCol'), t('cashier.recon.destroyedCol'), t('cashier.recon.countCol')]}>
+                {data.reconciliation.byKind.map((k) => (
+                  <tr key={k.kind}>
+                    <Td>{t(`ledger.kind.${k.kind}`) === `ledger.kind.${k.kind}` ? k.kind : t(`ledger.kind.${k.kind}`)}</Td>
+                    <Td className="font-mono">{k.issued ? num(k.issued) : ''}</Td>
+                    <Td className="font-mono">{k.destroyed ? num(k.destroyed) : ''}</Td>
+                    <Td className="font-mono">{k.count}×</Td>
+                  </tr>
+                ))}
+              </DataTable>
+            </>
+          )}
           <DataTable head={[t('wallet.when'), t('wallet.kind'), t('cashier.recon.amount'), t('cashier.recon.to'), t('wallet.note')]}>
             {data.reconciliation.issuedBy.map((m) => (
               <tr key={m.id}>

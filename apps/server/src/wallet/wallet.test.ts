@@ -6,7 +6,7 @@ import { AuditService } from '../auth/audit.js';
 import { PermissionError, PermissionService } from '../auth/permissions.js';
 import { seedRoles } from '../auth/seed.js';
 import { openPglite, schema, type Database } from '../db/index.js';
-import { Journal, ledgerTxOp } from '../db/journal.js';
+import { Journal, ledgerTxOp, loadLedger } from '../db/journal.js';
 import { WalletService } from './service.js';
 
 let database: Database | undefined;
@@ -28,7 +28,7 @@ async function setup() {
   });
   const ledger = new Ledger(new MemoryLedgerStore(), { negativeBalanceLimit: 0 }, () => clock.getTime(), (tx) => journal.push('tx', ledgerTxOp(tx)));
   const approvals = new ApprovalService(db, perms, audit, { now: () => clock });
-  const wallet = new WalletService({ db, ledger, perms, audit, approvals, settings: () => resolveSettings(reg, []).values });
+  const wallet = new WalletService({ db, ledger, perms, audit, approvals, settings: () => resolveSettings(reg, []).values, flush: () => journal.flush() });
   let n = 0;
   const user = async (nick: string, role?: string) => {
     const [u] = await db.insert(schema.users).values({ nickname: nick, nicknameLower: `${nick.toLowerCase()}${n++}`, passwordHash: 'x' }).returning({ id: schema.users.id });
@@ -288,7 +288,7 @@ describe('úvěr (čerpání virtuálních Koron na dluh)', () => {
   const settingsWith = (over: Record<string, unknown>) => resolveSettings(reg, [{ scope: 'global', values: { 'economy.creditEnabled': true, ...over } }]).values;
   async function withCredit(over: Record<string, unknown> = {}) {
     const s = await setup();
-    const wallet = new WalletService({ db: s.db, ledger: s.ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => settingsWith(over) });
+    const wallet = new WalletService({ db: s.db, ledger: s.ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => settingsWith(over), flush: () => s.journal.flush() });
     return { ...s, wallet };
   }
 
@@ -325,6 +325,26 @@ describe('úvěr (čerpání virtuálních Koron na dluh)', () => {
     expect(await code(s.wallet.creditRepay(hrac, 100))).toBe('INVALID');
     expect((await s.wallet.creditInfo(hrac)).debt).toBe(180);
     expect(s.ledger.totalIsZero([accounts.mint(), accounts.house(), accounts.wallet(hrac)])).toBe(true);
+  });
+
+  it('po restartu serveru (kniha v paměti drží jen zůstatky) dluh i přehled vydané měny zůstávají', async () => {
+    const s = await withCredit({ 'economy.creditApproval': 'none', 'economy.creditLimit': 300, 'economy.creditMinDraw': 50, 'economy.creditMaxDraw': 200 });
+    const hrac = await s.user('Hrac', 'hrac');
+    const pok = await s.user('Pok', 'pokladnik');
+    await s.wallet.creditDraw(hrac, 200);
+    await s.wallet.creditRepay(hrac, 50);
+    await s.wallet.topUp(pok, hrac, 1000, 'dobití');
+    await s.wallet.debit(pok, hrac, 100, 'oprava');
+    await s.journal.flush();
+    // restart: nová kniha se stejnými zůstatky, ale bez historie pohybů
+    const ledger = new Ledger(new MemoryLedgerStore(await loadLedger(s.db)), { negativeBalanceLimit: 0 }, () => Date.now(), (tx) => s.journal.push('tx', ledgerTxOp(tx)));
+    const again = new WalletService({ db: s.db, ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => settingsWith({ 'economy.creditApproval': 'none', 'economy.creditLimit': 300, 'economy.creditMinDraw': 50, 'economy.creditMaxDraw': 200 }), flush: () => s.journal.flush() });
+    expect((await again.creditInfo(hrac)).debt).toBe(150);
+    const rec = (await again.balances(pok)).reconciliation;
+    expect(rec.issuedTotal).toBe(200 + 1000);
+    expect(rec.destroyedTotal).toBe(50 + 100);
+    expect(rec.issued).toBe(1050);
+    expect(rec.byKind.find((k) => k.kind === 'credit_draw')).toMatchObject({ issued: 200, destroyed: 0, count: 1 });
   });
 
   it('se schvalováním správcem: čerpání je žádost, peníze se vydají až po schválení a limit se hlídá znovu', async () => {

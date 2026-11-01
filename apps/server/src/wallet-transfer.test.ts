@@ -113,6 +113,11 @@ describe('pokladník vidí stavy účtů hráčů', () => {
     const rec = (body as unknown as { reconciliation: { issued: number; wallets: number; house: number; funds: number; tables: number; tournaments: number; external: number; issuedBy: { amount: number; to: string; kind: string; note: string }[] } }).reconciliation;
     expect(rec.issued).toBe(rec.wallets + rec.house + rec.funds + rec.tables + rec.tournaments + rec.external);
     expect(rec.wallets).toBe(body.totals.wallets);
+    // přehled mintu: vydáno − zaniklo = čistě vydáno, a součet podle druhů pohybu sedí
+    const mint = rec as unknown as { issuedTotal: number; destroyedTotal: number; byKind: { kind: string; issued: number; destroyed: number }[] };
+    expect(mint.issuedTotal - mint.destroyedTotal).toBe(rec.issued);
+    expect(mint.byKind.reduce((n, k) => n + k.issued, 0)).toBe(mint.issuedTotal);
+    expect(mint.byKind.reduce((n, k) => n + k.destroyed, 0)).toBe(mint.destroyedTotal);
     expect(rec.issuedBy.find((m) => m.to === 'Druhy' && m.amount === 500)).toMatchObject({ kind: 'mint', note: 'test' });
     expect(rec.issuedBy.filter((m) => m.amount === 1000).length).toBeGreaterThanOrEqual(3); // počáteční zůstatky při registraci
 

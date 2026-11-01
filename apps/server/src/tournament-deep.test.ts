@@ -185,6 +185,8 @@ describe('hloubkově: živý turnaj s rebuy a add-onem', { timeout: 120_000 }, (
     const rowA = cells(lines.find((l) => l.includes(nick))!);
     expect(rowA.slice(2, 9)).toEqual(['1', '110', '1', '100', '1', '50', '260']);
     const total = cells(lines[lines.length - 1]!);
-    expect(Number(total[11])).toBe(row(a).profit + row(b).profit);
+    const profitCol = cells(lines[1]!).indexOf('Zisk'); // sloupce se mohou rozšiřovat (např. odměny na hlavu), proto podle názvu
+    expect(profitCol).toBeGreaterThan(8);
+    expect(Number(total[profitCol])).toBe(row(a).profit + row(b).profit);
   });
 });

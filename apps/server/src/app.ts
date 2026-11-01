@@ -252,6 +252,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     audit,
     approvals,
     settings: () => settings.resolve(),
+    flush: () => journal.flush(),
     notify: (e) => {
       if (e.kind !== 'request_decided') return;
       void (async () => {

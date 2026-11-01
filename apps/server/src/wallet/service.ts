@@ -86,6 +86,10 @@ export interface BalanceReconciliation {
   tournaments: number;
   external: number;
   issuedBy: { id: number; at: number; kind: string; note: string; amount: number; to: string }[];
+  /** Co mint vydal a co se mu vrátilo (zaniklo): celkem a podle druhu pohybu. Vydáno − zaniklo = „vydáno celkem“. */
+  issuedTotal: number;
+  destroyedTotal: number;
+  byKind: { kind: string; issued: number; destroyed: number; count: number }[];
 }
 export type WalletResult = { done: true; txId: number } | { done: false; approvalId: string };
 
@@ -107,6 +111,8 @@ export class WalletService {
       audit: AuditService;
       approvals: ApprovalService;
       settings: () => SettingValues;
+      /** Dopíše čekající zápisy knihy do databáze (historie pohybů se čte z ní, paměť knihy po restartu drží jen zůstatky). */
+      flush?: () => Promise<void>;
       notify?: (e: { kind: 'request_created' | 'request_decided'; requestId: string; userId: string; approved?: boolean }) => void;
     },
   ) {
@@ -203,20 +209,20 @@ export class WalletService {
   // ---------- úvěr (čerpání virtuálních Koron na dluh) ----------
 
   /** Nesplacený dluh hráče: součet čerpání a splátek z účetní knihy (jediný zdroj pravdy, nic se neukládá zvlášť). */
-  creditDebt(userId: string): number {
-    const acc = accounts.wallet(userId);
-    let debt = 0;
-    for (const tx of this.deps.ledger.transactions()) {
-      if (tx.kind !== 'credit_draw' && tx.kind !== 'credit_repay') continue;
-      for (const e of tx.entries) if (e.account === acc) debt += e.amount;
-    }
-    return Math.max(0, debt);
+  async creditDebt(userId: string): Promise<number> {
+    await this.deps.flush?.();
+    const [r] = await this.deps.db
+      .select({ sum: sql<number>`coalesce(sum(${schema.ledgerEntries.amount}), 0)::int` })
+      .from(schema.ledgerEntries)
+      .innerJoin(schema.ledgerTransactions, eq(schema.ledgerTransactions.id, schema.ledgerEntries.transactionId))
+      .where(and(eq(schema.ledgerEntries.account, accounts.wallet(userId)), inArray(schema.ledgerTransactions.kind, ['credit_draw', 'credit_repay'])));
+    return Math.max(0, Number(r?.sum ?? 0));
   }
 
   /** Stav úvěru pro peněženku: zapnuto, limity, dluh, kolik jde ještě načerpat a čekající žádost. */
   async creditInfo(userId: string) {
     const s = this.deps.settings();
-    const debt = this.creditDebt(userId);
+    const debt = await this.creditDebt(userId);
     const limit = Number(s['economy.creditLimit']);
     const [pending] = await this.deps.db
       .select({ id: schema.userRequests.id, amount: schema.userRequests.amount })
@@ -272,7 +278,7 @@ export class WalletService {
   /** Splátka úvěru z peněženky zpět na účet vydání měny (Koruny zanikají, dluh klesá). */
   async creditRepay(userId: string, amount: number, meta: WalletMeta = {}): Promise<{ txId: number }> {
     AMOUNT(amount);
-    const debt = this.creditDebt(userId);
+    const debt = await this.creditDebt(userId);
     if (amount > debt) throw new PermissionError('INVALID', { field: 'amount', max: debt });
     if (this.deps.ledger.balance(accounts.wallet(userId)) < amount) throw new PermissionError('INVALID', { field: 'balance' });
     const tx = this.deps.ledger.post({
@@ -442,18 +448,31 @@ export class WalletService {
    * Odkud se vzala a kde je všechna vydaná měna: součet vydané měny (účet mint) se rozpadne na peněženky, dům, fondy, stoly,
    * turnaje a převody ven, a vypíše se posledních 30 vydání (registrace, dobití, garance…) s příjemcem.
    */
-  private reconcile(nick: Map<string, string>): BalanceReconciliation {
-    const by = new Map<string, number>();
-    const mints: BalanceReconciliation['issuedBy'] = [];
-    const txs = this.deps.ledger.transactions();
-    for (const tx of txs) {
-      for (const e of tx.entries) by.set(e.account, (by.get(e.account) ?? 0) + e.amount);
-      const m = tx.entries.find((e) => e.account === accounts.mint());
-      if (m) {
-        const to = tx.entries.find((e) => e.account !== accounts.mint() && e.amount > 0);
-        mints.push({ id: tx.id, at: tx.at, kind: tx.kind, note: tx.note ?? '', amount: -m.amount, to: to ? (nick.get(to.account) ?? to.account) : '' });
-      }
+  private async reconcile(nick: Map<string, string>): Promise<BalanceReconciliation> {
+    // Vše z databáze (po dopsání čekajících zápisů): paměť knihy po restartu serveru historii pohybů neobsahuje.
+    await this.deps.flush?.();
+    const db = this.deps.db;
+    const by = new Map((await db.select().from(schema.ledgerAccounts)).map((a) => [a.id, a.balance]));
+    const mintRows = await db
+      .select({ id: schema.ledgerTransactions.id, at: schema.ledgerTransactions.at, kind: schema.ledgerTransactions.kind, note: schema.ledgerTransactions.note, amount: schema.ledgerEntries.amount })
+      .from(schema.ledgerEntries)
+      .innerJoin(schema.ledgerTransactions, eq(schema.ledgerTransactions.id, schema.ledgerEntries.transactionId))
+      .where(eq(schema.ledgerEntries.account, accounts.mint()))
+      .orderBy(desc(schema.ledgerTransactions.id));
+    const kinds = new Map<string, { kind: string; issued: number; destroyed: number; count: number }>();
+    for (const r of mintRows) {
+      const k = kinds.get(r.kind) ?? { kind: r.kind, issued: 0, destroyed: 0, count: 0 };
+      if (r.amount < 0) k.issued += -r.amount;
+      else k.destroyed += r.amount;
+      k.count++;
+      kinds.set(r.kind, k);
     }
+    const latest = mintRows.slice(0, 30);
+    const counter = latest.length ? await db.select().from(schema.ledgerEntries).where(and(inArray(schema.ledgerEntries.transactionId, latest.map((r) => r.id)), sql`${schema.ledgerEntries.account} <> ${accounts.mint()}`, sql`${schema.ledgerEntries.amount} > 0`)) : [];
+    const mints: BalanceReconciliation['issuedBy'] = latest.map((r) => {
+      const to = counter.find((c) => c.transactionId === r.id);
+      return { id: r.id, at: r.at.getTime(), kind: r.kind, note: r.note ?? '', amount: -r.amount, to: to ? (nick.get(to.account) ?? to.account) : '' };
+    });
     const sum = (prefix: string) => [...by].filter(([a]) => a.startsWith(prefix)).reduce((n, [, v]) => n + v, 0);
     return {
       issued: -(by.get(accounts.mint()) ?? 0),
@@ -464,6 +483,9 @@ export class WalletService {
       tournaments: sum('tournament:') + sum('bounty:') + sum('escrow:'),
       external: sum('external:'),
       issuedBy: mints.sort((a, b) => b.id - a.id).slice(0, 30),
+      issuedTotal: [...kinds.values()].reduce((n, k) => n + k.issued, 0),
+      destroyedTotal: [...kinds.values()].reduce((n, k) => n + k.destroyed, 0),
+      byKind: [...kinds.values()].sort((a, b) => b.issued + b.destroyed - (a.issued + a.destroyed)),
     };
   }
 
@@ -483,7 +505,7 @@ export class WalletService {
       .map((u) => ({ userId: u.id, nickname: u.nickname, status: u.status, balance: this.deps.ledger.balance(accounts.wallet(u.id)), lastMoveAt: lastBy.get(accounts.wallet(u.id)) ?? null }))
       .sort((a, b) => b.balance - a.balance || a.nickname.localeCompare(b.nickname, 'cs'));
     const nick = new Map(users.map((u) => [accounts.wallet(u.id), u.nickname]));
-    return { rows, totals: { wallets: rows.reduce((n, r) => n + r.balance, 0), house: this.deps.ledger.balance(accounts.house()), players: rows.length }, reconciliation: this.reconcile(nick) };
+    return { rows, totals: { wallets: rows.reduce((n, r) => n + r.balance, 0), house: this.deps.ledger.balance(accounts.house()), players: rows.length }, reconciliation: await this.reconcile(nick) };
   }
 
   houseBalances(actorId: string): Record<string, number> {
