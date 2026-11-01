@@ -237,52 +237,6 @@ export function EveningPage({ id }: { id: string }) {
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card title={t('evening.awards')}>
-          <dl className="flex flex-col gap-2">
-            <Award label={t('evening.mvp')} value={s.mvp ? `${s.mvp.nickname} (${s.mvp.score})` : null} />
-            <Award label={t('evening.award.hunter')} value={s.awards.hunter ? t('evening.award.hunterText', { nick: s.awards.hunter.nickname, count: s.awards.hunter.count }) : null} />
-            <Award label={t('evening.award.banker')} value={s.awards.banker ? t('evening.award.bankerText', { nick: s.awards.banker.nickname, amount: s.awards.banker.amount, bb: s.awards.banker.bb, game: s.awards.banker.game }) : null} />
-            <Award label={t('evening.award.badBeat')} value={s.awards.badBeat ? t('evening.award.badBeatText', { nick: s.awards.badBeat.nickname, equity: s.awards.badBeat.equity, game: s.awards.badBeat.game }) : null} />
-          </dl>
-          <div className="mt-3 flex flex-col gap-1">
-            <h3 className="font-bold">{t('evening.handVoteTitle')}</h3>
-            {s.handOfEvening ? (
-              <>
-                <p className="text-sm">{t('evening.handOfEvening', { label: s.handOfEvening.label })}</p>
-                {s.handOfEvening.sharedId && <HandCard id={s.handOfEvening.sharedId} />}
-              </>
-            ) : view.handVote && !view.handVote.decided ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="success">{t('evening.handVoteOpen')}</Badge>
-                <Link to={`/ankety/${view.handVote.pollId}`} className="rounded-md border border-line bg-surface px-3 py-1">
-                  {t('evening.handVoteGo')}
-                </Link>
-              </div>
-            ) : (
-              <p className="text-sm text-muted">{t('evening.handVoteNone')}</p>
-            )}
-            {view.canManage && !view.handVote && (
-              <div>
-                <Button onClick={() => void run(() => post(`/api/evenings/${id}/hand-vote`))}>{t('evening.handVoteStart')}</Button>
-              </div>
-            )}
-          </div>
-        </Card>
-        <Card title={t('evening.stats')}>
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-            <dt className="text-muted">{t('evening.statGames')}</dt>
-            <dd className="font-mono">{s.stats.games}</dd>
-            <dt className="text-muted">{t('evening.statPlayers')}</dt>
-            <dd className="font-mono">{s.stats.players}</dd>
-            <dt className="text-muted">{t('evening.turnover')}</dt>
-            <dd className="font-mono">{s.stats.turnover}</dd>
-            <dt className="text-muted">{t('evening.biggestPot')}</dt>
-            <dd className="font-mono">{s.stats.biggestPotBb !== null ? t('evening.biggestPotBb', { bb: s.stats.biggestPotBb }) : '–'}</dd>
-          </dl>
-        </Card>
-      </div>
-
       <Card title={t('evening.ranking')}>
         {s.players.length === 0 ? (
           <p className="text-muted">{t('tournament.noPlayers')}</p>
@@ -292,7 +246,95 @@ export function EveningPage({ id }: { id: string }) {
         {view.canManage && s.house !== 0 && <p className="mt-2 text-sm text-muted">{t('evening.houseTotal', { amount: s.house })}</p>}
       </Card>
 
-      <Card title={t('evening.movements')}>
+      <Card title={t('evening.awards')}>
+        <dl className="flex flex-col gap-2">
+          <Award label={t('evening.mvp')} hint={t('evening.mvpHint')} value={s.mvp ? `${s.mvp.nickname} (${s.mvp.score})` : null} />
+          <Award label={t('evening.award.hunter')} value={s.awards.hunter ? t('evening.award.hunterText', { nick: s.awards.hunter.nickname, count: s.awards.hunter.count }) : null} />
+          <Award label={t('evening.award.banker')} value={s.awards.banker ? t('evening.award.bankerText', { nick: s.awards.banker.nickname, amount: s.awards.banker.amount, bb: s.awards.banker.bb, game: s.awards.banker.game }) : null} />
+          <Award label={t('evening.award.badBeat')} value={s.awards.badBeat ? t('evening.award.badBeatText', { nick: s.awards.badBeat.nickname, equity: s.awards.badBeat.equity, game: s.awards.badBeat.game }) : null} />
+        </dl>
+        <p className="mt-2 text-sm text-muted">{t('evening.mvpHelp')}</p>
+        <div className="mt-3 flex flex-col gap-1">
+          <h3 className="font-bold">{t('evening.handVoteTitle')}</h3>
+          {s.handOfEvening ? (
+            <>
+              <p className="text-sm">{t('evening.handOfEvening', { label: s.handOfEvening.label })}</p>
+              {s.handOfEvening.sharedId && <HandCard id={s.handOfEvening.sharedId} />}
+            </>
+          ) : view.handVote && !view.handVote.decided ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="success">{t('evening.handVoteOpen')}</Badge>
+              <Link to={`/ankety/${view.handVote.pollId}`} className="rounded-md border border-line bg-surface px-3 py-1">
+                {t('evening.handVoteGo')}
+              </Link>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">{t('evening.handVoteNone')}</p>
+          )}
+          {view.canManage && !view.handVote && (
+            <div>
+              <Button onClick={() => void run(() => post(`/api/evenings/${id}/hand-vote`))}>{t('evening.handVoteStart')}</Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card title={t('evening.stats')}>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+          <dt className="text-muted">{t('evening.statGames')}</dt>
+          <dd className="font-mono">{s.stats.games}</dd>
+          <dt className="text-muted">{t('evening.statPlayers')}</dt>
+          <dd className="font-mono">{s.stats.players}</dd>
+          <dt className="text-muted">{t('evening.turnover')}</dt>
+          <dd className="font-mono">{s.stats.turnover}</dd>
+          <dt className="text-muted">{t('evening.biggestPot')}</dt>
+          <dd className="font-mono">{s.stats.biggestPotBb !== null ? t('evening.biggestPotBb', { bb: s.stats.biggestPotBb }) : '–'}</dd>
+        </dl>
+      </Card>
+
+      <Card title={t('evening.gamesTitle')}>
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-1">
+            {s.games.map((g) => (
+              <li key={`${g.kind}:${g.ref}`} className="flex flex-wrap items-center gap-2">
+                <Badge>{t(`evening.gameKind.${g.kind}`)}</Badge>
+                <span className="flex-1">{g.name}</span>
+                <Link to={gameLink(g)} className="rounded-md border border-line bg-surface px-3 py-1 text-sm">
+                  {t(g.kind === 'tournament' ? 'evening.openResult' : 'evening.openGame')}
+                </Link>
+                {view.canManage && open && <Button onClick={() => void run(() => post(`/api/evenings/${id}/games/remove`, { kind: g.kind, ref: g.ref }))}>{t('evening.removeGame')}</Button>}
+              </li>
+            ))}
+          </ul>
+          {view.canManage && open && (
+            <div className="flex flex-wrap items-end gap-2">
+              <Select label={t('evening.addGame')} value={pick} onChange={(e) => setPick(e.target.value)}>
+                <option value="">{t('evening.pickGame')}</option>
+                {candidates.map((g) => (
+                  <option key={`${g.kind}:${g.ref}`} value={`${g.kind}:${g.ref}`}>
+                    {t(`evening.gameKind.${g.kind}`)}: {g.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant="primary"
+                disabled={!pick}
+                onClick={() => {
+                  const [kind, ...rest] = pick.split(':');
+                  setPick('');
+                  void run(() => post(`/api/evenings/${id}/games`, { kind, ref: rest.join(':') }));
+                }}
+              >
+                {t('evening.addGame')}
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <details className="rounded-md border border-line bg-surface">
+        <summary className="cursor-pointer px-4 py-3 font-heading text-lg font-bold">{t('evening.movements')}</summary>
+        <div className="px-4 pb-4">
         <p className="mb-2 text-sm text-muted">{t('evening.movementsHelp')}</p>
         {s.lines === undefined ? (
           <p className="text-muted">{t('evening.movementsOld')}</p>
@@ -325,52 +367,21 @@ export function EveningPage({ id }: { id: string }) {
             })}
           </div>
         )}
-      </Card>
-
-      <Card title={t('evening.gamesTitle')}>
-        <div className="flex flex-col gap-3">
-          <ul className="flex flex-col gap-1">
-            {s.games.map((g) => (
-              <li key={`${g.kind}:${g.ref}`} className="flex flex-wrap items-center gap-2">
-                <Badge>{t(`evening.gameKind.${g.kind}`)}</Badge>
-                <span className="flex-1">{g.name}</span>
-                {view.canManage && open && <Button onClick={() => void run(() => post(`/api/evenings/${id}/games/remove`, { kind: g.kind, ref: g.ref }))}>{t('evening.removeGame')}</Button>}
-              </li>
-            ))}
-          </ul>
-          {view.canManage && open && (
-            <div className="flex flex-wrap items-end gap-2">
-              <Select label={t('evening.addGame')} value={pick} onChange={(e) => setPick(e.target.value)}>
-                <option value="">{t('evening.pickGame')}</option>
-                {candidates.map((g) => (
-                  <option key={`${g.kind}:${g.ref}`} value={`${g.kind}:${g.ref}`}>
-                    {t(`evening.gameKind.${g.kind}`)}: {g.name}
-                  </option>
-                ))}
-              </Select>
-              <Button
-                variant="primary"
-                disabled={!pick}
-                onClick={() => {
-                  const [kind, ...rest] = pick.split(':');
-                  setPick('');
-                  void run(() => post(`/api/evenings/${id}/games`, { kind, ref: rest.join(':') }));
-                }}
-              >
-                {t('evening.addGame')}
-              </Button>
-            </div>
-          )}
         </div>
-      </Card>
+      </details>
     </div>
   );
 }
 
-function Award({ label, value }: { label: string; value: string | null }) {
+/** Kam vede odkaz na výsledek hry: turnaj, cash stůl nebo živý cash. */
+const gameLink = (g: { kind: 'tournament' | 'live_cash' | 'cash'; ref: string }): string => (g.kind === 'tournament' ? `/turnaj/${g.ref}` : g.kind === 'live_cash' ? `/zivy-cash/${g.ref}` : `/stul/${g.ref}`);
+
+function Award({ label, value, hint }: { label: string; value: string | null; hint?: string }) {
   return (
     <div className="flex flex-col">
-      <dt className="text-sm text-muted">{label}</dt>
+      <dt className="text-sm text-muted" title={hint}>
+        {label}
+      </dt>
       <dd className="text-lg">{value ?? t('evening.award.none')}</dd>
     </div>
   );
