@@ -1704,8 +1704,12 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const b = (req.body ?? {}) as { what?: string; preview?: boolean };
     const preview = b.preview !== false;
     const out: { xp?: unknown; rating?: unknown; preview: boolean } = { preview };
-    if (b.what === 'xp' || b.what === 'both') out.xp = await svc.progress().recompute(preview);
-    if (b.what === 'rating' || b.what === 'both') out.rating = await svc.rating().recompute(u.id, preview);
+    const cfg = svc.settings.resolve();
+    const xpOn = cfg['xp.enabled'] !== false;
+    const ratingOn = cfg['rating.enabled'] !== false;
+    // Vypnutá část se nepřepočítává (ani při volbě „obojí“).
+    if ((b.what === 'xp' || b.what === 'both') && xpOn) out.xp = await svc.progress().recompute(preview);
+    if ((b.what === 'rating' || b.what === 'both') && ratingOn) out.rating = await svc.rating().recompute(u.id, preview);
     reply.send(out);
   }));
 

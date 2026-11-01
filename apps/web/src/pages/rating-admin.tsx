@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { can, useSession } from '../session';
-import { Badge, Button, Card, DataTable, Notice, Td } from '../ui';
+import { Badge, Button, Card, DataTable, Notice, Select, Td } from '../ui';
+import { useFeatures } from '../features';
 
 interface XpReport {
   changed: number;
@@ -32,14 +33,20 @@ const sign = (n: number) => (n > 0 ? `+${n}` : String(n));
 
 /** Zpětný přepočet XP a ratingu z historie s náhledem dopadu před potvrzením. */
 function RecomputePanel() {
+  const features = useFeatures();
+  // Nabízí se jen to, co je zapnuté: XP, rating, nebo obojí.
+  const options = [...(features.xp && features.rating ? (['both'] as const) : []), ...(features.xp ? (['xp'] as const) : []), ...(features.rating ? (['rating'] as const) : [])];
+  const [what, setWhat] = useState<'both' | 'xp' | 'rating'>('both');
+  const chosen = options.includes(what) ? what : options[0];
   const [report, setReport] = useState<{ xp?: XpReport; rating?: RatingReport } | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const run = async (preview: boolean) => {
+    if (!chosen) return;
     setBusy(true);
     setMsg('');
     try {
-      const r = await post<{ xp?: XpReport; rating?: RatingReport }>('/api/recompute', { what: 'both', preview });
+      const r = await post<{ xp?: XpReport; rating?: RatingReport }>('/api/recompute', { what: chosen, preview });
       if (preview) setReport(r);
       else {
         setReport(null);
@@ -56,6 +63,15 @@ function RecomputePanel() {
     <Card title={t('rating.recompute')}>
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted">{t('rating.recomputeHelp')}</p>
+        {options.length > 1 && (
+          <Select label={t('rating.recomputeWhat')} value={chosen} onChange={(e) => { setWhat(e.target.value as 'both' | 'xp' | 'rating'); setReport(null); }}>
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {t(`rating.recomputeWhat.${o}`)}
+              </option>
+            ))}
+          </Select>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button disabled={busy} onClick={() => void run(true)}>
             {t('rating.recomputePreview')}
