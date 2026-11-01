@@ -318,9 +318,81 @@ export function CashierPanel() {
         </Card>
       )}
       {can(me, 'mena.dobit') && <CreditLinesCard />}
+      {can(me, 'mena.zobrazit_knihu') && <ConsistencyCard />}
       {can(me, 'mena.zobrazit_knihu') && <BalancesCard refreshKey={me?.balance} />}
       {can(me, 'mena.zobrazit_knihu') && <LedgerPanel />}
     </div>
+  );
+}
+
+interface ConsistencyReport {
+  at: number;
+  ok: boolean;
+  checks: { id: string; ok: boolean; problems: number; items: string[] }[];
+}
+
+/** Pokladník: kontrola konzistence účetní knihy a statistik (jen čte, nic nemění). */
+function ConsistencyCard() {
+  const { me } = useSession();
+  const [rep, setRep] = useState<ConsistencyReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const run = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      setRep(await get<ConsistencyReport>('/api/admin/consistency'));
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <details className="rounded-md border border-line bg-surface">
+      <summary className="cursor-pointer px-4 py-3 font-heading text-lg font-bold">{t('consistency.title')}</summary>
+      <div className="flex flex-col px-4 pb-4 gap-3">
+        <p className="text-sm text-muted">{t('consistency.help')}</p>
+        <div>
+          <Button variant="primary" disabled={busy} onClick={() => void run()}>
+            {t('consistency.run')}
+          </Button>
+        </div>
+        {error && <Notice kind="error">{error}</Notice>}
+        {rep && (
+          <>
+            <Notice kind={rep.ok ? 'success' : 'error'}>{rep.ok ? t('consistency.allOk') : t('consistency.problems')}</Notice>
+            <ul className="flex flex-col gap-2">
+              {rep.checks.map((c) => (
+                <li key={c.id}>
+                  <span className={c.ok ? 'text-success' : 'text-danger'}>{c.ok ? '✔' : '✖'}</span> <strong>{t(`consistency.check.${c.id}`)}</strong>
+                  {!c.ok && c.id === 'resultsRecorded' && can(me, 'mena.upravit_knihu') && (
+                    <Button
+                      className="ml-3"
+                      onClick={() =>
+                        void post('/api/admin/consistency/repair-results')
+                          .then(() => run())
+                          .catch((e) => setError(errorText(e)))
+                      }
+                    >
+                      {t('consistency.repair')}
+                    </Button>
+                  )}
+                  {!c.ok && (
+                    <ul className="ml-6 list-disc text-sm">
+                      {c.items.map((x, i) => (
+                        <li key={i}>{x}</li>
+                      ))}
+                      {c.problems > c.items.length && <li>{t('consistency.more', { n: c.problems - c.items.length })}</li>}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 

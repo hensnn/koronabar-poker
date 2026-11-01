@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
 import { accounts } from '@kb/ledger';
 import { buildServer } from './app.js';
+import { eq, sql } from 'drizzle-orm';
+import { schema } from './db/index.js';
 import { sideNets } from './side-results.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
@@ -145,6 +147,22 @@ describe('vedlejší pohyby (odměny na hlavu, sázky) se vždy započítají k 
     const series = (await s.server.overview.compare([a, fan], 'profit')).series;
     for (const x of series) expect(x.points[x.points.length - 1]![1]).toBe(ovRows.find((r) => r.userId === x.userId)!.total);
 
+    // kontrola konzistence: kniha i statistiky jsou v pořádku; vložený nesmyslný výsledek turnaje se najde
+    const okReport = await s.server.consistency.run(s.admin);
+    expect(okReport.checks.filter((c) => !c.ok), JSON.stringify(okReport.checks.filter((c) => !c.ok))).toEqual([]);
+    expect(okReport.checks.map((c) => c.id)).toEqual(expect.arrayContaining(['txBalanced', 'totalZero', 'balancesFromMoves', 'noNegativeAccounts', 'closedGamesEmpty', 'creditDebt', 'resultsMatchLedger', 'resultsRecorded']));
+    // ztracené výsledky turnaje (např. po pádu serveru) kontrola najde a jde je doplnit
+    await s.server.db.delete(schema.gameResults).where(eq(schema.gameResults.ref, id));
+    expect((await s.server.consistency.run(s.admin)).checks.find((x) => x.id === 'resultsRecorded')!.problems).toBe(1);
+    expect(await s.server.consistency.repairResults(s.admin)).toBe(1);
+    const healed = await s.server.consistency.run(s.admin);
+    expect(healed.checks.filter((x) => !x.ok)).toEqual([]);
+    await s.server.db.update(schema.gameResults).set({ payout: sql`${schema.gameResults.payout} + 7` }).where(eq(schema.gameResults.userId, a));
+    const badReport = await s.server.consistency.run(s.admin);
+    expect(badReport.ok).toBe(false);
+    expect(badReport.checks.find((c) => c.id === 'resultsMatchLedger')!.problems).toBeGreaterThan(0);
+    await s.server.db.update(schema.gameResults).set({ payout: sql`${schema.gameResults.payout} - 7` }).where(eq(schema.gameResults.userId, a));
+    await expect(s.server.consistency.run(c)).rejects.toThrow(); // hráč bez přístupu ke knize kontrolu nespustí
     // vedlejší pohyby jsou uzavřené: escrow účty jsou po vypořádání prázdné a vše, co hráči vyhráli, někdo zaplatil
     expect(s.server.ledger.balance(accounts.escrow('hb:t'))).toBe(0);
     expect(s.server.ledger.balance(accounts.escrow('bet:t'))).toBe(0);

@@ -952,6 +952,15 @@ export class TournamentManager {
     await this.deps.audit?.log({ actorId, action: 'turnaj.smazat_historii', targetType: 'tournament', targetId: id, before: { name: row.name, status }, ...meta });
   }
 
+  /** Skončený turnaj z databáze: stav a údaje pro statistiky a rating (hodnocený, cílová délka, živý). Pro doplnění chybějících výsledků. */
+  async finishedForStats(id: string): Promise<{ info: { rated: boolean; targetMinutes: number; live: boolean }; st: TournamentState } | null> {
+    const [r] = await this.deps.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
+    const st = ((this.tours.get(id)?.state() ?? r?.state) as TournamentState | null) ?? null;
+    if (!r || !st?.results || st.results.length === 0) return null;
+    const s = this.resolveArchived(r);
+    return { info: { rated: s['tournament.rated'] !== false, targetMinutes: Number(s['tournament.targetMinutes'] ?? 0), live: !!s['tournament.live'] }, st };
+  }
+
   /** Odstraní ukončený turnaj z paměti (po čase), stůl už je zavřený. */
   private archive(id: string): void {
     for (const tableId of this.tableIdsOf(id)) this.deps.actors.delete(tableId);

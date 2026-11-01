@@ -27,6 +27,7 @@ import type { TimelineService } from '../timeline.js';
 import { OverviewError, type CompareMetric, type OverviewService } from '../overview.js';
 import { YearStatsError, type YearStatsService } from '../year-stats.js';
 import { HouseExpenseError, type HouseExpenseService } from '../house-expenses.js';
+import { ConsistencyError, type ConsistencyService } from '../consistency.js';
 import type { TournamentManager } from '../tournaments.js';
 import type { Scheduler } from '../scheduler.js';
 import type { SeriesService } from '../series.js';
@@ -84,6 +85,7 @@ export interface Services {
   overview: () => OverviewService;
   yearStats: () => YearStatsService;
   houseExpenses: () => HouseExpenseService;
+  consistency: () => ConsistencyService;
   mailYear: (userId: string, year: number) => Promise<boolean>;
   scheduler: () => Scheduler;
   notifications: () => NotificationService;
@@ -2125,6 +2127,23 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       return reply.send(await svc.houseExpenses().deposit(need(req).id, { amount: b.amount, note: b.reason }, meta(req)));
     } catch (e) {
       return houseErr(e, reply);
+    }
+  }));
+  /** Kontrola konzistence účetní knihy a statistik (jen čte; správce a pokladník s přístupem ke knize). */
+  app.get('/api/admin/consistency', guard(async (req, reply) => {
+    try {
+      return reply.send(await svc.consistency().run(need(req).id));
+    } catch (e) {
+      if (e instanceof ConsistencyError) return reply.code(403).send({ code: 'FORBIDDEN' });
+      throw e;
+    }
+  }));
+  app.post('/api/admin/consistency/repair-results', guard(async (req, reply) => {
+    try {
+      return reply.send({ repaired: await svc.consistency().repairResults(need(req).id) });
+    } catch (e) {
+      if (e instanceof ConsistencyError) return reply.code(403).send({ code: 'FORBIDDEN' });
+      throw e;
     }
   }));
   app.get('/api/admin/house/report', guard(async (req, reply) => {

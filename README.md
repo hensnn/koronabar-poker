@@ -229,6 +229,8 @@ Připojení z Home Assistantu: přidej integraci **Model Context Protocol** (typ
 
 ## Vývoj (pro programátory)
 
+- Předání projektu jiné AI nebo novému vývojáři: `docs/MIGRACE-AI.md` (pravidla, architektura, příkazy, pasti a stav). Kontrola konzistence dat (kniha a statistiky): Správa → Pokladna.
+
 - Před commitem spusť `pnpm typecheck`, `pnpm lint` (pravidla React hooků a základní chyby, oxlint) a `pnpm test`. Po změně vzhledu ještě `LOGIN=... PASSWORD=... node scripts/screenshots.mjs snimky` (snímky stránek pro počítač i mobil; běží vývojový server i web).
 - Asistenta jde vyzkoušet bez klíče: spusť `node scripts/fake-ai.mjs` a v nastavení zvol poskytovatele „vlastní“ s adresou `http://localhost:3999/v1` (falešný model navrhne slevu v obchodě podle čísla ve zprávě).
 

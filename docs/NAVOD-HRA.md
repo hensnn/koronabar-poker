@@ -281,3 +281,25 @@ Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vs
 - **Ocenění večera:** *Smolař* ukáže handu graficky (společné karty, jeho karty, čemu čelil, a karty, které ho porazily, s názvy kombinací). *Handa večera* je nejsilnější kombinace, která na showdownu padla (jen z ukázaných karet), pětice karet zvýrazněná. Hlasování o handě večera už není. Pod oceněními je sbalitelná *Legenda* (MVP, Lovec, Bankér, Smolař, Handa večera).
 - **Výsledek turnaje:** místo Hodin jsou v *Informacích* řádky *Ukončen*, *Ukončen v kole* a *Celkový čas*. Widget *Výplaty* říká, kolik z prize poolu dostane který hráč podle umístění: před koncem je to náhled, po skončení skutečně vyplacené částky se jmény hráčů (bounty a odměny na hlavu jsou ve výsledkové tabulce).
 - **Profil a osobní nastavení:** v profilu je za e-mailem tvoje role a tlačítko *Odhlásit*. *Osobní limity* jsou sbalené (správce v nastavení limitů určuje, které položky hráč vidí) a kartu *Poznámky o hráčích* jde v osobním nastavení vypnout (*Poznámky o hráčích v profilu*). V osobním nastavení jdou karty za sebou: Vzhled a ovládání, E-mail, Chat, Hlasatel, Zvukové emotikony; pod nimi Správa nastavení, knihovna zvukových emotikonů a nakonec Diagnostika.
+
+## Jak ověřit, že data sedí (kontrola konzistence)
+
+Správce a pokladník s přístupem ke knize najdou ve **Správa → Pokladna** sbalitelnou kartu **Kontrola konzistence dat**. Tlačítko **Spustit kontrolu** projde účetní knihu a statistiky a nic nemění. Co se kontroluje:
+
+1. každý pohyb v knize má nulový součet a aspoň dva záznamy,
+2. součet všech účtů je nula,
+3. zůstatky v paměti serveru odpovídají databázi a součtu pohybů,
+4. žádný účet kromě vydání měny není v mínusu,
+5. skončené a zrušené hry nemají nic v poolu, bounty ani úschově (odměny na hlavu a sázky),
+6. dluhy z kontokorentu odpovídají čerpání a splátkám v knize,
+7. výsledky turnajů ve statistikách odpovídají knize,
+8. každý skončený turnaj má výsledky ve statistikách.
+
+Zelené ✔ znamená v pořádku. U červeného ✖ se ukážou příklady. Chybějící výsledky skončeného turnaje (např. po pádu serveru nebo údržbě) doplní tlačítko **Doplnit chybějící výsledky** (peníze se tím nemění, XP a rating pak přepočítá *Správa → Údržba*). Kontrolu doporučujeme pustit po větších zásazích do peněz, po obnově ze zálohy a po údržbě.
+
+### Proč se čísla mohou lišit mezi obrazovkami
+- **Přehled hráčů, vyúčtování v peněžence, večery a roční statistika** počítají peníze z účetní knihy a vždy zahrnují všechno, co se u hry stalo (výhry, bounty, odměny na hlavu a sázky bokem). Cash zahrnuje i žetony, které má hráč ještě u stolu.
+- **Rozpracovaný turnaj** (registrace nebo běží) se v těchto přehledech počítá jako zaplacený vstup, dokud neskončí. Po skončení se přičte výplata.
+- **Žebříček** má vlastní pravidla (nejmenší počet hand pro cash, sezóny) a čerpá z uložených výsledků turnajů, proto se jeho pořadí může od Přehledu lišit.
+- **Kontokorent** se do výdělku nepočítá: výhra ve hře zůstává celá, splátka je samostatný pohyb.
+
