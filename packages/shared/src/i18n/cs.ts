@@ -523,6 +523,7 @@ export const cs: Record<string, string> = {
   'overview.metricHelp.xp': 'Zkušenosti celkem',
   'overview.balance': 'Zůstatek (vč. dobití)',
   'overview.level': 'Úroveň',
+  'overview.provisional': 'Předběžný rating (hráč zatím odehrál málo her)',
   'overview.ratingT': 'Rating turnaje',
   'overview.ratingC': 'Rating cash',
   'overview.me': 'já',

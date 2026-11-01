@@ -136,6 +136,21 @@ describe('kategorie kdo je v čem nejlepší: správná data', () => {
   });
 });
 
+describe('kategorie a vypnuté části', () => {
+  it('bez XP a bez ratingu cash se jejich kategorie nenabízejí; divize má každý s číslem ratingu', async () => {
+    const s = await start({ 'xp.enabled': false, 'rating.cashEnabled': false });
+    const login = await s.server.app.inject({ method: 'POST', url: '/api/auth/login', payload: { identifier: 'Hrac', password: 'heslo-hrace-123' }, headers: { origin: 'http://localhost' } });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+    const ids = ((await s.server.app.inject({ method: 'GET', url: '/api/stats/categories', headers: { cookie } })).json() as { categories: { id: string }[] }).categories.map((c) => c.id);
+    expect(ids).not.toContain('xp');
+    expect(ids).not.toContain('ratingCash');
+    const me = (await s.server.overview.overview()).rows.find((r) => r.userId === s.player)!;
+    expect(me.division?.rating).toBe(1500);
+    expect(me.divisionTournament).toMatchObject({ name: 'Kapr', rating: 1500 });
+    expect(me.divisionCash).toBeNull();
+  });
+});
+
 describe('účet domu: vklad a výdaje (HTTP)', () => {
   it('správce vloží měnu do domu a zapíše výdaje s kategorií; přehled je sečte, dům nejde do mínusu, hráč nemá přístup', async () => {
     const s = await start();

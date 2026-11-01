@@ -20,9 +20,17 @@ interface Deps {
   /** Žebříček ratingu podle druhu hry (čísla jen když je povoleno jejich zobrazení). */
   rating: (scope: 'tournament' | 'cash') => Promise<{ userId: string; rating: number | null; division?: { name: string; icon: string; color: string } }[]>;
   /** Divize všech hráčů (i provizorních) pro daný druh hry. */
-  divisions?: (scope: 'tournament' | 'cash') => Promise<{ byUser: Map<string, { name: string; icon: string; color: string }>; fallback: { name: string; icon: string; color: string } }>;
+  divisions?: (scope: 'tournament' | 'cash') => Promise<{ byUser: Map<string, DivisionInfo>; fallback: DivisionInfo }>;
   /** Hráči, kteří právě sedí u cash stolů (jejich žetony se do cash výsledku počítají jako výběr). */
   seated?: () => { userId: string; chips: number }[];
+}
+
+/** Divize s číslem ratingu (i provizorním). */
+export interface DivisionInfo {
+  name: string;
+  icon: string;
+  color: string;
+  rating: number | null;
 }
 
 export interface OverviewRow {
@@ -35,7 +43,10 @@ export interface OverviewRow {
   ratingTournament: number | null;
   ratingCash: number | null;
   /** Divize hráče podle ratingu (turnajový, jinak cash); null, když hráč ještě není v žebříčku ratingu. */
-  division: { name: string; icon: string; color: string } | null;
+  division: DivisionInfo | null;
+  /** Divize a rating podle druhu hry, i s provizorním ratingem (hráč bez her má výchozí). */
+  divisionTournament: DivisionInfo | null;
+  divisionCash: DivisionInfo | null;
   /** Počet hand odehraných u cash stolů (bez hand z turnajů). */
   hands: number;
   tournaments: number;
@@ -90,7 +101,12 @@ export class OverviewService {
     const rc = new Map(lc.map((r) => [r.userId, r.rating]));
     const dt = await this.deps.divisions?.('tournament');
     const dc = await this.deps.divisions?.('cash');
-    const divisionOf = (id: string) => dt?.byUser.get(id) ?? dc?.byUser.get(id) ?? dt?.fallback ?? null;
+    const s = this.deps.settings();
+    const tOn = s['rating.enabled'] !== false && s['rating.tournamentsEnabled'] !== false;
+    const cOn = s['rating.enabled'] !== false && s['rating.cashEnabled'] !== false;
+    const divT = (id: string) => (dt ? (dt.byUser.get(id) ?? dt.fallback) : null);
+    const divC = (id: string) => (dc ? (dc.byUser.get(id) ?? dc.fallback) : null);
+    const divisionOf = (id: string) => (tOn ? divT(id) : cOn ? divC(id) : null);
     const rows: OverviewRow[] = users.map((u) => {
       const b = briefs.get(u.id);
       const tn = nets.get(u.id)?.tournament ?? 0;
@@ -105,6 +121,8 @@ export class OverviewService {
         ratingTournament: rt.get(u.id) ?? null,
         ratingCash: rc.get(u.id) ?? null,
         division: divisionOf(u.id),
+        divisionTournament: tOn ? divT(u.id) : null,
+        divisionCash: cOn ? divC(u.id) : null,
         hands: hands.get(u.id) ?? 0,
         tournaments: tour.get(u.id) ?? 0,
         tournamentNet: tn,

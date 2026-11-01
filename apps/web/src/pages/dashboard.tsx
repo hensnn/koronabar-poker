@@ -39,7 +39,7 @@ interface Row {
   ratingTournament?: number | null;
   ratingCash?: number | null;
   rank?: { name: string; icon: string; color: string };
-  division?: { name: string; icon: string; color: string } | null;
+  division?: { name: string; icon: string; color: string; rating: number | null } | null;
 }
 
 interface MyRating {
@@ -297,12 +297,9 @@ export function DashboardPage() {
 }
 
 function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
-  const { values } = useSettings();
-  const xpOn = useFeatures().xp;
-  const tour = values['rating.tournamentsEnabled'] !== false ? row.ratingTournament : null;
-  const cash = values['rating.cashEnabled'] !== false ? row.ratingCash : null;
-  const value = tour ?? cash;
-  const ratingOn = useFeatures().rating && (values['rating.tournamentsEnabled'] !== false || values['rating.cashEnabled'] !== false);
+  const features = useFeatures();
+  const xpOn = features.xp;
+  const ratingOn = features.ratingTournament || features.ratingCash;
   const shownDivision = ratingOn ? row.division : null;
   return (
     <li
@@ -321,7 +318,7 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
         {shownDivision && (
           <span className={`whitespace-nowrap text-sm ${rankColorClass(shownDivision.color)}`} title={shownDivision.name}>
             <span aria-hidden>{shownDivision.icon}</span> <span className="hidden sm:inline">{shownDivision.name}</span>
-            {value != null && <span className="ml-1 font-mono text-muted">{Math.round(value)}</span>}
+            {shownDivision.rating != null && <span className="ml-1 font-mono text-muted">{shownDivision.rating}</span>}
           </span>
         )}
       </span>
@@ -332,9 +329,9 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
 
 /** Divize a rating hráče v kartě Moje konto: turnaje a cash zvlášť, s bodovým rozdílem do další divize. */
 function RatingLines({ r }: { r: { tournament: MyRating; cash: MyRating } }) {
-  const { values } = useSettings();
+  const features = useFeatures();
   // Druh hry s vypnutým ratingem (Nastavení → Rating) se v Lobby neukazuje.
-  const lines = ([['tournament', r.tournament], ['cash', r.cash]] as const).filter(([scope]) => values[scope === 'cash' ? 'rating.cashEnabled' : 'rating.tournamentsEnabled'] !== false);
+  const lines = ([['tournament', r.tournament], ['cash', r.cash]] as const).filter(([scope]) => (scope === 'cash' ? features.ratingCash : features.ratingTournament));
   if (lines.length === 0) return null;
   return (
     <div className="flex flex-col gap-1 rounded-md border border-line px-3 py-2">

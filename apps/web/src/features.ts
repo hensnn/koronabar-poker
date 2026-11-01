@@ -11,6 +11,9 @@ export interface Features {
   shop: boolean;
   xp: boolean;
   rating: boolean;
+  /** Rating v turnajích / v cash game (vyžaduje zapnutý rating). */
+  ratingTournament: boolean;
+  ratingCash: boolean;
   bets: boolean;
   headBounty: boolean;
   evenings: boolean;
@@ -30,6 +33,8 @@ export function featuresOf(v: Values): Features {
     shop: on(v, 'cosmetics.enabled') && on(v, 'cosmetics.shopEnabled'),
     xp: on(v, 'xp.enabled'),
     rating: on(v, 'rating.enabled'),
+    ratingTournament: on(v, 'rating.enabled') && on(v, 'rating.tournamentsEnabled'),
+    ratingCash: on(v, 'rating.enabled') && on(v, 'rating.cashEnabled'),
     bets: on(v, 'bets.enabled'),
     headBounty: on(v, 'headBounty.enabled'),
     evenings: on(v, 'evening.enabled'),

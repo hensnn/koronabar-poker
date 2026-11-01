@@ -12,6 +12,8 @@ const SWITCH: Record<keyof Features, string[]> = {
   shop: ['cosmetics.enabled', 'cosmetics.shopEnabled'],
   xp: ['xp.enabled'],
   rating: ['rating.enabled'],
+  ratingTournament: ['rating.tournamentsEnabled'],
+  ratingCash: ['rating.cashEnabled'],
   bets: ['bets.enabled'],
   headBounty: ['headBounty.enabled'],
   evenings: ['evening.enabled'],
@@ -20,6 +22,9 @@ const SWITCH: Record<keyof Features, string[]> = {
   limits: ['limits.enabled'],
   assistant: ['assistant.enabled'],
 };
+
+/** Funkce, které se vypnou i s nadřazenou (rating po vypnutí celého ratingu). */
+const ALSO_OFF: Partial<Record<string, string[]>> = { 'rating.enabled': ['ratingTournament', 'ratingCash'] };
 
 describe('vypínatelné funkce', () => {
   it('všechny klíče, které funkce vypínají, existují v nastavení', () => {
@@ -37,7 +42,7 @@ describe('vypínatelné funkce', () => {
       it(`${key}=false vypne „${name}“ a nic jiného`, () => {
         const f = featuresOf({ ...defaults, [key]: false });
         expect(f[name]).toBe(false);
-        for (const [other, on] of Object.entries(f)) if (other !== name && other !== 'liveCash') expect(on, other).toBe(true);
+        for (const [other, on] of Object.entries(f)) if (other !== name && other !== 'liveCash' && !ALSO_OFF[key]?.includes(other)) expect(on, other).toBe(true);
       });
     }
   }

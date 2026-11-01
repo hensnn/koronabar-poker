@@ -98,6 +98,7 @@ const cumulate = (rows: { at: number; v: number }[]): Pt[] => {
 
 /** Jak se mi daří: zůstatek, výsledky turnajů a cash, XP, rating a aktivita v čase (za zvolené období). */
 function Progress() {
+  const features = useFeatures();
   const [tl, setTl] = useState<Timeline | null>(null);
   const [range, setRange] = useState<(typeof RANGES)[number]['id']>('90');
   const [error, setError] = useState('');
@@ -157,7 +158,7 @@ function Progress() {
         {card(t('charts.tourPlayed'), String(tours.length))}
         {card(t('charts.handsPlayed'), String(hands))}
         {card(t('charts.bestTour'), best ? `${signed(best.net)} (${best.place}./${best.field})` : '–', best ? tone(best.net) : 'muted')}
-        {card(t('charts.xpGained'), signed((xp[xp.length - 1]?.[1] ?? 0) - (xp[0]?.[1] ?? 0)))}
+        {features.xp && card(t('charts.xpGained'), signed((xp[xp.length - 1]?.[1] ?? 0) - (xp[0]?.[1] ?? 0)))}
       </div>
       <Card title={t('charts.earn')}>
         <LineChart points={earnCum} label={t('charts.earnHelp')} className="text-success" signed />
@@ -175,19 +176,23 @@ function Progress() {
           <LineChart points={cashCum} label={t('charts.cashProfitHelp')} className="text-accent" signed />
           <BarChart bars={cash.map((x) => ({ x: x.day, v: x.net, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${signed(x.net)} (${x.hands} ${t('charts.hands')})` }))} label={t('charts.perDay')} />
         </Card>
-        <Card title={t('charts.xp')}>
-          <LineChart points={xp} label={t('charts.xpHelp')} className="text-secondary" />
-        </Card>
+        {features.xp && (
+          <Card title={t('charts.xp')}>
+            <LineChart points={xp} label={t('charts.xpHelp')} className="text-secondary" />
+          </Card>
+        )}
+        {(features.ratingTournament || features.ratingCash) && (
         <Card title={t('charts.rating')}>
           {tl.rating.visible ? (
             <div className="flex flex-col gap-2">
-              <LineChart points={within(tl.rating.tournament, (p) => p[0])} label={t('charts.ratingTournament')} className="text-primary" />
-              <LineChart points={within(tl.rating.cash, (p) => p[0])} label={t('charts.ratingCash')} className="text-accent" />
+              {features.ratingTournament && <LineChart points={within(tl.rating.tournament, (p) => p[0])} label={t('charts.ratingTournament')} className="text-primary" />}
+              {features.ratingCash && <LineChart points={within(tl.rating.cash, (p) => p[0])} label={t('charts.ratingCash')} className="text-accent" />}
             </div>
           ) : (
             <p className="text-sm text-muted">{t('charts.ratingHidden')}</p>
           )}
         </Card>
+        )}
       </div>
       <Card title={t('charts.activity')}>
         <BarChart bars={days.map((x) => ({ x: x.day, v: x.hands, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${x.hands} ${t('charts.hands')}` }))} label={t('charts.activityHelp')} />
@@ -254,6 +259,8 @@ interface OverviewRow {
   rank: { name: string; icon: string; color: string };
   ratingTournament: number | null;
   ratingCash: number | null;
+  divisionTournament?: { rating: number | null } | null;
+  divisionCash?: { rating: number | null } | null;
   hands: number;
   tournaments: number;
   tournamentNet: number;
@@ -286,9 +293,8 @@ function PlayersOverview({ meId }: { meId: string }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'total', dir: -1 });
   const pref = useMemo(loadPref, []);
   const features = useFeatures();
-  const { values } = useSettings();
-  const tournamentRating = features.rating && values['rating.tournamentsEnabled'] !== false;
-  const cashRating = features.rating && values['rating.cashEnabled'] !== false;
+  const tournamentRating = features.ratingTournament;
+  const cashRating = features.ratingCash;
   const [picked, setPicked] = useState<string[] | null>(Array.isArray(pref.picked) ? pref.picked : null);
   const [metric, setMetric] = useState<'profit' | 'balance' | 'xp'>(pref.metric === 'xp' && !features.xp ? 'profit' : (pref.metric ?? 'profit'));
   const [series, setSeries] = useState<Series[]>([]);
@@ -377,8 +383,8 @@ function PlayersOverview({ meId }: { meId: string }) {
                 <span className="font-mono">{r.level}</span> {r.rank.name}
               </Td>
             )}
-            {tournamentRating && <Td className="font-mono">{r.ratingTournament ?? '–'}</Td>}
-            {cashRating && <Td className="font-mono">{r.ratingCash ?? '–'}</Td>}
+            {tournamentRating && <Td className="font-mono">{r.ratingTournament ?? (r.divisionTournament?.rating != null ? <span className="text-muted" title={t('overview.provisional')}>{r.divisionTournament.rating}</span> : '–')}</Td>}
+            {cashRating && <Td className="font-mono">{r.ratingCash ?? (r.divisionCash?.rating != null ? <span className="text-muted" title={t('overview.provisional')}>{r.divisionCash.rating}</span> : '–')}</Td>}
             <Td className="font-mono">{r.hands}</Td>
             <Td className="font-mono">{r.tournaments}</Td>
           </tr>

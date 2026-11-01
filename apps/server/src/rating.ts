@@ -67,6 +67,14 @@ export interface RatingDto {
   toNext: { name: string; icon: string; missing: number } | null;
 }
 
+/** Divize hráče s číslem ratingu (null, když správce čísla skrývá). */
+export interface DivisionInfo {
+  name: string;
+  icon: string;
+  color: string;
+  rating: number | null;
+}
+
 const DAY = 86_400_000;
 const num = (s: SettingValues, k: string) => Number(s[k] ?? 0);
 
@@ -590,15 +598,16 @@ export class RatingService {
   }
 
   /** Divize všech hráčů včetně provizorních; kdo ještě nehrál, je v divizi podle výchozího ratingu. */
-  async divisionsOfAll(scope: Scope): Promise<{ byUser: Map<string, { name: string; icon: string; color: string }>; fallback: { name: string; icon: string; color: string } }> {
+  async divisionsOfAll(scope: Scope): Promise<{ byUser: Map<string, DivisionInfo>; fallback: DivisionInfo }> {
+    const show = !!this.s['rating.showNumbers'];
     const at = this.deps.now();
     const p = this.params();
-    const pick = (display: number) => {
+    const pick = (display: number): DivisionInfo => {
       const d = divisionFor(display, this.divText());
-      return { name: d.name, icon: d.icon, color: d.color };
+      return { name: d.name, icon: d.icon, color: d.color, rating: show ? Math.round(display) : null };
     };
     const rows = await this.db.select().from(schema.ratingState).where(eq(schema.ratingState.scope, scope));
-    const byUser = new Map<string, { name: string; icon: string; color: string }>();
+    const byUser = new Map<string, DivisionInfo>();
     for (const r of rows) {
       const days = r.lastPlayedAt ? Math.max(0, (at - r.lastPlayedAt.getTime()) / DAY) : 0;
       const skill = inactiveSkill({ mu: r.mu, sigma: r.sigma }, days, num(this.s, 'rating.inactivityGraceDays'), num(this.s, 'rating.inactivitySigmaGrowthHundredths') / 100, p);
