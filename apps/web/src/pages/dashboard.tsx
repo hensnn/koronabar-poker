@@ -309,7 +309,7 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
       className={`flex items-center gap-3 rounded-md border px-3 py-1 ${me ? 'border-primary bg-raised' : 'border-line'}`}
     >
       <span className="w-6 text-right font-mono text-muted">{place}.</span>
-      <strong className="flex-1 truncate">
+      <strong className="min-w-0 flex-1 basis-0 truncate">
         {xpOn && row.rank?.icon && (
           <span className={`mr-1 ${rankColorClass(row.rank.color)}`} title={row.rank.name}>
             {row.rank.icon}
@@ -317,13 +317,15 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
         )}
         {row.nickname}
       </strong>
-      {shownDivision && (
-        <span className={`whitespace-nowrap text-sm ${rankColorClass(shownDivision.color)}`} title={shownDivision.name}>
-          <span aria-hidden>{shownDivision.icon}</span> <span className="hidden sm:inline">{shownDivision.name}</span>
-          {value != null && <span className="ml-1 font-mono text-muted">{Math.round(value)}</span>}
-        </span>
-      )}
-      <span className={`font-mono ${tone(row.total)}`}>{signed(row.total)}</span>
+      <span className="min-w-0 flex-1 basis-0 truncate text-center">
+        {shownDivision && (
+          <span className={`whitespace-nowrap text-sm ${rankColorClass(shownDivision.color)}`} title={shownDivision.name}>
+            <span aria-hidden>{shownDivision.icon}</span> <span className="hidden sm:inline">{shownDivision.name}</span>
+            {value != null && <span className="ml-1 font-mono text-muted">{Math.round(value)}</span>}
+          </span>
+        )}
+      </span>
+      <span className={`w-20 text-right font-mono ${tone(row.total)}`}>{signed(row.total)}</span>
     </li>
   );
 }
