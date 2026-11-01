@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import { DEFAULT_TZ, startOfMonth, yearBounds, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
@@ -29,8 +29,23 @@ export interface HouseReport {
   /** Součty výdajů podle kategorie za měsíc a za rok. */
   month: { total: number; byCategory: Record<string, number> };
   year: { total: number; byCategory: Record<string, number> };
-  /** Příjmy domu za měsíc a za rok (rake, poplatky, odvody, strženo, vklady) bez výdajů. */
+  /** Hrubé příjmy domu za měsíc a za rok (součet všech kladných pohybů). */
   income: { month: number; year: number };
+  /** Úplná návaznost zůstatku: začátek období + příjmy − vrácení a doplatky − zapsané výdaje = konec období. */
+  flow: { month: HouseFlow; year: HouseFlow };
+}
+
+export interface HouseFlow {
+  /** Zůstatek domu na začátku období. */
+  opening: number;
+  /** Příjmy podle druhu pohybu v účetní knize (rake, poplatky, strženo, prodej v obchodě, vklady…). */
+  income: { kind: string; amount: number }[];
+  /** Ostatní odchody domu, které nejsou zapsaným výdajem (vrácené poplatky, doplatky garancí, storna…), podle druhu. */
+  outflows: { kind: string; amount: number }[];
+  /** Zapsané výdaje (provoz, ceny…): odchody z účtu domu, ke kterým je záznam výdaje. */
+  expenses: number;
+  /** Zůstatek domu na konci období (do dneška). */
+  closing: number;
 }
 
 interface Deps {
@@ -90,30 +105,61 @@ export class HouseExpenseService {
     const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: DEFAULT_TZ, month: 'numeric' }).format(new Date(now))) - 1;
     const yb = yearBounds(year, DEFAULT_TZ);
     const monthStart = new Date(startOfMonth(year, month, DEFAULT_TZ));
+    const monthEnd = new Date(month >= 11 ? yb.to : startOfMonth(year, month + 1, DEFAULT_TZ));
+    const houseNow = this.deps.ledger.balance(accounts.house());
     const he = schema.houseExpenses;
-    const sums = async (from: Date) => {
-      const rows = await db.select({ category: he.category, total: sql<string>`coalesce(sum(${he.amount}), 0)` }).from(he).where(and(gte(he.at, from), lt(he.at, new Date(yb.to)))).groupBy(he.category);
+    const sums = async (from: Date, to: Date) => {
+      const rows = await db.select({ category: he.category, total: sql<string>`coalesce(sum(${he.amount}), 0)` }).from(he).where(and(gte(he.at, from), lt(he.at, to))).groupBy(he.category);
       const byCategory = Object.fromEntries(rows.map((r) => [r.category, Number(r.total)]));
       return { total: Object.values(byCategory).reduce((a, b) => a + b, 0), byCategory };
     };
-    const incomeSince = async (from: Date) => {
-      const le = schema.ledgerEntries;
-      const lt_ = schema.ledgerTransactions;
-      const [r] = await db
-        .select({ s: sql<string>`coalesce(sum(${le.amount}), 0)` })
+    const le = schema.ledgerEntries;
+    const lt_ = schema.ledgerTransactions;
+    /**
+     * Návaznost zůstatku domu v období: všechny pohyby na účtu domu podle druhu (kladné = příjmy, záporné = odchody),
+     * odchody se zapsaným výdajem (`house_expenses.tx_id`) zvlášť jako výdaje. Začátek období = dnešní zůstatek − pohyby od jeho začátku.
+     */
+    const flowOf = async (from: Date, to: Date): Promise<{ flow: HouseFlow; gross: number }> => {
+      const moves = await db
+        .select({ txId: lt_.id, kind: lt_.kind, at: lt_.at, amount: le.amount })
         .from(le)
         .innerJoin(lt_, eq(lt_.id, le.transactionId))
-        .where(and(eq(le.account, accounts.house()), sql`${le.amount} > 0`, gte(lt_.at, from), lt(lt_.at, new Date(yb.to))));
-      return Number(r?.s ?? 0);
+        .where(and(eq(le.account, accounts.house()), gte(lt_.at, from)));
+      const spentTx = new Set(
+        (await db.select({ tx: he.txId }).from(he).where(gte(he.at, from))).map((x) => x.tx).filter((x): x is number => x != null),
+      );
+      const inc = new Map<string, number>();
+      const out = new Map<string, number>();
+      let expenses = 0;
+      let afterFrom = 0;
+      let inPeriod = 0;
+      let gross = 0;
+      for (const m of moves) {
+        const amount = Number(m.amount);
+        afterFrom += amount;
+        if (m.at >= to) continue;
+        inPeriod += amount;
+        if (amount > 0) {
+          gross += amount;
+          inc.set(m.kind, (inc.get(m.kind) ?? 0) + amount);
+        } else if (spentTx.has(m.txId)) expenses += -amount;
+        else out.set(m.kind, (out.get(m.kind) ?? 0) - amount);
+      }
+      const opening = houseNow - afterFrom;
+      const list = (m: Map<string, number>) => [...m].map(([kind, amount]) => ({ kind, amount })).sort((a, b) => b.amount - a.amount);
+      return { flow: { opening, income: list(inc), outflows: list(out), expenses, closing: opening + inPeriod }, gross };
     };
+    const monthFlow = await flowOf(monthStart, monthEnd);
+    const yearFlow = await flowOf(new Date(yb.from), new Date(yb.to));
     const rows = await db.select().from(he).orderBy(desc(he.at), desc(he.id)).limit(100);
     return {
       house: this.deps.ledger.balance(accounts.house()),
       categories: this.categories(),
       expenses: rows.map((r) => ({ id: r.id, category: r.category, amount: Number(r.amount), note: r.note, at: r.at.getTime(), createdBy: r.createdBy })),
-      month: await sums(monthStart),
-      year: await sums(new Date(yb.from)),
-      income: { month: await incomeSince(monthStart), year: await incomeSince(new Date(yb.from)) },
+      month: await sums(monthStart, monthEnd),
+      year: await sums(new Date(yb.from), new Date(yb.to)),
+      income: { month: monthFlow.gross, year: yearFlow.gross },
+      flow: { month: monthFlow.flow, year: yearFlow.flow },
     };
   }
 }

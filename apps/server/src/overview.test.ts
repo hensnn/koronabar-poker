@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
+import { accounts } from '@kb/ledger';
 import { buildServer } from './app.js';
 import { schema } from './db/index.js';
 
@@ -96,6 +97,20 @@ describe('účet domu: vklad a výdaje (HTTP)', () => {
     expect(r.year.total).toBe(1500);
     expect(r.income.month).toBeGreaterThanOrEqual(5000);
     expect(r.expenses.map((e) => e.note)).toEqual(expect.arrayContaining(['Server za měsíc', 'Cena pro vítěze']));
+
+    // odchod domu mimo zapsané výdaje (vrácený poplatek) musí být v přehledu vidět: začátek + příjmy − odchody − výdaje = konec = zůstatek
+    const some = s.server.perms.mainAdminIds()[0]!;
+    s.server.ledger.post({ kind: 'turnaj_refund', idempotencyKey: 'house-refund-1', entries: [{ account: accounts.house(), amount: -40 }, { account: accounts.wallet(some), amount: 40 }] });
+    await s.server.journal.flush();
+    const full = (await report()) as unknown as { house: number; flow: Record<'month' | 'year', { opening: number; income: { amount: number }[]; outflows: { kind: string; amount: number }[]; expenses: number; closing: number }> };
+    for (const f of [full.flow.month, full.flow.year]) {
+      expect(f.opening + f.income.reduce((n, x) => n + x.amount, 0) - f.outflows.reduce((n, x) => n + x.amount, 0) - f.expenses).toBe(f.closing);
+      expect(f.closing).toBe(full.house);
+      expect(f.expenses).toBe(1500);
+      expect(f.outflows).toEqual([{ kind: 'turnaj_refund', amount: 40 }]);
+    }
+    expect(full.house).toBe(before + 5000 - 1500 - 40);
+    await s.server.ledger.post({ kind: 'turnaj_refund', idempotencyKey: 'house-refund-back', entries: [{ account: accounts.wallet(some), amount: -40 }, { account: accounts.house(), amount: 40 }] });
 
     // neznámá kategorie, nulová částka i výdaj nad zůstatek domu se odmítnou
     expect((await post('/api/admin/house/expense', { category: 'neznama', amount: 10, note: 'x' })).statusCode).toBe(400);
