@@ -48,7 +48,7 @@ export const PRESET_ROLES: PresetRole[] = [
       { key: 'mena.dobit', limits: { maxPerOperation: 10000, maxPerDay: 50000 } },
       { key: 'mena.strhnout', limits: { maxPerOperation: 10000, maxPerDay: 50000 } },
       { key: 'mena.vyridit_zadost', limits: { maxPerOperation: 10000 } },
-      ...keys('mena.zobrazit_knihu', 'mena.zobrazit_dum', 'mena.vyuctovani', 'schvalovani.rozhodovat'),
+      ...keys('mena.zobrazit_knihu', 'mena.zobrazit_dum', 'mena.vyuctovani', 'mena.stornovat', 'schvalovani.rozhodovat'),
       { key: 'mena.upravit_knihu', needsApproval: true },
     ],
   },

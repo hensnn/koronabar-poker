@@ -573,15 +573,14 @@ export class HeadBountyService {
   }
 
   private canCancel(userId: string): boolean {
-    const d = this.deps.perms.can(userId, 'mena.upravit_knihu');
-    return d.allowed && !d.needsApproval;
+    return this.deps.perms.can(userId, 'mena.stornovat').allowed;
   }
 
   /**
    * Storno odměny na hlavu správcem (např. omylem vypsaná a po dohodě hráčů zrušená). Jedna transakce `head_bounty_cancel`
    * vyruší původní pohyby: vyplacená odměna se odebere tomu, kdo ji dostal, a vrátí zadavateli; propadlá se vrátí z domu;
    * čekající se vrátí z úschovy. Součty ve statistikách, výsledcích a večerech pak jsou přesně nulové (pohyb je v knize vidět).
-   * Vyžaduje oprávnění „Ruční úprava knihy“ a důvod; příjemce musí mít částku na peněžence (jinak se storno odmítne).
+   * Vyžaduje oprávnění „Stornovat pohyby“ (mena.stornovat) a důvod; příjemce musí mít částku na peněžence (jinak se storno odmítne).
    */
   cancel(actorId: string, bountyId: string, tournamentId: string, reason: string, meta: Meta = {}): Promise<void> {
     return this.serial.run(async () => {

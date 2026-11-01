@@ -48,6 +48,7 @@ export const csPermissions: Record<string, string> = {
   ...perm('mena.zobrazit_dum', 'Zobrazit účty domu a fondů', 'Vidět zůstatky domu, fondů a jackpotů.'),
   ...perm('mena.dobit', 'Dobíjet měnu', 'Přidat hráči měnu (v rámci limitů).'),
   ...perm('mena.strhnout', 'Strhávat měnu', 'Odebrat hráči měnu (v rámci limitů).'),
+  ...perm('mena.stornovat', 'Stornovat pohyby', 'Stornovat omylem provedený pohyb (zatím odměnu na hlavu) protipohybem v účetní knize s povinným důvodem. Nic se nemaže, v knize zůstane záznam o stornu.'),
   ...perm('mena.upravit_knihu', 'Ruční úprava knihy', 'Zapsat ruční opravu do účetní knihy s důvodem.'),
   ...perm('mena.vyridit_zadost', 'Vyřizovat žádosti o dobití', 'Schvalovat a odmítat žádosti hráčů o měnu.'),
   ...perm('mena.vyuctovani', 'Vyúčtování', 'Vidět vyúčtování her, večerů a sezón.'),

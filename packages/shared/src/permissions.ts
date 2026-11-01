@@ -49,6 +49,7 @@ export const PERMISSIONS: PermissionDef[] = [
   p('mena.dobit', 'mena', { limits: ['maxPerOperation', 'maxPerDay'], approvalCapable: true, sensitive: true }),
   p('mena.strhnout', 'mena', { limits: ['maxPerOperation', 'maxPerDay'], approvalCapable: true, sensitive: true }),
   p('mena.upravit_knihu', 'mena', { approvalCapable: true, sensitive: true }),
+  p('mena.stornovat', 'mena', { sensitive: true }),
   p('mena.vyridit_zadost', 'mena', { limits: ['maxPerOperation'] }),
   p('mena.vyuctovani', 'mena'),
   p('zadost.vytvorit', 'mena'),
