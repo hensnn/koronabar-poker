@@ -116,6 +116,16 @@ describe('vedlejší pohyby (odměny na hlavu, sázky) se vždy započítají k 
     for (const p of evSum.players) expect(Object.values(p.parts).reduce((n, v) => n + v, 0)).toBe(p.net);
     expect(evSum.players.find((p) => p.userId === a)!.parts).toMatchObject({ headBounty: 50, buyIn: -100 });
     expect(evSum.players.find((p) => p.userId === fan)!.parts).toEqual({ bets: 50 });
+    // CSV večera má stejné sloupce a pořadí jako tabulka: složky, vyřazení, Profit (bez bodů a XP)
+    const csv = (await s.server.evenings.csv(org, ev.id)).trim().split(String.fromCharCode(10)).map((l) => l.trim());
+    const head = csv[0]!.split(';').map((x) => x.replace(/^"|"$/g, ''));
+    expect(head[0]).toBe('Hráč');
+    expect(head[head.length - 1]).toBe('Profit');
+    expect(head.indexOf('Buy-in')).toBeLessThan(head.indexOf('Výhra'));
+    expect(head.indexOf('Výhra')).toBeLessThan(head.indexOf('Odměny na hlavu'));
+    expect(head.indexOf('Odměny na hlavu')).toBeLessThan(head.indexOf('Sázky'));
+    expect(head).not.toContain('XP');
+    expect(head).not.toContain('Body');
     const game = period.games.find((g) => g.id === id)!;
     expect(game.parts[a]).toMatchObject({ headBounty: 50 });
     expect(period.players.reduce((n, p) => n + p.total, 0) + (period.house ?? 0)).toBe(0);

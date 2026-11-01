@@ -121,6 +121,9 @@ const CASH_SEEN_MS = 60_000;
 
 type Row = typeof schema.evenings.$inferSelect;
 
+/** Pořadí složek ve všech tabulkách a exportech večera a her. */
+export const EVENING_PARTS = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'headBounty', 'bets', 'refund', 'other'] as const;
+
 /** Pohyby hráče podle druhu v knize slité do složek tabulky (žetony u stolu u otevřeného večera se počítají jako výběr). */
 function partsOf(breakdown: Record<string, number>): Record<string, number> {
   const out: Record<string, number> = {};
@@ -698,8 +701,11 @@ export class EveningService {
   async csv(viewerId: string, id: string): Promise<string> {
     const v = await this.view(id, viewerId);
     const esc = (x: string | number) => `"${String(x).replace(/"/g, '""')}"`;
-    const rows = [[t('evening.csv.player'), t('evening.csv.net'), t('evening.csv.cash'), t('evening.csv.tournament'), t('evening.csv.side'), t('evening.csv.knockouts'), t('evening.csv.xp'), t('evening.csv.score')].map(esc).join(';')];
-    for (const p of v.summary.players) rows.push([p.nickname, p.net, p.cash, p.tournament, p.side ?? 0, p.knockouts, p.xp, p.score].map(esc).join(';'));
+    // Stejné sloupce a pořadí jako tabulka na stránce večera: složky (cash, buy-in, rebuy, add-on, výhra, bounty, hlavy, sázky…), vyřazení, profit.
+    const parts = EVENING_PARTS.filter((k) => v.summary.players.some((p) => (p.parts?.[k] ?? 0) !== 0));
+    const players = [...v.summary.players].sort((a, b) => b.net - a.net || a.nickname.localeCompare(b.nickname, 'cs'));
+    const rows = [[t('evening.csv.player'), ...parts.map((k) => t(`settlement.part.${k}`)), t('evening.csv.knockoutsCol'), t('evening.csv.net')].map(esc).join(';')];
+    for (const p of players) rows.push([p.nickname, ...parts.map((k) => p.parts?.[k] ?? 0), p.knockouts, p.net].map(esc).join(';'));
     rows.push('');
     rows.push([t('evening.csv.from'), t('evening.csv.to'), t('evening.csv.amount')].map(esc).join(';'));
     for (const tr of v.summary.transfers) rows.push([v.summary.names[tr.from] ?? tr.from, v.summary.names[tr.to] ?? tr.to, tr.amount].map(esc).join(';'));

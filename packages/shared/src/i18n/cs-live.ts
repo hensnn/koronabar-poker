@@ -68,7 +68,7 @@ export const csLive: Record<string, string> = {
   'liveCash.colBuyIns': 'Vložil',
   'liveCash.colFee': 'Poplatek',
   'liveCash.colCashOut': 'Vybral',
-  'liveCash.colNet': 'Výsledek',
+  'liveCash.colNet': 'Profit',
   'liveCash.seated': 'sedí',
   'liveCash.left': 'odešel',
   'liveCash.buyIn': 'Buy-in / top-up',
