@@ -3,6 +3,7 @@ import { minimalTransfers, type Transfer } from '@kb/ledger';
 import { formatLocal, t, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
+import { SIDE_KINDS, SIDE_SET } from './side-results.js';
 
 export type EveningErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'DISABLED' | 'CLOSED' | 'GAME_TAKEN' | 'OPEN_EXISTS';
 
@@ -111,9 +112,6 @@ interface Deps {
 }
 
 type Meta = { ip?: string | null };
-/** Sázky a odměny na hlavu: patří k turnajům, ale nejsou jejich vstupy ani výplaty. */
-const SIDE_KINDS = ['bet_stake', 'bet_payout', 'bet_refund', 'bet_fee', 'head_bounty_post', 'head_bounty_payout', 'head_bounty_return', 'head_bounty_house'];
-const SIDE_SET = new Set(SIDE_KINDS);
 const WALLET_KINDS = ['cash_buyin', 'cash_topup', 'cash_cashout', 'cash_return', 'bounty', 'jackpot_payout', 'time_charge', ...SIDE_KINDS];
 const BUYIN_KINDS = new Set(['cash_buyin', 'cash_topup', 'turnaj_buyin', 'turnaj_rebuy', 'turnaj_addon']);
 const CASH_SEEN_MS = 60_000;

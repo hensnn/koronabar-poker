@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { analyzeHand, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { HandRecordData, TableEvent } from '@kb/game-core';
+import { sideNets, sideTotals } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 
 export class StatsError extends Error {
@@ -36,7 +37,8 @@ export interface PlayerStats {
   cashNet: number;
   biggestPot: number;
   bestHand: { key: string } | null;
-  tournaments: { games: number; wins: number; itm: number; avgPlace: number | null; net: number; bounty: number; rebuys: number };
+  /** `net` už obsahuje vedlejší pohyby (`side`: sázky a odměny na hlavu), aby se vše započítalo ke hře. */
+  tournaments: { games: number; wins: number; itm: number; avgPlace: number | null; net: number; bounty: number; rebuys: number; side: number };
 }
 
 export interface LeaderRow {
@@ -50,7 +52,10 @@ export interface LeaderRow {
   avgPlace: number | null;
   rebuys: number;
   bounty: number;
+  /** Obsahuje vedlejší pohyby (`side`). */
   tournamentNet: number;
+  /** Sázky a odměny na hlavu v turnajích (součást `tournamentNet`). */
+  side: number;
   total: number;
 }
 
@@ -308,6 +313,7 @@ export class StatsService {
       })
       .from(gr)
       .where(and(eq(gr.userId, userId), eq(gr.kind, 'tournament'), this.inRange(gr.finishedAt, range)));
+    const side = [...sideTotals(await sideNets(this.deps.db, { userIds: [userId], from: range.from, to: range.to })).values()].reduce((n, v) => n + v, 0);
     const hands = Number(a?.hands ?? 0);
     const aggressive = Number(a?.aggressive ?? 0);
     const calls = Number(a?.calls ?? 0);
@@ -327,9 +333,10 @@ export class StatsService {
         wins: Number(tr?.wins ?? 0),
         itm: Number(tr?.itm ?? 0),
         avgPlace: tr?.avg == null ? null : Math.round(Number(tr.avg) * 10) / 10,
-        net: Number(tr?.net ?? 0),
+        net: Number(tr?.net ?? 0) + side,
         bounty: Number(tr?.bounty ?? 0),
         rebuys: Number(tr?.rebuys ?? 0),
+        side,
       },
     };
   }
@@ -368,8 +375,9 @@ export class StatsService {
       .where(and(eq(gr.kind, 'live_cash'), this.inRange(gr.finishedAt, range)))
       .groupBy(gr.userId);
     const liveNet = new Map(liveRows.map((r) => [r.userId, Number(r.net)]));
+    const sideNet = sideTotals(await sideNets(this.deps.db, { from: range.from, to: range.to }));
     const minHands = Number(this.deps.settings()['stats.leaderboardMinHands'] ?? 0);
-    const ids = [...new Set([...cash.map((c) => c.userId), ...tour.map((t) => t.userId), ...liveNet.keys()])];
+    const ids = [...new Set([...cash.map((c) => c.userId), ...tour.map((t) => t.userId), ...liveNet.keys(), ...sideNet.keys()])];
     if (ids.length === 0) return [];
     const nicks = new Map((await this.deps.db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, ids))).map((u) => [u.id, u.nickname]));
     const rows: LeaderRow[] = [];
@@ -377,9 +385,10 @@ export class StatsService {
       const c = cash.find((x) => x.userId === id);
       const t = tour.find((x) => x.userId === id);
       const cashHands = Number(c?.hands ?? 0);
-      if (cashHands < minHands && !t && !liveNet.has(id)) continue;
+      if (cashHands < minHands && !t && !liveNet.has(id) && !sideNet.has(id)) continue;
       const cashNet = (cashHands >= minHands ? Number(c?.net ?? 0) : 0) + (liveNet.get(id) ?? 0);
-      const tournamentNet = Number(t?.net ?? 0);
+      const side = sideNet.get(id) ?? 0;
+      const tournamentNet = Number(t?.net ?? 0) + side;
       rows.push({
         userId: id,
         nickname: nicks.get(id) ?? '?',
@@ -392,6 +401,7 @@ export class StatsService {
         rebuys: Number(t?.rebuys ?? 0),
         bounty: Number(t?.bounty ?? 0),
         tournamentNet,
+        side,
         total: cashNet + tournamentNet,
       });
     }

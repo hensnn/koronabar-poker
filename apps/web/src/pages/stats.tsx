@@ -28,7 +28,7 @@ interface PlayerStats {
   cashNet: number;
   biggestPot: number;
   bestHand: { key: string } | null;
-  tournaments: { games: number; wins: number; itm: number; avgPlace: number | null; net: number; bounty: number; rebuys: number };
+  tournaments: { games: number; wins: number; itm: number; avgPlace: number | null; net: number; bounty: number; rebuys: number; side?: number };
 }
 interface LeaderRow {
   userId: string;
@@ -237,6 +237,7 @@ function StatsView({ userId, season }: { userId: string; season: string }) {
           {cell(t('stats.rebuys'), s.tournaments.rebuys)}
           {cell(t('stats.bounty'), s.tournaments.bounty)}
           {cell(t('stats.tournamentNet'), signed(s.tournaments.net))}
+          {(s.tournaments.side ?? 0) !== 0 && cell(t('stats.sideNet'), signed(s.tournaments.side ?? 0))}
         </div>
       </Card>
     </div>

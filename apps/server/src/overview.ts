@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
+import { sideNets, sideTotals } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 import type { BriefDto } from './progress.js';
 import { thin, type Point } from './timeline.js';
@@ -78,11 +79,12 @@ export class OverviewService {
       .groupBy(gr.userId, gr.kind);
     const tour = new Map(tourRows.filter((r) => r.kind === 'tournament').map((r) => [r.userId, { n: Number(r.n), net: Number(r.net) }]));
     const live = new Map(tourRows.filter((r) => r.kind === 'live_cash').map((r) => [r.userId, Number(r.net)]));
+    const side = sideTotals(await sideNets(db));
     const rt = new Map((await this.deps.rating('tournament')).map((r) => [r.userId, r.rating]));
     const rc = new Map((await this.deps.rating('cash')).map((r) => [r.userId, r.rating]));
     const rows: OverviewRow[] = users.map((u) => {
       const b = briefs.get(u.id);
-      const tn = tour.get(u.id)?.net ?? 0;
+      const tn = (tour.get(u.id)?.net ?? 0) + (side.get(u.id) ?? 0);
       const cn = (cash.get(u.id) ?? 0) + (live.get(u.id) ?? 0);
       return {
         userId: u.id,
@@ -142,9 +144,11 @@ export class OverviewService {
         .where(and(inArray(schema.handPlayers.userId, ids), eq(schema.handPlayers.kind, 'cash')))
         .groupBy(schema.handPlayers.userId, day)
         .orderBy(asc(day));
+      const sideRows = await sideNets(db, { userIds: ids });
       for (const id of ids) {
         const events: Point[] = [
           ...games.filter((g) => g.userId === id).map((g) => [g.finishedAt.getTime(), Number(g.payout) + Number(g.bounty) - Number(g.spent)] as Point),
+          ...sideRows.filter((r) => r.userId === id).map((r) => [r.at, r.net] as Point),
           ...cash.filter((c) => c.userId === id).map((c) => [new Date(c.day).getTime(), Number(c.net)] as Point),
         ].sort((a, b) => a[0] - b[0]);
         let sum = 0;

@@ -23,6 +23,7 @@ export interface TournamentSummary {
   /** Odměny na hlavu: získané za vyřazení a ztracené (vypsané a vyplacené jinému). */
   headEarned?: number;
   headLost?: number;
+  betNet?: number;
   profit: number;
 }
 interface Result {
@@ -60,9 +61,10 @@ const part = (count: number, amount: number) => (count > 0 ? `${count}× ${money
 /** Výsledek turnaje s náklady: buy-in, rebuye, add-ony, zaplaceno celkem, výhra, bounty a zisk (výhra + bounty − zaplaceno). */
 export function SummaryTable({ summary, meId }: { summary: TournamentSummary[]; meId?: string }) {
   const hasHead = summary.some((x) => (x.headEarned ?? 0) > 0 || (x.headLost ?? 0) > 0);
+  const hasBets = summary.some((x) => (x.betNet ?? 0) !== 0);
   return (
     <div className="overflow-x-auto">
-      <DataTable head={[t('tournament.placeShort'), t('tournament.player'), t('tournament.resultEntries'), t('tournament.resultRebuys'), t('tournament.resultAddons'), t('tournament.resultSpent'), t('tournament.won'), t('tournament.resultBounty'), ...(hasHead ? [t('tournament.resultHead')] : []), t('tournament.resultProfit')]}>
+      <DataTable head={[t('tournament.placeShort'), t('tournament.player'), t('tournament.resultEntries'), t('tournament.resultRebuys'), t('tournament.resultAddons'), t('tournament.resultSpent'), t('tournament.won'), t('tournament.resultBounty'), ...(hasHead ? [t('tournament.resultHead')] : []), ...(hasBets ? [t('tournament.resultBets')] : []), t('tournament.resultProfit')]}>
         {summary.map((x) => (
           <tr key={x.userId} className={x.userId === meId ? 'bg-raised font-semibold' : ''}>
             <Td className="whitespace-nowrap font-mono">{x.place}.</Td>
@@ -81,6 +83,7 @@ export function SummaryTable({ summary, meId }: { summary: TournamentSummary[]; 
                 {!(x.headEarned ?? 0) && !(x.headLost ?? 0) && '–'}
               </Td>
             )}
+            {hasBets && <Td className={`whitespace-nowrap font-mono ${(x.betNet ?? 0) > 0 ? 'text-success' : (x.betNet ?? 0) < 0 ? 'text-danger' : ''}`}>{(x.betNet ?? 0) !== 0 ? signed(x.betNet!) : '–'}</Td>}
             <Td className={`whitespace-nowrap font-mono ${x.profit > 0 ? 'text-success' : x.profit < 0 ? 'text-danger' : ''}`}>{signed(x.profit)}</Td>
           </tr>
         ))}

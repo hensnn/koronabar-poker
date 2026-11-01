@@ -95,7 +95,7 @@ interface Deps {
   /** Zda je hráč právě připojený (kvůli sit outu neonline hráčů při automatickém startu). */
   isOnline?: (userId: string) => boolean;
   /** Součty odměn na hlavu za turnaj podle hráče (získal / ztratil jako zadavatel); do přehledu výsledků. */
-  headTotals?: (tournamentId: string) => Promise<Map<string, { earned: number; lost: number }>>;
+  headTotals?: (tournamentId: string) => Promise<Map<string, { earned: number; lost: number; bets?: number }>>;
   /** Upozornění registrovaným hráčům (plánované turnaje). */
   notify?: (userIds: string[], notice: TournamentNotice) => void;
 }
@@ -1080,7 +1080,7 @@ export class TournamentManager {
     };
   }
 
-  private archivedView(r: typeof schema.tournaments.$inferSelect, head?: Map<string, { earned: number; lost: number }>): TournamentView {
+  private archivedView(r: typeof schema.tournaments.$inferSelect, head?: Map<string, { earned: number; lost: number; bets?: number }>): TournamentView {
     const st = r.state as TournamentState | null;
     const s = this.deps.settings.resolve([{ scope: 'table', values: (r.settings ?? {}) as Record<string, SettingValue> }]);
     return {
@@ -1315,11 +1315,11 @@ export interface TournamentView {
 }
 
 /** Přehled jednoho hráče po konci turnaje: kolikrát vstoupil, rebuy, add-on (počty i částky včetně poplatků), kolik zaplatil celkem, výhra, bounty, odměny na hlavu (získané a ztracené zadané) a zisk. */
-export function resultSummary(st: Pick<TournamentState, 'payments' | 'players'>, r: { userId: string; name: string; place: number; payout: number; bounty?: number }, head?: { earned: number; lost: number }) {
+export function resultSummary(st: Pick<TournamentState, 'payments' | 'players'>, r: { userId: string; name: string; place: number; payout: number; bounty?: number }, head?: { earned: number; lost: number; bets?: number }) {
   const mine = st.payments.filter((p) => p.userId === r.userId && !p.refunded);
   const count = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon') => mine.filter((p) => p.kind === kind).length;
   const amount = (kind: 'turnaj_buyin' | 'turnaj_rebuy' | 'turnaj_addon') => mine.filter((p) => p.kind === kind).reduce((n, p) => n + p.cost + p.fee, 0);
   const spent = mine.reduce((n, p) => n + p.cost + p.fee, 0);
   const bounty = r.bounty ?? 0;
-  return { userId: r.userId, name: r.name, place: r.place, entries: count('turnaj_buyin'), rebuys: count('turnaj_rebuy'), addons: count('turnaj_addon'), entryAmount: amount('turnaj_buyin'), rebuyAmount: amount('turnaj_rebuy'), addonAmount: amount('turnaj_addon'), spent, payout: r.payout, bounty, headEarned: head?.earned ?? 0, headLost: head?.lost ?? 0, profit: r.payout + bounty + (head?.earned ?? 0) - (head?.lost ?? 0) - spent };
+  return { userId: r.userId, name: r.name, place: r.place, entries: count('turnaj_buyin'), rebuys: count('turnaj_rebuy'), addons: count('turnaj_addon'), entryAmount: amount('turnaj_buyin'), rebuyAmount: amount('turnaj_rebuy'), addonAmount: amount('turnaj_addon'), spent, payout: r.payout, bounty, headEarned: head?.earned ?? 0, headLost: head?.lost ?? 0, betNet: head?.bets ?? 0, profit: r.payout + bounty + (head?.earned ?? 0) - (head?.lost ?? 0) + (head?.bets ?? 0) - spent };
 }

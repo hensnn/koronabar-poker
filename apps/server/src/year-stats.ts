@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, like, lt, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import { DEFAULT_TZ, t, currencyFormsOf, currencyWord, monthIndex, parseYearFields, pickYearFields, yearBounds, type SettingValues, type YearChannel, type YearField, type YearStats } from '@kb/shared';
 import { schema, type Db } from './db/index.js';
+import { sideNets } from './side-results.js';
 
 export class YearStatsError extends Error {
   constructor(public readonly code: 'DISABLED' | 'INVALID') {
@@ -87,6 +88,13 @@ export class YearStatsService {
       } else liveNet += net;
       add(net);
       monthly[monthIndex(g.finishedAt.getTime(), DEFAULT_TZ)]! += net;
+    }
+
+    // Sázky a odměny na hlavu patří k turnaji, ke kterému se vztahují.
+    for (const r of await sideNets(db, { userIds: [userId], from: fromD, to: toD })) {
+      tournamentNet += r.net;
+      add(r.net);
+      monthly[monthIndex(r.at, DEFAULT_TZ)]! += r.net;
     }
 
     const hp = schema.handPlayers;

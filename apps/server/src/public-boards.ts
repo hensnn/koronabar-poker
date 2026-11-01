@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gt, gte, inArray, ne, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import { type BoardAppearance, currencyFormsOf, boardName, effectiveColumns, rankFor, sanitizeBoardConfig, type BoardColumn, type CurrencyForms, type PermissionChecker, type PublicBoardConfig, type SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
+import { sideNets } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 import type { RatingService } from './rating.js';
 import type { StatsService } from './stats.js';
@@ -265,9 +266,11 @@ export class PublicBoardService {
     const conds = [inArray(gr.userId, players.map((p) => p.id)), eq(gr.kind, 'tournament')];
     if (from) conds.push(gte(gr.finishedAt, from));
     const rows = await this.deps.db.select({ userId: gr.userId, at: gr.finishedAt, net: sql<string>`${gr.payout} + ${gr.bounty} - ${gr.spent}` }).from(gr).where(and(...conds)).orderBy(asc(gr.finishedAt));
+    const sideRows = await sideNets(this.deps.db, { userIds: players.map((p) => p.id), from });
     return players.map((p, i) => {
       let sum = 0;
-      const points = rows.filter((r) => r.userId === p.id).map((r) => [r.at.getTime(), (sum += Number(r.net))] as [number, number]);
+      const own = [...rows.filter((r) => r.userId === p.id).map((r) => [r.at.getTime(), Number(r.net)] as [number, number]), ...sideRows.filter((r) => r.userId === p.id).map((r) => [r.at, r.net] as [number, number])].sort((a, b) => a[0] - b[0]);
+      const points = own.map((r) => [r[0], (sum += r[1])] as [number, number]);
       return { id: String(i), name: p.name, points: thin(points) };
     });
   }

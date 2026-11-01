@@ -22,16 +22,17 @@ export interface TournamentCsvRow {
   /** Odměny na hlavu: získané a ztracené (zadané a vyplacené jinému). */
   headEarned?: number;
   headLost?: number;
+  betNet?: number;
   profit: number;
 }
 
 /** CSV výsledků turnaje s náklady: buy-in, rebuye, add-ony, zaplaceno, výhra, bounty a zisk (s BOM pro Excel, řádky CRLF). */
 export function tournamentCsv(tournamentName: string, rows: TournamentCsvRow[]): string {
-  const head = ['place', 'player', 'entries', 'entryAmount', 'rebuys', 'rebuyAmount', 'addons', 'addonAmount', 'spent', 'payout', 'bounty', 'headEarned', 'headLost', 'profit'].map((k) => csvCell(t(`tournament.csv.${k}`)));
+  const head = ['place', 'player', 'entries', 'entryAmount', 'rebuys', 'rebuyAmount', 'addons', 'addonAmount', 'spent', 'payout', 'bounty', 'headEarned', 'headLost', 'betNet', 'profit'].map((k) => csvCell(t(`tournament.csv.${k}`)));
   const lines = [[csvCell(t('tournament.csv.tournament')), csvCell(tournamentName)].join(';'), head.join(';')];
-  for (const r of rows) lines.push([r.place, r.name, r.entries, r.entryAmount, r.rebuys, r.rebuyAmount, r.addons, r.addonAmount, r.spent, r.payout, r.bounty, r.headEarned ?? 0, r.headLost ?? 0, r.profit].map(csvCell).join(';'));
-  const total = (k: 'entryAmount' | 'rebuyAmount' | 'addonAmount' | 'spent' | 'payout' | 'bounty' | 'headEarned' | 'headLost' | 'profit') => rows.reduce((n, r) => n + (r[k] ?? 0), 0);
-  lines.push(['', t('tournament.csv.total'), '', total('entryAmount'), '', total('rebuyAmount'), '', total('addonAmount'), total('spent'), total('payout'), total('bounty'), total('headEarned'), total('headLost'), total('profit')].map(csvCell).join(';'));
+  for (const r of rows) lines.push([r.place, r.name, r.entries, r.entryAmount, r.rebuys, r.rebuyAmount, r.addons, r.addonAmount, r.spent, r.payout, r.bounty, r.headEarned ?? 0, r.headLost ?? 0, r.betNet ?? 0, r.profit].map(csvCell).join(';'));
+  const total = (k: 'entryAmount' | 'rebuyAmount' | 'addonAmount' | 'spent' | 'payout' | 'bounty' | 'headEarned' | 'headLost' | 'betNet' | 'profit') => rows.reduce((n, r) => n + (r[k] ?? 0), 0);
+  lines.push(['', t('tournament.csv.total'), '', total('entryAmount'), '', total('rebuyAmount'), '', total('addonAmount'), total('spent'), total('payout'), total('bounty'), total('headEarned'), total('headLost'), total('betNet'), total('profit')].map(csvCell).join(';'));
   return `\uFEFF${lines.join('\r\n')}\r\n`;
 }
 

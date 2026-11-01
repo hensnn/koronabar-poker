@@ -20,6 +20,7 @@ import { WalletService } from './wallet/service.js';
 import { EmailService } from './email/service.js';
 import { loadMasterKey, SecretStore, type MasterKey } from './secrets/store.js';
 import { openPglite, openPostgres, type Database } from './db/index.js';
+import { BET_KINDS, sideNets } from './side-results.js';
 import { Journal, ledgerTxOp, loadLedger, openLedgerStore } from './db/journal.js';
 import { setupGateway } from './gateway.js';
 import { parseCookies, SESSION_COOKIE } from './http/cookies.js';
@@ -670,7 +671,12 @@ export async function buildServer(opts: ServerOptions = {}) {
     },
     nickOf,
     isOnline: (userId) => isOnline(userId),
-    headTotals: async (id) => (await bountiesRef?.totals(id)) ?? new Map(),
+    headTotals: async (id) => {
+      // odměny na hlavu + čistý výsledek sázek bokem v turnaji (pro přehled výsledků)
+      const out = new Map<string, { earned: number; lost: number; bets?: number }>((await bountiesRef?.totals(id)) ?? []);
+      for (const r of await sideNets(db, { gameIds: [id], kinds: BET_KINDS })) out.set(r.userId, { earned: 0, lost: 0, ...out.get(r.userId), bets: r.net });
+      return out;
+    },
     notify: (to, notice) => notifyTournament(to, notice),
   });
   tournamentsRef.current = tournaments;

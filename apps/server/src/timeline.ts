@@ -1,6 +1,7 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { accounts } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
+import { sideNets } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 
 /** Bod časové řady: čas (epoch ms) a hodnota. */
@@ -56,9 +57,13 @@ export class TimelineService {
     const results = allResults.filter((r) => r.kind === 'tournament');
     const liveEvents: Point[] = allResults.filter((r) => r.kind === 'live_cash').map((r) => [r.finishedAt.getTime(), Number(r.payout) + Number(r.bounty) - Number(r.spent)] as Point);
     const names = new Map((await db.select({ id: schema.tournaments.id, name: schema.tournaments.name }).from(schema.tournaments)).map((t) => [t.id, t.name]));
+    // sázky a odměny na hlavu se počítají k turnaji, ke kterému patří
+    const sideRows = await sideNets(db, { userIds: [userId] });
+    const sideOf = new Map(sideRows.map((r) => [r.gameId, r.net]));
+    const playedRefs = new Set(results.map((r) => r.ref));
     let cum = 0;
     const tournaments = results.map((r) => {
-      const net = Number(r.payout) + Number(r.bounty) - Number(r.spent);
+      const net = Number(r.payout) + Number(r.bounty) - Number(r.spent) + (sideOf.get(r.ref) ?? 0);
       cum += net;
       return { at: r.finishedAt.getTime(), name: names.get(r.ref) ?? r.ref, net, place: r.place, field: r.field, cumulative: cum };
     });
@@ -84,7 +89,7 @@ export class TimelineService {
     const activity = [...activityMap.entries()].sort((a, b) => a[0] - b[0]).map(([d, hands]) => ({ day: d, hands }));
 
     // výdělek ze všech her: turnaje + živý cash + cash po dnech
-    const earnings: Point[] = [...results.map((r) => [r.finishedAt.getTime(), Number(r.payout) + Number(r.bounty) - Number(r.spent)] as Point), ...liveEvents, ...cashRows.map((c) => [c.day, c.net] as Point)].sort((a, b) => a[0] - b[0]);
+    const earnings: Point[] = [...results.map((r) => [r.finishedAt.getTime(), Number(r.payout) + Number(r.bounty) - Number(r.spent) + (sideOf.get(r.ref) ?? 0)] as Point), ...sideRows.filter((r) => !playedRefs.has(r.gameId)).map((r) => [r.at, r.net] as Point), ...liveEvents, ...cashRows.map((c) => [c.day, c.net] as Point)].sort((a, b) => a[0] - b[0]);
 
     // XP: součet událostí v čase
     const xpRows = await db.select({ at: schema.xpEvents.createdAt, amount: schema.xpEvents.amount }).from(schema.xpEvents).where(eq(schema.xpEvents.userId, userId)).orderBy(asc(schema.xpEvents.createdAt), asc(schema.xpEvents.id));
