@@ -752,7 +752,7 @@ const ui: SettingDef[] = [
   bool('ui.hideMyCards', { category: 'ui', mutability: A, scopes: USER }, false),
   bool('ui.chipLeaderCrown', { category: 'ui', mutability: A, scopes: USER }, true),
   choice('ui.winImpact', { category: 'ui', mutability: A, scopes: USER }, 'full', ['off', 'subtle', 'full']),
-  int('ui.mobileTableAspect', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 115, 100, 200),
+  int('ui.mobileTableAspect', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 85, 70, 200),
   bool('ui.hotkeysEnabled', { category: 'ui', mutability: A, scopes: USER }, true),
   text('ui.hotkeyFold', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'f', 1),
   text('ui.hotkeyCall', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'c', 1),
