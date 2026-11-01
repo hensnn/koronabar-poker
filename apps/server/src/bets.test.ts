@@ -318,6 +318,49 @@ describe('odměna na hlavu', { timeout: 90_000 }, () => {
     expect(list.bounties.every((x) => x.status === 'paid')).toBe(true);
   });
 
+  it('storno odměny na hlavu: vyplacená se vrátí zadavateli, ve statistikách po ní nezůstane nic; čekající a propadlá taky; jen oprávněný s důvodem', async () => {
+    const { sideNets } = await import('./side-results.js');
+    const s = await start();
+    const g = await setup(s);
+    const { id: paidId } = await s.server.headBounties.post(g.a, g.id, g.c, 50);
+    const { id: openId } = await s.server.headBounties.post(g.b, g.id, g.a, 30); // zůstane čekat
+    await s.server.tournaments.start(g.org, g.id);
+    await s.server.tournaments.liveEliminate(g.org, g.id, g.c, [g.b]);
+    await idle(s);
+    expect(wallet(s, g.b)).toBe(START - 100 - 30 + 50); // dostal odměnu 50
+    expect(await code(s.server.headBounties.cancel(g.a, paidId, g.id, 'omyl'))).toBe('FORBIDDEN');
+    expect(await code(s.server.headBounties.cancel(s.admin, paidId, g.id, 'x'))).toBe('INVALID');
+    expect(await code(s.server.headBounties.cancel(s.admin, paidId, 'jiny-turnaj', 'omyl'))).toBe('NOT_FOUND');
+    // příjemce utratil peníze: storno se odmítne a nic se nezmění
+    const spent = wallet(s, g.b);
+    s.server.ledger.post({ kind: 'manual_adjustment', idempotencyKey: 'spend-b', entries: [{ account: accounts.wallet(g.b), amount: -spent }, { account: accounts.house(), amount: spent }] });
+    expect(await code(s.server.headBounties.cancel(s.admin, paidId, g.id, 'dohoda hráčů'))).toBe('INSUFFICIENT_FUNDS');
+    expect((await s.server.headBounties.list(g.id)).bounties.find((x) => x.id === paidId)!.status).toBe('paid');
+    s.server.ledger.post({ kind: 'manual_adjustment', idempotencyKey: 'refill-b', entries: [{ account: accounts.house(), amount: -spent }, { account: accounts.wallet(g.b), amount: spent }] });
+
+    // povedené storno vyplacené odměny
+    await s.server.headBounties.cancel(s.admin, paidId, g.id, 'omylem vypsaná, dohoda hráčů');
+    expect(wallet(s, g.b)).toBe(START - 100 - 30); // odměna 50 odebrána
+    expect(wallet(s, g.a)).toBe(START - 100); // zadavatel dostal 50 zpět
+    expect(await code(s.server.headBounties.cancel(s.admin, paidId, g.id, 'ještě jednou'))).toBe('STATE');
+    const row = (await s.server.headBounties.list(g.id, s.admin)).bounties.find((x) => x.id === paidId)!;
+    expect(row.status).toBe('cancelled');
+    expect((await s.server.headBounties.list(g.id, s.admin)).canCancel).toBe(true);
+    expect((await s.server.headBounties.list(g.id, g.a)).canCancel).toBe(false);
+    // statistiky: součty vedlejších pohybů i přehled odměn zrušenou odměnu nezahrnují
+    await s.server.journal.flush();
+    const side = await sideNets(s.server.db, { gameIds: [g.id], kinds: ['head_bounty_post', 'head_bounty_payout', 'head_bounty_cancel'] });
+    const netOf = (u: string) => side.find((x) => x.userId === u)?.net ?? 0;
+    expect(netOf(g.a)).toBe(0);
+    expect(netOf(g.b)).toBe(-30); // zbývá jen čekající odměna 30 na hlavu hráče a
+    expect((await s.server.headBounties.totals(g.id)).get(g.b)?.earned ?? 0).toBe(0);
+    // čekající odměna: storno ji vrátí z úschovy zadavateli
+    await s.server.headBounties.cancel(s.admin, openId, g.id, 'zrušeno dohodou');
+    expect(wallet(s, g.b)).toBe(START - 100);
+    expect(s.server.ledger.balance(accounts.escrow(`hb:${openId}`))).toBe(0);
+    expect(s.server.ledger.transactions().filter((t) => t.kind === 'head_bounty_cancel')).toHaveLength(2);
+  });
+
   it('součty odměn na hlavu do přehledu výsledků: kdo získal a kdo ztratil jako zadavatel; vrácená odměna se nepočítá', async () => {
     const s = await start();
     const g = await setup(s);

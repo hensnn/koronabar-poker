@@ -20,7 +20,7 @@ const GUARDED = new Set(['cash_buyin', 'cash_topup', 'turnaj_buyin', 'turnaj_reb
 /** Z nich ty, které se počítají jako buy-in. */
 const BUYINS = new Set(['cash_buyin', 'cash_topup', 'turnaj_buyin', 'turnaj_rebuy', 'turnaj_addon']);
 /** Všechny pohyby peněženky ze hry (výsledek = čistá výhra nebo prohra). */
-const GAME = new Set([...GUARDED, 'cash_cashout', 'cash_return', 'turnaj_vyplata', 'turnaj_refund', 'bounty', 'jackpot_payout', 'bet_payout', 'bet_refund', 'head_bounty_payout', 'head_bounty_return', 'time_charge']);
+const GAME = new Set([...GUARDED, 'cash_cashout', 'cash_return', 'turnaj_vyplata', 'turnaj_refund', 'bounty', 'jackpot_payout', 'bet_payout', 'bet_refund', 'head_bounty_payout', 'head_bounty_return', 'head_bounty_cancel', 'time_charge']);
 const KEEP_MS = 32 * 86_400_000;
 const GLOBAL_KEYS: Record<string, string> = {
   lossDay: 'limits.global.lossDay',

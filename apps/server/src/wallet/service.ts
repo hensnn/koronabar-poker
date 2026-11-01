@@ -44,6 +44,7 @@ export function settlementPartOf(kind: string): SettlementPart {
     case 'head_bounty_payout':
     case 'head_bounty_return':
     case 'head_bounty_house':
+    case 'head_bounty_cancel':
       return 'headBounty';
     case 'bet_stake':
     case 'bet_payout':

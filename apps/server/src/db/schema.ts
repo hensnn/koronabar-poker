@@ -991,7 +991,7 @@ export const headBounties = pgTable(
     targetId: uuid('target_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     posterId: uuid('poster_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     amount: money('amount').notNull(),
-    /** open | paid | returned | forfeited */
+    /** open | paid | returned | forfeited | cancelled */
     status: text('status').notNull().default('open'),
     paidTo: jsonb('paid_to').$type<{ userId: string; amount: number }[]>(),
     createdAt: createdAt(),

@@ -49,6 +49,7 @@ export type EntryKind =
   | 'head_bounty_payout'
   | 'head_bounty_return'
   | 'head_bounty_house'
+  | 'head_bounty_cancel'
   | 'shop_purchase'
   | 'transfer_out'
   | 'credit_draw'

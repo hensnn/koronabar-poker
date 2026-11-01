@@ -1418,7 +1418,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   const betId = (req: FastifyRequest) => (req.params as { id: string }).id;
   app.get('/api/tournaments/:id/bets', betGuard(async (req, reply) => {
     const u = viewer(req);
-    reply.send({ ...(await svc.bets().list(u.id, tid(req))), headBounties: await svc.headBounties().list(tid(req)) });
+    reply.send({ ...(await svc.bets().list(u.id, tid(req))), headBounties: await svc.headBounties().list(tid(req), u.id) });
   }));
   app.post('/api/tournaments/:id/bets', betGuard(async (req, reply) => {
     const b = z
@@ -1457,6 +1457,12 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.post('/api/tournaments/:id/bounties', betGuard(async (req, reply) => {
     const b = z.object({ targetId: z.string().uuid(), amount: z.number().int() }).parse(req.body);
     reply.send(await svc.headBounties().post(need(req).id, tid(req), b.targetId, b.amount, meta(req)));
+  }));
+
+  app.post('/api/tournaments/:id/bounties/:bountyId/cancel', betGuard(async (req, reply) => {
+    const b = z.object({ reason: z.string().min(3).max(300) }).parse(req.body);
+    await svc.headBounties().cancel(need(req).id, z.string().uuid().parse((req.params as { bountyId: string }).bountyId), tid(req), b.reason, meta(req));
+    reply.send({ ok: true });
   }));
 
   // ---------- herní večery ----------

@@ -2,7 +2,7 @@ import { and, gte, inArray, like, lt, sql } from 'drizzle-orm';
 import { schema, type Db } from './db/index.js';
 
 /** Sázky a odměny na hlavu: patří k turnaji (gameId), ale nejsou jeho vstupem ani výplatou. */
-export const SIDE_KINDS = ['bet_stake', 'bet_payout', 'bet_refund', 'bet_fee', 'head_bounty_post', 'head_bounty_payout', 'head_bounty_return', 'head_bounty_house'];
+export const SIDE_KINDS = ['bet_stake', 'bet_payout', 'bet_refund', 'bet_fee', 'head_bounty_post', 'head_bounty_payout', 'head_bounty_return', 'head_bounty_house', 'head_bounty_cancel'];
 export const SIDE_SET = new Set(SIDE_KINDS);
 
 export interface SideRow {

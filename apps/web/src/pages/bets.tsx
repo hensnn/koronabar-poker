@@ -47,7 +47,7 @@ interface Data {
   referee: boolean;
   players: Person[];
   bets: BetDto[];
-  headBounties: { enabled: boolean; limits: { min: number; max: number; maxPerPoster: number }; bounties: BountyDto[] };
+  headBounties: { enabled: boolean; canCancel?: boolean; limits: { min: number; max: number; maxPerPoster: number }; bounties: BountyDto[] };
 }
 
 const label = (b: BetDto): string => {
@@ -425,6 +425,17 @@ function BountyCard({ data, meId, tournamentId, run }: { data: Data; meId: strin
               <span className="text-muted">{t('bounty.by', { nick: x.poster.nickname })}</span>
               <Badge tone={x.status === 'open' ? 'warning' : 'muted'}>{t(`bounty.status.${x.status}`)}</Badge>
               {x.status === 'open' && sums.get(x.target.userId) !== x.amount && <span className="text-xs text-muted">{t('bounty.total', { n: sums.get(x.target.userId) ?? 0 })}</span>}
+              {hb.canCancel && x.status !== 'returned' && x.status !== 'cancelled' && (
+                <Button
+                  onClick={() => {
+                    if (!confirm(t('bounty.cancelAsk', { amount: x.amount, target: x.target.nickname }))) return;
+                    const reason = prompt(t('bounty.cancelReason'));
+                    if (reason) void run(() => post(`/api/tournaments/${tournamentId}/bounties/${x.id}/cancel`, { reason }));
+                  }}
+                >
+                  {t('bounty.cancel')}
+                </Button>
+              )}
             </li>
           ))}
         </ul>

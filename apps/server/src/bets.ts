@@ -559,7 +559,7 @@ export class HeadBountyService {
   }
 
   /** Odměny v turnaji: součet na hlavu hráče a kdo je vypsal. */
-  async list(tournamentId: string) {
+  async list(tournamentId: string, viewerId?: string) {
     const rows = await this.deps.db.select().from(schema.headBounties).where(eq(schema.headBounties.tournamentId, tournamentId)).orderBy(desc(schema.headBounties.createdAt));
     const ids = [...new Set(rows.flatMap((r) => [r.targetId, r.posterId]))];
     const nicks = ids.length ? new Map((await this.deps.db.select({ id: schema.users.id, n: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, ids))).map((u) => [u.id, u.n])) : new Map<string, string>();
@@ -567,8 +567,45 @@ export class HeadBountyService {
     return {
       enabled: !!s['headBounty.enabled'] && (this.deps.facts(tournamentId)?.headBounty ?? true),
       limits: { min: Number(s['headBounty.min']), max: Number(s['headBounty.max']), maxPerPoster: Number(s['headBounty.maxPerPoster']) },
+      canCancel: !!viewerId && this.canCancel(viewerId),
       bounties: rows.map((r) => ({ id: r.id, target: { userId: r.targetId, nickname: nicks.get(r.targetId) ?? '' }, poster: { userId: r.posterId, nickname: nicks.get(r.posterId) ?? '' }, amount: r.amount, status: r.status, paidTo: r.paidTo })),
     };
+  }
+
+  private canCancel(userId: string): boolean {
+    const d = this.deps.perms.can(userId, 'mena.upravit_knihu');
+    return d.allowed && !d.needsApproval;
+  }
+
+  /**
+   * Storno odměny na hlavu správcem (např. omylem vypsaná a po dohodě hráčů zrušená). Jedna transakce `head_bounty_cancel`
+   * vyruší původní pohyby: vyplacená odměna se odebere tomu, kdo ji dostal, a vrátí zadavateli; propadlá se vrátí z domu;
+   * čekající se vrátí z úschovy. Součty ve statistikách, výsledcích a večerech pak jsou přesně nulové (pohyb je v knize vidět).
+   * Vyžaduje oprávnění „Ruční úprava knihy“ a důvod; příjemce musí mít částku na peněžence (jinak se storno odmítne).
+   */
+  cancel(actorId: string, bountyId: string, tournamentId: string, reason: string, meta: Meta = {}): Promise<void> {
+    return this.serial.run(async () => {
+      if (!this.canCancel(actorId)) throw new BetError('FORBIDDEN');
+      if (!reason || reason.trim().length < 3) throw new BetError('INVALID', { field: 'reason' });
+      const [b] = await this.deps.db.select().from(schema.headBounties).where(eq(schema.headBounties.id, bountyId));
+      if (!b || b.tournamentId !== tournamentId) throw new BetError('NOT_FOUND');
+      if (b.status === 'returned' || b.status === 'cancelled') throw new BetError('STATE', { status: b.status });
+      const paidTo = b.status === 'paid' ? (b.paidTo ?? []) : [];
+      const entries: { account: string; amount: number }[] =
+        b.status === 'paid'
+          ? [...paidTo.map((x) => ({ account: accounts.wallet(x.userId), amount: -x.amount })), { account: accounts.wallet(b.posterId), amount: paidTo.reduce((n, x) => n + x.amount, 0) }]
+          : [{ account: b.status === 'forfeited' ? accounts.house() : accounts.escrow(`hb:${b.id}`), amount: -b.amount }, { account: accounts.wallet(b.posterId), amount: b.amount }];
+      pay(this.deps.ledger, () => this.deps.ledger.post({ kind: 'head_bounty_cancel', idempotencyKey: `hb:${b.id}:cancel`, gameId: b.tournamentId, createdBy: actorId, entries, note: `storno odměny na hlavu: ${reason.trim()}` }));
+      await this.deps.db.update(schema.headBounties).set({ status: 'cancelled', settledAt: new Date(this.deps.now()) }).where(eq(schema.headBounties.id, b.id));
+      await this.deps.audit.log({ actorId, action: 'hlava.stornovat', targetType: 'head_bounty', targetId: b.id, before: { status: b.status, amount: b.amount, paidTo: b.paidTo }, after: { status: 'cancelled' }, reason: reason.trim(), ...meta });
+      const affected = [...new Set([b.posterId, ...paidTo.map((x) => x.userId)])];
+      for (const u of affected) {
+        this.deps.onWallet?.(u);
+        void this.deps.notify?.(u, 'headBountyCancelled', { amount: b.amount }, `/turnaj/${b.tournamentId}`);
+      }
+      await this.refreshWanted(b.tournamentId);
+      this.deps.onChanged?.(b.tournamentId);
+    });
   }
 
   /** Načte otevřené odměny po startu serveru. */

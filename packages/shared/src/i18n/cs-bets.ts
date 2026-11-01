@@ -75,5 +75,9 @@ export const csBets: Record<string, string> = {
   'bounty.status.paid': 'vyplaceno',
   'bounty.status.returned': 'vráceno',
   'bounty.status.forfeited': 'propadlo domu',
+  'bounty.status.cancelled': 'stornováno',
+  'bounty.cancel': 'Stornovat',
+  'bounty.cancelAsk': 'Stornovat odměnu {amount} na hlavu hráče {target}? Částka se odebere tomu, kdo ji dostal, a vrátí zadavateli. Ve statistikách, výsledcích a večerech se přestane započítávat. V účetní knize zůstane záznam o stornu.',
+  'bounty.cancelReason': 'Důvod stornování (zapíše se do účetní knihy a auditu)',
   'tournament.wanted': 'Hledaný: odměna na hlavu',
 };
