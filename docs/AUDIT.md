@@ -56,3 +56,26 @@ Všechny akce hráčů mají animaci (fold, check, call, bet, raise, re-raise, a
 ## Co dělat po každé změně vzhledu
 
 Spustit `pnpm typecheck`, `pnpm lint`, `pnpm test`, potom `scripts/screenshots.mjs` a snímky prohlédnout. Nové obecné CSS třídy pojmenovat s vlastní předponou a před tím prohledat `apps/web/src/styles.css`.
+
+## Audit 1. 11. 2026 (nastavení, statistiky, účetní kniha)
+
+| Oblast | Výsledek |
+|---|---|
+| Testy balíčků (ledger 14, game-core 383, tokens 61, shared 188) a webu (138) | vše prošlo |
+| Serverové testy (501) | 496 prošlo v jednom velkém běhu s `--maxWorkers=4`; 4 zátěžová selhání (restart serveru, šablony, převody, roční statistika) při samostatném běhu všechna prošla |
+| Registr nastavení | 615 nastavení, žádné výchozí mimo rozsah, žádný neplatný výběr, žádná neexistující závislost |
+| Účetní kniha na vývojových datech (288 pohybů) | každý pohyb má nulový součet, součet všech účtů 0, žádný záporný účet, zůstatky z pohybů = uložené = paměť, dluhy kontokorentu sedí, vydáno = peněženky + dům + fondy + stoly + turnaje + ven |
+| Statistiky vs. kniha | **nalezeno:** skončený turnaj bez výsledků ve statistikách (Žebříček a osobní statistiky ho nezapočítaly); doplněno nástrojem `repair-results` |
+| Přehled hráčů vs. vyúčtování | po sjednocení zdroje (kniha) 0 rozdílů z 25 hráčů (dřív 7) |
+| Simulace turnajů (120 s na scénář) | freezeout, rebuy+add-on a bounty doběhly a součty peněženek souhlasí; dva nejtěžší scénáře (kolize časů automatických odpovědí, rebuy s držením hry a odpojením) se na pomalém stroji v limitu nedohrály (stejné chování jako známý nedostatek č. 4 výše, nejde o ztrátu peněz); bez dalšího šetření to nepovažujeme za potvrzenou chybu |
+
+### Nalezené a opravené v tomto auditu
+1. Přehled hráčů počítal peníze ze součtu výsledků hand a turnajů, ne z knihy: sjednoceno na knihu (`gameNets`).
+2. Vyúčtování v peněžence nezahrnovalo sázky a odměny na hlavu a nepočítalo turnaj celý, když začal před oknem: opraveno.
+3. Účet herny: příjmy a výdaje nenavazovaly na zůstatek (chyběly vrácené poplatky, doplatky a storna): opraveno, tabulka teď sedí.
+4. Po restartu serveru byly vydaná měna a dluh z úvěru nulové (paměť knihy nemá historii): čte se z DB.
+5. Skončený turnaj uvolněný z paměti ukazoval ve widgetu Informace výchozí hodnoty bez šablony: opraveno.
+6. Dluhy z kontokorentu se nesplácely z příjmů: nyní automaticky jako první.
+
+Nový nástroj: **Kontrola konzistence dat** (Pokladna), viz `docs/NAVOD-HRA.md`.
+
