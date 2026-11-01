@@ -177,7 +177,7 @@ export class LiveCashService {
     this.deps.onMove?.(id, 'cashout', userId, p.name, a);
   }
 
-  /** Vyúčtování: hra se uzavře, až jsou všichni hráči po cash-outu a na účtu stolu nezbyla ani koruna. */
+  /** Vyúčtování: hra se uzavře, až jsou všichni hráči po cash-outu a na účtu stolu nezbyla ani jedna Koruna. */
   async close(actorId: string, id: string, meta: Meta = {}): Promise<void> {
     this.director(actorId);
     const { row, st } = await this.load(id);

@@ -82,12 +82,24 @@ export function WalletPage() {
       </Card>
       {error && <Notice kind="error">{error}</Notice>}
 
-      {canRequest && credit && (credit.enabled || credit.debt > 0) && (
+      {canRequest && credit && (credit.debt > 0 || (credit.enabled && credit.limit > 0)) && (
         <Card title={t('wallet.credit.title')}>
-          <p className="mb-2 text-sm text-muted">{t('wallet.credit.help', { limit: credit.limit })}</p>
-          <p className="mb-2">
-            {t('wallet.credit.debt')}: <strong className="font-mono">{credit.debt}</strong> · {t('wallet.credit.limit')}: <strong className="font-mono">{credit.limit}</strong> · {t('wallet.credit.available')}: <strong className="font-mono">{credit.available}</strong>
-          </p>
+          <p className="mb-2 text-sm text-muted">{t(credit.enabled ? 'wallet.credit.help' : 'wallet.credit.helpOff')}</p>
+          <dl className="mb-2 grid grid-cols-3 gap-3">
+            <div>
+              <dt className="text-sm text-muted">{t('wallet.credit.limit')}</dt>
+              <dd className="font-mono text-lg font-bold">{credit.limit}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-muted">{t('wallet.credit.debt')}</dt>
+              <dd className="font-mono text-lg font-bold">{credit.debt}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-muted">{t('wallet.credit.available')}</dt>
+              <dd className="font-mono text-lg font-bold">{credit.available}</dd>
+            </div>
+          </dl>
+          {credit.enabled && credit.debt > credit.limit && <p className="mb-2 text-sm text-warning">{t('wallet.credit.overLimit')}</p>}
           {cMsg && <Notice kind={cMsg.kind}>{cMsg.text}</Notice>}
           {credit.debt > 0 && (
             <form
@@ -104,12 +116,16 @@ export function WalletPage() {
                 }
               }}
             >
-              <TextInput label={t('wallet.credit.repayAmount')} type="number" min={1} max={Math.min(credit.debt, me?.balance ?? 0)} value={cRepay} onChange={(e) => setCRepay(e.target.value)} required />
+              <TextInput label={t('wallet.credit.repayAmount', { max: Math.min(credit.debt, me?.balance ?? 0) })} type="number" min={1} max={Math.min(credit.debt, me?.balance ?? 0)} value={cRepay} onChange={(e) => setCRepay(e.target.value)} required />
               <Button type="submit" disabled={(me?.balance ?? 0) <= 0}>
                 {t('wallet.credit.repay')}
               </Button>
+              <Button type="button" disabled={(me?.balance ?? 0) <= 0} onClick={() => setCRepay(String(Math.min(credit.debt, me?.balance ?? 0)))}>
+                {t('wallet.credit.repayAll')}
+              </Button>
             </form>
           )}
+          {credit.debt > 0 && (me?.balance ?? 0) <= 0 && <p className="mt-2 text-sm text-muted">{t('wallet.credit.noMoney')}</p>}
         </Card>
       )}
 
