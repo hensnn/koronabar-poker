@@ -1232,6 +1232,10 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Stůl má stejný tvar jako dosud (osobní tvar oválu ui.mobileTableAspect) a přes celou šířku; stavový řádek a tlačítka jsou přitisknuté ke spodnímu okraji, kam dosáhne palec. */
 [data-mobile-modern]:not([data-landscape]) .tk-table { aspect-ratio: var(--tk-mobile-aspect, 1.15); width: clamp(12rem, calc((100dvh - 22rem) * var(--tk-mobile-aspect, 1.15)), 100%); }
 [data-mobile-modern]:not([data-landscape]) .tk-screen > .tk-side-col, [data-mobile-modern]:not([data-landscape]) .tk-screen { min-height: 0; }
+/* Široké okno (např. nainstalovaná aplikace roztažená do šířky): stůl dostane stejně široký ovál jako na počítači a využije šířku, výšku omezuje jen místo nad lištou. */
+@media (min-aspect-ratio: 1/1) {
+  [data-mobile-modern]:not([data-landscape]) .tk-table { aspect-ratio: var(--tk-table-aspect); width: min(100%, calc((100dvh - 22rem) * var(--tk-table-aspect))); }
+}
 /* Stálá výška spodní části: plánované tahy a akce zabírají stejné místo, takže se stůl ani okno při změně stavu neposouvají. Vše se vejde do okna. */
 [data-mobile-modern]:not([data-landscape]) .tk-actionbar { min-height: 7.5rem; justify-content: center; }
 [data-mobile-modern]:not([data-landscape]) .tk-actionbar .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(var(--spacing) * 1.5); }
