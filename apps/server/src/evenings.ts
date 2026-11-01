@@ -23,10 +23,22 @@ export interface EveningPlayer {
   net: number;
   cash: number;
   tournament: number;
+  /** Sázky na dění v turnajích a odměny na hlavu. */
+  side: number;
+  /** Rozpis čistého výsledku podle druhu pohybu v účetní knize (klíč = druh záznamu, např. turnaj_buyin, head_bounty_payout). */
+  breakdown: Record<string, number>;
   knockouts: number;
   placePoints: number;
   xp: number;
   score: number;
+}
+
+export interface EveningLine {
+  userId: string;
+  game: string;
+  kind: string;
+  count: number;
+  amount: number;
 }
 
 export interface EveningSummary {
@@ -35,6 +47,8 @@ export interface EveningSummary {
   to: number;
   games: { kind: GameKind; ref: string; name: string; results: Record<string, number> }[];
   players: EveningPlayer[];
+  /** Všechny pohyby večera po hrách: kdo, v jaké hře, jakého druhu, kolikrát a o kolik. */
+  lines: EveningLine[];
   transfers: Transfer[];
   names: Record<string, string>;
   /** Co dohromady vyhráli hráči proti herně (rake, poplatky, odvody); kladné číslo patří domu. */
@@ -97,7 +111,10 @@ interface Deps {
 }
 
 type Meta = { ip?: string | null };
-const WALLET_KINDS = ['cash_buyin', 'cash_topup', 'cash_cashout', 'cash_return', 'bounty', 'jackpot_payout', 'time_charge'];
+/** Sázky a odměny na hlavu: patří k turnajům, ale nejsou jejich vstupy ani výplaty. */
+const SIDE_KINDS = ['bet_stake', 'bet_payout', 'bet_refund', 'bet_fee', 'head_bounty_post', 'head_bounty_payout', 'head_bounty_return', 'head_bounty_house'];
+const SIDE_SET = new Set(SIDE_KINDS);
+const WALLET_KINDS = ['cash_buyin', 'cash_topup', 'cash_cashout', 'cash_return', 'bounty', 'jackpot_payout', 'time_charge', ...SIDE_KINDS];
 const BUYIN_KINDS = new Set(['cash_buyin', 'cash_topup', 'turnaj_buyin', 'turnaj_rebuy', 'turnaj_addon']);
 const CASH_SEEN_MS = 60_000;
 
@@ -273,6 +290,16 @@ export class EveningService {
     const results = new Map<string, Record<string, number>>();
     const cash: Record<string, number> = {};
     const tour: Record<string, number> = {};
+    const side: Record<string, number> = {};
+    const breakdown: Record<string, Record<string, number>> = {};
+    const lineMap = new Map<string, EveningLine>();
+    const addLine = (userId: string, game: string, kind: string, amount: number, count: number) => {
+      const key = `${userId}|${game}|${kind}`;
+      const l = lineMap.get(key) ?? { userId, game, kind, count: 0, amount: 0 };
+      l.count += count;
+      l.amount += amount;
+      lineMap.set(key, l);
+    };
     let turnover = 0;
     for (const e of entries) {
       const tx = byTx.get(e.transactionId)!;
@@ -281,8 +308,12 @@ export class EveningService {
       const r = results.get(gid) ?? {};
       r[uid] = (r[uid] ?? 0) + e.amount;
       results.set(gid, r);
-      const isTour = tx.kind.startsWith('turnaj_') || tx.kind === 'bounty';
-      (isTour ? tour : cash)[uid] = ((isTour ? tour : cash)[uid] ?? 0) + e.amount;
+      const isSide = SIDE_SET.has(tx.kind);
+      const isTour = !isSide && (tx.kind.startsWith('turnaj_') || tx.kind === 'bounty');
+      const bucket = isSide ? side : isTour ? tour : cash;
+      bucket[uid] = (bucket[uid] ?? 0) + e.amount;
+      (breakdown[uid] ??= {})[tx.kind] = (breakdown[uid]![tx.kind] ?? 0) + e.amount;
+      addLine(uid, gid, tx.kind, e.amount, 1);
       if (BUYIN_KINDS.has(tx.kind) && e.amount < 0) turnover += -e.amount;
     }
     if (open) {
@@ -291,6 +322,8 @@ export class EveningService {
         if (!cashSet.has(seat.tableId)) continue;
         const value = Math.floor(seat.chips / rate);
         cash[seat.userId] = (cash[seat.userId] ?? 0) + value;
+        (breakdown[seat.userId] ??= {}).seated = (breakdown[seat.userId]!.seated ?? 0) + value;
+        addLine(seat.userId, seat.tableId, 'seated', value, 1);
         const r = results.get(seat.tableId) ?? {};
         r[seat.userId] = (r[seat.userId] ?? 0) + value;
         results.set(seat.tableId, r);
@@ -305,7 +338,7 @@ export class EveningService {
     const knockouts: Record<string, number> = {};
     for (const e of elim) for (const k of e.killers) knockouts[k.userId] = (knockouts[k.userId] ?? 0) + 1;
 
-    const userIds = [...new Set([...Object.keys(cash), ...Object.keys(tour), ...gr.map((r) => r.userId), ...Object.keys(knockouts)])];
+    const userIds = [...new Set([...Object.keys(cash), ...Object.keys(tour), ...Object.keys(side), ...gr.map((r) => r.userId), ...Object.keys(knockouts)])];
     const xp: Record<string, number> = {};
     if (userIds.length) {
       const rows = await db
@@ -319,10 +352,10 @@ export class EveningService {
 
     const w = this.weights();
     const players: EveningPlayer[] = userIds.map((userId) => {
-      const net = (cash[userId] ?? 0) + (tour[userId] ?? 0);
+      const net = (cash[userId] ?? 0) + (tour[userId] ?? 0) + (side[userId] ?? 0);
       const pp = Math.round((placePoints[userId] ?? 0) * 100) / 100;
       const score = Math.round(((net * w.net) / 100 + pp * w.place + (knockouts[userId] ?? 0) * w.ko + ((xp[userId] ?? 0) * w.xp) / 100) * 10) / 10;
-      return { userId, nickname: names[userId] ?? '?', net, cash: cash[userId] ?? 0, tournament: tour[userId] ?? 0, knockouts: knockouts[userId] ?? 0, placePoints: pp, xp: xp[userId] ?? 0, score };
+      return { userId, nickname: names[userId] ?? '?', net, cash: cash[userId] ?? 0, tournament: tour[userId] ?? 0, side: side[userId] ?? 0, breakdown: breakdown[userId] ?? {}, knockouts: knockouts[userId] ?? 0, placePoints: pp, xp: xp[userId] ?? 0, score };
     });
     players.sort((a, b) => b.score - a.score || b.net - a.net || a.nickname.localeCompare(b.nickname));
 
@@ -384,6 +417,7 @@ export class EveningService {
       to,
       games: await Promise.all(games.map(async (g) => ({ kind: g.kind as GameKind, ref: g.ref, name: (await this.gameName(g.kind as GameKind, g.ref)) ?? g.ref, results: results.get(g.ref) ?? {} }))),
       players,
+      lines: [...lineMap.values()].sort((a, b) => (names[a.userId] ?? '').localeCompare(names[b.userId] ?? '') || a.game.localeCompare(b.game) || a.kind.localeCompare(b.kind)),
       transfers,
       names,
       house: -total,
@@ -653,11 +687,16 @@ export class EveningService {
   async csv(viewerId: string, id: string): Promise<string> {
     const v = await this.view(id, viewerId);
     const esc = (x: string | number) => `"${String(x).replace(/"/g, '""')}"`;
-    const rows = [[t('evening.csv.player'), t('evening.csv.net'), t('evening.csv.cash'), t('evening.csv.tournament'), t('evening.csv.knockouts'), t('evening.csv.xp'), t('evening.csv.score')].map(esc).join(';')];
-    for (const p of v.summary.players) rows.push([p.nickname, p.net, p.cash, p.tournament, p.knockouts, p.xp, p.score].map(esc).join(';'));
+    const rows = [[t('evening.csv.player'), t('evening.csv.net'), t('evening.csv.cash'), t('evening.csv.tournament'), t('evening.csv.side'), t('evening.csv.knockouts'), t('evening.csv.xp'), t('evening.csv.score')].map(esc).join(';')];
+    for (const p of v.summary.players) rows.push([p.nickname, p.net, p.cash, p.tournament, p.side ?? 0, p.knockouts, p.xp, p.score].map(esc).join(';'));
     rows.push('');
     rows.push([t('evening.csv.from'), t('evening.csv.to'), t('evening.csv.amount')].map(esc).join(';'));
     for (const tr of v.summary.transfers) rows.push([v.summary.names[tr.from] ?? tr.from, v.summary.names[tr.to] ?? tr.to, tr.amount].map(esc).join(';'));
+    // Rozpis všech pohybů: hráč, hra, druh pohybu, počet a částka (záporná = hráč zaplatil).
+    const gameName = new Map(v.summary.games.map((g) => [g.ref, g.name]));
+    rows.push('');
+    rows.push([t('evening.csv.player'), t('evening.csv.game'), t('evening.csv.kind'), t('evening.csv.count'), t('evening.csv.amount')].map(esc).join(';'));
+    for (const l of v.summary.lines ?? []) rows.push([v.summary.names[l.userId] ?? l.userId, gameName.get(l.game) ?? l.game, t(l.kind === 'seated' ? 'evening.kind.seated' : `ledger.kind.${l.kind}`), l.count, l.amount].map(esc).join(';'));
     return `﻿${rows.join('\r\n')}\r\n`;
   }
 }

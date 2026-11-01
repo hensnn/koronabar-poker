@@ -313,7 +313,11 @@ export function DataTable({ head, children, sortable = true }: { head: ReactNode
     </div>
   );
 }
-export const Td = ({ children, className = '' }: { children?: ReactNode; className?: string }) => <td className={`kd-cell border-b border-line align-top ${className}`}>{children}</td>;
+export const Td = ({ children, className = '', colSpan }: { children?: ReactNode; className?: string; colSpan?: number }) => (
+  <td className={`kd-cell border-b border-line align-top ${className}`} colSpan={colSpan}>
+    {children}
+  </td>
+);
 
 /**
  * Číselné pole, které při psaní nevnucuje nulu: dokud je pole prázdné nebo rozepsané, drží si text,

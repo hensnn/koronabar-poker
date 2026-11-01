@@ -23,6 +23,7 @@ interface Player {
   net: number;
   cash: number;
   tournament: number;
+  side?: number;
   knockouts: number;
   xp: number;
   score: number;
@@ -31,6 +32,7 @@ interface Player {
 interface Summary {
   games: { kind: 'tournament' | 'live_cash' | 'cash'; ref: string; name: string }[];
   players: Player[];
+  lines?: { userId: string; game: string; kind: string; count: number; amount: number }[];
   transfers: { from: string; to: string; amount: number }[];
   names: Record<string, string>;
   house: number;
@@ -285,7 +287,7 @@ export function EveningPage({ id }: { id: string }) {
         {s.players.length === 0 ? (
           <p className="text-muted">{t('tournament.noPlayers')}</p>
         ) : (
-          <DataTable head={['#', t('evening.colPlayer'), t('evening.colNet'), t('evening.colCash'), t('evening.colTournament'), t('evening.colKnockouts'), t('evening.colXp'), t('evening.colScore')]}>
+          <DataTable head={['#', t('evening.colPlayer'), t('evening.colNet'), t('evening.colCash'), t('evening.colTournament'), t('evening.colSide'), t('evening.colKnockouts'), t('evening.colXp'), t('evening.colScore')]}>
             {s.players.map((p, i) => (
               <tr key={p.userId}>
                 <Td className="font-mono">{i + 1}.</Td>
@@ -293,6 +295,7 @@ export function EveningPage({ id }: { id: string }) {
                 <Td className="font-mono">{p.net}</Td>
                 <Td className="font-mono">{p.cash}</Td>
                 <Td className="font-mono">{p.tournament}</Td>
+                <Td className="font-mono">{p.side || ''}</Td>
                 <Td className="font-mono">{p.knockouts || ''}</Td>
                 <Td className="font-mono">{p.xp || ''}</Td>
                 <Td className="font-mono font-bold">{p.score}</Td>
@@ -314,6 +317,41 @@ export function EveningPage({ id }: { id: string }) {
           </ul>
         )}
         {view.canManage && s.house !== 0 && <p className="mt-2 text-sm text-muted">{t('evening.houseTotal', { amount: s.house })}</p>}
+      </Card>
+
+      <Card title={t('evening.movements')}>
+        <p className="mb-2 text-sm text-muted">{t('evening.movementsHelp')}</p>
+        {s.lines === undefined ? (
+          <p className="text-muted">{t('evening.movementsOld')}</p>
+        ) : s.lines.length === 0 ? (
+          <p className="text-muted">{t('evening.movementsNone')}</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {s.players.map((p) => {
+              const mine = s.lines!.filter((l) => l.userId === p.userId);
+              if (mine.length === 0) return null;
+              return (
+                <DataTable key={p.userId} head={[p.nickname, t('evening.colGame'), t('evening.colKind'), t('evening.colCount'), t('evening.colAmount')]}>
+                  {mine.map((l) => (
+                    <tr key={`${l.game}:${l.kind}`}>
+                      <Td />
+                      <Td>{s.games.find((g) => g.ref === l.game)?.name ?? l.game}</Td>
+                      <Td>{t(l.kind === 'seated' ? 'evening.kind.seated' : `ledger.kind.${l.kind}`)}</Td>
+                      <Td className="font-mono">{l.count}×</Td>
+                      <Td className={`font-mono ${l.amount < 0 ? 'text-danger' : ''}`}>{l.amount > 0 ? `+${l.amount}` : l.amount}</Td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <Td className="font-bold" colSpan={4}>
+                      {t('evening.colSum')}
+                    </Td>
+                    <Td className="font-mono font-bold">{p.net > 0 ? `+${p.net}` : p.net}</Td>
+                  </tr>
+                </DataTable>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       <Card title={t('evening.gamesTitle')}>

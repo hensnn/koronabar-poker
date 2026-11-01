@@ -212,4 +212,37 @@ describe('herní večery', { timeout: 90_000 }, () => {
     expect(await code(off.server.evenings.create(org2, 'Nic'))).toBe('DISABLED');
     expect(await off.server.evenings.attach('tournament', 'x')).toBeNull();
   });
+
+  it('výsledek večera obsahuje odměny na hlavu a sázky s rozpisem všech pohybů (součet sedí s knihou i vyúčtováním)', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const [a, b, c] = [await s.user(), await s.user(), await s.user()];
+    const tId = await playTournament(s, org, 'Hlavy', [a, b, c]);
+    const post = (kind: Parameters<typeof s.server.ledger.post>[0]['kind'], key: string, entries: { account: string; amount: number }[]) => s.server.ledger.post({ kind, idempotencyKey: key, gameId: tId, entries });
+    // b vypsal odměnu 50 na hlavu hráče a, vyplatila se hráči c (vyřadil ho); c vsadil 30 na sázku, kterou prohrál (vklad propadl hráči a)
+    post('head_bounty_post', 'hb:1:post', [{ account: accounts.wallet(b), amount: -50 }, { account: accounts.escrow('hb:1'), amount: 50 }]);
+    post('head_bounty_payout', 'hb:1:settle', [{ account: accounts.escrow('hb:1'), amount: -50 }, { account: accounts.wallet(c), amount: 50 }]);
+    post('bet_stake', 'bet:1:stake:c', [{ account: accounts.wallet(c), amount: -30 }, { account: accounts.escrow('bet:1'), amount: 30 }]);
+    post('bet_payout', 'bet:1:settle', [{ account: accounts.escrow('bet:1'), amount: -30 }, { account: accounts.wallet(a), amount: 30 }]);
+    await s.server.journal.flush();
+
+    const id = (await s.server.evenings.list(org)).evenings[0]!.id;
+    const sum = (await s.server.evenings.view(id, org)).summary;
+    const row = (u: string) => sum.players.find((p) => p.userId === u)!;
+    expect(row(b).side).toBe(-50);
+    expect(row(c).side).toBe(50 - 30);
+    expect(row(a).side).toBe(30);
+    expect(row(b).net).toBe(-100 - 50);
+    expect(row(b).breakdown).toMatchObject({ head_bounty_post: -50 });
+    expect(row(c).breakdown).toMatchObject({ head_bounty_payout: 50, bet_stake: -30 });
+    // rozpis: každý pohyb má řádek a součet řádků hráče je jeho výsledek večera
+    for (const p of sum.players) expect(sum.lines.filter((l) => l.userId === p.userId).reduce((n, l) => n + l.amount, 0)).toBe(p.net);
+    expect(sum.lines.find((l) => l.userId === c && l.kind === 'head_bounty_payout')).toMatchObject({ game: tId, count: 1, amount: 50 });
+    // nic nevzniklo ani nezmizelo
+    expect(sum.players.reduce((n, p) => n + p.net, 0) + sum.house).toBe(0);
+    // CSV obsahuje rozpis pohybů s popisky
+    const csv = await s.server.evenings.csv(org, id);
+    expect(csv).toContain('Odměna na hlavu (vyplaceno)');
+    expect(csv).toContain('Vklad do sázky');
+  });
 });
