@@ -1025,6 +1025,7 @@ export class TournamentManager {
       paused: st.paused,
       onBreak: st.onBreak,
       startedAt: st.startedAt,
+      finishedAt: st.finishedAt,
       serverTime: Date.now(),
       buyIn: this.entryTerms(st, s).buyIn,
       fee: this.entryTerms(st, s).fee,
@@ -1057,7 +1058,7 @@ export class TournamentManager {
       bounty: { type: String(s['tournament.bountyType']), percent: Number(s['tournament.bountyPercent']), pkoCash: Number(s['tournament.pkoCashPercent']), payout: String(s['tournament.bountyPayout']), bank: this.deps.ledger.balance(accounts.bounty(id)) },
       deal: { enabled: !!s['tournament.dealEnabled'], open: live.dealOptions(userId).vote?.status === 'open', done: st.deal ? { method: st.deal.method, keep: st.deal.keep } : null, blocked: live.dealBlocker() },
       schedule: row.sched ? { startAt: row.sched.startAt, opensAt: row.sched.opensAt, registrationOpen: this.registrationOpen(id), postponed: row.sched.postponed, seriesId: row.sched.seriesId, unregisterUntil: row.sched.startAt - Number(s['tournament.unregisterUntilMinutes']) * 60_000, autoPaused: row.sched.autoPaused, invited: row.sched.invited ?? null } : null,
-      payouts: live.payoutPreview(),
+      payouts: results ? results.filter((x) => x.payout > 0).map((x) => ({ place: x.place, amount: x.payout, name: x.name })) : live.payoutPreview(),
       payoutPreset: String(s['tournament.payoutPreset']),
       standings,
       results,
@@ -1108,6 +1109,7 @@ export class TournamentManager {
       paused: false,
       onBreak: false,
       startedAt: st?.startedAt ?? null,
+      finishedAt: st?.finishedAt ?? null,
       serverTime: Date.now(),
       buyIn: terms.buyIn,
       fee: terms.fee,
@@ -1137,7 +1139,7 @@ export class TournamentManager {
       breakMinutes: Number(s['tournament.breakMinutes']),
       prizePool: (st?.results ?? []).reduce((a, x) => a + x.payout, 0),
       fees: feesOf(s, st ?? undefined),
-      payouts: [],
+      payouts: (st?.results ?? []).filter((x) => x.payout > 0).map((x) => ({ place: x.place, amount: x.payout, name: x.name })),
       payoutPreset: String(s['tournament.payoutPreset']),
       bounty: { type: String(s['tournament.bountyType']), percent: Number(s['tournament.bountyPercent']), pkoCash: Number(s['tournament.pkoCashPercent']), payout: String(s['tournament.bountyPayout']), bank: 0 },
       deal: { enabled: !!s['tournament.dealEnabled'], open: false, done: st?.deal ? { method: st.deal.method, keep: st.deal.keep } : null, blocked: 'STATE' },
@@ -1258,6 +1260,8 @@ export interface TournamentView {
   paused: boolean;
   onBreak: boolean;
   startedAt: number | null;
+  /** Kdy turnaj skončil (jen skončený). */
+  finishedAt: number | null;
   serverTime: number;
   buyIn: number;
   fee: number;
@@ -1289,7 +1293,8 @@ export interface TournamentView {
   prizePool: number;
   /** Průhlednost: kam jdou peníze ze vstupů. */
   fees: Fees;
-  payouts: { place: number; amount: number }[];
+  /** Výplaty podle umístění: před koncem náhled podle prize poolu, po skončení skutečně vyplacené (s jménem hráče). */
+  payouts: { place: number; amount: number; name?: string }[];
   payoutPreset: string;
   /** Plánování: kdy turnaj začíná, od kdy je registrace, do kdy se lze odhlásit. */
   schedule: { startAt: number; opensAt: number; registrationOpen: boolean; postponed: number; seriesId: string | null; unregisterUntil: number; autoPaused: boolean; invited: string[] | null } | null;

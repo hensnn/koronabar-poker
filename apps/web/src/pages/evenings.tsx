@@ -277,7 +277,7 @@ export function EveningPage({ id }: { id: string }) {
         </div>
         <details className="mt-4 rounded-md border border-line">
           <summary className="cursor-pointer px-3 py-2 font-semibold">{t('evening.legend.title')}</summary>
-          <dl className="flex flex-col gap-2 px-3 pb-3 text-sm">
+          <dl className="flex flex-col px-3 pb-3 gap-2 text-sm">
             {(['mvp', 'hunter', 'banker', 'badBeat', 'bestHand'] as const).map((k) => (
               <div key={k}>
                 <dt className="font-semibold">{t(`evening.legend.${k}`)}</dt>

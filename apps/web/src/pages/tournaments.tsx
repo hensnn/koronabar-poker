@@ -47,6 +47,8 @@ interface View {
   status: Summary['status'];
   paused: boolean;
   onBreak: boolean;
+  startedAt: number | null;
+  finishedAt: number | null;
   serverTime: number;
   buyIn: number;
   fee: number;
@@ -75,7 +77,7 @@ interface View {
   breakMinutes: number;
   prizePool: number;
   fees: { fee: number; houseCutPercent: number; fundPercent: number; fundId: string; guarantee: number; collected: { pool: number; house: number; fund: number }; overlay: number };
-  payouts: { place: number; amount: number }[];
+  payouts: { place: number; amount: number; name?: string }[];
   schedule: { startAt: number; opensAt: number; registrationOpen: boolean; postponed: number; seriesId: string | null; unregisterUntil: number; autoPaused: boolean; invited: string[] | null } | null;
   deal: { enabled: boolean; open: boolean; done: { method: string; keep: number } | null; blocked: string | null };
   bounty: { type: string; percent: number; pkoCash: number; payout: string; bank: number };
@@ -100,6 +102,14 @@ const mmss = (ms: number): string => {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 };
 
+/** Délka v hodinách, minutách a sekundách (např. 3:07:42). */
+const hms = (ms: number): string => {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
 const levelText = (l: LevelDto | null): string => (l ? `${l.smallBlind}/${l.bigBlind}${l.ante ? ` + ${t('tournament.ante')} ${l.ante}` : ''}` : '–');
 
 // ---------- přehled turnajů ----------
@@ -520,6 +530,20 @@ export function TournamentPage({ id }: { id: string }) {
                 <dd>{t('planning.autoPaused')}</dd>
               </>
             )}
+            {view.finishedAt && (
+              <>
+                <dt className="text-muted">{t('tournament.endedAt')}</dt>
+                <dd>{new Date(view.finishedAt).toLocaleString('cs-CZ')}</dd>
+                <dt className="text-muted">{t('tournament.endedLevel')}</dt>
+                <dd>{t('tournament.endedLevelText', { n: view.levelNumber, blinds: levelText(view.levels[view.levelNumber - 1] ?? null) })}</dd>
+                {view.startedAt && (
+                  <>
+                    <dt className="text-muted">{t('tournament.totalTime')}</dt>
+                    <dd className="font-mono">{hms(view.finishedAt - view.startedAt)}</dd>
+                  </>
+                )}
+              </>
+            )}
             <dt className="text-muted">{t('tournament.prizePool')}</dt>
             <dd className="font-mono">{view.prizePool}</dd>
             {view.bounty.type !== 'none' && (
@@ -581,6 +605,7 @@ export function TournamentPage({ id }: { id: string }) {
           </dl>
         </Card>
 
+        {view.status !== 'finished' && view.status !== 'cancelled' && (
         <Card title={t('tournament.clock')}>
           <div className="flex flex-col gap-1">
             {view.onBreak && (
@@ -611,6 +636,7 @@ export function TournamentPage({ id }: { id: string }) {
             {view.breakEveryLevels > 0 && <p className="text-sm text-muted">{t('tournament.breakInfo', { every: view.breakEveryLevels, minutes: view.breakMinutes })}</p>}
           </div>
         </Card>
+        )}
       </div>
 
       {view.tables.length > 1 && running && !view.live && (
@@ -674,19 +700,21 @@ export function TournamentPage({ id }: { id: string }) {
         </Card>
         </div>
         <Card title={t('tournament.payouts')}>
+          <p className="mb-2 text-sm text-muted">{t('tournament.payoutsHelp')}</p>
           {view.payouts.length === 0 ? (
-            <p className="text-muted">{t('tournament.noPayouts')}</p>
+            <p className="text-muted">{t(view.status === 'finished' || view.status === 'cancelled' ? 'tournament.noPayoutsDone' : 'tournament.noPayouts')}</p>
           ) : (
-            <DataTable sortable={false} head={[t('tournament.placeShort'), t('tournament.amount')]}>
+            <DataTable sortable={false} head={[t('tournament.placeShort'), ...(view.payouts.some((p) => p.name) ? [t('tournament.player')] : []), t('tournament.amount')]}>
               {view.payouts.map((p) => (
                 <tr key={p.place}>
                   <Td className="font-mono">{p.place}.</Td>
+                  {view.payouts.some((x) => x.name) && <Td>{p.name ?? ''}</Td>}
                   <Td className="font-mono">{p.amount}</Td>
                 </tr>
               ))}
             </DataTable>
           )}
-          <p className="mt-2 text-sm text-muted">{t('tournament.payoutNote')}</p>
+          <p className="mt-2 text-sm text-muted">{t(view.results ? 'tournament.payoutNoteDone' : 'tournament.payoutNote')}</p>
         </Card>
       </div>
 

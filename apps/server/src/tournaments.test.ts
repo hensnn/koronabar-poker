@@ -820,6 +820,16 @@ describe('widget Informace u turnaje: data odpovídají tomu, co se hrálo', { t
     expect(archived).toMatchObject({ buyIn: 70, fee: 5, startingStack: 777, players: 2 });
     expect(archived.rebuy).toMatchObject({ enabled: true, cost: 40, chips: 333 });
     expect(archived.summary![0]).toMatchObject({ entryAmount: 75 });
+    // ukončení: kdy, v jakém levelu a skutečné výplaty se jmény (dřív po skončení prázdné)
+    for (const v of [live, archived]) {
+      expect(v.finishedAt).not.toBeNull();
+      expect(v.startedAt).not.toBeNull();
+      expect(v.finishedAt!).toBeGreaterThanOrEqual(v.startedAt!);
+      expect(v.levelNumber).toBeGreaterThanOrEqual(1);
+      expect(v.payouts).toHaveLength(1);
+      expect(v.payouts[0]).toMatchObject({ place: 1, amount: 140 });
+      expect(v.payouts[0]!.name).toBeTruthy();
+    }
   });
 });
 
