@@ -15,8 +15,8 @@ describe('české popisy kombinací', () => {
     expect(cz(['As', 'Ad', 'Kh', '9c', '2s'])).toBe('Dvojice es');
     expect(cz(['7s', '7d', '7h', '9c', '2s'])).toBe('Trojice sedmiček');
     expect(cz(['9s', '9d', '9h', '9c', '2s'])).toBe('Čtveřice devítek');
-    expect(cz(['Ks', 'Kd', 'Kh', '2c', '2s'])).toBe('Full house (králů na dvojek)');
-    expect(cz(['As', 'Js', '9s', '4s', '2s'])).toBe('Barva, nejvyšší eso');
+    expect(cz(['Ks', 'Kd', 'Kh', '2c', '2s'])).toBe('Full house: trojice králů a dvojice dvojek');
+    expect(cz(['As', 'Js', '9s', '4s', '2s'])).toBe('Barva, nejvyšší karta eso');
     expect(cz(['9s', '8s', '7s', '6s', '5s'])).toBe('Postupka v barvě do devítky');
     expect(cz(['As', 'Ks', 'Qs', 'Js', 'Ts'])).toBe('Royal flush');
     expect(cz(['As', 'Jd', '9h', '4c', '2s'])).toBe('Nejvyšší karta: eso');
