@@ -38,6 +38,7 @@ interface Row {
   balance: number;
   ratingTournament?: number | null;
   ratingCash?: number | null;
+  rank?: { name: string; icon: string; color: string };
   division?: { name: string; icon: string; color: string } | null;
 }
 
@@ -296,16 +297,29 @@ export function DashboardPage() {
 }
 
 function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
+  const { values } = useSettings();
+  const xpOn = useFeatures().xp;
+  const tour = values['rating.tournamentsEnabled'] !== false ? row.ratingTournament : null;
+  const cash = values['rating.cashEnabled'] !== false ? row.ratingCash : null;
+  const value = tour ?? cash;
+  const shownDivision = row.division && (tour != null || cash != null || (values['rating.tournamentsEnabled'] !== false && values['rating.cashEnabled'] !== false)) ? row.division : null;
   return (
     <li
       className={`flex items-center gap-3 rounded-md border px-3 py-1 ${me ? 'border-primary bg-raised' : 'border-line'}`}
     >
       <span className="w-6 text-right font-mono text-muted">{place}.</span>
-      <strong className="flex-1 truncate">{row.nickname}</strong>
-      {row.division && (
-        <span className={`whitespace-nowrap text-sm ${rankColorClass(row.division.color)}`} title={row.division.name}>
-          <span aria-hidden>{row.division.icon}</span> <span className="hidden sm:inline">{row.division.name}</span>
-          {(row.ratingTournament ?? row.ratingCash) != null && <span className="ml-1 font-mono text-muted">{Math.round((row.ratingTournament ?? row.ratingCash)!)}</span>}
+      <strong className="flex-1 truncate">
+        {xpOn && row.rank?.icon && (
+          <span className={`mr-1 ${rankColorClass(row.rank.color)}`} title={row.rank.name}>
+            {row.rank.icon}
+          </span>
+        )}
+        {row.nickname}
+      </strong>
+      {shownDivision && (
+        <span className={`whitespace-nowrap text-sm ${rankColorClass(shownDivision.color)}`} title={shownDivision.name}>
+          <span aria-hidden>{shownDivision.icon}</span> <span className="hidden sm:inline">{shownDivision.name}</span>
+          {value != null && <span className="ml-1 font-mono text-muted">{Math.round(value)}</span>}
         </span>
       )}
       <span className={`font-mono ${tone(row.total)}`}>{signed(row.total)}</span>
@@ -315,9 +329,13 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
 
 /** Divize a rating hráče v kartě Moje konto: turnaje a cash zvlášť, s bodovým rozdílem do další divize. */
 function RatingLines({ r }: { r: { tournament: MyRating; cash: MyRating } }) {
+  const { values } = useSettings();
+  // Druh hry s vypnutým ratingem (Nastavení → Rating) se v Lobby neukazuje.
+  const lines = ([['tournament', r.tournament], ['cash', r.cash]] as const).filter(([scope]) => values[scope === 'cash' ? 'rating.cashEnabled' : 'rating.tournamentsEnabled'] !== false);
+  if (lines.length === 0) return null;
   return (
     <div className="flex flex-col gap-1 rounded-md border border-line px-3 py-2">
-      {([['tournament', r.tournament], ['cash', r.cash]] as const).map(([scope, x]) => (
+      {lines.map(([scope, x]) => (
         <div key={scope} className="flex flex-wrap items-baseline gap-x-2">
           <span className="w-16 text-sm text-muted">{t(scope === 'cash' ? 'rating.cash' : 'rating.tournament')}</span>
           <strong className={rankColorClass(x.divisionColor)}>
