@@ -497,7 +497,7 @@ export function TournamentPage({ id }: { id: string }) {
               {view.startingStack}
             </dd>
             <dt className="text-muted">{t('tournament.playersLabel')}</dt>
-            <dd className="font-mono">{running ? `${view.alive}/${view.players}` : `${view.players}/${view.seats}`}</dd>
+            <dd className="font-mono">{running ? `${view.alive}/${view.players}` : view.status === 'registering' ? `${view.players}/${view.seats}` : view.players}</dd>
             {view.schedule && view.status === 'registering' && (
               <>
                 <dt className="text-muted">{t('planning.startsAt')}</dt>

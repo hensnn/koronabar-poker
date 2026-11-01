@@ -166,6 +166,21 @@ export class TournamentManager {
     this.money = new TournamentMoney(deps.ledger);
   }
 
+  /**
+   * Skutečné podmínky vstupu: když už se za turnaj platilo, je buy-in a poplatek z plateb (to, co hráči opravdu zaplatili), ne z nastavení,
+   * které se mohlo mezitím změnit. Bez plateb (registrace) platí nastavení.
+   */
+  private entryTerms(st: TournamentState | null | undefined, s: SettingValues): { buyIn: number; fee: number } {
+    const first = (st?.payments ?? []).find((p) => p.kind === 'turnaj_buyin' && !p.refunded);
+    return first ? { buyIn: first.cost, fee: first.fee } : { buyIn: Number(s['tournament.buyIn']), fee: Number(s['tournament.fee']) };
+  }
+
+  /** Nastavení uvolněného (archivovaného) turnaje: stejné vrstvy jako u běžícího (šablona + nastavení turnaje), jinak by se ukázaly výchozí hodnoty. */
+  private resolveArchived(r: typeof schema.tournaments.$inferSelect): SettingValues {
+    const values = (r.templateValues as Record<string, SettingValue> | null | undefined) ?? this.deps.templates.getAny(r.templateId)?.values;
+    return this.deps.settings.resolve([...(values ? [{ scope: 'template' as const, values }] : []), { scope: 'table', values: (r.settings ?? {}) as Record<string, SettingValue> }]);
+  }
+
   private resolve(row: Row): SettingValues {
     const values = (row.templateValues as Record<string, SettingValue> | null | undefined) ?? this.deps.templates.getAny(row.templateId)?.values;
     return this.deps.settings.resolve([
@@ -1011,8 +1026,8 @@ export class TournamentManager {
       onBreak: st.onBreak,
       startedAt: st.startedAt,
       serverTime: Date.now(),
-      buyIn: Number(s['tournament.buyIn']),
-      fee: Number(s['tournament.fee']),
+      buyIn: this.entryTerms(st, s).buyIn,
+      fee: this.entryTerms(st, s).fee,
       startingStack: Number(s['tournament.startingStack']),
       seats: Number(s['table.seats']),
       minPlayers: Number(s['tournament.minPlayers']),
@@ -1082,7 +1097,8 @@ export class TournamentManager {
 
   private archivedView(r: typeof schema.tournaments.$inferSelect, head?: Map<string, { earned: number; lost: number; bets?: number }>): TournamentView {
     const st = r.state as TournamentState | null;
-    const s = this.deps.settings.resolve([{ scope: 'table', values: (r.settings ?? {}) as Record<string, SettingValue> }]);
+    const s = this.resolveArchived(r);
+    const terms = this.entryTerms(st, s);
     return {
       id: r.id,
       name: r.name,
@@ -1093,8 +1109,8 @@ export class TournamentManager {
       onBreak: false,
       startedAt: st?.startedAt ?? null,
       serverTime: Date.now(),
-      buyIn: Number(s['tournament.buyIn']),
-      fee: Number(s['tournament.fee']),
+      buyIn: terms.buyIn,
+      fee: terms.fee,
       startingStack: Number(s['tournament.startingStack']),
       seats: Number(s['table.seats']),
       minPlayers: Number(s['tournament.minPlayers']),

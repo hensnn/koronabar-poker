@@ -797,6 +797,32 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
   });
 });
 
+describe('widget Informace u turnaje: data odpovídají tomu, co se hrálo', { timeout: 120_000 }, () => {
+  it('skončený a z paměti uvolněný turnaj ukáže buy-in, poplatek, startovní stack a rebuy ze šablony i plateb, ne výchozí hodnoty', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const [a, b] = [await s.user(), await s.user()];
+    const tpl = await s.server.templates.create(s.admin, {
+      name: 'Zvláštní',
+      kind: 'tournament',
+      values: { 'tournament.live': true, 'tournament.minPlayers': 2, 'tournament.buyIn': 70, 'tournament.fee': 5, 'tournament.startingStack': 777, 'table.seats': 9, 'tournament.payoutPreset': 'wta', 'tournament.rebuyEnabled': true, 'tournament.rebuyCost': 40, 'tournament.rebuyChips': 333 },
+    });
+    const { id } = await s.server.tournaments.create(org, { name: 'Informace', templateId: tpl.id });
+    for (const p of [a, b]) await s.server.tournaments.liveRegister(org, id, p);
+    await s.server.tournaments.start(org, id);
+    await s.server.tournaments.liveEliminate(org, id, b, [a]);
+    const live = await s.server.tournaments.view(id, org);
+    expect(live).toMatchObject({ buyIn: 70, fee: 5, startingStack: 777, players: 2, prizePool: 140 });
+    expect(live.rebuy).toMatchObject({ enabled: true, cost: 40, chips: 333 });
+    // po uvolnění z paměti (archiv) musí být stejné: dřív se ukázaly výchozí hodnoty bez šablony
+    s.server.tournaments.sweep(-1);
+    const archived = await s.server.tournaments.view(id, org);
+    expect(archived).toMatchObject({ buyIn: 70, fee: 5, startingStack: 777, players: 2 });
+    expect(archived.rebuy).toMatchObject({ enabled: true, cost: 40, chips: 333 });
+    expect(archived.summary![0]).toMatchObject({ entryAmount: 75 });
+  });
+});
+
 describe('resultSummary (přehled po konci turnaje)', () => {
   it('spočítá vstupy, rebuy, add-ony, zaplaceno a zisk; vrácené platby nepočítá', async () => {
     const { resultSummary } = await import('./tournaments.js');
