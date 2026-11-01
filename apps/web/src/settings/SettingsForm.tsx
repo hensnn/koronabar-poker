@@ -34,6 +34,8 @@ interface Props {
   /** Klíče změněné, ale ještě neuložené (ukáže se štítek „Neuloženo“). */
   pendingKeys?: string[];
   gameKind?: 'cash' | 'tournament' | 'live';
+  /** Vlastní pořadí karet (kategorií): uvedené jdou první v tomto pořadí (osobní nastavení). */
+  categoryOrder?: string[];
 }
 
 const field =
@@ -70,7 +72,9 @@ const fold = (s: string) =>
 const CATEGORY_ORDER = ['chat', 'sounds', 'announcer', 'email'];
 
 /** Karty z `CATEGORY_ORDER` zaberou tytéž pozice jako dosud, jen v uvedeném pořadí. */
-export function orderCategories(cats: string[]): string[] {
+export function orderCategories(cats: string[], first?: string[]): string[] {
+  // Vlastní pořadí (osobní nastavení): uvedené karty nejdřív v daném pořadí, ostatní za nimi.
+  if (first) return [...first.filter((c) => cats.includes(c)), ...cats.filter((c) => !first.includes(c))];
   const wanted = CATEGORY_ORDER.filter((c) => cats.includes(c));
   let i = 0;
   return cats.map((c) => (CATEGORY_ORDER.includes(c) ? wanted[i++]! : c));
@@ -81,8 +85,8 @@ export function SettingsForm(p: Props) {
   const [query, setQuery] = useState('');
   const [onlyChanged, setOnlyChanged] = useState(false);
   const cats = useMemo(
-    () => orderCategories(p.registry.categories().filter((c) => p.registry.all().some((d) => d.category === c && p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind)))),
-    [p.registry, p.allowedKeys, p.values, p.gameKind],
+    () => orderCategories(p.registry.categories().filter((c) => p.registry.all().some((d) => d.category === c && p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind))), p.categoryOrder),
+    [p.registry, p.allowedKeys, p.values, p.gameKind, p.categoryOrder],
   );
   const changedBy = useMemo(() => {
     const out: Record<string, number> = {};

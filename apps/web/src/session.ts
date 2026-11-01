@@ -8,6 +8,8 @@ export interface Me {
   limits: Record<string, Record<string, number>>;
   approvals: Record<string, boolean>;
   mainAdmin: boolean;
+  /** Názvy platných rolí uživatele. */
+  roles?: string[];
   power: number;
   balance: number;
 }

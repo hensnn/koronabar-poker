@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { changeLimits, checkLimits, cleanLimits, mergeLimits, periodStart, settlePending, usageIn, type LimitEvent } from './limits.js';
+import { createDefaultRegistry } from './settings/definitions/index.js';
+import { LIMIT_FIELDS, changeLimits, checkLimits, cleanLimits, mergeLimits, periodStart, settlePending, usageIn, type LimitEvent } from './limits.js';
 import { fromLocal } from './schedule.js';
 
 const H = 3600_000;
@@ -97,5 +98,13 @@ describe('osobní limity: období a kontrola', () => {
     expect(checkLimits({ ...base, limits: { sessionMinutes: 120 }, sessionMinutes: 130 })).toMatchObject({ kind: 'session', limit: 120, used: 130 });
     expect(checkLimits({ ...base, limits: { sessionMinutes: 120 }, sessionMinutes: 60 })).toBeNull();
     expect(checkLimits({ ...base, limits: { sessionMinutes: 0 }, sessionMinutes: 999 })).toBeNull();
+  });
+});
+
+describe('viditelnost položek osobních limitů', () => {
+  it('každé pole limitů a každá část má nastavení limits.show.* (výchozí zapnuto)', () => {
+    const reg = createDefaultRegistry();
+    const keys = [...LIMIT_FIELDS.map((f) => `limits.show.${f}`), 'limits.show.usage', 'limits.show.session', 'limits.show.break'];
+    for (const k of keys) expect(reg.get(k)?.default, k).toBe(true);
   });
 });

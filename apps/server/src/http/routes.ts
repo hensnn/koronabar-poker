@@ -181,6 +181,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       limits: Object.fromEntries([...eff].filter(([, d]) => d.limits).map(([k, d]) => [k, d.limits])),
       approvals: Object.fromEntries([...eff].filter(([, d]) => d.needsApproval).map(([k]) => [k, true])),
       mainAdmin: svc.perms.isMainAdmin(user.id),
+      /** Názvy rolí, které má uživatel právě platné (pro zobrazení v profilu). */
+      roles: [...new Set(svc.perms.assignmentsOf(user.id).filter((a) => a.role && (!a.validFrom || a.validFrom.getTime() <= Date.now()) && (!a.validTo || a.validTo.getTime() >= Date.now())).map((a) => a.role!.name))],
       power: svc.perms.maxPower(user.id),
       balance: svc.ledger.balance(ledgerAccounts.wallet(user.id)),
     };

@@ -167,7 +167,9 @@ export class LimitsService {
       sessionMinutes: Math.floor(this.minutesOf(userId) ?? 0),
       loosenDelayHours: Number(s['limits.loosenDelayHours']),
       maxBreakDays: Number(s['limits.maxBreakDays']),
-      fields: LIMIT_FIELDS,
+      // které položky smí hráč vidět, určuje správce (limits.show.*); skrytý limit platí dál, jen se neukazuje
+      fields: LIMIT_FIELDS.filter((f) => s[`limits.show.${f}`] !== false),
+      show: { usage: s['limits.show.usage'] !== false, session: s['limits.show.session'] !== false, break: s['limits.show.break'] !== false },
     };
   }
 

@@ -57,6 +57,21 @@ async function tryJoin(s: Ctx, user: string, id: string) {
   }
 }
 
+describe('osobní limity: viditelnost položek', { timeout: 60_000 }, () => {
+  it('správce skryje položky: hráč je ve view nevidí, skrytý limit ale platí dál', async () => {
+    const s = await start({ 'limits.show.lossDay': false, 'limits.show.reminderMinutes': false, 'limits.show.break': false, 'limits.show.usage': false });
+    const p = await s.user();
+    await s.server.limits.set(p, { lossDay: 300, buyInsDay: 2 });
+    const v = await s.server.limits.view(p);
+    expect(v.fields).not.toContain('lossDay');
+    expect(v.fields).not.toContain('reminderMinutes');
+    expect(v.fields).toContain('buyInsDay');
+    expect(v.show).toEqual({ usage: false, session: true, break: false });
+    expect(v.limits.lossDay).toBe(300); // skrytý limit platí
+    expect(v.effective.lossDay).toBe(300);
+  });
+});
+
 describe('osobní limity v účetní knize', { timeout: 90_000 }, () => {
   it('limit počtu buy-inů za den zastaví další vstup do turnaje a nic se nestrhne', async () => {
     const s = await start();

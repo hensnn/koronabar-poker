@@ -19,24 +19,39 @@ import { SettingsShare } from '../settings-share';
 import { Diagnostics } from '../diagnostics';
 import { LookTitle, Trophies } from '../cosmetics-client';
 
+/** Pořadí karet v osobním nastavení: Vzhled a ovládání, E-mail, Chat, Hlasatel, Zvukové emotikony; pod formulářem pak Správa nastavení, Zvukové emotikony (knihovna) a Diagnostika. */
+const PERSONAL_ORDER = ['ui', 'email', 'chat', 'announcer', 'sounds'];
+
 export function ProfilePage() {
   const { me } = useSession();
   const features = useFeatures();
   const [pw, setPw] = useState({ current: '', next: '' });
   const [mail, setMail] = useState({ password: '', email: '' });
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string; where: 'pw' | 'mail' } | null>(null);
+  const notesOn = useSettings().values['ui.showPlayerNotes'] !== false;
   if (!me) return null;
   return (
     <div className="flex flex-col gap-3">
       <h1 className="font-heading text-2xl font-bold">{t('profile.title')}</h1>
       <Card>
-        <p>
-          <strong>{me.user.nickname}</strong> <LookTitle userId={me.user.id} /> <Trophies userId={me.user.id} /> · {me.user.email}
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p>
+            <strong>{me.user.nickname}</strong> <LookTitle userId={me.user.id} /> <Trophies userId={me.user.id} /> · {me.user.email}
+            {me.roles && me.roles.length > 0 && (
+              <>
+                {' '}
+                · <span className="text-muted">{t('profile.role')}:</span> {me.roles.join(', ')}
+              </>
+            )}
+          </p>
+          <Button className="ml-auto" onClick={() => void logout()}>
+            {t('nav.logout')}
+          </Button>
+        </div>
         <p className="text-sm text-muted">{me.user.emailVerified ? t('profile.verified') : t('profile.unverified')}</p>
       </Card>
       {features.limits && <LimitsSection />}
-      <NotesSection />
+      {notesOn && <NotesSection />}
       <Card title={t('pwa.install')}>
         <InstallCard />
       </Card>
@@ -55,6 +70,7 @@ export function ProfilePage() {
             }
           }}
         >
+          <input type="text" name="username" autoComplete="username" defaultValue={me.user.nickname} readOnly tabIndex={-1} aria-hidden className="sr-only" />
           <TextInput label={t('profile.currentPassword')} type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" required />
           <TextInput label={t('auth.newPassword')} type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" required />
           {msg?.where === 'pw' && <Notice kind={msg.kind}>{msg.text}</Notice>}
@@ -77,8 +93,9 @@ export function ProfilePage() {
             }
           }}
         >
-          <TextInput label={t('auth.email')} type="email" value={mail.email} onChange={(e) => setMail({ ...mail, email: e.target.value })} required />
-          <TextInput label={t('profile.currentPassword')} type="password" value={mail.password} onChange={(e) => setMail({ ...mail, password: e.target.value })} required />
+          <input type="text" name="username" autoComplete="username" defaultValue={me.user.nickname} readOnly tabIndex={-1} aria-hidden className="sr-only" />
+          <TextInput label={t('profile.newEmail')} type="email" name="new-email" autoComplete="off" placeholder={me.user.email ?? ''} value={mail.email} onChange={(e) => setMail({ ...mail, email: e.target.value })} required />
+          <TextInput label={t('profile.currentPassword')} type="password" autoComplete="current-password" value={mail.password} onChange={(e) => setMail({ ...mail, password: e.target.value })} required />
           {msg?.where === 'mail' && <Notice kind={msg.kind}>{msg.text}</Notice>}
           <Button variant="primary" type="submit">
             {t('profile.changeEmail')}
@@ -108,9 +125,6 @@ export function SettingsPage() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-bold">{t('settings.personal.title')}</h1>
-        <Button className="ml-auto" onClick={() => void logout()}>
-          {t('nav.logout')}
-        </Button>
       </div>
       <Tabs tabs={[{ id: 'settings', label: t('guide.tab.settings') }, { id: 'guide', label: `📖 ${t('guide.tab.guide')}` }]} value={view} onChange={setView} />
       {view === 'guide' ? (
@@ -138,9 +152,10 @@ export function SettingsPage() {
         onReset={(k) => void resetUserSetting(k, target === 'device').catch((e) => setMsg({ kind: 'error', text: errorText(e) }))}
         issues={[]}
         allowedKeys={(d) => userKeys.some((x) => x.key === d.key)}
+        categoryOrder={PERSONAL_ORDER}
       />
-      <SoundLibrary />
       <SettingsShare />
+      <SoundLibrary />
       <Diagnostics />
         </>
       )}

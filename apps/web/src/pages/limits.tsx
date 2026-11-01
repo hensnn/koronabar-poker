@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get, post, put } from '../api';
-import { Button, Card, Notice, TextInput } from '../ui';
+import { Button, Notice, TextInput } from '../ui';
 
 type Fields = Record<string, number>;
 interface View {
@@ -13,6 +13,8 @@ interface View {
   breakUntil: number | null;
   usage: Record<'day' | 'week' | 'month' | 'evening', { buyIns: number; loss: number }>;
   sessionMinutes: number;
+  /** Které části smí hráč vidět (nastavuje správce). */
+  show?: { usage: boolean; session: boolean; break: boolean };
   loosenDelayHours: number;
   maxBreakDays: number;
   fields: string[];
@@ -49,20 +51,24 @@ export function LimitsSection() {
     }
   };
 
+  const show = view.show ?? { usage: true, session: true, break: true };
   return (
-    <Card title={t('limits.title')}>
-      <div className="flex flex-col gap-4">
+    <details className="rounded-md border border-line bg-surface">
+      <summary className="cursor-pointer px-4 py-3 font-heading text-lg font-bold">{t('limits.title')}</summary>
+      <div className="flex flex-col px-4 pb-4 gap-4">
         <p className="text-sm text-muted">{t('limits.help', { hours: view.loosenDelayHours })}</p>
         {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+        {(show.usage || (show.session && view.sessionMinutes > 0)) && (
         <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
-          {(['day', 'week', 'month', 'evening'] as const).map((p) => (
+          {show.usage && (['day', 'week', 'month', 'evening'] as const).map((p) => (
             <div key={p} className="flex justify-between gap-3">
               <dt className="text-muted">{t(`limits.usage${p[0]!.toUpperCase()}${p.slice(1)}`)}</dt>
               <dd className="font-mono">{t('limits.usageLine', { buyIns: view.usage[p].buyIns, loss: view.usage[p].loss })}</dd>
             </div>
           ))}
-          {view.sessionMinutes > 0 && <p className="text-muted">{t('limits.session', { minutes: view.sessionMinutes })}</p>}
+          {show.session && view.sessionMinutes > 0 && <p className="text-muted">{t('limits.session', { minutes: view.sessionMinutes })}</p>}
         </dl>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           {view.fields.map((f) => (
             <div key={f} className="flex flex-col gap-1">
@@ -77,6 +83,7 @@ export function LimitsSection() {
             {t('limits.save')}
           </Button>
         </div>
+        {show.break && (
         <section className="flex flex-col gap-2 border-t border-line pt-3">
           <h3 className="font-bold">{t('limits.break')}</h3>
           <p className="text-sm text-muted">{t('limits.breakHelp')}</p>
@@ -100,7 +107,8 @@ export function LimitsSection() {
             </Button>
           </div>
         </section>
+        )}
       </div>
-    </Card>
+    </details>
   );
 }

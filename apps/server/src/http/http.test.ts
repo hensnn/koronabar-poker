@@ -78,6 +78,7 @@ describe('HTTP API: účty', () => {
     expect(me.json.balance).toBe(10_000);
     expect(me.json.permissions).toContain('stul.hrat');
     expect(me.json.permissions).not.toContain('role.vytvorit');
+    expect(me.json.roles.length).toBeGreaterThan(0); // názvy rolí pro profil
     expect(JSON.stringify(me.json)).not.toContain('passwordHash');
   });
 
