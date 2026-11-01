@@ -361,7 +361,7 @@ export class SoundService {
       throw new SoundError(e instanceof Error && e.message === 'TOOL_MISSING' ? 'TOOL_MISSING' : 'INVALID_AUDIO');
     }
     const u = await this.usage();
-    if (u.bytes - Number(r.sizeBytes) + out.data.length > u.quotaBytes) throw new SoundError('QUOTA_EXCEEDED');
+    if (u.bytes - (r.builtin ? 0 : Number(r.sizeBytes)) + out.data.length > u.quotaBytes) throw new SoundError('QUOTA_EXCEEDED');
     await writeFile(this.file(id), out.data);
     await this.deps.db.update(schema.soundEmotes).set({ mime: out.mime, durationMs: out.durationMs, sizeBytes: out.data.length }).where(eq(schema.soundEmotes.id, id));
     return (await this.dtos([await this.load(id)], userId))[0]!;

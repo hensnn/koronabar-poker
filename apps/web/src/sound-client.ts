@@ -66,6 +66,8 @@ export const useSoundState = (): State =>
 export async function loadSounds(): Promise<void> {
   const d = await get<{ sounds: SoundItem[]; mutes: SoundMute[]; usage: SoundUsage }>('/api/sounds');
   set({ loaded: true, sounds: d.sounds, mutes: d.mutes, usage: d.usage });
+  // zvuk s novým souborem se musí načíst znovu
+  for (const [id, a] of [...cache]) if (!a.src.endsWith(soundUrl(id))) cache.delete(id);
 }
 
 export function resetSounds(): void {
@@ -73,7 +75,11 @@ export function resetSounds(): void {
   listeners.forEach((l) => l());
 }
 
-export const soundUrl = (id: string) => `/api/sounds/${id}/audio`;
+/** Adresa souboru zvuku; verze (velikost a délka) v adrese zajistí, že se po nahrazení souboru nepřehraje starý z mezipaměti. */
+export const soundUrl = (id: string) => {
+  const s = state.sounds.find((x) => x.id === id);
+  return `/api/sounds/${id}/audio${s ? `?v=${s.sizeBytes}-${s.durationMs}` : ''}`;
+};
 
 export async function playSound(id: string, target: { kind: 'table' | 'channel'; id: string }): Promise<{ silent: boolean }> {
   const r = await post<{ silent: boolean }>(`/api/sounds/${id}/play`, target);
