@@ -38,6 +38,7 @@ export interface BoardRowView {
   rankIcon?: string;
   rating?: number | null;
   division?: string;
+  divisionIcon?: string;
   games?: number;
   wins?: number;
   itm?: number;
@@ -209,6 +210,7 @@ export class PublicBoardService {
         rating: r ? r.rating : null,
         ratingOrder: r ? (r.rating ?? 100_000 - r.rank) : -1,
         division: r?.division,
+        divisionIcon: r?.divisionIcon,
         games: l?.games ?? 0,
         wins: l?.wins ?? 0,
         itm: l?.itm ?? 0,
@@ -245,6 +247,7 @@ export class PublicBoardService {
       if (has('rating')) {
         row.rating = x.rating;
         row.division = x.division;
+        row.divisionIcon = x.divisionIcon;
       }
       if (has('games')) row.games = x.games;
       if (has('wins')) row.wins = x.wins;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DIVISIONS, displayRating, divisionFor, fieldFactor, nextDivision, inactiveSkill, lengthFactor, newSkill, parseDivisions, rateCashSession, rateTournament, softReset, type RatingParams, type TournamentRatingOptions } from './rating.js';
+import { DEFAULT_DIVISIONS, displayRating, divisionFor, divisionsText, MILITARY_DIVISIONS, fieldFactor, nextDivision, inactiveSkill, lengthFactor, newSkill, parseDivisions, rateCashSession, rateTournament, softReset, type RatingParams, type TournamentRatingOptions } from './rating.js';
 
 const P: RatingParams = { mu0: 25, sigma0: 25 / 3, k: 3, scale: 30, base: 1500 };
 const O: TournamentRatingOptions = { knockoutWeightPercent: 20, knockoutK: 40, rebuyPenaltyPercent: 10, weight: 1 };
@@ -142,6 +142,14 @@ describe('cash sezení a divize', () => {
     expect(old.errors).toEqual([]);
     expect(old.divisions[1]).toEqual({ name: 'Vysoká', icon: '', color: 'muted', min: 1700 });
     expect(parseDivisions('A|🥔|fialova|0').errors.length).toBe(1);
+  });
+
+  it('sady divizí: zvířátka, vojenské hodnosti a vlastní text', () => {
+    expect(divisionsText('animals', 'x')).toBe(DEFAULT_DIVISIONS);
+    expect(divisionsText('military', 'x')).toBe(MILITARY_DIVISIONS);
+    expect(divisionsText('custom', 'A|🥔|muted|0')).toBe('A|🥔|muted|0');
+    expect(parseDivisions(MILITARY_DIVISIONS).errors).toEqual([]);
+    expect(divisionFor(1800, MILITARY_DIVISIONS)).toMatchObject({ name: 'Major', icon: '⭐' });
   });
 
   it('kolik bodů chybí do další divize', () => {

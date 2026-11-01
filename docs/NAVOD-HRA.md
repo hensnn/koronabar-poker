@@ -307,3 +307,5 @@ Zelené ✔ znamená v pořádku. U červeného ✖ se ukážou příklady. Chyb
 ## Divize ratingu a kde je vidět
 
 Rating hráče se překládá na divizi s ikonou: 🥔 Brambora, 🐟 Kapr, 🦊 Liška, 🐺 Vlk samotář a 🐉 Drak od zeleného stolu. Hranice, názvy, ikony i barvy změníš v Nastavení → Rating → Divize (tvar `Název|ikona|barva|od`, oddělené středníkem; první divize musí začínat na 0). Divizi najdeš v Lobby v kartě Moje konto (i s počtem bodů do další divize), v žebříčku hráčů v Lobby a na stránce Postup. Stránka Postup funguje i s vypnutým XP, stačí zapnutý rating. Když správce skryje čísla ratingu, zůstane vidět jen divize a ikona.
+
+Sadu divizí přepneš v Nastavení → Rating → Sada divizí: Zvířátka (výchozí), Vojenské hodnosti (🔰 Vojín, 🪖 Desátník, 🎖️ Poručík, ⭐ Major, 🌟 Generál) nebo Vlastní (použije se text z nastavení Divize). Přepnutí mění jen názvy a ikony, rating hráčů zůstává. Ikona divize je také ve veřejných žebříčcích a v televizním zobrazení.

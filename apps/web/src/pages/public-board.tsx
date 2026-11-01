@@ -10,6 +10,7 @@ export interface BoardRow {
   rankName?: string;
   rankIcon?: string;
   division?: string;
+  divisionIcon?: string;
   [k: string]: unknown;
 }
 export interface BoardViewData {
@@ -103,7 +104,7 @@ export function BoardView({ view, bgImage, preview = false }: { view: BoardViewD
                           <td key={c} className={`tk-board-cell text-right font-mono ${tone}`}>
                             {cell(c, r, view.currencyForms)}
                             {c === 'level' && r.rankName ? <span className="ml-1 font-sans text-xs text-muted">{r.rankName}</span> : null}
-                            {c === 'rating' && r.division ? <span className="ml-1 font-sans text-xs text-muted">{r.division}</span> : null}
+                            {c === 'rating' && r.division ? <span className="ml-1 font-sans text-xs text-muted">{r.divisionIcon} {r.division}</span> : null}
                           </td>
                         );
                       })}

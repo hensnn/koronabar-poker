@@ -144,7 +144,7 @@ interface Deps {
   tournaments: () => TournamentManager;
   tables: () => TableManager;
   stats: () => { leaderboard(range: StatsRange): Promise<LeaderRow[]>; seasons(): Promise<{ id: string; name: string; startsAt: number; endsAt: number | null }[]> };
-  rating: () => { leaderboard(scope: 'tournament' | 'cash'): Promise<{ rank: number; nickname: string; rating: number | null; division: string }[]> };
+  rating: () => { leaderboard(scope: 'tournament' | 'cash'): Promise<{ rank: number; nickname: string; rating: number | null; division: string; divisionIcon?: string }[]> };
   mainChannelId: () => Promise<string>;
   announcer: () => AnnouncerService;
   evenings: () => EveningService;
@@ -488,7 +488,7 @@ export class TvService {
     // Večerní žebříček: podle herního večera, který běží (nebo právě skončil); bez večera podle dnešního dne.
     const board = this.s()['evening.enabled'] ? await this.deps.evenings().tvBoard() : null;
     const evening: Row[] = board ? board.players.map((p) => ({ rank: p.rank, nickname: p.nickname, value: p.net })) : top((await stats.leaderboard({ from: day, to: null })).filter((r) => r.total !== 0));
-    const rating = (await this.deps.rating().leaderboard('tournament')).slice(0, 10).map((r) => ({ rank: r.rank, nickname: r.nickname, rating: r.rating, division: r.division }));
+    const rating = (await this.deps.rating().leaderboard('tournament')).slice(0, 10).map((r) => ({ rank: r.rank, nickname: r.nickname, rating: r.rating, division: r.division, divisionIcon: r.divisionIcon }));
     const out = { seasonName: current?.name ?? null, season, rating, evening };
     this.cache = { at: now, leaderboard: out };
     return out;
@@ -575,4 +575,5 @@ interface RatingRow {
   nickname: string;
   rating: number | null;
   division: string;
+  divisionIcon?: string;
 }

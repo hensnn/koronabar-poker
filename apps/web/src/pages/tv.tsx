@@ -64,7 +64,7 @@ interface Snapshot {
   layout: { screens: { type: string; seconds: number; tableId?: string; tournamentId?: string }[]; fontScalePercent: number; strip: boolean };
   tournaments: TvTournament[];
   tables: Record<string, TvTable | null>;
-  boards: { seasonName: string | null; season: Row[]; rating: { rank: number; nickname: string; rating: number | null; division: string }[]; evening: Row[] };
+  boards: { seasonName: string | null; season: Row[]; rating: { rank: number; nickname: string; rating: number | null; division: string; divisionIcon?: string }[]; evening: Row[] };
   upcoming: { id: string; name: string; startAt: number; players: number }[];
   polls: { id: string; title: string; endsAt: number }[];
   ticker: { nick: string | null; body: string; at: number }[];
@@ -407,7 +407,7 @@ function PlayersScreen({ tr }: { tr: TvTournament }) {
   );
 }
 
-function Board({ title, rows }: { title: string; rows: { rank: number; nickname: string; value: string | number }[] }) {
+function Board({ title, rows }: { title: string; rows: { rank: number; nickname: string; value: string | number; icon?: string }[] }) {
   if (rows.length === 0) return null;
   return (
     <section className="flex min-w-0 flex-1 flex-col gap-2">
@@ -416,7 +416,7 @@ function Board({ title, rows }: { title: string; rows: { rank: number; nickname:
         {rows.map((r) => (
           <li key={r.rank} className="flex justify-between gap-4 border-b border-line py-1">
             <span className="truncate">
-              {r.rank}. {r.nickname}
+              {r.rank}. {r.icon} {r.nickname}
             </span>
             <span className="font-mono">{r.value}</span>
           </li>
@@ -430,7 +430,7 @@ function LeaderboardScreen({ boards }: { boards: Snapshot['boards'] }) {
   return (
     <div className="flex flex-1 gap-8">
       <Board title={boards.seasonName ? t('tv.leaderboard.seasonNamed', { name: boards.seasonName }) : t('tv.leaderboard.season')} rows={boards.season.map((r) => ({ rank: r.rank, nickname: r.nickname, value: r.value }))} />
-      <Board title={t('tv.leaderboard.rating')} rows={boards.rating.map((r) => ({ rank: r.rank, nickname: r.nickname, value: r.rating ?? r.division }))} />
+      <Board title={t('tv.leaderboard.rating')} rows={boards.rating.map((r) => ({ rank: r.rank, nickname: r.nickname, value: r.rating ?? r.division, icon: r.divisionIcon }))} />
       <Board title={t('tv.leaderboard.evening')} rows={boards.evening.map((r) => ({ rank: r.rank, nickname: r.nickname, value: r.value }))} />
     </div>
   );

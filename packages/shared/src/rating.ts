@@ -235,6 +235,18 @@ export interface Division {
 /** Pět divizí s ikonami: Brambora → Kapr → Liška → Vlk samotář → Drak od zeleného stolu. */
 export const DEFAULT_DIVISIONS = 'Brambora|🥔|muted|0;Kapr|🐟|info|1500;Liška|🦊|warning|1600;Vlk samotář|🐺|accent|1750;Drak od zeleného stolu|🐉|danger|1900';
 
+/** Vojenské hodnosti s odznaky. */
+export const MILITARY_DIVISIONS = 'Vojín|🔰|muted|0;Desátník|🪖|info|1500;Poručík|🎖️|warning|1600;Major|⭐|accent|1750;Generál|🌟|danger|1900';
+
+export const DIVISION_STYLES = ['animals', 'military', 'custom'] as const;
+
+/** Text divizí podle zvolené sady: zvířátka, vojenské hodnosti, nebo vlastní text z nastavení. */
+export function divisionsText(style: unknown, custom: unknown): string {
+  if (style === 'military') return MILITARY_DIVISIONS;
+  if (style === 'custom') return String(custom ?? DEFAULT_DIVISIONS);
+  return DEFAULT_DIVISIONS;
+}
+
 /** Formát řádku: Název|ikona|barva|od (starší formát Název|od se také čte, bez ikony a v neutrální barvě). */
 export function parseDivisions(text: string): { divisions: Division[]; errors: string[] } {
   const divisions: Division[] = [];

@@ -4,6 +4,7 @@ import {
   weekKey,
   displayRating,
   divisionFor,
+  divisionsText,
   nextDivision,
   fieldFactor,
   fromLocal,
@@ -508,8 +509,8 @@ export class RatingService {
     const display = displayRating(skill, p);
     const show = !!this.s['rating.showNumbers'];
     const need = num(this.s, scope === 'cash' ? 'rating.cashProvisionalGames' : 'rating.provisionalGames');
-    const div = divisionFor(display, String(this.s['rating.divisions']));
-    const next = nextDivision(display, String(this.s['rating.divisions']));
+    const div = divisionFor(display, this.divText());
+    const next = nextDivision(display, this.divText());
     return {
       scope,
       rating: show ? display : null,
@@ -522,6 +523,11 @@ export class RatingService {
       divisionColor: div.color,
       toNext: show && next ? { name: next.division.name, icon: next.division.icon, missing: next.missing } : null,
     };
+  }
+
+  /** Text divizí podle zvolené sady (zvířátka, vojenské hodnosti, vlastní). */
+  private divText(): string {
+    return divisionsText(this.s['rating.divisionStyle'], this.s['rating.divisions']);
   }
 
   async ratingOf(userId: string): Promise<{ tournament: RatingDto; cash: RatingDto }> {
@@ -547,7 +553,7 @@ export class RatingService {
     };
     const tournament = await one('tournament');
     const cash = await one('cash');
-    return { tournament, cash, division: divisionFor(tournament?.value ?? p.base, String(this.s['rating.divisions'])).name };
+    return { tournament, cash, division: divisionFor(tournament?.value ?? p.base, this.divText()).name };
   }
 
   /** Historie změn (nejnovější první) s rozpisem; ID hráčů v rozpisu se nahradí přezdívkami. */
@@ -600,7 +606,7 @@ export class RatingService {
         const days = r.s.lastPlayedAt ? Math.max(0, (at - r.s.lastPlayedAt.getTime()) / DAY) : 0;
         const skill = inactiveSkill({ mu: r.s.mu, sigma: r.s.sigma }, days, num(this.s, 'rating.inactivityGraceDays'), num(this.s, 'rating.inactivitySigmaGrowthHundredths') / 100, p);
         const display = displayRating(skill, p);
-        const div = divisionFor(display, String(this.s['rating.divisions']));
+        const div = divisionFor(display, this.divText());
         return { userId: r.s.userId, nickname: r.nickname, rating: show ? display : null, division: div.name, divisionIcon: div.icon, divisionColor: div.color, games: r.s.games, order: display };
       })
       .sort((a, b) => b.order - a.order)
@@ -632,7 +638,7 @@ export class RatingService {
     }
     return [...by]
       .filter(([id]) => (states.get(id)?.games ?? 0) >= need)
-      .map(([userId, v]) => ({ userId, nickname: v.nickname, rating: show ? v.last : null, delta: show ? v.last - v.first : null, games: v.games, division: divisionFor(v.last, String(this.s['rating.divisions'])).name, divisionIcon: divisionFor(v.last, String(this.s['rating.divisions'])).icon, order: v.last }))
+      .map(([userId, v]) => ({ userId, nickname: v.nickname, rating: show ? v.last : null, delta: show ? v.last - v.first : null, games: v.games, division: divisionFor(v.last, this.divText()).name, divisionIcon: divisionFor(v.last, this.divText()).icon, order: v.last }))
       .sort((a, b) => b.order - a.order)
       .map(({ order: _o, ...r }, i) => ({ rank: i + 1, ...r }));
   }
