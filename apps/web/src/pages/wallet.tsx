@@ -58,6 +58,7 @@ export function WalletPage() {
   const [tMessage, setTMessage] = useState('');
   const [tMsg, setTMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const canRequest = can(me, 'zadost.vytvorit');
+  const topupRequests = settings.values['economy.topupRequestsEnabled'] === true;
   const reload = useCallback(() => {
     get<HistoryRow[]>('/api/wallet/history').then(setHist).catch((e) => setError(errorText(e)));
     get<RequestRow[]>('/api/requests').then(setReqs).catch(() => undefined);
@@ -112,8 +113,9 @@ export function WalletPage() {
         </Card>
       )}
 
-      {canRequest && (
+      {canRequest && (topupRequests || reqs.some((r) => r.userId === me?.user.id)) && (
         <Card title={t('wallet.request.title')}>
+          {topupRequests && (
           <form
             className="flex flex-wrap items-end gap-3"
             onSubmit={async (e) => {
@@ -135,6 +137,7 @@ export function WalletPage() {
               {t('wallet.request.submit')}
             </Button>
           </form>
+          )}
           <DataTable head={[t('wallet.kind'), t('wallet.request.amount'), t('wallet.request.status'), t('wallet.request.note'), '']}>
             {reqs.filter((r) => r.userId === me?.user.id).map((r) => (
               <tr key={r.id}>

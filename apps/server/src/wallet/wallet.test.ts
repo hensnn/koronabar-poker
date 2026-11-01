@@ -28,7 +28,7 @@ async function setup() {
   });
   const ledger = new Ledger(new MemoryLedgerStore(), { negativeBalanceLimit: 0 }, () => clock.getTime(), (tx) => journal.push('tx', ledgerTxOp(tx)));
   const approvals = new ApprovalService(db, perms, audit, { now: () => clock });
-  const wallet = new WalletService({ db, ledger, perms, audit, approvals, settings: () => resolveSettings(reg, []).values, flush: () => journal.flush() });
+  const wallet = new WalletService({ db, ledger, perms, audit, approvals, settings: () => resolveSettings(reg, [{ scope: 'global', values: { 'economy.topupRequestsEnabled': true } }]).values, flush: () => journal.flush() });
   let n = 0;
   const user = async (nick: string, role?: string) => {
     const [u] = await db.insert(schema.users).values({ nickname: nick, nicknameLower: `${nick.toLowerCase()}${n++}`, passwordHash: 'x' }).returning({ id: schema.users.id });
@@ -227,6 +227,16 @@ describe('žádosti hráčů', () => {
     const s = await setup();
     const host = await s.user('Host', 'host');
     expect(await code(s.wallet.createRequest(host, { kind: 'dobiti', amount: 10 }))).toBe('FORBIDDEN');
+  });
+});
+
+describe('vypnuté žádosti o dobití', () => {
+  it('ve výchozím nastavení je žádost o dobití odmítnuta, ostatní druhy žádostí fungují', async () => {
+    const s = await setup();
+    const off = new WalletService({ db: s.db, ledger: s.ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => resolveSettings(reg, []).values });
+    const hrac = await s.user('Hrac', 'hrac');
+    expect(await code(off.createRequest(hrac, { kind: 'dobiti', amount: 100 }))).toBe('INVALID');
+    expect(await code(off.createRequest(hrac, { kind: 'role', message: 'prosím' }))).toBe('OK');
   });
 });
 

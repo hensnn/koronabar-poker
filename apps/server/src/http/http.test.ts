@@ -10,7 +10,7 @@ afterEach(async () => {
 async function start(global: Record<string, number | boolean | string> = {}) {
   const mails: { kind: string; to: string; vars: any }[] = [];
   const server = await buildServer({
-    settingsOverride: { 'system.publicUrl': 'http://localhost', 'system.emailVerificationRequired': true, ...global },
+    settingsOverride: { 'system.publicUrl': 'http://localhost', 'system.emailVerificationRequired': true, 'economy.topupRequestsEnabled': true, ...global },
     bootstrapAdmin: { nickname: 'Admin', password: 'admin-heslo-123' },
     defaultTable: false,
     notifier: {
@@ -250,7 +250,7 @@ describe('HTTP API: tajné údaje a e-mail (celý řetěz)', () => {
   async function startMail() {
     const sent: { to: string; subject: string; text: string; from: string }[] = [];
     const server = await buildServer({
-      settingsOverride: { 'system.publicUrl': 'http://localhost', 'system.emailVerificationRequired': true },
+      settingsOverride: { 'system.publicUrl': 'http://localhost', 'system.emailVerificationRequired': true, 'economy.topupRequestsEnabled': true },
       bootstrapAdmin: { nickname: 'Admin', password: 'admin-heslo-123' },
       defaultTable: false,
       emailWorker: false,

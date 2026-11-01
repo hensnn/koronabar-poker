@@ -342,7 +342,11 @@ export class WalletService {
 
   async createRequest(userId: string, input: { kind: 'dobiti' | 'role' | 'schvaleni' | 'prevod'; amount?: number; message?: string; payload?: unknown }): Promise<string> {
     if (!this.deps.perms.can(userId, 'zadost.vytvorit').allowed) throw new PermissionError('FORBIDDEN');
-    if (input.kind === 'dobiti') AMOUNT(input.amount);
+    if (input.kind === 'dobiti') {
+      // Žádosti o dobití jde vypnout (hráči se pak řeší úvěrem nebo přímo správcem).
+      if (!this.deps.settings()['economy.topupRequestsEnabled']) throw new PermissionError('INVALID', { field: 'topup_requests_disabled' });
+      AMOUNT(input.amount);
+    }
     if (input.kind === 'prevod') this.checkTransfer(userId, input.amount, (input.payload as { target?: string } | null)?.target);
     const pending = await this.deps.db.select({ id: schema.userRequests.id }).from(schema.userRequests).where(and(eq(schema.userRequests.userId, userId), eq(schema.userRequests.kind, input.kind), eq(schema.userRequests.status, 'pending')));
     if (pending.length >= 3) throw new PermissionError('LIMIT_EXCEEDED', { what: 'pending_requests' });

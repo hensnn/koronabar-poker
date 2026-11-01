@@ -311,6 +311,8 @@ export const cs: Record<string, string> = {
   'settings.economy.creditEnabled.help': 'Když hráči při platbě za hru (vstup do turnaje, buy-in, dokoupení, rebuy, sázka) chybí Koruny, chybějící částka se mu sama načerpá na dluh, aniž by musel o cokoli žádat. Čerpání i splátka jsou běžné pohyby v účetní knize (z účtu vydání měny); součet knihy zůstává 0. Hráč, kterému správce nastaví nulový limit, úvěr nemá. Vypnuto: platba bez dostatku Koron se zamítne.',
   'settings.economy.creditLimit.label': 'Úvěr: výchozí limit dluhu hráče',
   'settings.economy.creditLimit.help': 'Kolik Koron může mít hráč najednou načerpáno (nesplacený dluh), pokud mu správce nenastavil osobní limit (Správa → Pokladna → Úvěrové linky). 0 = úvěr mají jen hráči s osobním limitem.',
+  'settings.economy.topupRequestsEnabled.label': 'Žádosti hráčů o dobití',
+  'settings.economy.topupRequestsEnabled.help': 'Zapnuto: hráč může v peněžence požádat o dobití Koron a správce žádost vyřídí v Pokladně. Vypnuto (výchozí): formulář se v peněžence nezobrazuje a server žádost o dobití odmítne; chybějící Korunu řeší úvěr nebo přímo správce.',
   'settings.economy.debitTarget.label': 'Strhnutí měny: kam jde',
   'settings.economy.debitTarget.help': 'Výchozí cíl, když správce hráči strhne měnu v pokladně (při strhnutí jde zvolit jinak). Zaniknou: Koruny zmizí z oběhu, přesný opak dobití. Připíšou se domu: strhnuté Koruny se přičtou k zůstatku herny (např. pokuta).',
   'settings.economy.debitTarget.option.mint': 'Zaniknou (opak dobití)',
