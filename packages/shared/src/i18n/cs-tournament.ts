@@ -33,6 +33,8 @@ export const csTournament: Record<string, string> = {
   'settlement.part.addon': 'Add-on',
   'settlement.part.payout': 'Výhra',
   'settlement.part.bounty': 'Bounty',
+  'settlement.part.headBounty': 'Odměny na hlavu',
+  'settlement.part.bets': 'Sázky',
   'settlement.part.refund': 'Vrácení',
   'settlement.part.other': 'Ostatní',
   'settlement.partsHelp': 'Zaplacené částky (vklady, buy-in, rebuy, add-on) jsou záporné, výhry, bounty a vrácení kladné. Sloupec Výsledek je jejich součet, tedy zisk nebo ztráta hráče. Prázdné sloupce se skrývají.',

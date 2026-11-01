@@ -5,7 +5,7 @@ import { Button, Card, DataTable, Notice, Spinner, Tabs, Td } from '../ui';
 
 type Parts = Partial<Record<string, number>>;
 /** Pořadí složek ve sloupcích, shodné s tabulkou výsledků turnaje (Buy-in, Rebuy, Add-on, Výhra, Bounty). */
-const PART_ORDER = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'refund', 'other'] as const;
+const PART_ORDER = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'headBounty', 'bets', 'refund', 'other'] as const;
 
 interface Settlement {
   from: number;

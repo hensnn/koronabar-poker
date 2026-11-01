@@ -101,6 +101,18 @@ describe('vedlejší pohyby (odměny na hlavu, sázky) se vždy započítají k 
     expect(rowOf(c)).toMatchObject({ betNet: -50 });
     expect(rowOf(c).profit).toBe(-100 - 50);
     expect(rowOf(b).profit).toBe(-100); // hlavu zadával přes knihu mimo službu odměn, proto jen vstup
+    // vyúčtování v peněžence (období): sloupce Odměny na hlavu a Sázky, součet hráče sedí s turnajem i vedlejšími pohyby
+    const period = await s.server.wallet.settlementForPeriod(s.admin, 0, Date.parse('2027-01-01'));
+    const pl = (u: string) => period.players.find((p) => p.userId === u)!;
+    expect(pl(a).parts).toMatchObject({ headBounty: 50 });
+    expect(pl(b).parts).toMatchObject({ headBounty: -50 });
+    expect(pl(c).parts).toMatchObject({ bets: -50 });
+    expect(pl(fan).parts).toMatchObject({ bets: 50 });
+    expect(pl(fan).total).toBe(50);
+    expect(pl(fan).tournament).toBe(50);
+    const game = period.games.find((g) => g.id === id)!;
+    expect(game.parts[a]).toMatchObject({ headBounty: 50 });
+    expect(period.players.reduce((n, p) => n + p.total, 0) + (period.house ?? 0)).toBe(0);
     // vedlejší pohyby jsou uzavřené: escrow účty jsou po vypořádání prázdné a vše, co hráči vyhráli, někdo zaplatil
     expect(s.server.ledger.balance(accounts.escrow('hb:t'))).toBe(0);
     expect(s.server.ledger.balance(accounts.escrow('bet:t'))).toBe(0);

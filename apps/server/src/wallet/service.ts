@@ -6,6 +6,7 @@ import { PermissionError, type PermissionService } from '../auth/permissions.js'
 import type { ApprovalService } from '../auth/approvals.js';
 import type { AuditService, AuditSource } from '../auth/audit.js';
 import { schema, type Db } from '../db/index.js';
+import { SIDE_KINDS, SIDE_SET } from '../side-results.js';
 
 export interface WalletMeta {
   ip?: string | null;
@@ -13,7 +14,7 @@ export interface WalletMeta {
 }
 
 /** Složky vyúčtování: cash (vklady a výběry), turnaje (buy-in, rebuy, add-on, výhra, bounty, vrácení) a ostatní pohyby. Vklady a náklady jsou záporné, výhry kladné. */
-export const SETTLEMENT_PARTS = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'refund', 'other'] as const;
+export const SETTLEMENT_PARTS = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'headBounty', 'bets', 'refund', 'other'] as const;
 export type SettlementPart = (typeof SETTLEMENT_PARTS)[number];
 export type PartTotals = Partial<Record<SettlementPart, number>>;
 
@@ -39,6 +40,16 @@ export function settlementPartOf(kind: string): SettlementPart {
       return 'bounty';
     case 'turnaj_refund':
       return 'refund';
+    case 'head_bounty_post':
+    case 'head_bounty_payout':
+    case 'head_bounty_return':
+    case 'head_bounty_house':
+      return 'headBounty';
+    case 'bet_stake':
+    case 'bet_payout':
+    case 'bet_refund':
+    case 'bet_fee':
+      return 'bets';
     default:
       return 'other';
   }
@@ -568,7 +579,7 @@ export class WalletService {
     const txs = await this.deps.db
       .select({ id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind, gameId: schema.ledgerTransactions.gameId })
       .from(schema.ledgerTransactions)
-      .where(and(gte(schema.ledgerTransactions.at, new Date(fromMs)), lte(schema.ledgerTransactions.at, new Date(toMs)), or(like(schema.ledgerTransactions.kind, 'cash_%'), like(schema.ledgerTransactions.kind, 'turnaj_%'), eq(schema.ledgerTransactions.kind, 'bounty'), eq(schema.ledgerTransactions.kind, 'jackpot_payout'))));
+      .where(and(gte(schema.ledgerTransactions.at, new Date(fromMs)), lte(schema.ledgerTransactions.at, new Date(toMs)), or(like(schema.ledgerTransactions.kind, 'cash_%'), like(schema.ledgerTransactions.kind, 'turnaj_%'), eq(schema.ledgerTransactions.kind, 'bounty'), eq(schema.ledgerTransactions.kind, 'jackpot_payout'), inArray(schema.ledgerTransactions.kind, SIDE_KINDS))));
     const byId = new Map(txs.map((t) => [t.id, t]));
     const ids = [...byId.keys()];
     const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(and(inArray(schema.ledgerEntries.transactionId, ids), like(schema.ledgerEntries.account, 'wallet:%'))) : [];
@@ -584,7 +595,7 @@ export class WalletService {
     for (const e of entries) {
       const tx = byId.get(e.transactionId)!;
       const uid = e.account.slice('wallet:'.length);
-      const kind = tx.kind.startsWith('turnaj_') || tx.kind === 'bounty' ? 'tournament' : 'cash';
+      const kind = tx.kind.startsWith('turnaj_') || tx.kind === 'bounty' || SIDE_SET.has(tx.kind) ? 'tournament' : 'cash';
       (kind === 'tournament' ? tournament : cash)[uid] = ((kind === 'tournament' ? tournament : cash)[uid] ?? 0) + e.amount;
       const gid = tx.gameId ?? '';
       const g = games.get(gid) ?? { id: gid, kind, results: {}, parts: {} };
