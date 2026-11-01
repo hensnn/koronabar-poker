@@ -55,7 +55,7 @@ export const csEvening: Record<string, string> = {
   'evening.addGame': 'Přidat hru',
   'evening.pickGame': 'Vyber hru',
   'evening.removeGame': 'Odebrat',
-  'evening.ranking': 'Pořadí a body',
+  'evening.ranking': 'Pořadí a výsledek v penězích',
   'evening.colPlayer': 'Hráč',
   'evening.colNet': 'Výsledek',
   'evening.colCash': 'Cash',

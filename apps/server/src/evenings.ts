@@ -4,6 +4,7 @@ import { formatLocal, t, type PermissionChecker, type SettingValues } from '@kb/
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import { SIDE_KINDS, SIDE_SET } from './side-results.js';
+import { settlementPartOf } from './wallet/service.js';
 
 export type EveningErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'DISABLED' | 'CLOSED' | 'GAME_TAKEN' | 'OPEN_EXISTS';
 
@@ -28,6 +29,8 @@ export interface EveningPlayer {
   side: number;
   /** Rozpis čistého výsledku podle druhu pohybu v účetní knize (klíč = druh záznamu, např. turnaj_buyin, head_bounty_payout). */
   breakdown: Record<string, number>;
+  /** Totéž slité do složek pro tabulku (buy-in, rebuy, add-on, výhra, bounty, odměny na hlavu, sázky, cash…); součet = výsledek. */
+  parts: Record<string, number>;
   knockouts: number;
   placePoints: number;
   xp: number;
@@ -117,6 +120,16 @@ const BUYIN_KINDS = new Set(['cash_buyin', 'cash_topup', 'turnaj_buyin', 'turnaj
 const CASH_SEEN_MS = 60_000;
 
 type Row = typeof schema.evenings.$inferSelect;
+
+/** Pohyby hráče podle druhu v knize slité do složek tabulky (žetony u stolu u otevřeného večera se počítají jako výběr). */
+function partsOf(breakdown: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [kind, amount] of Object.entries(breakdown)) {
+    const part = kind === 'seated' ? 'cashOut' : settlementPartOf(kind);
+    out[part] = (out[part] ?? 0) + amount;
+  }
+  return out;
+}
 
 /**
  * Herní večer: seskupuje hry (turnaje, živý cash, cash stoly v časovém okně), vyúčtuje je dohromady, vybere MVP
@@ -353,7 +366,7 @@ export class EveningService {
       const net = (cash[userId] ?? 0) + (tour[userId] ?? 0) + (side[userId] ?? 0);
       const pp = Math.round((placePoints[userId] ?? 0) * 100) / 100;
       const score = Math.round(((net * w.net) / 100 + pp * w.place + (knockouts[userId] ?? 0) * w.ko + ((xp[userId] ?? 0) * w.xp) / 100) * 10) / 10;
-      return { userId, nickname: names[userId] ?? '?', net, cash: cash[userId] ?? 0, tournament: tour[userId] ?? 0, side: side[userId] ?? 0, breakdown: breakdown[userId] ?? {}, knockouts: knockouts[userId] ?? 0, placePoints: pp, xp: xp[userId] ?? 0, score };
+      return { userId, nickname: names[userId] ?? '?', net, cash: cash[userId] ?? 0, tournament: tour[userId] ?? 0, side: side[userId] ?? 0, breakdown: breakdown[userId] ?? {}, parts: partsOf(breakdown[userId] ?? {}), knockouts: knockouts[userId] ?? 0, placePoints: pp, xp: xp[userId] ?? 0, score };
     });
     players.sort((a, b) => b.score - a.score || b.net - a.net || a.nickname.localeCompare(b.nickname));
 

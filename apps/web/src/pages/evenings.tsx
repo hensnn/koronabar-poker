@@ -24,6 +24,7 @@ interface Player {
   cash: number;
   tournament: number;
   side?: number;
+  parts?: Record<string, number>;
   knockouts: number;
   xp: number;
   score: number;
@@ -165,7 +166,6 @@ export function EveningPage({ id }: { id: string }) {
 
   if (!view) return error ? <Notice kind="error">{error}</Notice> : <Spinner label={t('app.loading')} />;
   const s = view.summary;
-  const nick = (uid: string) => s.names[uid] ?? uid;
   const run = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
@@ -287,34 +287,7 @@ export function EveningPage({ id }: { id: string }) {
         {s.players.length === 0 ? (
           <p className="text-muted">{t('tournament.noPlayers')}</p>
         ) : (
-          <DataTable head={['#', t('evening.colPlayer'), t('evening.colNet'), t('evening.colCash'), t('evening.colTournament'), t('evening.colSide'), t('evening.colKnockouts'), t('evening.colXp'), t('evening.colScore')]}>
-            {s.players.map((p, i) => (
-              <tr key={p.userId}>
-                <Td className="font-mono">{i + 1}.</Td>
-                <Td>{p.nickname}</Td>
-                <Td className="font-mono">{p.net}</Td>
-                <Td className="font-mono">{p.cash}</Td>
-                <Td className="font-mono">{p.tournament}</Td>
-                <Td className="font-mono">{p.side || ''}</Td>
-                <Td className="font-mono">{p.knockouts || ''}</Td>
-                <Td className="font-mono">{p.xp || ''}</Td>
-                <Td className="font-mono font-bold">{p.score}</Td>
-              </tr>
-            ))}
-          </DataTable>
-        )}
-        <p className="mt-2 text-sm text-muted">{t('evening.weights')}</p>
-      </Card>
-
-      <Card title={t('evening.transfers')}>
-        {s.transfers.length === 0 ? (
-          <p className="text-muted">{t('evening.noTransfers')}</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {s.transfers.map((tr, i) => (
-              <li key={i}>{t('evening.transfer', { from: nick(tr.from), to: nick(tr.to), amount: tr.amount })}</li>
-            ))}
-          </ul>
+          <Ranking s={s} />
         )}
         {view.canManage && s.house !== 0 && <p className="mt-2 text-sm text-muted">{t('evening.houseTotal', { amount: s.house })}</p>}
       </Card>
@@ -399,6 +372,54 @@ function Award({ label, value }: { label: string; value: string | null }) {
     <div className="flex flex-col">
       <dt className="text-sm text-muted">{label}</dt>
       <dd className="text-lg">{value ?? t('evening.award.none')}</dd>
+    </div>
+  );
+}
+
+/** Složky ve sloupcích tabulky pořadí (prázdné se skrývají); výsledek peněz je vpravo a zvýrazněný. */
+const RANK_PARTS = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'headBounty', 'bets', 'refund', 'other'] as const;
+const signedN = (v: number): string => (v > 0 ? `+${v}` : String(v));
+const toneOf = (v: number): string => (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '');
+
+function Ranking({ s }: { s: Summary }) {
+  const players = [...s.players].sort((a, b) => b.net - a.net || a.nickname.localeCompare(b.nickname, 'cs'));
+  // Starší uzavřené večery složky nemají (jen cash a turnaje): ukážou se původní sloupce, dokud správce nepřepočítá souhrn.
+  const hasParts = players.some((p) => p.parts && Object.keys(p.parts).length > 0);
+  const used = hasParts ? RANK_PARTS.filter((k) => players.some((p) => (p.parts?.[k] ?? 0) !== 0)) : [];
+  const hasKo = players.some((p) => p.knockouts > 0);
+  return (
+    <div className="overflow-x-auto">
+      <DataTable
+        head={[
+          '#',
+          t('evening.colPlayer'),
+          ...(hasParts ? used.map((k) => t(`settlement.part.${k}`)) : [t('evening.colCash'), t('evening.colTournament'), t('evening.colSide')]),
+          ...(hasKo ? [t('evening.colKnockouts')] : []),
+          t('evening.colNet'),
+        ]}
+      >
+        {players.map((p, i) => (
+          <tr key={p.userId}>
+            <Td className="font-mono">{i + 1}.</Td>
+            <Td className="whitespace-nowrap">{p.nickname}</Td>
+            {hasParts ? (
+              used.map((k) => (
+                <Td key={k} className={`font-mono ${toneOf(p.parts?.[k] ?? 0)}`}>
+                  {(p.parts?.[k] ?? 0) !== 0 ? signedN(p.parts![k]!) : ''}
+                </Td>
+              ))
+            ) : (
+              <>
+                <Td className="font-mono">{p.cash}</Td>
+                <Td className="font-mono">{p.tournament}</Td>
+                <Td className="font-mono">{p.side || ''}</Td>
+              </>
+            )}
+            {hasKo && <Td className="font-mono">{p.knockouts || ''}</Td>}
+            <Td className={`whitespace-nowrap bg-raised text-right font-mono text-lg font-bold ${toneOf(p.net)}`}>{signedN(p.net)}</Td>
+          </tr>
+        ))}
+      </DataTable>
     </div>
   );
 }

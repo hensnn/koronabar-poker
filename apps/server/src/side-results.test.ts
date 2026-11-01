@@ -110,6 +110,12 @@ describe('vedlejší pohyby (odměny na hlavu, sázky) se vždy započítají k 
     expect(pl(fan).parts).toMatchObject({ bets: 50 });
     expect(pl(fan).total).toBe(50);
     expect(pl(fan).tournament).toBe(50);
+    // večer: složky tabulky (buy-in, výhra, hlavy, sázky…) dávají dohromady výsledek v penězích
+    const ev = (await s.server.evenings.list(org)).evenings[0]!;
+    const evSum = (await s.server.evenings.view(ev.id, org)).summary;
+    for (const p of evSum.players) expect(Object.values(p.parts).reduce((n, v) => n + v, 0)).toBe(p.net);
+    expect(evSum.players.find((p) => p.userId === a)!.parts).toMatchObject({ headBounty: 50, buyIn: -100 });
+    expect(evSum.players.find((p) => p.userId === fan)!.parts).toEqual({ bets: 50 });
     const game = period.games.find((g) => g.id === id)!;
     expect(game.parts[a]).toMatchObject({ headBounty: 50 });
     expect(period.players.reduce((n, p) => n + p.total, 0) + (period.house ?? 0)).toBe(0);
