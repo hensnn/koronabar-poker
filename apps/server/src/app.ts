@@ -1113,6 +1113,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     settings: () => settings.resolve(),
     brief: (ids) => progress.brief(ids),
     rating: async (scope) => (settings.resolve()['rating.enabled'] === false ? [] : await rating.leaderboard(scope)).map((r) => ({ userId: r.userId, rating: r.rating })),
+    seated: () => tablesRef.current?.list().flatMap((row) => (tablesRef.current!.get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, chips: s.chips + s.pendingChips }))) ?? [],
   });
 
   let bootstrap: { created: boolean; password?: string } | undefined;

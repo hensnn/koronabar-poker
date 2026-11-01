@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
-import { sideNets, sideTotals } from './side-results.js';
+import { gameEvents, gameNets } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 import type { BriefDto } from './progress.js';
 import { thin, type Point } from './timeline.js';
@@ -19,6 +19,8 @@ interface Deps {
   brief: (userIds: string[]) => Promise<BriefDto[]>;
   /** Žebříček ratingu podle druhu hry (čísla jen když je povoleno jejich zobrazení). */
   rating: (scope: 'tournament' | 'cash') => Promise<{ userId: string; rating: number | null }[]>;
+  /** Hráči, kteří právě sedí u cash stolů (jejich žetony se do cash výsledku počítají jako výběr). */
+  seated?: () => { userId: string; chips: number }[];
 }
 
 export interface OverviewRow {
@@ -64,28 +66,24 @@ export class OverviewService {
     const xp = new Map((await db.select({ userId: schema.playerProgress.userId, xp: schema.playerProgress.xp }).from(schema.playerProgress)).map((p) => [p.userId, Number(p.xp)]));
     const handsRows = await db.select({ userId: schema.handPlayers.userId, n: sql<number>`count(*)::int` }).from(schema.handPlayers).groupBy(schema.handPlayers.userId);
     const hands = new Map(handsRows.map((r) => [r.userId, Number(r.n)]));
-    const cashRows = await db
-      .select({ userId: schema.handPlayers.userId, net: sql<string>`coalesce(round(sum((${schema.handPlayers.won} - ${schema.handPlayers.invested})::numeric / ${schema.hands.chipsPerUnit})), 0)` })
-      .from(schema.handPlayers)
-      .innerJoin(schema.hands, eq(schema.hands.id, schema.handPlayers.handId))
-      .where(eq(schema.handPlayers.kind, 'cash'))
-      .groupBy(schema.handPlayers.userId);
-    const cash = new Map(cashRows.map((r) => [r.userId, Number(r.net)]));
+    // Peníze podle účetní knihy (stejný zdroj jako vyúčtování v peněžence a výsledky večerů): cash včetně živého, turnaje včetně sázek a odměn na hlavu.
+    const nets = await gameNets(db);
+    const rate = Number(this.deps.settings()['cash.chipsPerCurrencyUnit']) || 1;
+    const seated = new Map<string, number>();
+    for (const x of this.deps.seated?.() ?? []) seated.set(x.userId, (seated.get(x.userId) ?? 0) + Math.floor(x.chips / rate));
     const gr = schema.gameResults;
     const tourRows = await db
-      .select({ userId: gr.userId, kind: gr.kind, n: sql<number>`count(*)::int`, net: sql<string>`coalesce(sum(${gr.payout} + ${gr.bounty} - ${gr.spent}), 0)` })
+      .select({ userId: gr.userId, n: sql<number>`count(*)::int` })
       .from(gr)
-      .where(inArray(gr.kind, ['tournament', 'live_cash']))
-      .groupBy(gr.userId, gr.kind);
-    const tour = new Map(tourRows.filter((r) => r.kind === 'tournament').map((r) => [r.userId, { n: Number(r.n), net: Number(r.net) }]));
-    const live = new Map(tourRows.filter((r) => r.kind === 'live_cash').map((r) => [r.userId, Number(r.net)]));
-    const side = sideTotals(await sideNets(db));
+      .where(eq(gr.kind, 'tournament'))
+      .groupBy(gr.userId);
+    const tour = new Map(tourRows.map((r) => [r.userId, Number(r.n)]));
     const rt = new Map((await this.deps.rating('tournament')).map((r) => [r.userId, r.rating]));
     const rc = new Map((await this.deps.rating('cash')).map((r) => [r.userId, r.rating]));
     const rows: OverviewRow[] = users.map((u) => {
       const b = briefs.get(u.id);
-      const tn = (tour.get(u.id)?.net ?? 0) + (side.get(u.id) ?? 0);
-      const cn = (cash.get(u.id) ?? 0) + (live.get(u.id) ?? 0);
+      const tn = nets.get(u.id)?.tournament ?? 0;
+      const cn = (nets.get(u.id)?.cash ?? 0) + (seated.get(u.id) ?? 0);
       return {
         userId: u.id,
         nickname: u.nickname,
@@ -96,7 +94,7 @@ export class OverviewService {
         ratingTournament: rt.get(u.id) ?? null,
         ratingCash: rc.get(u.id) ?? null,
         hands: hands.get(u.id) ?? 0,
-        tournaments: tour.get(u.id)?.n ?? 0,
+        tournaments: tour.get(u.id) ?? 0,
         tournamentNet: tn,
         cashNet: cn,
         total: tn + cn,
@@ -134,27 +132,18 @@ export class OverviewService {
         out.push({ userId: id, nickname: nick.get(id) ?? '?', points: thin(rows.filter((r) => r.userId === id).map((r) => [r.at.getTime(), (sum += r.amount)] as Point)) });
       }
     } else {
-      const gr = schema.gameResults;
-      const games = await db.select().from(gr).where(and(inArray(gr.userId, ids), inArray(gr.kind, ['tournament', 'live_cash']))).orderBy(asc(gr.finishedAt));
-      const day = sql<string>`date_trunc('day', ${schema.handPlayers.playedAt})`;
-      const cash = await db
-        .select({ userId: schema.handPlayers.userId, day, net: sql<string>`coalesce(round(sum((${schema.handPlayers.won} - ${schema.handPlayers.invested})::numeric / ${schema.hands.chipsPerUnit})), 0)` })
-        .from(schema.handPlayers)
-        .innerJoin(schema.hands, eq(schema.hands.id, schema.handPlayers.handId))
-        .where(and(inArray(schema.handPlayers.userId, ids), eq(schema.handPlayers.kind, 'cash')))
-        .groupBy(schema.handPlayers.userId, day)
-        .orderBy(asc(day));
-      const sideRows = await sideNets(db, { userIds: ids });
+      // Výdělek v čase z pohybů v účetní knize (součet na konci = Výdělek v přehledu); žetony u stolu se přidají jako poslední bod.
+      const events = await gameEvents(db, ids);
+      const rate = Number(this.deps.settings()['cash.chipsPerCurrencyUnit']) || 1;
+      const seated = new Map<string, number>();
+      for (const x of this.deps.seated?.() ?? []) seated.set(x.userId, (seated.get(x.userId) ?? 0) + Math.floor(x.chips / rate));
       for (const id of ids) {
-        const events: Point[] = [
-          ...games.filter((g) => g.userId === id).map((g) => [g.finishedAt.getTime(), Number(g.payout) + Number(g.bounty) - Number(g.spent)] as Point),
-          ...sideRows.filter((r) => r.userId === id).map((r) => [r.at, r.net] as Point),
-          ...cash.filter((c) => c.userId === id).map((c) => [new Date(c.day).getTime(), Number(c.net)] as Point),
-        ].sort((a, b) => a[0] - b[0]);
         let sum = 0;
-        out.push({ userId: id, nickname: nick.get(id) ?? '?', points: thin(events.map((e) => [e[0], (sum += e[1])] as Point)) });
+        const points = events.filter((e) => e.userId === id).map((e) => [e.at, (sum += e.amount)] as Point);
+        if (seated.get(id)) points.push([Date.now(), sum + seated.get(id)!]);
+        out.push({ userId: id, nickname: nick.get(id) ?? '?', points: thin(points) });
       }
     }
-    return { series: out };
+      return { series: out };
   }
 }

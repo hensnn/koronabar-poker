@@ -129,6 +129,22 @@ describe('vedlejší pohyby (odměny na hlavu, sázky) se vždy započítají k 
     const game = period.games.find((g) => g.id === id)!;
     expect(game.parts[a]).toMatchObject({ headBounty: 50 });
     expect(period.players.reduce((n, p) => n + p.total, 0) + (period.house ?? 0)).toBe(0);
+    // přehled hráčů čte peníze z účetní knihy: cash (a vklad −300 a výběr +500, b vklad −200) a turnaje se shodují s vyúčtováním v peněžence i s grafem vývoje
+    s.server.ledger.post({ kind: 'cash_buyin', idempotencyKey: 'ov:cb', gameId: 'stul-ov', entries: [{ account: accounts.wallet(a), amount: -300 }, { account: accounts.table('stul-ov'), amount: 300 }] });
+    s.server.ledger.post({ kind: 'cash_buyin', idempotencyKey: 'ov:cb2', gameId: 'stul-ov', entries: [{ account: accounts.wallet(b), amount: -200 }, { account: accounts.table('stul-ov'), amount: 200 }] });
+    s.server.ledger.post({ kind: 'cash_cashout', idempotencyKey: 'ov:co', gameId: 'stul-ov', entries: [{ account: accounts.table('stul-ov'), amount: -500 }, { account: accounts.wallet(a), amount: 500 }] });
+    await s.server.journal.flush();
+    const ovRows = (await s.server.overview.overview()).rows;
+    const settle = await s.server.wallet.settlementForPeriod(s.admin, 0, Date.parse('2027-01-01'));
+    for (const u of [a, b, c, fan]) {
+      const o = ovRows.find((r) => r.userId === u)!;
+      const l = settle.players.find((r) => r.userId === u)!;
+      expect({ cash: o.cashNet, tour: o.tournamentNet, total: o.total }).toEqual({ cash: l.cash, tour: l.tournament, total: l.total });
+    }
+    expect(ovRows.find((r) => r.userId === a)!.cashNet).toBe(200);
+    const series = (await s.server.overview.compare([a, fan], 'profit')).series;
+    for (const x of series) expect(x.points[x.points.length - 1]![1]).toBe(ovRows.find((r) => r.userId === x.userId)!.total);
+
     // vedlejší pohyby jsou uzavřené: escrow účty jsou po vypořádání prázdné a vše, co hráči vyhráli, někdo zaplatil
     expect(s.server.ledger.balance(accounts.escrow('hb:t'))).toBe(0);
     expect(s.server.ledger.balance(accounts.escrow('bet:t'))).toBe(0);

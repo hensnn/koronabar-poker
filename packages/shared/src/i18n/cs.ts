@@ -526,7 +526,7 @@ export const cs: Record<string, string> = {
   'overview.ratingT': 'Rating turnaje',
   'overview.ratingC': 'Rating cash',
   'overview.me': 'já',
-  'overview.note': 'Řazení změníš klepnutím na název sloupce. Správce může přehled skrýt (Nastavení → Statistiky → Přehled mezi hráči).',
+  'overview.note': 'Řazení změníš klepnutím na název sloupce. Výdělek se počítá z účetní knihy stejně jako vyúčtování v peněžence a výsledky večerů: cash (včetně žetonů, které hráč ještě má u stolu) a turnaje včetně bounty, sázek a odměn na hlavu, bez dobití a kontokorentu. Žebříček má vlastní pravidla (např. nejmenší počet hand pro cash). Správce může přehled skrýt (Nastavení → Statistiky → Přehled mezi hráči).',
   'error.OVERVIEW_HIDDEN': 'Správce přehled mezi hráči vypnul.',
   'error.OVERVIEW_INVALID': 'Neplatný výběr hráčů.',
   'charts.title': 'Jak se mi daří',
