@@ -474,6 +474,7 @@ h3,
   box-shadow: 0 0 0 2px var(--tk-color-turnGlow), 0 0 calc(var(--spacing) * 4) var(--tk-color-turnGlow);
   animation: tk-win-lift calc(0.4s / var(--tk-anim-speed)) ease-out 0.5s forwards, tk-win-wiggle calc(0.4s / var(--tk-anim-speed)) ease-in-out 0.9s 3;
 }
+.tk-card.tk-card-mark { box-shadow: 0 0 0 calc(var(--spacing) * 0.75) var(--tk-color-turnGlow); }
 .tk-card.tk-card-out { opacity: 0.55; transition: opacity calc(0.3s / var(--tk-anim-speed)) 0.5s; }
 @media (prefers-reduced-motion: reduce) {
   .tk-card.tk-card-win { animation: tk-win-lift 0.01s linear forwards; }

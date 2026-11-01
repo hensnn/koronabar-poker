@@ -380,6 +380,9 @@ export function TournamentPage({ id }: { id: string }) {
   const remaining = view.clockMs !== null ? (view.paused ? view.clockMs : view.clockMs - (now - fetchedAt)) : null;
   const decideLeft = m.decideUntil ? m.decideUntil - view.serverTime - (now - fetchedAt) : null;
   const running = view.status === 'running';
+  const ended = view.status === 'finished' || view.status === 'cancelled';
+  // Dvojice v kartě Informace: u skončeného turnaje dlaždice přes celou šířku, jinak řádky štítek–hodnota
+  const pairClass = ended ? 'flex flex-col' : 'contents';
   const canPlay = m.registered && running;
   void me;
 
@@ -495,59 +498,84 @@ export function TournamentPage({ id }: { id: string }) {
 
       {running && view.deal.enabled && <DealPanel id={view.id} canManage={view.can.manage} />}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={`grid gap-3 ${view.status === 'finished' || view.status === 'cancelled' ? '' : 'sm:grid-cols-2'}`}>
         <Card title={t('tournament.info')}>
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+          <dl className={view.status === 'finished' || view.status === 'cancelled' ? 'grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3 lg:grid-cols-4' : 'grid grid-cols-2 gap-x-3 gap-y-1'}>
+            <div className={pairClass}>
             <dt className="text-muted">{t('tournament.buyIn')}</dt>
             <dd className="font-mono">{view.buyIn}</dd>
+            </div>
+            <div className={pairClass}>
             <dt className="text-muted">{t('tournament.feeLabel')}</dt>
             <dd className="font-mono">{view.fee}</dd>
+            </div>
+            <div className={pairClass}>
             <dt className="text-muted">{t('tournament.startingStack')}</dt>
             <dd className="font-mono">
               {view.startingStack}
             </dd>
+            </div>
+            <div className={pairClass}>
             <dt className="text-muted">{t('tournament.playersLabel')}</dt>
             <dd className="font-mono">{running ? `${view.alive}/${view.players}` : view.status === 'registering' ? `${view.players}/${view.seats}` : view.players}</dd>
+            </div>
             {view.schedule && view.status === 'registering' && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('planning.startsAt')}</dt>
                 <dd>
                   {fmtDate(view.schedule.startAt)} {view.schedule.postponed > 0 && <Badge tone="warning">{t('planning.postponed', { n: view.schedule.postponed })}</Badge>}
                 </dd>
+                </div>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('planning.registration')}</dt>
                 <dd>{view.schedule.registrationOpen ? t('planning.registrationUntil', { time: fmtDate(view.schedule.unregisterUntil) }) : t('planning.registrationFrom', { time: fmtDate(view.schedule.opensAt) })}</dd>
+                </div>
                 {view.schedule.invited && (
                   <>
+                    <div className={pairClass}>
                     <dt className="text-muted">{t('planning.invited')}</dt>
                     <dd>{t('planning.invitedOnly', { n: view.schedule.invited.length })}</dd>
+                    </div>
                   </>
                 )}
               </>
             )}
             {view.schedule?.autoPaused && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.paused')}</dt>
                 <dd>{t('planning.autoPaused')}</dd>
+                </div>
               </>
             )}
             {view.finishedAt && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.endedAt')}</dt>
                 <dd>{new Date(view.finishedAt).toLocaleString('cs-CZ')}</dd>
+                </div>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.endedLevel')}</dt>
                 <dd>{t('tournament.endedLevelText', { n: view.levelNumber, blinds: levelText(view.levels[view.levelNumber - 1] ?? null) })}</dd>
+                </div>
                 {view.startedAt && (
                   <>
+                    <div className={pairClass}>
                     <dt className="text-muted">{t('tournament.totalTime')}</dt>
                     <dd className="font-mono">{hms(view.finishedAt - view.startedAt)}</dd>
+                    </div>
                   </>
                 )}
               </>
             )}
+            <div className={pairClass}>
             <dt className="text-muted">{t('tournament.prizePool')}</dt>
             <dd className="font-mono">{view.prizePool}</dd>
+            </div>
             {view.bounty.type !== 'none' && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.bounty')}</dt>
                 <dd>
                   {t(view.bounty.type === 'fixed' ? 'tournament.bountyInfoFixed' : view.bounty.type === 'pko' ? 'tournament.bountyInfoPko' : 'tournament.bountyInfoMystery', {
@@ -556,50 +584,65 @@ export function TournamentPage({ id }: { id: string }) {
                     payout: t(`tournament.payout.${view.bounty.payout}`),
                   })}
                 </dd>
+                </div>
               </>
             )}
             {view.fees.guarantee > 0 && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.guarantee')}</dt>
                 <dd className="font-mono">{view.fees.guarantee}</dd>
+                </div>
               </>
             )}
             {(view.fees.houseCutPercent > 0 || view.fees.fundPercent > 0 || view.fees.fee > 0) && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.whereMoneyGoes')}</dt>
                 <dd>
                   {t('tournament.feesInfo', { house: view.fees.houseCutPercent, fund: view.fees.fundPercent, fundName: view.fees.fundId, fee: view.fees.fee })}
                 </dd>
+                </div>
               </>
             )}
             {view.results && view.fees.overlay > 0 && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.overlay')}</dt>
                 <dd className="font-mono">{view.fees.overlay}</dd>
+                </div>
               </>
             )}
             {view.rebuy.enabled && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.rebuy')}</dt>
                 <dd>{t('tournament.rebuyInfo', { cost: view.rebuy.cost, chips: view.rebuy.chips, level: view.rebuy.untilLevel, max: view.rebuy.max })}</dd>
+                </div>
               </>
             )}
             {view.addon.enabled && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.addon')}</dt>
                 <dd>{t('tournament.addonInfo', { cost: view.addon.cost, chips: view.addon.chips, from: view.addon.fromLevel, to: view.addon.untilLevel })}</dd>
+                </div>
               </>
             )}
             {view.reentry.enabled && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.reenter')}</dt>
                 <dd>{t('tournament.reentryInfo', { max: view.reentry.max })}</dd>
+                </div>
               </>
             )}
             {view.lateRegLevels > 0 && (
               <>
+                <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.lateReg')}</dt>
                 <dd>{view.lateRegOpen || view.status === 'registering' ? t('tournament.lateRegUntil', { level: view.lateRegLevels }) : t('tournament.lateRegClosed')}</dd>
+                </div>
               </>
             )}
           </dl>
@@ -699,6 +742,7 @@ export function TournamentPage({ id }: { id: string }) {
           )}
         </Card>
         </div>
+        {!ended && (
         <Card title={t('tournament.payouts')}>
           <p className="mb-2 text-sm text-muted">{t('tournament.payoutsHelp')}</p>
           {view.payouts.length === 0 ? (
@@ -716,6 +760,7 @@ export function TournamentPage({ id }: { id: string }) {
           )}
           <p className="mt-2 text-sm text-muted">{t(view.results ? 'tournament.payoutNoteDone' : 'tournament.payoutNote')}</p>
         </Card>
+        )}
       </div>
 
       {features.bets && <BetsPanel tournamentId={view.id} />}

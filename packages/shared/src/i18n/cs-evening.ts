@@ -56,7 +56,7 @@ export const csEvening: Record<string, string> = {
   'evening.bestHandTitle': 'Handa večera: nejlepší kombinace',
   'evening.bestHandText': '{nick} · {game}',
   'evening.bestHandNone': 'Zatím žádná handa s ukázanými kartami.',
-  'evening.holeCards': 'Karty v ruce',
+  'evening.bestHandLegend': 'Zvýrazněné karty má hráč v ruce, ostatní jsou společné.',
   'evening.mvpHint': 'MVP = nejlepší hráč večera; číslo v závorce jsou jeho body',
   'evening.openResult': 'Otevřít výsledek',
   'evening.openGame': 'Otevřít',

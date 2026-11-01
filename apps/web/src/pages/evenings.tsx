@@ -385,11 +385,11 @@ export function EveningPage({ id }: { id: string }) {
 const asCard = (c: string): PokerCard => c as PokerCard;
 
 /** Karty v řadě (rub, když je karta neznámá). */
-function CardRow({ cards, win }: { cards: string[]; win?: boolean }) {
+function CardRow({ cards, marked }: { cards: string[]; /** Karty, které se zvýrazní (např. karty v ruce). */ marked?: string[] }) {
   return (
-    <div className="flex gap-1">
+    <div className="flex flex-wrap gap-2 py-1">
       {cards.map((c) => (
-        <CardView key={c} card={asCard(c)} small still win={win} />
+        <CardView key={c} card={asCard(c)} small still mark={marked?.includes(c)} />
       ))}
     </div>
   );
@@ -409,7 +409,7 @@ function BadBeatHand({ hand, equity }: { hand: HandShow; equity: number }) {
           <span className="w-28 text-sm">
             <span className="text-muted">{t(p.role === 'loser' ? 'evening.faced' : 'evening.beatBy')}</span> {p.nickname}
           </span>
-          {p.hole && <CardRow cards={p.hole} win={p.role === 'winner'} />}
+          {p.hole && <CardRow cards={p.hole} marked={p.role === 'winner' ? p.hole : undefined} />}
           {p.desc && <span className="text-sm">{t(p.desc.key, p.desc.params)}</span>}
         </div>
       ))}
@@ -424,14 +424,9 @@ function BestHandView({ hand }: { hand: HandShow & { userId: string; nickname: s
   return (
     <div className="flex flex-col gap-2 rounded-md border border-line bg-raised p-3">
       <p className="text-sm">{t('evening.bestHandText', { nick: hand.nickname, game: hand.game })}</p>
-      {mine.five && <CardRow cards={mine.five} win />}
+      <CardRow cards={mine.five ?? [...(mine.hole ?? []), ...hand.board]} marked={mine.hole ?? undefined} />
       {mine.desc && <p className="text-lg font-semibold">{t(mine.desc.key, mine.desc.params)}</p>}
-      {mine.hole && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted">{t('evening.holeCards')}</span>
-          <CardRow cards={mine.hole} />
-        </div>
-      )}
+      <p className="text-sm text-muted">{t('evening.bestHandLegend')}</p>
     </div>
   );
 }
