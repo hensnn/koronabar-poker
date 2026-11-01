@@ -38,6 +38,7 @@ describe('přehled mezi hráči', () => {
     const me = o.rows.find((r) => r.userId === s.player)!;
     expect(me.balance).toBe(10_500);
     expect(me.xp).toBe(90);
+    expect(me.division).toBeNull(); // bez odehraných her není hráč v žebříčku ratingu
     expect(me.level).toBeGreaterThanOrEqual(1);
     const bal = await s.server.overview.compare([s.player, s.admin], 'balance');
     expect(bal.series).toHaveLength(2);

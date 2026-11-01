@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DIVISIONS, displayRating, divisionFor, fieldFactor, inactiveSkill, lengthFactor, newSkill, parseDivisions, rateCashSession, rateTournament, softReset, type RatingParams, type TournamentRatingOptions } from './rating.js';
+import { DEFAULT_DIVISIONS, displayRating, divisionFor, fieldFactor, nextDivision, inactiveSkill, lengthFactor, newSkill, parseDivisions, rateCashSession, rateTournament, softReset, type RatingParams, type TournamentRatingOptions } from './rating.js';
 
 const P: RatingParams = { mu0: 25, sigma0: 25 / 3, k: 3, scale: 30, base: 1500 };
 const O: TournamentRatingOptions = { knockoutWeightPercent: 20, knockoutK: 40, rebuyPenaltyPercent: 10, weight: 1 };
@@ -127,11 +127,27 @@ describe('cash sezení a divize', () => {
   });
 
   it('divize podle ratingu, neplatný text spadne na výchozí', () => {
-    expect(divisionFor(1000, DEFAULT_DIVISIONS).name).toBe('Bronz');
-    expect(divisionFor(1550, DEFAULT_DIVISIONS).name).toBe('Stříbro');
-    expect(divisionFor(2500, DEFAULT_DIVISIONS).name).toBe('Mistr');
+    expect(divisionFor(1000, DEFAULT_DIVISIONS)).toMatchObject({ name: 'Brambora', icon: '🥔', color: 'muted' });
+    expect(divisionFor(1500, DEFAULT_DIVISIONS).name).toBe('Kapr');
+    expect(divisionFor(1749, DEFAULT_DIVISIONS).name).toBe('Liška');
+    expect(divisionFor(2500, DEFAULT_DIVISIONS)).toMatchObject({ name: 'Drak od zeleného stolu', icon: '🐉' });
     expect(parseDivisions('Jen|500').errors).toContain('První divize musí začínat na 0');
-    expect(divisionFor(1600, 'nesmysl').name).toBe('Stříbro');
+    expect(divisionFor(1600, 'nesmysl').name).toBe('Liška');
+    expect(parseDivisions(DEFAULT_DIVISIONS).errors).toEqual([]);
+    expect(parseDivisions(DEFAULT_DIVISIONS).divisions).toHaveLength(5);
+  });
+
+  it('starší tvar název|od se čte bez ikony; špatná barva je chyba', () => {
+    const old = parseDivisions('Nízká|0;Vysoká|1700');
+    expect(old.errors).toEqual([]);
+    expect(old.divisions[1]).toEqual({ name: 'Vysoká', icon: '', color: 'muted', min: 1700 });
+    expect(parseDivisions('A|🥔|fialova|0').errors.length).toBe(1);
+  });
+
+  it('kolik bodů chybí do další divize', () => {
+    expect(nextDivision(1480.4, DEFAULT_DIVISIONS)).toMatchObject({ division: { name: 'Kapr' }, missing: 20 });
+    expect(nextDivision(1899, DEFAULT_DIVISIONS)).toMatchObject({ division: { name: 'Drak od zeleného stolu' }, missing: 1 });
+    expect(nextDivision(2300, DEFAULT_DIVISIONS)).toBeNull();
   });
 });
 

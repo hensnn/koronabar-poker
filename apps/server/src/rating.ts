@@ -4,6 +4,7 @@ import {
   weekKey,
   displayRating,
   divisionFor,
+  nextDivision,
   fieldFactor,
   fromLocal,
   inactiveSkill,
@@ -59,6 +60,10 @@ export interface RatingDto {
   games: number;
   peak: number | null;
   division: string;
+  divisionIcon: string;
+  divisionColor: string;
+  /** Další divize a kolik bodů k ní chybí (jen když se čísla ratingu ukazují). */
+  toNext: { name: string; icon: string; missing: number } | null;
 }
 
 const DAY = 86_400_000;
@@ -503,6 +508,8 @@ export class RatingService {
     const display = displayRating(skill, p);
     const show = !!this.s['rating.showNumbers'];
     const need = num(this.s, scope === 'cash' ? 'rating.cashProvisionalGames' : 'rating.provisionalGames');
+    const div = divisionFor(display, String(this.s['rating.divisions']));
+    const next = nextDivision(display, String(this.s['rating.divisions']));
     return {
       scope,
       rating: show ? display : null,
@@ -510,7 +517,10 @@ export class RatingService {
       provisional: (st?.games ?? 0) < need,
       games: st?.games ?? 0,
       peak: show && st ? st.peak : null,
-      division: divisionFor(display, String(this.s['rating.divisions'])).name,
+      division: div.name,
+      divisionIcon: div.icon,
+      divisionColor: div.color,
+      toNext: show && next ? { name: next.division.name, icon: next.division.icon, missing: next.missing } : null,
     };
   }
 
@@ -590,7 +600,8 @@ export class RatingService {
         const days = r.s.lastPlayedAt ? Math.max(0, (at - r.s.lastPlayedAt.getTime()) / DAY) : 0;
         const skill = inactiveSkill({ mu: r.s.mu, sigma: r.s.sigma }, days, num(this.s, 'rating.inactivityGraceDays'), num(this.s, 'rating.inactivitySigmaGrowthHundredths') / 100, p);
         const display = displayRating(skill, p);
-        return { userId: r.s.userId, nickname: r.nickname, rating: show ? display : null, division: divisionFor(display, String(this.s['rating.divisions'])).name, games: r.s.games, order: display };
+        const div = divisionFor(display, String(this.s['rating.divisions']));
+        return { userId: r.s.userId, nickname: r.nickname, rating: show ? display : null, division: div.name, divisionIcon: div.icon, divisionColor: div.color, games: r.s.games, order: display };
       })
       .sort((a, b) => b.order - a.order)
       .map(({ order: _o, ...rest }, i) => ({ rank: i + 1, ...rest }));
@@ -621,7 +632,7 @@ export class RatingService {
     }
     return [...by]
       .filter(([id]) => (states.get(id)?.games ?? 0) >= need)
-      .map(([userId, v]) => ({ userId, nickname: v.nickname, rating: show ? v.last : null, delta: show ? v.last - v.first : null, games: v.games, division: divisionFor(v.last, String(this.s['rating.divisions'])).name, order: v.last }))
+      .map(([userId, v]) => ({ userId, nickname: v.nickname, rating: show ? v.last : null, delta: show ? v.last - v.first : null, games: v.games, division: divisionFor(v.last, String(this.s['rating.divisions'])).name, divisionIcon: divisionFor(v.last, String(this.s['rating.divisions'])).icon, order: v.last }))
       .sort((a, b) => b.order - a.order)
       .map(({ order: _o, ...r }, i) => ({ rank: i + 1, ...r }));
   }

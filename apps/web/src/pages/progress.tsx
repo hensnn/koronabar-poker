@@ -24,7 +24,22 @@ interface LevelRow {
   rank: string;
 }
 
+/** Stránka Postup: XP a úrovně, když je XP zapnuté; rating a divize běží i bez XP. */
 export function ProgressPage() {
+  const features = useFeatures();
+  if (!features.xp) {
+    return (
+      <main className="flex flex-col gap-3">
+        <h1 className="font-heading text-2xl font-bold">{t('nav.progress')}</h1>
+        {features.rating && <RatingSection />}
+        <RatingAdmin />
+      </main>
+    );
+  }
+  return <XpProgress />;
+}
+
+function XpProgress() {
   const features = useFeatures();
   const [me, setMe] = useState<Me | null>(null);
   const [levels, setLevels] = useState<LevelRow[]>([]);

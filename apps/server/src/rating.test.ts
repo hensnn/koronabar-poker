@@ -104,9 +104,12 @@ describe('herní rating', { timeout: 120_000 }, () => {
     const mine = (await hidden.server.rating.ratingOf(h[0]!)).tournament;
     expect(mine.rating).toBeNull();
     expect(mine.division).toBeTruthy();
+    expect(mine.divisionIcon).toBeTruthy();
+    expect(mine.toNext).toBeNull(); // bez čísel ratingu se neukazuje ani rozdíl bodů
     const board = await hidden.server.rating.leaderboard('tournament');
     expect(board).toHaveLength(3);
     expect(board[0]).toMatchObject({ rank: 1, rating: null });
+    expect(board[0]!.divisionIcon).toBeTruthy();
   });
 
   it('provizorní hráči nejsou v žebříčku; rebuye a velikost pole zmenšují zisk', async () => {

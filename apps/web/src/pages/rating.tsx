@@ -13,6 +13,8 @@ interface Dto {
   games: number;
   peak: number | null;
   division: string;
+  divisionIcon?: string;
+  toNext?: { name: string; icon: string; missing: number } | null;
 }
 interface Ev {
   ref: string;
@@ -33,6 +35,7 @@ interface Row {
   nickname: string;
   rating: number | null;
   division: string;
+  divisionIcon?: string;
   games: number;
 }
 
@@ -115,11 +118,12 @@ export function RatingSection() {
         <Tabs tabs={[{ id: 'tournament' as const, label: t('rating.tournament') }, { id: 'cash' as const, label: t('rating.cash') }]} value={scope} onChange={setScope} />
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex flex-col">
-            <span className="text-4xl font-bold">{cur.rating ?? cur.division}</span>
+            <span className="text-4xl font-bold">{cur.rating ?? `${cur.divisionIcon ?? ''} ${cur.division}`}</span>
             {cur.uncertainty !== null && <span className="text-sm text-muted">± {cur.uncertainty}</span>}
           </div>
           <div className="flex flex-col gap-1">
-            <Badge tone="primary">{cur.division}</Badge>
+            <Badge tone="primary">{cur.divisionIcon} {cur.division}</Badge>
+            {cur.toNext && <span className="text-sm text-muted">{t('dashboard.divisionNext', { icon: cur.toNext.icon, name: cur.toNext.name, n: cur.toNext.missing })}</span>}
             {cur.provisional && <Badge tone="warning">{t('rating.provisional')}</Badge>}
             <span className="text-sm text-muted">
               {t('rating.games', { n: cur.games })}
@@ -176,7 +180,7 @@ export function RatingSection() {
                     <Td>{r.nickname}</Td>
                     <Td className="font-mono">{r.rating ?? '–'}</Td>
                     <Td className="font-mono">{r.delta === null ? '–' : r.delta > 0 ? `+${r.delta}` : r.delta}</Td>
-                    <Td>{r.division}</Td>
+                    <Td>{r.divisionIcon} {r.division}</Td>
                     <Td className="font-mono">{r.games}</Td>
                   </tr>
                 ))}
@@ -191,7 +195,7 @@ export function RatingSection() {
                   <Td>{r.rank}</Td>
                   <Td>{r.nickname}</Td>
                   <Td className="font-mono">{r.rating ?? '–'}</Td>
-                  <Td>{r.division}</Td>
+                  <Td>{r.divisionIcon} {r.division}</Td>
                   <Td className="font-mono">{r.games}</Td>
                   <Td>{r.userId !== me?.user.id && scope === 'tournament' && <Button onClick={() => setDuel(r)}>{t('rating.duel')}</Button>}</Td>
                 </tr>

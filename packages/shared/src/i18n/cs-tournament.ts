@@ -831,7 +831,7 @@ export const csTournament: Record<string, string> = {
   'settings.rating.cashMinHands.label': 'Minimum hand pro cash sezení',
   'settings.rating.cashMinHands.help': 'Sezení (stůl a den) s méně handami do ratingu nejde.',
   'settings.rating.divisions.label': 'Divize',
-  'settings.rating.divisions.help': 'Oddělené středníkem, každá ve tvaru název|od ratingu. První musí začínat na 0.',
+  'settings.rating.divisions.help': 'Oddělené středníkem, každá ve tvaru název|ikona|barva|od ratingu, například Kapr|🐟|info|1500. Barva je jedna z: primary, secondary, accent, info, success, warning, danger, muted. První divize musí začínat na 0. Starší tvar název|od se také čte (bez ikony). Při chybě v textu se použijí výchozí divize. Divize se ukazuje v Lobby, na stránce Rating a ve veřejných žebříčcích.',
   'settings.tournament.rated.label': 'Hodnocený turnaj',
   'settings.tournament.rated.help': 'Zda se výsledek turnaje počítá do herního ratingu.',
   'rating.title': 'Herní rating',

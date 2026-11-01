@@ -1118,7 +1118,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     ledger,
     settings: () => settings.resolve(),
     brief: (ids) => progress.brief(ids),
-    rating: async (scope) => (settings.resolve()['rating.enabled'] === false ? [] : await rating.leaderboard(scope)).map((r) => ({ userId: r.userId, rating: r.rating })),
+    rating: async (scope) => (settings.resolve()['rating.enabled'] === false ? [] : await rating.leaderboard(scope)).map((r) => ({ userId: r.userId, rating: r.rating, division: { name: r.division, icon: r.divisionIcon, color: r.divisionColor } })),
     seated: () => tablesRef.current?.list().flatMap((row) => (tablesRef.current!.get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, chips: s.chips + s.pendingChips }))) ?? [],
   });
 

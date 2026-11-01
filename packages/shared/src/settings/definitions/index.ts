@@ -496,7 +496,7 @@ const rating: SettingDef[] = [
   int('rating.pairDecayPercent', { category: 'rating', mutability: ADM, scopes: GLOBAL, unit: '%' }, 50, 0, 100),
   int('rating.cashWeightPercent', { category: 'rating', mutability: ADM, scopes: GLOBAL, unit: '%' }, 30, 0, 100),
   int('rating.cashMinHands', { category: 'rating', mutability: ADM, scopes: GLOBAL, unit: 'hand' }, 100, 1, 100000),
-  text('rating.divisions', { category: 'rating', mutability: ADM, scopes: GLOBAL }, 'Bronz|0;Stříbro|1550;Zlato|1650;Platina|1800;Diamant|1950;Mistr|2100', 600),
+  text('rating.divisions', { category: 'rating', mutability: ADM, scopes: GLOBAL }, 'Brambora|🥔|muted|0;Kapr|🐟|info|1500;Liška|🦊|warning|1600;Vlk samotář|🐺|accent|1750;Drak od zeleného stolu|🐉|danger|1900', 600),
 ];
 
 /** Zkušenosti (XP) a hodnosti (platí globálně). */

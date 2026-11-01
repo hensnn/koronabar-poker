@@ -1,4 +1,5 @@
 import { rate } from 'openskill';
+import { RANK_COLORS, type RankColor } from './progress.js';
 
 /**
  * Herní rating (čisté funkce). Základem je OpenSkill (Weng-Lin, model Plackett-Luce): každý hráč má odhad
@@ -224,34 +225,52 @@ export function rateCashSession(players: CashPlayer[], weight: number, p: Rating
 
 export interface Division {
   name: string;
+  /** Ikona divize (emoji); prázdná, když ji text nezadává. */
+  icon: string;
+  /** Barva z témat (stejné názvy jako u hodností XP). */
+  color: RankColor;
   min: number;
 }
 
-export const DEFAULT_DIVISIONS = 'Bronz|0;Stříbro|1550;Zlato|1650;Platina|1800;Diamant|1950;Mistr|2100';
+/** Pět divizí s ikonami: Brambora → Kapr → Liška → Vlk samotář → Drak od zeleného stolu. */
+export const DEFAULT_DIVISIONS = 'Brambora|🥔|muted|0;Kapr|🐟|info|1500;Liška|🦊|warning|1600;Vlk samotář|🐺|accent|1750;Drak od zeleného stolu|🐉|danger|1900';
 
+/** Formát řádku: Název|ikona|barva|od (starší formát Název|od se také čte, bez ikony a v neutrální barvě). */
 export function parseDivisions(text: string): { divisions: Division[]; errors: string[] } {
   const divisions: Division[] = [];
   const errors: string[] = [];
   for (const [i, raw] of text.split(/\r?\n|;/).entries()) {
     const line = raw.trim();
     if (!line) continue;
-    const [name, min] = line.split('|').map((x) => x.trim());
+    const parts = line.split('|').map((x) => x.trim());
+    const legacy = parts.length === 2;
+    const [name, icon, color, min] = legacy ? [parts[0], '', 'muted', parts[1]] : parts;
     const m = Number(min);
-    if (!name || name.length > 30 || !Number.isInteger(m) || m < 0 || m > 10_000) {
+    if (!name || name.length > 30 || (icon ?? '').length > 8 || !RANK_COLORS.includes(color as RankColor) || !min || !Number.isInteger(m) || m < 0 || m > 10_000) {
       errors.push(`Řádek ${i + 1}`);
       continue;
     }
-    divisions.push({ name, min: m });
+    divisions.push({ name, icon: icon ?? '', color: color as RankColor, min: m });
   }
   divisions.sort((a, b) => a.min - b.min);
   if (divisions.length > 0 && divisions[0]!.min !== 0) errors.push('První divize musí začínat na 0');
   return { divisions, errors };
 }
 
-export function divisionFor(display: number, text: string): Division {
+function divisionList(text: string): Division[] {
   const parsed = parseDivisions(text);
-  const list = parsed.errors.length === 0 && parsed.divisions.length > 0 ? parsed.divisions : parseDivisions(DEFAULT_DIVISIONS).divisions;
+  return parsed.errors.length === 0 && parsed.divisions.length > 0 ? parsed.divisions : parseDivisions(DEFAULT_DIVISIONS).divisions;
+}
+
+export function divisionFor(display: number, text: string): Division {
+  const list = divisionList(text);
   let cur = list[0]!;
   for (const d of list) if (d.min <= display) cur = d;
   return cur;
+}
+
+/** Další divize nad aktuálním ratingem a kolik bodů k ní chybí; null, když je hráč v nejvyšší. */
+export function nextDivision(display: number, text: string): { division: Division; missing: number } | null {
+  const next = divisionList(text).find((d) => d.min > display);
+  return next ? { division: next, missing: next.min - Math.round(display) } : null;
 }

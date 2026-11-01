@@ -17,6 +17,7 @@ export const csUi: Record<string, string> = {
   'tables.tournaments': 'Turnaje',
   'tables.cash': 'Cash game',
   'dashboard.account': 'Moje konto',
+  'dashboard.divisionNext': 'Do divize {icon} {name} zbývá {n} bodů',
   'dashboard.balance': 'Zůstatek v peněžence',
   'dashboard.earnings': 'Výdělek ze všech her',
   'dashboard.place': '{n}. místo v žebříčku',

@@ -125,7 +125,7 @@ function Shell({ me }: { me: Me }) {
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp), item('/obchod', 'nav.shop', shopOn)] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp || features.rating), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.personalSettings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
     ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
   )
@@ -170,7 +170,7 @@ function Shell({ me }: { me: Me }) {
   // Vypnutá funkce nemá mít přístupnou ani adresu.
   const compact = settings.values['ui.compactHeader'] !== false;
   const off = (prefix: string, on: boolean) => !on && (path === prefix || path.startsWith(prefix + '/'));
-  if (off('/ankety', features.polls) || off('/chat', features.chat) || off('/vecery', features.evenings) || off('/postup', features.xp) || off('/obchod', features.shop)) page = <Redirect to="/" />;
+  if (off('/ankety', features.polls) || off('/chat', features.chat) || off('/vecery', features.evenings) || off('/postup', features.xp || features.rating) || off('/obchod', features.shop)) page = <Redirect to="/" />;
 
   return (
     <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>

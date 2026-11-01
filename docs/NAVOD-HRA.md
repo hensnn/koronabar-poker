@@ -303,3 +303,7 @@ Zelené ✔ znamená v pořádku. U červeného ✖ se ukážou příklady. Chyb
 - **Žebříček** má vlastní pravidla (nejmenší počet hand pro cash, sezóny) a čerpá z uložených výsledků turnajů, proto se jeho pořadí může od Přehledu lišit.
 - **Kontokorent** se do výdělku nepočítá: výhra ve hře zůstává celá, splátka je samostatný pohyb.
 
+
+## Divize ratingu a kde je vidět
+
+Rating hráče se překládá na divizi s ikonou: 🥔 Brambora, 🐟 Kapr, 🦊 Liška, 🐺 Vlk samotář a 🐉 Drak od zeleného stolu. Hranice, názvy, ikony i barvy změníš v Nastavení → Rating → Divize (tvar `Název|ikona|barva|od`, oddělené středníkem; první divize musí začínat na 0). Divizi najdeš v Lobby v kartě Moje konto (i s počtem bodů do další divize), v žebříčku hráčů v Lobby a na stránce Postup. Stránka Postup funguje i s vypnutým XP, stačí zapnutý rating. Když správce skryje čísla ratingu, zůstane vidět jen divize a ikona.

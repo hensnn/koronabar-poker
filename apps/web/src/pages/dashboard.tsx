@@ -8,6 +8,7 @@ import { useMySeats } from '../my-seat';
 import { Badge, Button, Card, Notice } from '../ui';
 import { PollsPanel } from './polls';
 import { useFeatures } from '../features';
+import { rankColorClass } from '../progress-client';
 
 interface CashTable {
   id: string;
@@ -35,6 +36,19 @@ interface Row {
   nickname: string;
   total: number;
   balance: number;
+  ratingTournament?: number | null;
+  ratingCash?: number | null;
+  division?: { name: string; icon: string; color: string } | null;
+}
+
+interface MyRating {
+  rating: number | null;
+  provisional: boolean;
+  games: number;
+  division: string;
+  divisionIcon: string;
+  divisionColor: string;
+  toNext: { name: string; icon: string; missing: number } | null;
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
@@ -57,6 +71,7 @@ export function DashboardPage() {
   const [tables, setTables] = useState<CashTable[] | null>(null);
   const [tours, setTours] = useState<Tour[] | null>(null);
   const [rows, setRows] = useState<Row[] | null | 'hidden'>(null);
+  const [myRating, setMyRating] = useState<{ tournament: MyRating; cash: MyRating } | null>(null);
   const forms = currencyFormsOf(settings.values);
 
   useEffect(() => {
@@ -76,6 +91,10 @@ export function DashboardPage() {
       clearInterval(id);
     };
   }, []);
+  useEffect(() => {
+    if (!features.rating) return;
+    get<{ tournament: MyRating; cash: MyRating }>('/api/rating/me').then(setMyRating).catch(() => setMyRating(null));
+  }, [features.rating]);
   useEffect(() => {
     let alive = true;
     const load = () =>
@@ -136,6 +155,7 @@ export function DashboardPage() {
                 <span className="text-muted"> · {t('dashboard.place', { n: myIndex + 1 })}</span>
               </p>
             )}
+            {myRating && <RatingLines r={myRating} />}
             <div className="flex flex-wrap gap-3">
               <Link to="/penezenka" className="underline">
                 {t('nav.wallet')}
@@ -282,7 +302,32 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
     >
       <span className="w-6 text-right font-mono text-muted">{place}.</span>
       <strong className="flex-1 truncate">{row.nickname}</strong>
+      {row.division && (
+        <span className={`whitespace-nowrap text-sm ${rankColorClass(row.division.color)}`} title={row.division.name}>
+          <span aria-hidden>{row.division.icon}</span> <span className="hidden sm:inline">{row.division.name}</span>
+          {(row.ratingTournament ?? row.ratingCash) != null && <span className="ml-1 font-mono text-muted">{Math.round((row.ratingTournament ?? row.ratingCash)!)}</span>}
+        </span>
+      )}
       <span className={`font-mono ${tone(row.total)}`}>{signed(row.total)}</span>
     </li>
+  );
+}
+
+/** Divize a rating hráče v kartě Moje konto: turnaje a cash zvlášť, s bodovým rozdílem do další divize. */
+function RatingLines({ r }: { r: { tournament: MyRating; cash: MyRating } }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-line px-3 py-2">
+      {([['tournament', r.tournament], ['cash', r.cash]] as const).map(([scope, x]) => (
+        <div key={scope} className="flex flex-wrap items-baseline gap-x-2">
+          <span className="w-16 text-sm text-muted">{t(scope === 'cash' ? 'rating.cash' : 'rating.tournament')}</span>
+          <strong className={rankColorClass(x.divisionColor)}>
+            <span aria-hidden>{x.divisionIcon}</span> {x.division}
+          </strong>
+          {x.rating !== null && <span className="font-mono">{Math.round(x.rating)}</span>}
+          {x.provisional && <Badge tone="warning">{t('rating.provisional')}</Badge>}
+          {x.toNext && <span className="w-full pl-[4.5rem] text-xs text-muted">{t('dashboard.divisionNext', { icon: x.toNext.icon, name: x.toNext.name, n: x.toNext.missing })}</span>}
+        </div>
+      ))}
+    </div>
   );
 }

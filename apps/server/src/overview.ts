@@ -18,7 +18,7 @@ interface Deps {
   settings: () => SettingValues;
   brief: (userIds: string[]) => Promise<BriefDto[]>;
   /** Žebříček ratingu podle druhu hry (čísla jen když je povoleno jejich zobrazení). */
-  rating: (scope: 'tournament' | 'cash') => Promise<{ userId: string; rating: number | null }[]>;
+  rating: (scope: 'tournament' | 'cash') => Promise<{ userId: string; rating: number | null; division?: { name: string; icon: string; color: string } }[]>;
   /** Hráči, kteří právě sedí u cash stolů (jejich žetony se do cash výsledku počítají jako výběr). */
   seated?: () => { userId: string; chips: number }[];
 }
@@ -32,6 +32,8 @@ export interface OverviewRow {
   rank: { name: string; icon: string; color: string };
   ratingTournament: number | null;
   ratingCash: number | null;
+  /** Divize hráče podle ratingu (turnajový, jinak cash); null, když hráč ještě není v žebříčku ratingu. */
+  division: { name: string; icon: string; color: string } | null;
   hands: number;
   tournaments: number;
   tournamentNet: number;
@@ -78,8 +80,11 @@ export class OverviewService {
       .where(eq(gr.kind, 'tournament'))
       .groupBy(gr.userId);
     const tour = new Map(tourRows.map((r) => [r.userId, Number(r.n)]));
-    const rt = new Map((await this.deps.rating('tournament')).map((r) => [r.userId, r.rating]));
-    const rc = new Map((await this.deps.rating('cash')).map((r) => [r.userId, r.rating]));
+    const lt = await this.deps.rating('tournament');
+    const lc = await this.deps.rating('cash');
+    const rt = new Map(lt.map((r) => [r.userId, r.rating]));
+    const rc = new Map(lc.map((r) => [r.userId, r.rating]));
+    const dv = new Map([...lc, ...lt].map((r) => [r.userId, r.division ?? null]));
     const rows: OverviewRow[] = users.map((u) => {
       const b = briefs.get(u.id);
       const tn = nets.get(u.id)?.tournament ?? 0;
@@ -93,6 +98,7 @@ export class OverviewService {
         rank: b?.rank ?? { name: '', icon: '', color: 'muted' },
         ratingTournament: rt.get(u.id) ?? null,
         ratingCash: rc.get(u.id) ?? null,
+        division: dv.get(u.id) ?? null,
         hands: hands.get(u.id) ?? 0,
         tournaments: tour.get(u.id) ?? 0,
         tournamentNet: tn,
