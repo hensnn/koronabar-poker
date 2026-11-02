@@ -201,7 +201,7 @@ function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template
     }
   };
   return (
-    <Modal title={editing ? `${t('lobby.edit')}: ${base.builtin ? t(base.name) : base.name}` : t('templates.new')} onClose={onClose} dirty={dirty.length > 0 || (editing ? name !== (base.builtin ? t(base.name) : base.name) : name.trim().length > 0)}>
+    <Modal page title={editing ? `${t('lobby.edit')}: ${base.builtin ? t(base.name) : base.name}` : t('templates.new')} onClose={onClose} dirty={dirty.length > 0 || (editing ? name !== (base.builtin ? t(base.name) : base.name) : name.trim().length > 0)}>
       <div className="flex flex-col gap-3">
         <TextInput label={t('templates.name')} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />
         <TextArea label={t('templates.description')} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />

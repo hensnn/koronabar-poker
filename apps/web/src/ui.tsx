@@ -170,7 +170,7 @@ export function useArrowChoices(ref: { current: HTMLElement | null }, enabled = 
   }, [ref, enabled, selector, maxItems]);
 }
 
-export function Modal({ title, onClose, children, dirty = false, wide = false, fit = false, sizeKey }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean; /** Okno se přizpůsobí šířce obsahu (tabulka se vejde bez posuvníku), nejvýš do šířky okna prohlížeče. */ fit?: boolean; /** Okno má nastavitelnou velikost (tažení za pravý dolní roh); rozměry se pamatují v osobním nastavení `<klíč>Width` a `<klíč>Height`. */ sizeKey?: string }) {
+export function Modal({ title, onClose, children, dirty = false, wide = false, fit = false, page = false, sizeKey }: { title: string; onClose: () => void; children: ReactNode; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean; /** Okno se přizpůsobí šířce obsahu (tabulka se vejde bez posuvníku), nejvýš do šířky okna prohlížeče. */ fit?: boolean; /** Místo okna celá obrazovka s tlačítkem Zpět (formuláře nastavení: využijí všechno místo). */ page?: boolean; /** Okno má nastavitelnou velikost (tažení za pravý dolní roh); rozměry se pamatují v osobním nastavení `<klíč>Width` a `<klíč>Height`. */ sizeKey?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useArrowChoices(ref);
   const values = useSettings().values;
@@ -247,6 +247,21 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
       ro.disconnect();
     };
   }, [sizeKey]);
+  if (page)
+    return createPortal(
+      <div className="fixed inset-0 z-50 overflow-auto bg-bg" role="presentation">
+        <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="kd-modal mx-auto flex min-h-full w-full max-w-6xl flex-col gap-3 bg-surface">
+          <div className="flex items-center gap-3">
+            <button type="button" className="rounded-md border border-line bg-surface px-3 py-1" onClick={close}>
+              {t('modal.back')}
+            </button>
+            <h2 className="font-heading text-lg font-bold">{title}</h2>
+          </div>
+          {children}
+        </div>
+      </div>,
+      document.body,
+    );
   // Okno se vykresluje přímo do <body>: uvnitř stolu (kontejner s containment) by `position: fixed` platilo jen vůči stolu a okno by se smrštilo.
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>

@@ -114,7 +114,7 @@ export function StructureDialog({ base, initial, onClose, onSaved }: { base: Bli
     }
   };
   return (
-    <Modal title={base ? `${t('lobby.edit')}: ${base.name}` : t('structures.new')} onClose={onClose} dirty={dirty}>
+    <Modal page title={base ? `${t('lobby.edit')}: ${base.name}` : t('structures.new')} onClose={onClose} dirty={dirty}>
       <div className="flex flex-col gap-3">
         <TextInput label={t('templates.name')} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />
         <TextArea label={t('templates.description')} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />

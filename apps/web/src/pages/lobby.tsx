@@ -172,7 +172,7 @@ export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', pos
   const issues = useMemo(() => validateValues(registry, { ...(tpl?.values ?? {}), ...overrides }), [tpl, overrides]);
 
   return (
-    <Modal title={title ?? t('lobby.create')} onClose={onClose} dirty={nameTouched || Object.keys(overrides).length > 0}>
+    <Modal page title={title ?? t('lobby.create')} onClose={onClose} dirty={nameTouched || Object.keys(overrides).length > 0}>
       <div className="flex flex-col gap-3">
         <TextInput
           label={nameLabel ?? t('lobby.tableName')}
@@ -283,7 +283,7 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
     }
   };
   return (
-    <Modal title={`${t('lobby.edit')}: ${d.name}`} onClose={onClose} dirty={dirty}>
+    <Modal page title={`${t('lobby.edit')}: ${d.name}`} onClose={onClose} dirty={dirty}>
       <div className="flex flex-col gap-3">
         {top?.({ values, set: (k, v) => setChanges((c) => ({ ...c, [k]: v })) })}
         <SettingsForm

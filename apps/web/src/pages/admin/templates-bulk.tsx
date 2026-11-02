@@ -45,7 +45,7 @@ export function BulkTemplateEditor({ templates, onClose, onSaved }: { templates:
     }
   };
   return (
-    <Modal title={t('templates.bulk.title')} onClose={onClose} dirty={keys.length > 0}>
+    <Modal page title={t('templates.bulk.title')} onClose={onClose} dirty={keys.length > 0}>
       <div className="flex flex-col gap-3">
         <Notice>{t('templates.bulk.help')}</Notice>
         <Select

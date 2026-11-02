@@ -1310,6 +1310,7 @@ export const cs: Record<string, string> = {
   'settings.search': 'Hledat v nastavení (název, nápověda, hodnoty)…',
   'settings.searchNone': 'Nic neodpovídá hledanému výrazu.',
   'settings.nothing': 'Nic k zobrazení.',
+  'modal.back': '← Zpět',
   'modal.discardConfirm': 'Máš neuložené změny. Opravdu zavřít a zahodit je?',
   'settings.unsaved': 'Neuloženo',
   'settings.changed': 'Změněno',
