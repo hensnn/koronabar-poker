@@ -57,8 +57,10 @@ function PushToggle() {
             setMsg('');
             try {
               const r = await post<{ devices: number; sent: number; errors: { status: number | null; message: string }[] }>('/api/push/test', {});
-              if (r.devices === 0) setMsg(t('push.testNoDevice'));
-              else if (r.errors.length) setMsg(t('push.testFail', { error: r.errors.map((x) => `${x.status ?? ''} ${x.message}`.trim()).join('; ') }));
+              if (r.devices === 0 || r.errors.some((x) => x.status === 404 || x.status === 410)) {
+                // odběr zanikl: přihlásit zařízení znovu a nechat uživatele zkusit ještě jednou
+                setMsg((await enablePush().catch(() => false)) ? t('push.testResubscribed') : t('push.denied'));
+              } else if (r.errors.length) setMsg(t('push.testFail', { error: r.errors.map((x) => `${x.status ?? ''} ${x.message}`.trim()).join('; ') }));
               else setMsg(t('push.testOk', { sent: r.sent, devices: r.devices }));
             } catch (err) {
               setMsg(errorText(err));

@@ -387,7 +387,7 @@ export const csTournament: Record<string, string> = {
   'push.test': 'Poslat zkušební upozornění',
   'push.testTitle': 'KoronaBar Poker',
   'push.testBody': 'Zkušební upozornění funguje.',
-  'push.testNoDevice': 'Server tohle zařízení nemá uložené. Vypni a znovu zapni upozornění.',
+  'push.testResubscribed': 'Staré přihlášení zařízení už neplatilo, přihlásil jsem ho znovu. Klepni na zkušební upozornění ještě jednou.',
   'push.testOk': 'Server upozornění odeslal ({sent} z {devices} zařízení). Pokud nedorazí, problém je v zařízení (úspora baterie, Nerušit, oprávnění).',
   'push.testFail': 'Push služba upozornění odmítla: {error}',
   'nav.stats': 'Statistiky',

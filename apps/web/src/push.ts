@@ -31,7 +31,9 @@ export async function enablePush(): Promise<boolean> {
   await registerServiceWorker();
   const reg = await navigator.serviceWorker.ready;
   const { publicKey } = await get<{ publicKey: string }>('/api/push/key');
-  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(publicKey) }));
+  // Vždy čerstvý odběr: starý mohl push služba mezitím zrušit (410) nebo patřit k jinému klíči serveru.
+  await (await reg.pushManager.getSubscription())?.unsubscribe().catch(() => undefined);
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(publicKey) });
   await post('/api/push/subscribe', sub.toJSON());
   return true;
 }
