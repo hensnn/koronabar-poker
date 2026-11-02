@@ -76,4 +76,14 @@ describe('web push', { timeout: 60_000 }, () => {
     await c.server.push.unsubscribe(u1, sub('b').endpoint);
     expect(await c.server.push.count(u1)).toBe(0);
   });
+
+  it('zkušební upozornění vrátí počet zařízení a důvod odmítnutí od push služby', async () => {
+    const c = await start();
+    const u = await c.user();
+    expect(await c.server.push.test(u, { title: 'x', body: 'y', url: null })).toEqual({ devices: 0, sent: 0, errors: [] });
+    await c.server.push.subscribe(u, sub('t'));
+    expect(await c.server.push.test(u, { title: 'x', body: 'y', url: null })).toMatchObject({ devices: 1, sent: 1, errors: [] });
+    c.dead.add(sub('t').endpoint);
+    expect(await c.server.push.test(u, { title: 'x', body: 'y', url: null })).toMatchObject({ devices: 1, sent: 0, errors: [{ status: 410 }] });
+  });
 });

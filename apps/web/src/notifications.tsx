@@ -49,7 +49,26 @@ function PushToggle() {
         />
         {t('push.enable')}
       </label>
-      {msg && <p className="text-danger">{msg}</p>}
+      {on && (
+        <button
+          type="button"
+          className="self-start text-accent underline"
+          onClick={async () => {
+            setMsg('');
+            try {
+              const r = await post<{ devices: number; sent: number; errors: { status: number | null; message: string }[] }>('/api/push/test', {});
+              if (r.devices === 0) setMsg(t('push.testNoDevice'));
+              else if (r.errors.length) setMsg(t('push.testFail', { error: r.errors.map((x) => `${x.status ?? ''} ${x.message}`.trim()).join('; ') }));
+              else setMsg(t('push.testOk', { sent: r.sent, devices: r.devices }));
+            } catch (err) {
+              setMsg(errorText(err));
+            }
+          }}
+        >
+          {t('push.test')}
+        </button>
+      )}
+      {msg && <p className="text-muted">{msg}</p>}
     </div>
   );
 }

@@ -86,8 +86,18 @@ export class PushService {
   /** Pošle upozornění všem zařízením daných uživatelů. Chyby jednoho zařízení neovlivní ostatní. */
   async send(userIds: string[], payload: PushPayload): Promise<number> {
     if (userIds.length === 0) return 0;
+    return (await this.deliver(userIds, payload)).sent;
+  }
+
+  /** Zkušební upozornění pro vlastní zařízení; vrací, co push služba na každém zařízení odpověděla. */
+  async test(userId: string, payload: PushPayload): Promise<{ devices: number; sent: number; errors: { status: number | null; message: string }[] }> {
+    return this.deliver([userId], payload);
+  }
+
+  private async deliver(userIds: string[], payload: PushPayload): Promise<{ devices: number; sent: number; errors: { status: number | null; message: string }[] }> {
     const subs = await this.deps.db.select().from(schema.pushSubscriptions).where(inArray(schema.pushSubscriptions.userId, userIds));
-    if (subs.length === 0) return 0;
+    const errors: { status: number | null; message: string }[] = [];
+    if (subs.length === 0) return { devices: 0, sent: 0, errors };
     const keys = await this.ensureKeys();
     const body = JSON.stringify(payload);
     const send: PushSender =
@@ -103,9 +113,11 @@ export class PushService {
       } catch (e) {
         const status = (e as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) await this.deps.db.delete(schema.pushSubscriptions).where(eq(schema.pushSubscriptions.id, s.id));
-        else console.error('Odeslání push upozornění selhalo:', e instanceof Error ? e.message : e);
+        const message = String((e as { body?: string }).body || (e instanceof Error ? e.message : e)).slice(0, 300);
+        errors.push({ status: status ?? null, message });
+        if (status !== 404 && status !== 410) console.error(`Odeslání push upozornění selhalo (${status ?? 'bez kódu'}):`, message);
       }
     }
-    return sent;
+    return { devices: subs.length, sent, errors };
   }
 }

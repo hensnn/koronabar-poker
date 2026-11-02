@@ -3,7 +3,7 @@ import { buildCategories, loginLayoutOf, ledgerCsv, tournamentCsv, DISCORD_SLOTS
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
-import { PERMISSIONS, PLAYER_COLOR_COUNT, permissionCategories, type ApiScope, type Scope } from '@kb/shared';
+import { PERMISSIONS, PLAYER_COLOR_COUNT, permissionCategories, t, type ApiScope, type Scope } from '@kb/shared';
 import { AccountError, type AccountService, type SessionUser } from '../auth/accounts.js';
 import type { AuditService } from '../auth/audit.js';
 import type { PermissionService } from '../auth/permissions.js';
@@ -2021,6 +2021,9 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       return reply.code(400).send({ error: 'INVALID_SUBSCRIPTION' });
     }
     reply.send({ ok: true });
+  }));
+  app.post('/api/push/test', guard(async (req, reply) => {
+    reply.send(await svc.push().test(need(req).id, { title: t('push.testTitle'), body: t('push.testBody'), url: '/', tag: 'push-test' }));
   }));
   app.post('/api/push/unsubscribe', guard(async (req, reply) => {
     await svc.push().unsubscribe(need(req).id, String(((req.body ?? {}) as { endpoint?: string }).endpoint ?? ''));
