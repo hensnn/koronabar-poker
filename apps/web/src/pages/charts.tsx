@@ -37,7 +37,7 @@ function ticks(min: number, max: number): number[] {
  * Spojnicový graf v čase: osy s popisky, vyplněná plocha, nulová čára (když je v rozsahu), poslední hodnota
  * a podrobnost při najetí myší / klepnutí. Barvu určuje `className` (text-*), takže vše jde přes design tokeny.
  */
-export function LineChart({ points, label, className = 'text-primary', signed = false }: { points: Pt[]; label: string; className?: string; signed?: boolean }) {
+export function LineChart({ points, label, className = 'text-primary', signed = false, color }: { points: Pt[]; label: string; className?: string; signed?: boolean; /** Barva hráče (kód 1 až 60); má přednost před `className`. */ color?: number }) {
   const id = useId();
   const [boxRef, W] = useWidth();
   const [hover, setHover] = useState<number | null>(null);
@@ -81,7 +81,7 @@ export function LineChart({ points, label, className = 'text-primary', signed = 
     setHover(best);
   };
   return (
-    <figure className={className}>
+    <figure className={color ? undefined : className} style={color ? { color: playerColorVar(color) } : undefined}>
       <div ref={boxRef} className="w-full">
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block max-w-full touch-pan-y" role="img" aria-label={label} onPointerMove={onMove} onPointerLeave={() => setHover(null)} onPointerDown={onMove}>
         <defs>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
-import { PlayerDot, PlayerDotById } from '../player-color';
+import { PlayerDot, PlayerDotById, usePlayerColors } from '../player-color';
 import { del, errorText, get, patch, post } from '../api';
 import { can, useSession } from '../session';
 import { CardView } from '../table/CardView';
@@ -100,6 +100,8 @@ const cumulate = (rows: { at: number; v: number }[]): Pt[] => {
 /** Jak se mi daří: zůstatek, výsledky turnajů a cash, XP, rating a aktivita v čase (za zvolené období). */
 function Progress() {
   const features = useFeatures();
+  const { me } = useSession();
+  const myColor = usePlayerColors()[me?.user.id ?? ''];
   const [tl, setTl] = useState<Timeline | null>(null);
   const [range, setRange] = useState<(typeof RANGES)[number]['id']>('90');
   const [error, setError] = useState('');
@@ -162,32 +164,32 @@ function Progress() {
         {features.xp && card(t('charts.xpGained'), signed((xp[xp.length - 1]?.[1] ?? 0) - (xp[0]?.[1] ?? 0)))}
       </div>
       <Card title={t('charts.earn')}>
-        <LineChart points={earnCum} label={t('charts.earnHelp')} className="text-success" signed />
+        <LineChart color={myColor} points={earnCum} label={t('charts.earnHelp')} className="text-success" signed />
       </Card>
       <Card title={t('charts.balance')}>
-        <LineChart points={balance} label={t('charts.balanceHelp')} />
+        <LineChart color={myColor} points={balance} label={t('charts.balanceHelp')} />
         <p className="text-xs text-muted">{t('charts.balanceNote')}</p>
       </Card>
       <div className="grid gap-3 lg:grid-cols-2">
         <Card title={t('charts.tourProfit')}>
-          <LineChart points={tourCum} label={t('charts.tourProfitHelp')} className="text-success" signed />
+          <LineChart color={myColor} points={tourCum} label={t('charts.tourProfitHelp')} className="text-success" signed />
           <BarChart bars={tours.map((x) => ({ x: x.at, v: x.net, tip: `${x.name}: ${signed(x.net)} (${x.place}./${x.field})` }))} label={t('charts.perTournament')} />
         </Card>
         <Card title={t('charts.cashProfit')}>
-          <LineChart points={cashCum} label={t('charts.cashProfitHelp')} className="text-accent" signed />
+          <LineChart color={myColor} points={cashCum} label={t('charts.cashProfitHelp')} className="text-accent" signed />
           <BarChart bars={cash.map((x) => ({ x: x.day, v: x.net, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${signed(x.net)} (${x.hands} ${t('charts.hands')})` }))} label={t('charts.perDay')} />
         </Card>
         {features.xp && (
           <Card title={t('charts.xp')}>
-            <LineChart points={xp} label={t('charts.xpHelp')} className="text-secondary" />
+            <LineChart color={myColor} points={xp} label={t('charts.xpHelp')} className="text-secondary" />
           </Card>
         )}
         {(features.ratingTournament || features.ratingCash) && (
         <Card title={t('charts.rating')}>
           {tl.rating.visible ? (
             <div className="flex flex-col gap-2">
-              {features.ratingTournament && <LineChart points={within(tl.rating.tournament, (p) => p[0])} label={t('charts.ratingTournament')} className="text-primary" />}
-              {features.ratingCash && <LineChart points={within(tl.rating.cash, (p) => p[0])} label={t('charts.ratingCash')} className="text-accent" />}
+              {features.ratingTournament && <LineChart color={myColor} points={within(tl.rating.tournament, (p) => p[0])} label={t('charts.ratingTournament')} className="text-primary" />}
+              {features.ratingCash && <LineChart color={myColor} points={within(tl.rating.cash, (p) => p[0])} label={t('charts.ratingCash')} className="text-accent" />}
             </div>
           ) : (
             <p className="text-sm text-muted">{t('charts.ratingHidden')}</p>

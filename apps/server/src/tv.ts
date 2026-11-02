@@ -267,6 +267,15 @@ export class TvService {
   }
 
   /** Znělka hráče pro televizi: zazní se stejným zpožděním jako přenos stolu. */
+  /** Večerní tabulka herního večera s barvami hráčů. */
+  private async paintEvening() {
+    if (!this.s()['evening.enabled']) return null;
+    const board = await this.deps.evenings().tvBoard();
+    if (!board) return null;
+    const colors = await nicknameColors(this.deps.db);
+    return { ...board, players: board.players.map((p) => ({ ...p, color: colors.get(p.nickname) })) };
+  }
+
   pushJingle(e: { soundId: string; from: { nickname: string } }, kind: string, tableRelated: boolean): void {
     if (!this.s()['tv.enabled'] || !this.s()['sounds.jingleOnTv']) return;
     const now = this.deps.now();
@@ -558,7 +567,7 @@ export class TvService {
       tournaments,
       tables,
       boards: await this.boards(),
-      evening: this.s()['evening.enabled'] ? await this.deps.evenings().tvBoard() : null,
+      evening: await this.paintEvening(),
       upcoming,
       polls,
       ticker: layout.strip ? await this.ticker() : [],

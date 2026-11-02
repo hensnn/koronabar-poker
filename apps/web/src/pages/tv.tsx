@@ -69,7 +69,7 @@ interface Snapshot {
   upcoming: { id: string; name: string; startAt: number; players: number }[];
   polls: { id: string; title: string; endsAt: number }[];
   ticker: { nick: string | null; body: string; at: number }[];
-  evening: { id: string; name: string; status: string; mvp: string | null; players: { rank: number; nickname: string; net: number; score: number }[]; awards: { hunter: { nickname: string; count: number } | null; banker: { nickname: string; bb: number } | null; badBeat: { nickname: string; equity: number } | null } } | null;
+  evening: { id: string; name: string; status: string; mvp: string | null; players: { rank: number; color?: number; nickname: string; net: number; score: number }[]; awards: { hunter: { nickname: string; count: number } | null; banker: { nickname: string; bb: number } | null; badBeat: { nickname: string; equity: number } | null } } | null;
   jingles?: { id: string; soundId: string; nickname: string; kind: string }[];
   announcer: { enabled: boolean; audio: boolean; ratePercent: number; volumePercent: number; items: { id: string; text: string }[] };
 }
@@ -484,7 +484,8 @@ function EveningScreen({ ev }: { ev: NonNullable<Snapshot['evening']> }) {
           {ev.players.map((p) => (
             <li key={p.rank} className="flex justify-between gap-4 border-b border-line py-1">
               <span className="truncate">
-                {p.rank}. {p.nickname}
+                {p.rank}. <PlayerDot color={p.color} />
+                {p.nickname}
               </span>
               <span className="font-mono">
                 {p.net} <span className="text-muted">({p.score})</span>
