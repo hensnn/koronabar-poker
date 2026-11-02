@@ -921,6 +921,7 @@ export const cs: Record<string, string> = {
   'table.rebuyWait.more': '(+{n} další)',
   'table.rebuyWait.continues': 'Hra mezitím pokračuje.',
   'basics.special': 'Speciální prvky turnaje',
+  'basics.specialMore': 'Podrobnosti (kdy platí, ceny, žetony, hlasování) jsou v podrobném nastavení.',
   'basics.advancedHelp': 'Všechno ostatní (časování, výplaty, poplatky, další speciální prvky a podrobnosti výše) je v rozšířeném nastavení. Obvykle ho nepotřebujete.',
   'basics.buyIn': 'Buy-in',
   'basics.price': 'Cena',

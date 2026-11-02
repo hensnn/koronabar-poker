@@ -587,3 +587,4 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Popisky nastavení (2. 11. 2026): popis a upozornění k parametru jsou sbalené na konci položky, rozbalí se tlačítkem „?“ a stav se pamatuje v prohlížeči (kb.settings.helpOpen).
 - Zúžené nastavení turnaje (2. 11. 2026): přehled speciálních prvků teď obsahuje všechny parametry kategorie Speciální prvky (rebuy, add-on, re-entry, bounty, dohoda, run it twice, rabbit hunt, muck, 7-2, bomb pot, odměny na hlavu) ve sbalených panelech; formulář má režim `bare`.
 - Zúžené nastavení turnaje, úklid (2. 11. 2026): odstraněna karta Rebuy, add-on a re-entry (opakovala hlavní nastavení a speciální prvky); struktura blindů a přehled peněz jsou sbalitelné karty se shrnutím v hlavičce.
+- Zúžené nastavení turnaje (2. 11. 2026): speciální prvky jsou jen zaškrtávátka v Hlavním nastavení (podrobnosti v podrobném nastavení); sbalené panely speciálních prvků odstraněny.

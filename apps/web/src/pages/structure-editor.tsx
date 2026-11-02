@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { computePayouts, estimateTournament, formatStructure, generateStructure, labelKey, optionKey, parseStructure, percentsFor, scopeAllowed, scaleStructure, STRUCTURE_PRESETS, t, type Level, type PayoutPreset, type SettingValue, type SettingValues } from '@kb/shared';
+import { computePayouts, estimateTournament, formatStructure, generateStructure, isVisible, labelKey, optionKey, parseStructure, percentsFor, scopeAllowed, scaleStructure, STRUCTURE_PRESETS, t, type Level, type PayoutPreset, type SettingValue, type SettingValues } from '@kb/shared';
 import { get } from '../api';
 import { registry } from '../settings';
-import { SettingsForm } from '../settings/SettingsForm';
 import { can, useSession } from '../session';
 import { Button, Card, DataTable, NumInput, Td } from '../ui';
 import { StructureDialog, type BlindStructure } from './admin/structures';
@@ -104,6 +103,8 @@ function PayoutSelect({ values, set }: { values: SettingValues; set: Set }) {
  */
 export function TournamentBasics({ values, set }: { values: SettingValues; set: Set }) {
   const byHands = values['tournament.levelMode'] === 'hands';
+  // Speciální prvky jen jako zaškrtávátka; podrobnosti jsou v podrobném nastavení.
+  const specials = registry.all().filter((d) => d.category === 'special' && d.type === 'bool' && !d.dependsOn && scopeAllowed(d.scopes as never, 'table') && isVisible(registry, d.key, values, 'tournament') && !SHOWN_ABOVE.includes(d.key));
   return (
     <Card title={t('basics.title')}>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -146,18 +147,28 @@ export function TournamentBasics({ values, set }: { values: SettingValues; set: 
       </div>
       <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
         <h4 className="font-medium">{t('basics.special')}</h4>
-        <SettingsForm
-          bare
-          registry={registry}
-          values={values}
-          origins={Object.fromEntries(registry.all().map((d) => [d.key, values[d.key] !== d.default ? 'template' : 'default']))}
-          editScope="template"
-          onChange={set}
-          onReset={(k) => set(k, registry.get(k)!.default)}
-          issues={[]}
-          allowedKeys={(d) => d.category === 'special' && scopeAllowed(d.scopes as never, 'table') && !SHOWN_ABOVE.includes(d.key)}
-          gameKind="tournament"
-        />
+        <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+          {specials.map((d) => (
+            <Toggle key={d.key} k={d.key} values={values} set={set} />
+          ))}
+        </div>
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          {t(labelKey('tournament.bountyType'))}
+          <select className={selectCls} value={String(values['tournament.bountyType'])} onChange={(e) => set('tournament.bountyType', e.target.value)}>
+            {['none', 'fixed', 'pko', 'mystery'].map((o) => (
+              <option key={o} value={o}>
+                {t(optionKey('tournament.bountyType', o))}
+              </option>
+            ))}
+          </select>
+        </label>
+        {values['tournament.bountyType'] !== 'none' && (
+          <div className="flex flex-wrap gap-3 pl-6">
+            <NumField k="tournament.bountyPercent" values={values} set={set} />
+            {values['tournament.bountyType'] === 'pko' && <NumField k="tournament.pkoCashPercent" values={values} set={set} />}
+          </div>
+        )}
+        <p className="text-sm text-muted">{t('basics.specialMore')}</p>
       </div>
     </Card>
   );
