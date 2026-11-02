@@ -17,8 +17,8 @@ export function GlobalSettingsPage({ personal = false }: { personal?: boolean })
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [pending, setPending] = useState<Record<string, SettingValue>>({});
   // Výchozí osobní nastavení se zobrazuje bez osobních voleb správce: vestavěné hodnoty + globální výchozí.
-  const base: SettingValues = personal ? ({ ...registry.defaults(), ...settings.global } as SettingValues) : settings.values;
-  const values = { ...base, ...pending };
+  const base: SettingValues = useMemo(() => (personal ? ({ ...registry.defaults(), ...settings.global } as SettingValues) : settings.values), [personal, settings.global, settings.values]);
+  const values = useMemo(() => ({ ...base, ...pending }), [base, pending]);
   const issues = useMemo(() => validateValues(registry, values), [values]);
   const problems = blockingIssues(issues, Object.keys(pending));
   const save = async () => {

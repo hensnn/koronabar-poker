@@ -1,17 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LegalActions, PlayerAction, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { formatAmount, parseList, quickBetDefaults } from './format';
+import { amountInRange, clampAmount } from './amount';
 import { useSettings } from '../settings';
+import { NumInput } from '../ui';
 import { PlanBar } from './TablePanel';
 
 interface Props {
   view: TableView;
+  tableId: string;
   /** Dovolené akce; null = nejsem na tahu (lišta zůstává na místě, ukazuje plánovaný tah). */
   legal: LegalActions | null;
   inBb: boolean;
   quickPost: string;
   quickPre: string;
+  /** Akce se právě odesílá nebo není spojení: tlačítka a klávesy nic nedělají (ochrana před dvojím odesláním). */
+  busy?: boolean;
   onAct: (a: PlayerAction) => void;
   /** Přepnutí dobrovolného straddle: je u plánovaného tahu, protože se rozhoduje předem. */
   onStraddle?: (want: boolean) => void;
@@ -24,7 +29,7 @@ const base = 'tk-act px-5 py-3 text-lg font-semibold disabled:opacity-40';
  * (Fold, Check/Call, Bet/Raise, All-in), aby se okno stolu při tahu nezvětšovalo ani neposouvalo.
  * Mimo tah je na místě tlačítek plánovaný tah.
  */
-export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStraddle }: Props) {
+export function ActionBar({ view, tableId, legal, inBb, quickPost, quickPre, busy = false, onAct, onStraddle }: Props) {
   const aggress = !!legal && (legal.canBet || legal.canRaise);
   const fixed = view.info.bettingLimit === 'fixedLimit';
   const [amount, setAmount] = useState(legal?.minRaiseTo ?? 0);
@@ -35,7 +40,9 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
   const preflop = view.street === 'PREFLOP';
   const min = legal?.minRaiseTo ?? 0;
   const max = legal?.maxRaiseTo ?? 0;
-  const clamp = (n: number) => Math.max(min, Math.min(max, Math.round(n)));
+  const clamp = useCallback((n: number) => clampAmount(n, min, max), [min, max]);
+  // Částka k odeslání musí být platné číslo v rozsahu; jinak je tlačítko Bet/Raise vypnuté (pole ji při opuštění ořízne).
+  const amountOk = amountInRange(amount, min, Math.max(min, max));
 
   const quick = preflop
     ? parseList(quickPre, quickBetDefaults.preflop).map((m) => ({ label: `${m}×`, value: clamp(m * info.bigBlind) }))
@@ -51,13 +58,14 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
   const keys = { fold: keyOf('ui.hotkeyFold'), call: keyOf('ui.hotkeyCall'), bet: keyOf('ui.hotkeyBet'), raise: keyOf('ui.hotkeyRaise'), allIn: keyOf('ui.hotkeyAllIn') };
   // Výška sázky se mění po malém blindu (šipky nahoru/dolů, kolečko); šipky doleva/doprava ladí jemně po nejmenší jednotce.
   const stepBig = info.smallBlind || 1;
-  const live = useRef({ legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: stepBig });
-  live.current = { legal, amount, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, step: stepBig };
+  const live = useRef({ legal, amount, amountOk, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, busy, step: stepBig });
+  live.current = { legal, amount, amountOk, clamp, aggress, fixed, sliderOn, allInOk, keys, onAct, busy, step: stepBig };
   useEffect(() => {
     if (!hotkeys) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // Držená klávesa (opakování) nesmí poslat akci vícekrát.
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       // Posuvník sázky sám šipky nechává na nás (aby skok byl malý blind); ostatní pole si je nechávají.
       const slider = el?.tagName === 'INPUT' && (el as HTMLInputElement).type === 'range';
       if (!slider && el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
@@ -70,12 +78,12 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
         setAmount((a) => s.clamp(a + (up ? by : -by)));
         return;
       }
-      if (!s.legal) return;
+      if (!s.legal || s.busy) return;
       const k = e.key.toLowerCase();
       if (k === s.keys.fold && s.legal.canFold) s.onAct({ type: 'fold' });
       else if (k === s.keys.call) s.onAct(s.legal.canCheck ? { type: 'check' } : s.legal.callAmount > 0 ? { type: 'call' } : { type: 'check' });
-      else if (k === s.keys.bet && s.legal.canBet) s.onAct({ type: 'bet', amount: s.clamp(s.amount) });
-      else if (k === s.keys.raise && s.legal.canRaise) s.onAct({ type: 'raise', amount: s.clamp(s.amount) });
+      else if (k === s.keys.bet && s.legal.canBet && s.amountOk) s.onAct({ type: 'bet', amount: s.clamp(s.amount) });
+      else if (k === s.keys.raise && s.legal.canRaise && s.amountOk) s.onAct({ type: 'raise', amount: s.clamp(s.amount) });
       else if (k === s.keys.allIn && s.allInOk) s.onAct({ type: 'allIn' });
       else return;
       e.preventDefault();
@@ -95,42 +103,43 @@ export function ActionBar({ view, legal, inBb, quickPost, quickPre, onAct, onStr
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [sliderOn, stepBig, min, max]);
+  }, [sliderOn, stepBig, clamp]);
 
   return (
-    <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" data-turn={legal ? 'mine' : 'wait'} role="group" aria-label={t('table.actions')} title={hotkeys ? t('table.hotkeysHint', { fold: keys.fold.toUpperCase(), call: keys.call.toUpperCase(), bet: keys.bet.toUpperCase(), raise: keys.raise.toUpperCase(), allIn: keys.allIn.toUpperCase() }) : undefined}>
+    <div className="tk-actionbar flex flex-col gap-2 rounded-lg border border-line bg-surface p-3" data-turn={legal ? 'mine' : 'wait'} role="group" aria-label={t('table.actions')} aria-busy={busy || undefined} title={hotkeys ? t('table.hotkeysHint', { fold: keys.fold.toUpperCase(), call: keys.call.toUpperCase(), bet: keys.bet.toUpperCase(), raise: keys.raise.toUpperCase(), allIn: keys.allIn.toUpperCase() }) : undefined}>
       <div ref={sliderRow} className={`tk-slider-row flex flex-wrap items-center gap-2 ${sliderOn ? '' : 'opacity-40'}`} title={sliderOn ? t('table.wheelHint') : undefined}>
-        {quick.map((q) => (
-          <button key={q.label} className="rounded-md border border-line bg-raised px-3 py-1.5 text-base" disabled={!sliderOn} onClick={() => setAmount(q.value)}>
+        {quick.map((q, i) => (
+          // Dvě rychlé sázky mohou mít stejný popisek (nastavení hráče): klíč nese i pořadí.
+          <button key={`${i}-${q.label}`} className="rounded-md border border-line bg-raised px-3 py-1.5 text-base" disabled={!sliderOn} onClick={() => setAmount(q.value)}>
             {q.label}
           </button>
         ))}
-        <input aria-label={t('table.amount')} type="range" className="min-w-24 flex-1" disabled={!sliderOn} min={min} max={Math.max(min, max)} step={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-        <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1.5 font-mono text-lg" disabled={!sliderOn} min={min} max={max} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+        <input aria-label={t('table.amount')} type="range" className="min-w-24 flex-1" disabled={!sliderOn} min={min} max={Math.max(min, max)} step={1} value={clamp(amount)} onChange={(e) => setAmount(Number(e.target.value))} />
+        <NumInput aria-label={t('table.amountExact')} className="w-28 text-lg" disabled={!sliderOn} min={min} max={Math.max(min, max)} value={amount} onChange={setAmount} />
       </div>
       {legal ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button className={`${base} tk-act-fold`} disabled={!legal.canFold} onClick={() => onAct({ type: 'fold' })}>
+          <button className={`${base} tk-act-fold`} disabled={busy || !legal.canFold} onClick={() => onAct({ type: 'fold' })}>
             {t('table.fold')}
           </button>
           {legal.canCheck ? (
-            <button className={`${base} tk-act-check`} onClick={() => onAct({ type: 'check' })}>
+            <button className={`${base} tk-act-check`} disabled={busy} onClick={() => onAct({ type: 'check' })}>
               {t('table.check')}
             </button>
           ) : (
-            <button className={`${base} tk-act-call`} disabled={legal.callAmount <= 0} onClick={() => onAct({ type: 'call' })}>
+            <button className={`${base} tk-act-call`} disabled={busy || legal.callAmount <= 0} onClick={() => onAct({ type: 'call' })}>
               {t('table.call')} {legal.callAmount > 0 ? formatAmount(legal.callAmount, info, inBb) : ''}
             </button>
           )}
-          <button className={`${base} tk-act-raise`} disabled={!aggress} onClick={() => onAct({ type: legal.canBet ? 'bet' : 'raise', amount: clamp(amount) })}>
+          <button className={`${base} tk-act-raise`} disabled={busy || !aggress || !amountOk} onClick={() => onAct({ type: legal.canBet ? 'bet' : 'raise', amount: clamp(amount) })}>
             {legal.canBet || !legal.canRaise ? t('table.bet') : t('table.raise')} {aggress ? formatAmount(clamp(amount), info, inBb) : ''}
           </button>
-          <button className={`${base} tk-act-allin`} disabled={!allInOk} onClick={() => onAct({ type: 'allIn' })}>
+          <button className={`${base} tk-act-allin`} disabled={busy || !allInOk} onClick={() => onAct({ type: 'allIn' })}>
             {t('table.allIn')}
           </button>
         </div>
       ) : (
-        <PlanBar view={view} onStraddle={onStraddle} />
+        <PlanBar view={view} tableId={tableId} onStraddle={onStraddle} />
       )}
     </div>
   );

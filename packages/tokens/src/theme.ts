@@ -48,13 +48,18 @@ export function themeAttributes(tokens: ResolvedTokens): Record<string, string> 
   return out;
 }
 
-/** Hodnota tokenu nesmí obsahovat nic, čím by šlo vložit další CSS nebo skript. */
+/**
+ * Hodnota tokenu nesmí obsahovat nic, čím by šlo vložit další CSS nebo skript: oddělovače a závorky bloků,
+ * CSS komentář (zakomentoval by zbytek bloku i tmavý režim všem), odkaz na jinou proměnnou ani načítání zdrojů.
+ */
 export function isSafeValue(v: string): boolean {
-  return !/[;{}<>\\]|url\(|expression\(|@import/i.test(v);
+  return !/[;{}<>\\]|\/\*|\*\/|url\(|var\(|expression\(|@import/i.test(v);
 }
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const LENGTH = /^-?\d+(\.\d+)?(px|rem|em|%)$/;
+/** Písmo: jen názvy rodin oddělené čárkou (písmena, číslice, mezery, uvozovky, pomlčka). */
+const FONT = /^[\w\s,"'-]+$/;
 
 /** Je hodnota platná pro daný token (typ, rozsah, výčet)? */
 export function validateTokenValue(d: TokenDef, v: string): boolean {
@@ -77,7 +82,7 @@ export function validateTokenValue(d: TokenDef, v: string): boolean {
     case 'shadow':
       return v === 'none' || /^(-?\d+(\.\d+)?(px)?\s+){2,3}-?\d+(\.\d+)?(px)?\s+#[0-9a-fA-F]{3,8}$|^(-?\d+(\.\d+)?(px)?\s+){1,3}#[0-9a-fA-F]{3,8}$/.test(v);
     case 'font':
-      return v.length >= 3 && v.length <= 160;
+      return v.length >= 3 && v.length <= 160 && FONT.test(v);
   }
 }
 

@@ -7,10 +7,10 @@ import { useRollingNumber } from './rolling';
 import { chipLeaderOf } from './chip-leader';
 import { NoteDialog, NoteDot } from '../pages/notes';
 import type { SoundPlayEvent } from '../sound-client';
-import type { SeatView, TableView } from '@kb/game-core';
+import type { PlayerAction, SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
-import { table, useNet } from '../net';
-import { get } from '../api';
+import { table, useNetSelector } from '../net';
+import { ackErrorText, get } from '../api';
 import { useSession } from '../session';
 import { ActionBar } from './ActionBar';
 import { CardView } from './CardView';
@@ -21,13 +21,14 @@ import { useTableWidgets } from './widgets';
 import { defaultOf, saveUserSetting } from '../settings';
 import { flyOffset, useDealAnimation, type DealState } from './deal';
 import { Amount } from './Chips';
+import { amountInRange } from './amount';
 import { Countdown, TimerBar } from './TimerRing';
 import { useThemeToken } from '../theme/ThemeProvider';
 import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
 import { MobileMid } from './mobile-ui';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
-import { ErrorToast, isConfirmKey, Modal, useArrowChoices } from '../ui';
+import { ErrorToast, isConfirmKey, Modal, NumInput, useArrowChoices } from '../ui';
 import { ChipStack } from './Chips';
 import { ChipSweeps, useChipSweeps } from './chip-fx';
 import { usePlanExecutor } from './plan';
@@ -74,13 +75,15 @@ function betPosition(seat: number, viewerSeat: number | null, count: number, mob
 const BET_ABOVE_CARDS = 9;
 
 export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern = false }: Props) {
-  const net = useNet();
+  // Jen výřezy stavu sítě: změna přítomnosti v chatu nebo jiného stolu stůl nepřekresluje.
+  const view = useNetSelector((s) => s.views[tableId]);
+  const clockOffset = useNetSelector((s) => s.clockOffset);
+  const netStatus = useNetSelector((s) => s.status);
   const logoTextToken = useThemeToken('table.logoText');
   const logoImageToken = useThemeToken('image.logo');
   const { me } = useSession();
   const userId = me?.user.id;
-  const view = net.views[tableId];
-  useTableSfx(view, net.clockOffset);
+  useTableSfx(view, clockOffset);
   const myLook = useMyTableLook();
   const deal = useDealAnimation(view);
   const actionBubbles = useActionBubbles(view, inBb);
@@ -99,6 +102,10 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   // Kde končí moje karty u stolu (horní okraj v % výšky stolu): podle toho se sázka před sedadlem posune, aby karty nezakrývala.
   const tableEl = useRef<HTMLDivElement>(null);
   const [mineCardsTop, setMineCardsTop] = useState<number | null>(null);
+  // Poloha mých karet se mění jen s velikostí stolu (pozorovatel velikosti) a s rozmístěním sedadel (usazení, otočení, počet míst).
+  const mySeatNo = view?.seats.find((s) => s.playerId === userId)?.seat ?? null;
+  const seatCount = view?.info.seatCount ?? 0;
+  const viewerSeatNo = view?.viewerSeat ?? null;
   useEffect(() => {
     const measure = () => {
       const table = tableEl.current;
@@ -111,13 +118,17 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       setMineCardsTop((prev) => (prev !== null && Math.abs(prev - v) < 0.5 ? prev : v));
     };
     measure();
+    const table = tableEl.current;
+    if (table && typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(measure);
+      ro.observe(table);
+      const cards = table.querySelector('.tk-seat-mine .tk-seat-cards');
+      if (cards) ro.observe(cards);
+      return () => ro.disconnect();
+    }
     window.addEventListener('resize', measure);
-    const id = window.setInterval(measure, 1500);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.clearInterval(id);
-    };
-  });
+    return () => window.removeEventListener('resize', measure);
+  }, [mySeatNo, seatCount, viewerSeatNo, rotate, mobile]);
   const sweeps = useChipSweeps(view, betChips, {
     bet: (seat) => betPosition(seat, sweepSeat().viewer, sweepSeat().count, mobile, mineCardsTop),
     seat: (seat) => seatPosition(seat, sweepSeat().viewer, sweepSeat().count),
@@ -158,8 +169,22 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   }, []);
 
   useEffect(() => {
-    if (net.status === 'online') void table.subscribe(tableId);
-  }, [net.status, tableId]);
+    if (netStatus === 'online') void table.subscribe(tableId);
+  }, [netStatus, tableId]);
+  // Odchod ze stránky stolu: server už nemá posílat jeho stav a starý pohled se zahodí.
+  useEffect(() => () => void table.unsubscribe(tableId), [tableId]);
+
+  // Akce v handě se odesílá jen jednou: další klik nebo klávesa čeká na potvrzení serveru, nebo na změnu stavu stolu
+  // (nová verze pohledu, jiná handa, jiný hráč na tahu); dvojklik tak nepošle „Check“ do další ulice.
+  const [actPending, setActPending] = useState(false);
+  const actPendingRef = useRef(false);
+  const viewSeq = view?.seq;
+  const viewHandId = view?.handId;
+  const viewActing = view?.actingSeat;
+  useEffect(() => {
+    actPendingRef.current = false;
+    setActPending(false);
+  }, [viewSeq, viewHandId, viewActing]);
 
   // Zvukové emotikony u stolu: bublina u hráče na pár vteřin.
   const [soundBubbles, setSoundBubbles] = useState<Record<string, { emoji: string; name: string }>>({});
@@ -208,8 +233,18 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const myTurn = !!mine && view.actingSeat === mine.seat;
   const run = async (p: Promise<{ ok: boolean; code?: string; params?: Record<string, unknown> }>) => {
     const r = await p;
-    setError(r.ok ? '' : t(`error.${r.code}`, r.params));
+    setError(r.ok ? '' : ackErrorText(r.code, r.params));
     return r.ok;
+  };
+  // Odmítnutí kvůli závodu (akce z dvojkliku, zastaralá handa) se hráči nehlásí: stůl už ukazuje nový stav.
+  const act = async (a: PlayerAction) => {
+    if (actPendingRef.current) return;
+    actPendingRef.current = true;
+    setActPending(true);
+    const r = await table.act(tableId, a, view.handId);
+    actPendingRef.current = false;
+    setActPending(false);
+    if (!r.ok && r.code !== 'STALE_ACTION' && r.code !== 'NOT_YOUR_TURN') setError(ackErrorText(r.code, r.params));
   };
   prompt.current = !mine || dialog ? null : view.showdownChoice ? () => void run(table.showdown(tableId, 'show')) : view.vote?.kind === 'runit' && runItPref === 'ask' && view.vote.status === 'open' && view.vote.canVote && view.vote.myVote !== true ? () => void run(table.vote(tableId, true)) : null;
 
@@ -358,9 +393,27 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
             const pos = seatPosition(n, viewerSeat, info.seatCount);
             return (
               // Sedadlo s bublinou nebo štítkem musí ležet nad sousedními sedadly i nad sázkami (každé sedadlo je vlastní vrstva).
-              <div key={n} data-seat-wrap className="absolute -translate-x-1/2 -translate-y-1/2" onClick={seat ? () => setPinnedSeat((p) => (p === n ? null : n)) : undefined} onMouseEnter={seat ? () => setHoverSeat(n) : undefined} onMouseLeave={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} onFocus={seat ? () => setHoverSeat(n) : undefined} onBlur={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
+              <div
+                key={n}
+                data-seat-wrap
+                className="absolute -translate-x-1/2 -translate-y-1/2"
+                // Obsazené sedadlo jde otevřít i z klávesnice (Enter nebo mezerník připne kartu hráče); klávesy z vnořených tlačítek se nechají jim.
+                role={seat ? 'button' : undefined}
+                tabIndex={seat ? 0 : undefined}
+                aria-label={seat ? seat.name : undefined}
+                aria-pressed={seat ? pinnedSeat === n : undefined}
+                onKeyDown={
+                  seat
+                    ? (e) => {
+                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                        e.preventDefault();
+                        setPinnedSeat((p) => (p === n ? null : n));
+                      }
+                    : undefined
+                }
+                onClick={seat ? () => setPinnedSeat((p) => (p === n ? null : n)) : undefined} onMouseEnter={seat ? () => setHoverSeat(n) : undefined} onMouseLeave={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} onFocus={seat ? () => setHoverSeat(n) : undefined} onBlur={seat ? () => setHoverSeat((h) => (h === n ? null : h)) : undefined} style={{ left: `${pos.left}%`, top: `${pos.top}%`, zIndex: seat && (actionBubbles[n] || soundBubbles[seat.playerId] || seat.reveal || seat.exposed) ? 5 : undefined }}>
                 {seat ? (
-                  <Seat seat={seat} view={view} chipLeader={seat.playerId === leaderId} mine={seat.playerId === userId} offset={net.clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} onShowCard={seat.playerId === userId && showBar ? (i) => void run(table.show(tableId, i)) : undefined} />
+                  <Seat seat={seat} view={view} chipLeader={seat.playerId === leaderId} mine={seat.playerId === userId} offset={clockOffset} inBb={inBb} oddsPct={mainOdds?.entries.find((e) => e.seat === seat.seat)} sound={soundBubbles[seat.playerId]} action={actionBubbles[seat.seat]} deal={deal} dealFrom={view.buttonSeat !== null ? seatPosition(view.buttonSeat, viewerSeat, info.seatCount) : undefined} dealTo={pos} bubbleSide={pos.top > 62 ? (pos.left < 50 ? 'left' : 'right') : undefined} onShowCard={seat.playerId === userId && showBar ? (i) => void run(table.show(tableId, i)) : undefined} />
                 ) : info.tournament ? null : (
                   <button className="tk-seat-empty" disabled={seated} onClick={() => setDialog({ kind: 'join', seat: n })}>
                     {t('table.sit')}
@@ -396,7 +449,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           <strong>{t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })}</strong>
           <p>{t('table.runIt.text', { times: String((view.vote.payload as { times: number }).times) })}</p>
           <p className="text-sm text-muted">
-            {t('table.runIt.votes', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={net.clockOffset} />
+            {t('table.runIt.votes', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={clockOffset} />
           </p>
           {view.vote.canVote && (
             <div className="flex gap-2">
@@ -415,7 +468,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
         <div role="dialog" aria-label={t('table.showdown.title')} className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
           <strong>{t('table.showdown.title')}</strong>
           <p className="text-sm text-muted">
-            {t('table.showdown.hint', { s: String(Math.max(0, Math.ceil((view.showdownChoice.deadline - Date.now() - net.clockOffset) / 1000))) })} · <Countdown deadline={view.showdownChoice.deadline} offset={net.clockOffset} />
+            {t('table.showdown.hint', { s: String(Math.max(0, Math.ceil((view.showdownChoice.deadline - Date.now() - clockOffset) / 1000))) })} · <Countdown deadline={view.showdownChoice.deadline} offset={clockOffset} />
           </p>
           <div className="flex gap-2">
             <button className={btnPrimary} onClick={() => void run(table.showdown(tableId, 'show'))}>
@@ -433,13 +486,13 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
 
       {/* Vše vedle stolu (stav tahu, akční lišta, akce, widgety) je v jednom obalu: na šířku telefonu tvoří vlastní posuvný sloupec, jinde je obal průhledný. */}
       <div className="tk-side-col">
-      {modern && <MobileMid view={view} mine={mine} inBb={inBb} offset={net.clockOffset} log={actionLog.slice(-3)} tableId={tableId} />}
+      {modern && <MobileMid view={view} mine={mine} inBb={inBb} offset={clockOffset} log={actionLog.slice(-3)} tableId={tableId} />}
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
       <div className={`tk-turn-row ${view.ready ? 'tk-turn-ready' : ''}`}>
       {myTurn ? (
         <div role="status" className="tk-your-turn tk-pop">
           <span className="inline-flex items-center justify-center gap-3">
-            <Countdown deadline={view.deadline} offset={net.clockOffset} />
+            <Countdown deadline={view.deadline} offset={clockOffset} />
             <span className="font-bold">{turnText}</span>
             {toCall > 0 && <span className="rounded-md bg-surface px-2 font-mono text-lg font-bold text-text">{formatAmount(toCall, info, inBb)}</span>}
           </span>
@@ -449,7 +502,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       ) : (
         acting && (
           <p className="text-center text-sm text-muted">
-            {t('table.waitingFor', { nick: acting.name })} · <Countdown deadline={view.deadline} offset={net.clockOffset} />
+            {t('table.waitingFor', { nick: acting.name })} · <Countdown deadline={view.deadline} offset={clockOffset} />
             {view.bankActive && ` (${t('table.timeBank')})`}
           </p>
         )
@@ -459,11 +512,11 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           {showBar && <span className="font-semibold text-info">{t('table.tapToShow')} · </span>}
           {waitInfo && view.vote && view.vote.status === 'open' && !view.vote.canVote ? (
             <>
-              🗳️ {t('table.wait.vote', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={net.clockOffset} />
+              🗳️ {t('table.wait.vote', { voted: view.vote.tally.voted, total: view.vote.tally.total })} · <Countdown deadline={view.vote.deadline} offset={clockOffset} />
             </>
           ) : waitInfo && view.choice ? (
             <>
-              🃏 {t('table.wait.choice', { n: view.choice.count })} · <Countdown deadline={view.choice.deadline} offset={net.clockOffset} />
+              🃏 {t('table.wait.choice', { n: view.choice.count })} · <Countdown deadline={view.choice.deadline} offset={clockOffset} />
             </>
           ) : view.paused ? (
             `⏸ ${t('table.paused')}`
@@ -471,7 +524,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
             t('table.handRunning')
           ) : waitInfo && view.nextHandAt ? (
             <>
-              {t('table.wait.nextHand')} <Countdown deadline={view.nextHandAt} offset={net.clockOffset} />
+              {t('table.wait.nextHand')} <Countdown deadline={view.nextHandAt} offset={clockOffset} />
             </>
           ) : waitInfo && view.seats.filter((s) => s.status !== 'sittingOut').length < 2 ? (
             t('table.wait.players')
@@ -495,7 +548,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
           ▶ {t('table.sitIn')}
         </button>
       )}
-      {mine && !(modern && (mine.sitOut ?? mine.status === 'sittingOut')) && <ActionBar view={view} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} onAct={(a) => void run(table.act(tableId, a))} onStraddle={(want) => void run(table.straddle(tableId, want))} />}
+      {mine && !(modern && (mine.sitOut ?? mine.status === 'sittingOut')) && <ActionBar view={view} tableId={tableId} legal={deal.active ? null : view.legal} inBb={inBb} quickPost={quickPost} quickPre={quickPre} busy={actPending || netStatus !== 'online'} onAct={(a) => void act(a)} onStraddle={(want) => void run(table.straddle(tableId, want))} />}
 
       {/* Akce hráče: malá tlačítka v widgetu „O hře“; když ten není vidět (telefon, vypnutý panel), v pruhu pod stolem. */}
       <ActionsPortal
@@ -674,7 +727,11 @@ function Seat({
                   const card = <CardView key={seat.exposed?.[i] ? `${c}-shown` : c} card={c} win={winSet ? winSet.has(c) : undefined} small={!mine} reveal={!mine} shown={seat.exposed?.[i] ? (mine ? 'self' : 'other') : undefined} delayMs={dealDelay(i)} fly={dealFly} />;
                   // Klepnutí na vlastní kartu po handě ji ukáže ostatním (stejně jako lišta v rohu stolu).
                   return onShowCard && !seat.exposed?.[i] ? (
-                    <span key={c} role="button" tabIndex={0} className="cursor-pointer" title={t('table.tapToShow')} onClick={(e) => { e.stopPropagation(); onShowCard(i as 0 | 1); }} onKeyDown={(e) => e.key === 'Enter' && onShowCard(i as 0 | 1)}>
+                    <span key={c} role="button" tabIndex={0} className="cursor-pointer" title={t('table.tapToShow')} onClick={(e) => { e.stopPropagation(); onShowCard(i as 0 | 1); }} onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      onShowCard(i as 0 | 1);
+                    }}>
                       {card}
                     </span>
                   ) : (
@@ -804,7 +861,7 @@ function AmountDialog({ title, topUp, view, balance: wallet, error, onCancel, on
       {v > wallet && <p className="text-sm text-muted">{t('table.creditWillUse', { amount: tableMoney(v - wallet, info) })}</p>}
       <div className="flex items-center gap-3">
         <input aria-label={t('table.amount')} type="range" className="flex-1" min={min} max={Math.max(min, max)} value={v} onChange={(e) => setV(Number(e.target.value))} />
-        <input aria-label={t('table.amountExact')} type="number" className="w-28 rounded-sm border border-line bg-surface px-2 py-1 font-mono" min={min} max={max} value={v} onChange={(e) => setV(Number(e.target.value))} />
+        <NumInput aria-label={t('table.amountExact')} className="w-28" min={min} max={Math.max(min, max)} value={v} onChange={setV} />
       </div>
       {none && <p className="rounded-md border border-warning px-2 py-1 text-sm">{t(topUp ? 'table.topUpFull' : 'table.buyInNone')}</p>}
       {error && (
@@ -813,7 +870,7 @@ function AmountDialog({ title, topUp, view, balance: wallet, error, onCancel, on
         </p>
       )}
       <div className="flex gap-2">
-        <button className={btnPrimary} disabled={none} onClick={() => onOk(v)}>
+        <button className={btnPrimary} disabled={none || !amountInRange(v, min, max)} onClick={() => onOk(v)}>
           {t('table.confirm')}
         </button>
         <button className={btn} onClick={onCancel}>

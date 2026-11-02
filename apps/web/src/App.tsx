@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState, useMemo } from 'react';
 import { lazyPage } from './lazy';
+import { ErrorBoundary } from './error-boundary';
 import { t } from '@kb/shared';
 import { post } from './api';
 import { Link, matchPath, Redirect, useLocation } from './router';
@@ -91,7 +92,14 @@ function Router() {
   const { path } = useLocation();
   const isPublic = PUBLIC.some((p) => path === p);
 
-  if (path === '/tv') return <Suspense fallback={<Spinner label={t('app.loading')} />}><TvPage /></Suspense>;
+  if (path === '/tv')
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<Spinner label={t('app.loading')} />}>
+          <TvPage />
+        </Suspense>
+      </ErrorBoundary>
+    );
   if (path.startsWith('/verejne/')) return <PublicBoardPage token={path.slice('/verejne/'.length)} />;
   if (session.status === 'loading') {
     return (
@@ -212,7 +220,10 @@ function Shell({ me }: { me: Me }) {
       <OfflineBanner />
       {!me.user.emailVerified && !blocked && <VerifyBanner />}
       <main className="flex-1">
-        <Suspense fallback={<Spinner label={t('app.loading')} />}>{page}</Suspense>
+        {/* Pád jedné stránky (nenačtený modul po nasazení, neplatná data) nesmí zhasnout celou aplikaci; přechod jinam chybu zapomene. */}
+        <ErrorBoundary resetKey={path}>
+          <Suspense fallback={<Spinner label={t('app.loading')} />}>{page}</Suspense>
+        </ErrorBoundary>
       </main>
       {!blocked && features.assistant && <AssistantLauncher floating={!stul} />}
     </div>

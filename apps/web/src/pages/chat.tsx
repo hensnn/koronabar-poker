@@ -22,7 +22,7 @@ import {
   type Channel,
   type Message,
 } from '../chat-store';
-import { useNet } from '../net';
+import { useNetSelector } from '../net';
 import { can, useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { previewSound, useSoundState } from '../sound-client';
@@ -30,7 +30,12 @@ import { SoundPalette } from './sounds';
 import { RankBadge } from '../progress-client';
 import { LookName, LookTitle } from '../cosmetics-client';
 import { chatImageUrl, RichBody, uploadChatImage } from './chat-extras';
-import { Badge, Button, Card, Modal, Notice, TextInput } from '../ui';
+import { Badge, Button, Card, Field, Modal, Notice, NumInput, TextInput } from '../ui';
+
+/** Prázdný seznam zpráv se stálou identitou (nový `[]` při každém vykreslení by rušil memoizaci). */
+const NO_MESSAGES: Message[] = [];
+/** Seznam se považuje za „dole“, když od konce chybí nejvýš tolik bodů. */
+const STICK_SLACK = 24;
 
 /** Text chyby z chatu (kód z brány, např. CHAT_MUTED). */
 const errMsg = (e: unknown): string => {
@@ -43,7 +48,7 @@ const errMsg = (e: unknown): string => {
 export function ChatPage() {
   const store = useChatStore();
   const { me } = useSession();
-  const net = useNet();
+  const presence = useNetSelector((n) => n.presence);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | 'dm' | 'group' | 'channel' | 'search'>(null);
 
@@ -87,9 +92,9 @@ export function ChatPage() {
           {(can(me, 'chat.spravovat_kanaly') || can(me, 'chat.vytvorit_kanal')) && <Button onClick={() => setDialog('channel')}>{t('chat.newChannel')}</Button>}
           <Button onClick={() => setDialog('search')}>{t('chat.search')}</Button>
         </div>
-        <Card title={t('chat.online', { n: net.presence.length })}>
+        <Card title={t('chat.online', { n: presence.length })}>
           <ul className="flex flex-col gap-1 text-sm">
-            {net.presence.map((p) => (
+            {presence.map((p) => (
               <li key={p.userId} className="flex items-center justify-between">
                 <button className="underline" onClick={() => p.userId !== me?.user.id && void startDm(p.userId).then(setActiveId)}>
                   {p.nickname}
@@ -121,7 +126,7 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
   const [image, setImage] = useState<{ id: string; name: string } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const lastTyping = useRef(0);
-  const messages = store.messages[channel.id] ?? [];
+  const messages = store.messages[channel.id] ?? NO_MESSAGES;
   const typing = (store.typing[channel.id] ?? []).filter((x) => Date.now() - x.at < 4000);
   const emojis = String(settings.values['chat.emojiList']).split(',').map((e) => e.trim()).filter(Boolean);
   const nick = useMemo(() => new Map(messages.map((m) => [m.id, m.nickname ?? ''])), [messages]);
@@ -130,9 +135,16 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
     void openChannel(channel.id).catch((e) => setError(errMsg(e)));
     return () => setActive(null);
   }, [channel.id]);
+  // Seznam drží dole (nejnovější), jen dokud hráč nevyjel výš: načtení starších zpráv ani nová zpráva ho pak neshodí zpátky.
+  const stick = useRef(true);
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    stick.current = true;
+  }, [channel.id]);
+  useEffect(() => {
+    const el = listRef.current;
+    if (el && stick.current) el.scrollTo({ top: el.scrollHeight });
   }, [messages.length, channel.id]);
+  const [mute, setMute] = useState<Message | null>(null);
 
   const submit = async () => {
     const text = body.trim();
@@ -178,7 +190,7 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
           )}
         </div>
       )}
-      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${fill ? 'min-h-0 flex-1 gap-0 p-1 leading-tight' : compact ? `min-h-16 gap-0 p-1 leading-tight ${listHeight ? '' : 'h-32 resize-y'}` : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')} style={!fill && compact && listHeight ? { height: listHeight } : undefined}>
+      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${fill ? 'min-h-0 flex-1 gap-0 p-1 leading-tight' : compact ? `min-h-16 gap-0 p-1 leading-tight ${listHeight ? '' : 'h-32 resize-y'}` : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')} style={!fill && compact && listHeight ? { height: listHeight } : undefined} onScroll={() => { const el = listRef.current; if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_SLACK; }}>
         {messages.length >= 50 && (
           <Button onClick={() => void openChannel(channel.id, messages[0]!.id)}>{t('chat.older')}</Button>
         )}
@@ -248,11 +260,7 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
                       {can(me, 'chat.ztlumit') && (
                         <button
                           className="text-muted underline"
-                          onClick={() => {
-                            const hours = Number(prompt(t('chat.muteHours'), '1'));
-                            const reason = prompt(t('chat.muteReason'), '');
-                            if (hours > 0 && reason) void muteUser(m.userId!, hours, reason, channel.id).catch((e) => setError(errMsg(e)));
-                          }}
+                          onClick={() => setMute(m)}
                         >
                           {t('chat.mute')}
                         </button>
@@ -285,6 +293,16 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
             {t('chat.removeImage')}
           </button>
         </div>
+      )}
+      {mute && (
+        <MuteDialog
+          message={mute}
+          onClose={() => setMute(null)}
+          onOk={(hours, reason) => {
+            setMute(null);
+            void muteUser(mute.userId!, hours, reason, channel.id).catch((e) => setError(errMsg(e)));
+          }}
+        />
       )}
       <div className="flex gap-2">
         <textarea
@@ -332,6 +350,27 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Ztlumení hráče: délka v hodinách a důvod (místo nativního prompt(), který nejde přeložit a na telefonu je nepraktický). */
+function MuteDialog({ message, onClose, onOk }: { message: Message; onClose: () => void; onOk: (hours: number, reason: string) => void }) {
+  const [hours, setHours] = useState(1);
+  const [reason, setReason] = useState('');
+  const ok = hours > 0 && reason.trim() !== '';
+  return (
+    <Modal title={t('chat.muteTitle', { nick: message.nickname ?? '' })} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <Field label={t('chat.muteHours')}>{(id, d) => <NumInput id={id} aria-describedby={d} min={1} value={hours} onChange={setHours} />}</Field>
+        <TextInput label={t('chat.muteReason')} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <div className="flex gap-2">
+          <Button variant="primary" disabled={!ok} onClick={() => onOk(hours, reason.trim())}>
+            {t('chat.mute')}
+          </Button>
+          <Button onClick={onClose}>{t('table.cancel')}</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

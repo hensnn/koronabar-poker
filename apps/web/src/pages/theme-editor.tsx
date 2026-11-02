@@ -54,6 +54,15 @@ function ColorBlindFilters() {
 }
 
 /** Editor vzhledu: záložky podle kategorií, živý náhled, kontrola kontrastu, simulace barvosleposti, undo / redo. */
+/** Obal ovládacích prvků editoru s vestavěným vzhledem; mimo komponentu editoru, jinak by se při každém znaku vytvořil znovu a pole by ztratilo fokus. */
+function Chrome({ style, children, className = '' }: { style: Record<string, string>; children: React.ReactNode; className?: string }) {
+  return (
+    <div style={style} className={`rounded-md bg-bg p-2 text-text ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 export function ThemeEditorPage() {
   const { me } = useSession();
   const store = useThemeStore();
@@ -186,11 +195,6 @@ export function ThemeEditorPage() {
     }
     return out;
   }, [mode]);
-  const Chrome = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <div style={chromeStyle} className={`rounded-md bg-bg p-2 text-text ${className}`}>
-      {children}
-    </div>
-  );
 
   const visible = TOKEN_DEFS.filter((d) => d.type !== 'image').filter((d) => (query.trim() ? t(`token.${d.key}`).toLowerCase().includes(query.trim().toLowerCase()) : tab === d.category));
 
@@ -206,7 +210,7 @@ export function ThemeEditorPage() {
       <Notice>{t('editor.safeNote')}</Notice>
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
 
-      <Chrome>
+      <Chrome style={chromeStyle}>
       <Card title={t('editor.theme')}>
         <div className="flex flex-col gap-3">
           <div className="grid gap-2 sm:grid-cols-2">
@@ -298,7 +302,7 @@ export function ThemeEditorPage() {
       </Chrome>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <Chrome className="flex flex-col gap-3">
+        <Chrome style={chromeStyle} className="flex flex-col gap-3">
           <Card>
             <div className="flex flex-col gap-2">
               <Tabs tabs={[{ id: 'light' as Mode, label: t('editor.mode.light') }, { id: 'dark' as Mode, label: t('editor.mode.dark') }]} value={mode} onChange={setMode} />
@@ -388,7 +392,7 @@ export function ThemeEditorPage() {
         </Chrome>
 
         <div className="flex flex-col gap-3">
-          <Chrome>
+          <Chrome style={chromeStyle}>
           <Card>
             <div className="flex flex-wrap items-end gap-3">
               <Tabs tabs={[{ id: 'desktop' as const, label: t('editor.desktop') }, { id: 'mobile' as const, label: t('editor.mobile') }]} value={device} onChange={setDevice} />
@@ -410,7 +414,7 @@ export function ThemeEditorPage() {
         </div>
       </div>
 
-      <Chrome>
+      <Chrome style={chromeStyle}>
         <ThemeGallery onEdit={(th) => loadCustom(th)} />
       </Chrome>
 

@@ -101,7 +101,7 @@ export function MessagesPage() {
     get<{ tournaments: Tour[] }>('/api/tournaments').then((r) => setTours(r.tournaments.filter((x) => x.status === 'registering' || x.status === 'running'))).catch(() => undefined);
     get<UserRow[]>('/api/admin/users').then(setUsers).catch(() => undefined);
     reloadHistory();
-  }, [reloadHistory]);
+  }, [reloadHistory, reloadTemplates]);
 
   const payload = useMemo(
     () => ({

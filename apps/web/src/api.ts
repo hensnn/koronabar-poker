@@ -44,9 +44,22 @@ export async function api<T = unknown>(method: string, url: string, body?: unkno
     throw new ApiError(0, 'NETWORK');
   }
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as { code?: string; error?: string; params?: Record<string, unknown> }) : undefined;
+  let json: { code?: string; error?: string; params?: Record<string, unknown> } | undefined;
+  try {
+    json = text ? (JSON.parse(text) as typeof json) : undefined;
+  } catch {
+    // Tělo není JSON (chybová stránka proxy, HTML po pádu serveru…): chyba se stavovým kódem, ne SyntaxError.
+    throw new ApiError(res.status, 'UNKNOWN');
+  }
   if (!res.ok) throw new ApiError(res.status, json?.code ?? json?.error ?? 'UNKNOWN', json?.params);
   return json as T;
+}
+
+/** Text chyby z potvrzení přes Socket.IO (kód bez překladu dostane obecnou hlášku, ne surový klíč). */
+export function ackErrorText(code: string | undefined, params?: Record<string, unknown>): string {
+  const key = `error.${code ?? 'UNKNOWN'}`;
+  const msg = t(key, params);
+  return msg === key ? t('error.UNKNOWN') : msg;
 }
 
 export const get = <T = unknown>(url: string) => api<T>('GET', url);

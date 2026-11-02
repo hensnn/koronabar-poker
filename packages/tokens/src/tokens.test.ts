@@ -72,6 +72,24 @@ describe('motivy', () => {
     expect(isSafeValue('red; x:y')).toBe(false);
     expect(isSafeValue('url(x)')).toBe(false);
   });
+
+  it('isSafeValue odmítá CSS komentář a odkaz na proměnnou (zakomentoval by zbytek bloku všem)', () => {
+    expect(isSafeValue('x /*')).toBe(false);
+    expect(isSafeValue('*/ x')).toBe(false);
+    expect(isSafeValue('var(--tk-color-bg)')).toBe(false);
+    expect(isSafeValue('VAR(--x)')).toBe(false);
+    expect(isSafeValue('Georgia, "Times New Roman", serif')).toBe(true);
+  });
+
+  it('písmo smí obsahovat jen názvy rodin (písmena, číslice, mezery, uvozovky, čárky, pomlčky)', () => {
+    const d = tokenDef('font.body')!;
+    expect(validateTokenValue(d, 'Georgia, "Times New Roman", Times, serif')).toBe(true);
+    expect(validateTokenValue(d, "'Roboto Mono', monospace")).toBe(true);
+    expect(validateTokenValue(d, 'x /*')).toBe(false);
+    expect(validateTokenValue(d, 'serif) ; color: red')).toBe(false);
+    expect(validateTokenValue(d, 'Inter, var(--x)')).toBe(false);
+    expect(validateTokenValue(d, 'a:b')).toBe(false);
+  });
 });
 
 describe('rozšířené tokeny', () => {

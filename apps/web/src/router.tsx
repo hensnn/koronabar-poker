@@ -52,8 +52,14 @@ export function matchPath(pattern: string, path: string): Record<string, string>
   if (a.length !== b.length) return null;
   const params: Record<string, string> = {};
   for (let i = 0; i < a.length; i++) {
-    if (a[i]!.startsWith(':')) params[a[i]!.slice(1)] = decodeURIComponent(b[i]!);
-    else if (a[i] !== b[i]) return null;
+    if (a[i]!.startsWith(':')) {
+      // Neplatné kódování v adrese (`/stul/%E0`) není shoda, ne pád celé aplikace.
+      try {
+        params[a[i]!.slice(1)] = decodeURIComponent(b[i]!);
+      } catch {
+        return null;
+      }
+    } else if (a[i] !== b[i]) return null;
   }
   return params;
 }

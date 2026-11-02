@@ -149,8 +149,22 @@ export function clearSettings() {
   listeners.forEach((l) => l());
 }
 
-/** Efektivní hodnoty a jejich původ z aktuálního stavu (mimo React, např. v testech). */
-export function resolveFor(s: State = state) {
+type Resolved = State & ReturnType<typeof resolveSettings>;
+
+// Výsledek posledního výpočtu: registr se přepočítává jen při změně stavu nebo zobrazení (každé sedadlo a widget
+// volá useSettings(), přepočet celého registru při každém vykreslení by stůl brzdil). Stav je neměnný (set vytvoří nový objekt).
+let resolvedCache: { state: State; display: string; out: Resolved } | null = null;
+
+/** Efektivní hodnoty a jejich původ z aktuálního stavu (mimo React, např. v testech). Pro stejný stav vrací tentýž objekt. */
+export function resolveFor(s: State = state): Resolved {
+  const display = displayId();
+  if (resolvedCache && resolvedCache.state === s && resolvedCache.display === display) return resolvedCache.out;
+  const out = computeResolved(s, display);
+  resolvedCache = { state: s, display, out };
+  return out;
+}
+
+function computeResolved(s: State, display: string): Resolved {
   const resolved = resolveSettings(registry, [
     { scope: 'global', values: s.global },
     { scope: 'user', values: s.user },
@@ -159,7 +173,7 @@ export function resolveFor(s: State = state) {
   // Velikosti panelů platné pro toto zobrazení (rozlišení a zvětšení) přebijí obecné hodnoty.
   const profiles = String(resolved.values['ui.sizeProfiles'] ?? '');
   if (resolved.values['ui.sizePerDisplay'] !== false && profiles) {
-    const over = profileOverrides(profiles, displayId());
+    const over = profileOverrides(profiles, display);
     if (Object.keys(over).length > 0) {
       const origins = { ...resolved.origins };
       for (const k of Object.keys(over)) origins[k] = 'userDevice';

@@ -7,7 +7,7 @@ import { ShareToChat } from './chat-extras';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { loadChannels, useChatStore } from '../chat-store';
-import { onSocket, table as tableApi, useNet } from '../net';
+import { onSocket, table as tableApi, useNetSelector } from '../net';
 import { Link } from '../router';
 import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { useMobileAttribute, useMobileLayout } from '../table/mobile';
@@ -53,7 +53,6 @@ function useFollowMyTable(tournamentId: string, tableId: string, enabled: boolea
 export function TablePage({ tableId }: { tableId: string }) {
   const settings = useSettings();
   const store = useChatStore();
-  const net = useNet();
   const features = useFeatures();
   const [showSettlement, setShowSettlement] = useState(false);
   const [drawer, setDrawer] = useState<'chat' | 'panel' | 'info' | 'menu' | null>(null);
@@ -103,7 +102,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px', ['--area-w' as string]: String(area.a) };
   // Výška panelu je výchozí podle herní oblasti; ruční výška (tažení za spodní okraj) ji přepíše.
   const panelStyle: CSSProperties | undefined = size.ph > 0 ? { height: size.ph, alignSelf: 'start' } : undefined;
-  const view = net.views[tableId];
+  // Jen pohled na tento stůl: změna přítomnosti nebo jiného stolu stránku nepřekresluje.
+  const view = useNetSelector((n) => n.views[tableId]);
   const tableInfo = view?.info;
   const isTournament = tableInfo?.tournament === true;
   // U turnaje na více stolech patří chat, dohoda a hlasování celému turnaji.

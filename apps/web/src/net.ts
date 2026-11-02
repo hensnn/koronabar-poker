@@ -54,20 +54,62 @@ export const announceRoom = {
   },
 };
 
+// Pořadové číslo posledního přijatého pohledu na stůl: opožděná zpráva se starším `seq` nesmí přepsat novější stav.
+const lastSeq = new Map<string, number>();
+
+/** Kolik posledních vzorků rozdílu hodin se drží pro vyhlazení. */
+const CLOCK_SAMPLES = 10;
+// Vzorky rozdílu hodin z posledních zpráv (serverTime − čas příjmu).
+let clockSamples: number[] = [];
+
+/**
+ * Vyhlazený rozdíl hodin: každý vzorek je skutečný rozdíl minus zpoždění doručení, takže zprávě s nejmenším zpožděním
+ * odpovídá největší vzorek; ten je nejblíž pravdě a nekolísá s každou zprávou (odpočet na telefonu neposkakuje).
+ */
+export function clockOffsetFrom(samples: readonly number[]): number {
+  return samples.length === 0 ? 0 : Math.max(...samples);
+}
+
+/** Má se přijmout pohled s `seq`, když poslední přijatý měl `last`? Starší verze serveru `seq` neposílá: přijme se vždy. */
+export function acceptsView(last: number | undefined, seq: number | undefined): boolean {
+  return seq === undefined || last === undefined || seq >= last;
+}
+
+/** Zpracování zprávy `table:view` (vyčleněno kvůli testům). */
+export function receiveTableView(m: { tableId: string; view: TableView; serverTime: number }, now = Date.now()): void {
+  if (!acceptsView(lastSeq.get(m.tableId), m.view?.seq)) return;
+  if (typeof m.view?.seq === 'number') lastSeq.set(m.tableId, m.view.seq);
+  clockSamples = [...clockSamples.slice(-(CLOCK_SAMPLES - 1)), m.serverTime - now];
+  set({ views: { ...state.views, [m.tableId]: m.view }, clockOffset: clockOffsetFrom(clockSamples) });
+}
+
+/** Zahodí pohled na stůl (po odchodu ze stránky stolu); další přijatý pohled se bere bez ohledu na `seq`. */
+export function dropView(tableId: string): void {
+  lastSeq.delete(tableId);
+  if (!(tableId in state.views)) return;
+  const { [tableId]: _gone, ...rest } = state.views;
+  set({ views: rest });
+}
+
+/** Nové spojení (i po restartu serveru, kde `seq` začíná znovu): pořadová čísla ani vzorky hodin už neplatí. */
+export function resetViewTracking(): void {
+  lastSeq.clear();
+  clockSamples = [];
+}
+
 export function connectSocket() {
   if (socket) return;
   set({ status: 'connecting' });
   const s = io({ transports: ['websocket'] });
   socket = s;
   s.on('connect', () => {
+    resetViewTracking();
     set({ status: 'online' });
     for (const id of announceRooms) s.emit('announce:join', id);
   });
   s.on('disconnect', () => set({ status: 'connecting' }));
   s.on('connect_error', () => set({ status: 'connecting' }));
-  s.on('table:view', (m: { tableId: string; view: TableView; serverTime: number }) =>
-    set({ views: { ...state.views, [m.tableId]: m.view }, clockOffset: m.serverTime - Date.now() }),
-  );
+  s.on('table:view', (m: { tableId: string; view: TableView; serverTime: number }) => receiveTableView(m));
   s.on('presence', (p: Presence[]) => set({ presence: p }));
   for (const ev of FORWARDED) s.on(ev, (d) => handlers.get(ev)?.forEach((h) => h(d)));
 }
@@ -75,6 +117,7 @@ export function connectSocket() {
 export function disconnectSocket() {
   socket?.close();
   socket = null;
+  resetViewTracking();
   set({ status: 'offline', views: {}, presence: [] });
 }
 
@@ -86,6 +129,11 @@ export const send = <T = unknown>(event: string, data?: unknown) =>
 
 export const table = {
   subscribe: (tableId: string) => send('table:subscribe', { tableId }),
+  /** Odhlásí odběr stolu a zahodí jeho pohled: server už nemá posílat stav stolů, které hráč opustil. */
+  unsubscribe: (tableId: string) => {
+    dropView(tableId);
+    return send('table:unsubscribe', { tableId });
+  },
   join: (tableId: string, seat: number, amount: number) => send('table:join', { tableId, seat, amount }),
   leave: (tableId: string) => send('table:leave', { tableId }),
   topUp: (tableId: string, amount: number) => send('table:topUp', { tableId, amount }),
@@ -98,15 +146,26 @@ export const table = {
   show: (tableId: string, which: 'both' | 0 | 1) => send('table:show', { tableId, which }),
   rabbit: (tableId: string) => send('table:rabbit', { tableId }),
   showdown: (tableId: string, choice: 'show' | 'muck') => send('table:showdown', { tableId, choice }),
-  act: (tableId: string, action: PlayerAction) => send('table:act', { tableId, action }),
+  /** Akce v handě nese `handId`: opožděnou nebo zdvojenou zprávu z předchozí handy server odmítne (STALE_ACTION). */
+  act: (tableId: string, action: PlayerAction, handId: string | null = null) => send('table:act', { tableId, action, handId: handId ?? undefined }),
+};
+
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => void listeners.delete(l);
 };
 
 export function useNet(): NetState {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => state,
-  );
+  return useSyncExternalStore(subscribe, () => state);
 }
+
+/**
+ * Výřez stavu sítě: komponenta se překreslí jen při změně vybrané části (stůl se nepřekresluje kvůli přítomnosti v chatu).
+ * Selektor má vracet primitivum nebo existující část stavu, ne nový objekt.
+ */
+export function useNetSelector<T>(selector: (s: NetState) => T): T {
+  return useSyncExternalStore(subscribe, () => selector(state));
+}
+
+/** Stav sítě mimo React (testy). */
+export const netState = () => state;

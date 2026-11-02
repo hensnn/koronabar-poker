@@ -123,6 +123,9 @@ export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?
   return <span className={`inline-block rounded-sm px-2 text-xs ${cls}`}>{children}</span>;
 }
 
+/** Změnilo se okno od zapamatovaných rozměrů víc než o drobnost (obyčejné klepnutí nic neukládá)? */
+const sizeChanged = (el: HTMLElement, from: { w: number; h: number } | null) => !!from && (Math.abs(el.offsetWidth - from.w) > 3 || Math.abs(el.offsetHeight - from.h) > 3);
+
 /** Dialog s ovládáním klávesnicí (Esc zavře) a návratem zaměření. */
 /** Rozměry okna z osobního nastavení (mimo JSX, styl nemá obsahovat pevné hodnoty). */
 function sizeStyle(w: number, h: number): CSSProperties | undefined {
@@ -137,6 +140,43 @@ function sizeStyle(w: number, h: number): CSSProperties | undefined {
     style.maxHeight = '100%';
   }
   return style;
+}
+
+const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+/** Tab a Shift+Tab krouží jen po prvcích uvnitř okna (fokus neuteče na stránku pod ním). */
+function trapTab(e: KeyboardEvent, root: HTMLElement | null): void {
+  if (!root) return;
+  const items = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (!first || !last) {
+    e.preventDefault();
+    root.focus();
+    return;
+  }
+  const active = document.activeElement as HTMLElement | null;
+  const inside = !!active && root.contains(active) && active !== root;
+  if (e.shiftKey && (!inside || active === first)) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (!inside || active === last)) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+// Kolik oken je právě otevřených: stránka pod nimi (#root) je pro čtečky i klávesnici neaktivní, dokud se nezavře poslední.
+let openModals = 0;
+
+/** Označí aplikaci pod okny jako neaktivní (`inert`); vrací funkci, která ji po zavření okna zase uvolní. */
+function inertAppRoot(): () => void {
+  const root = document.getElementById('root');
+  if (!root || !('inert' in root)) return () => undefined;
+  if (++openModals === 1) root.inert = true;
+  return () => {
+    if (--openModals === 0) root.inert = false;
+  };
 }
 
 /**
@@ -189,8 +229,10 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.focus();
+    const releaseInert = inertAppRoot();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
+      else if (e.key === 'Tab') trapTab(e, ref.current);
       else if (isConfirmKey(e)) {
         // Enter nebo mezerník potvrdí hlavní (výrazné) tlačítko okna, pokud se právě nepíše do pole a nic jiného nemá fokus.
         const ok = ref.current?.querySelector<HTMLButtonElement>('button.bg-primary:not(:disabled)');
@@ -203,6 +245,7 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+      releaseInert();
       prev?.focus?.();
     };
   }, []);
@@ -217,10 +260,10 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
     void saveUserSetting(`${sizeKey}Width`, w).catch(() => undefined);
     void saveUserSetting(`${sizeKey}Height`, h).catch(() => undefined);
   };
-  const changedSince = (from: { w: number; h: number } | null) => {
-    const el = ref.current;
-    return !!from && !!el && (Math.abs(el.offsetWidth - from.w) > 3 || Math.abs(el.offsetHeight - from.h) > 3);
-  };
+  // Pozorovatel velikosti běží po celou dobu okna; volá vždy aktuální uložení přes ref, ne tu z prvního vykreslení.
+  const saveSizeRef = useRef(saveSize);
+  saveSizeRef.current = saveSize;
+  const changedSince = (from: { w: number; h: number } | null) => !!ref.current && sizeChanged(ref.current, from);
   useEffect(() => {
     const el = ref.current;
     if (!sizeKey || !el || typeof ResizeObserver === 'undefined') return;
@@ -235,9 +278,9 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
       }
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        if (changedSince(base)) {
+        if (sizeChanged(el, base)) {
           base = { w: el.offsetWidth, h: el.offsetHeight };
-          saveSize();
+          saveSizeRef.current();
         }
       }, 600);
     });
@@ -337,6 +380,7 @@ export const Td = ({ children, className = '', colSpan }: { children?: ReactNode
 /**
  * Číselné pole, které při psaní nevnucuje nulu: dokud je pole prázdné nebo rozepsané, drží si text,
  * hodnotu předá až když je to platné číslo; po opuštění prázdného pole se vrátí poslední hodnota.
+ * S `min`/`max` se hodnota při opuštění pole ořízne do rozsahu (mimo rozsah se nikdy nepředá dál).
  */
 export function NumInput({ value, onChange, className = '', ...p }: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & { value: number; onChange: (n: number) => void }) {
   const [text, setText] = useState(String(value));
@@ -344,6 +388,9 @@ export function NumInput({ value, onChange, className = '', ...p }: Omit<InputHT
   useEffect(() => {
     if (!focused) setText(String(value));
   }, [value, focused]);
+  const lo = p.min !== undefined && p.min !== '' ? Number(p.min) : -Infinity;
+  const hi = p.max !== undefined && p.max !== '' ? Number(p.max) : Infinity;
+  const clamp = (n: number) => Math.max(lo, Math.min(hi, n));
   return (
     <input
       {...p}
@@ -357,13 +404,18 @@ export function NumInput({ value, onChange, className = '', ...p }: Omit<InputHT
       }}
       onBlur={(e) => {
         setFocused(false);
-        if (text.trim() === '' || !Number.isFinite(Number(text))) setText(String(value));
+        const n = Number(text);
+        if (text.trim() === '' || !Number.isFinite(n)) setText(String(value));
+        else if (clamp(n) !== n) {
+          setText(String(clamp(n)));
+          onChange(clamp(n));
+        }
         p.onBlur?.(e);
       }}
       onChange={(e) => {
         const v = e.target.value;
         setText(v);
-        if (v.trim() !== '' && Number.isFinite(Number(v))) onChange(Number(v));
+        if (v.trim() !== '' && Number.isFinite(Number(v))) onChange(clamp(Number(v)));
       }}
     />
   );

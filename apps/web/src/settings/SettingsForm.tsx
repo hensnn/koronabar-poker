@@ -112,14 +112,15 @@ export function SettingsForm(p: Props) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }));
 
+  const { registry, allowedKeys, values, gameKind } = p;
   const byCat = useMemo(() => {
     const m = new Map<string, SettingDef[]>();
-    for (const d of p.registry.all()) {
-      if (!p.allowedKeys(d) || !isVisible(p.registry, d.key, p.values, p.gameKind)) continue;
+    for (const d of registry.all()) {
+      if (!allowedKeys(d) || !isVisible(registry, d.key, values, gameKind)) continue;
       m.set(d.category, [...(m.get(d.category) ?? []), d]);
     }
     return m;
-  }, [p.registry, p.allowedKeys, p.values, p.gameKind]);
+  }, [registry, allowedKeys, values, gameKind]);
   const changedBy = useMemo(() => {
     const out: Record<string, number> = {};
     for (const [c, defs] of byCat) out[c] = defs.filter((d) => p.origins[d.key] === p.editScope).length;

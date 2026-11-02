@@ -14,12 +14,15 @@ import '@fontsource/roboto-mono/latin-ext-400.css';
 import '@fontsource/roboto-mono/latin-ext-700.css';
 import './styles.css';
 import App from './App';
+import { ErrorBoundary } from './error-boundary';
 import { registerServiceWorker } from './push';
 
 void registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

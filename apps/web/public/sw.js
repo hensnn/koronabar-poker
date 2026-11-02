@@ -10,7 +10,11 @@ const ASSET_LIMIT = 150;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).catch(() => undefined));
-  self.skipWaiting();
+});
+
+// Nová verze čeká, dokud ji stránka nevyzve (tlačítko „Obnovit“): rozehraná hra se nepřepne na nový kód bez vědomí hráče.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -42,7 +46,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res.ok && url.pathname === '/') caches.open(SHELL).then((c) => c.put('/', res.clone()));
+          // Zápis do keše běží až po odeslání odpovědi; waitUntil ho nenechá přerušit ukončením workeru.
+          if (res.ok && url.pathname === '/') event.waitUntil(caches.open(SHELL).then((c) => c.put('/', res.clone())));
           return res;
         })
         .catch(async () => (await caches.match('/')) || (await caches.match('/offline.html')) || Response.error()),
@@ -56,10 +61,7 @@ self.addEventListener('fetch', (event) => {
         const hit = await cache.match(req);
         if (hit) return hit;
         const res = await fetch(req);
-        if (res.ok) {
-          cache.put(req, res.clone());
-          trim(cache);
-        }
+        if (res.ok) event.waitUntil(cache.put(req, res.clone()).then(() => trim(cache)));
         return res;
       }),
     );
@@ -72,7 +74,7 @@ self.addEventListener('fetch', (event) => {
       const hit = await cache.match(req);
       const net = fetch(req)
         .then((res) => {
-          if (res.ok) cache.put(req, res.clone());
+          if (res.ok) event.waitUntil(cache.put(req, res.clone()));
           return res;
         })
         .catch(() => hit);
@@ -102,13 +104,21 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  const target = new URL(url);
+  const samePage = (c) => {
+    const u = new URL(c.url);
+    return u.pathname === target.pathname && u.search === target.search;
+  };
+  // Rozehraný stůl ani TV obrazovku upozornění nikdy neodvede jinam.
+  const busy = (c) => /^\/(stul\/|tv$)/.test(new URL(c.url).pathname);
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) {
-        if (new URL(c.url).origin === self.location.origin && 'focus' in c) {
-          return c.focus().then(() => ('navigate' in c ? c.navigate(url) : undefined));
-        }
-      }
+      const ours = list.filter((c) => new URL(c.url).origin === self.location.origin && 'focus' in c);
+      // Okno, které už je na cílové adrese, stačí zaměřit.
+      const same = ours.find(samePage);
+      if (same) return same.focus();
+      const free = ours.find((c) => !busy(c) && 'navigate' in c);
+      if (free) return free.focus().then(() => free.navigate(url));
       return self.clients.openWindow(url);
     }),
   );

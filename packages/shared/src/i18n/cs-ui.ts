@@ -2,6 +2,9 @@
 export const csUi: Record<string, string> = {
   // Obecné
   'app.loading': 'Načítám…',
+  'app.error.title': 'V aplikaci nastala neočekávaná chyba.',
+  'app.error.hint': 'Hra na serveru běží dál. Načti stránku znovu; pokud se chyba opakuje, odhlas se a přihlas znovu.',
+  'app.error.reload': 'Načíst znovu',
   'nav.main': 'Hlavní nabídka',
   'nav.home': 'Domů',
   'nav.lobby': 'Lobby',
@@ -211,6 +214,7 @@ export const csUi: Record<string, string> = {
   'error.INVALID': 'Zadané hodnoty nejsou platné.',
   'error.FORBIDDEN_ORIGIN': 'Požadavek z tohoto webu není povolen.',
   'error.NETWORK': 'Nepodařilo se spojit se serverem.',
+  'error.STALE_ACTION': 'Tah už neplatí, stůl se mezitím změnil.',
   'error.INSUFFICIENT_FUNDS': 'Na účtu není dost prostředků.',
   'error.NOT_BALANCED': 'Záznamy v knize musí mít nulový součet.',
   'error.UNKNOWN_VARIABLES': 'Šablona obsahuje neznámé proměnné.',
@@ -468,6 +472,7 @@ export const csUi: Record<string, string> = {
   'chat.mute': 'Ztlumit',
   'chat.muteHours': 'Na kolik hodin?',
   'chat.muteReason': 'Důvod ztlumení',
+  'chat.muteTitle': 'Ztlumit hráče {nick}',
   'chat.typing': '{names} píše…',
   'chat.compose': 'Napište zprávu',
   'chat.send': 'Odeslat',

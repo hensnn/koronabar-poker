@@ -93,7 +93,8 @@ function flush() {
 
 /** Vzhled hráče z mezipaměti (rámeček, efekt, barva jména, titul, trofeje). Chybějící se načtou dávkou. */
 export function useLook(userId: string | null | undefined): PublicLook | undefined {
-  useSyncExternalStore(
+  // Verze mezipaměti jako hodnota z vykreslení: po zneplatnění (změna vzhledu) se vzhled načte znovu.
+  const seen = useSyncExternalStore(
     (l) => {
       listeners.add(l);
       return () => listeners.delete(l);
@@ -111,7 +112,7 @@ export function useLook(userId: string | null | undefined): PublicLook | undefin
     if (!userId || cache.has(userId) || pending.has(userId)) return;
     pending.add(userId);
     if (timer === undefined) timer = window.setTimeout(flush, 50);
-  }, [userId, version]);
+  }, [userId, seen]);
   return userId ? cache.get(userId) : undefined;
 }
 

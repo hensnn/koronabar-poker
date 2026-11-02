@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from '@kb/shared';
+import { useNetSelector } from './net';
+import { applyUpdate, getUpdateState, onUpdateChange } from './push';
 import { Button, Notice } from './ui';
 
 interface InstallEvent extends Event {
@@ -70,9 +72,19 @@ export function InstallCard() {
   );
 }
 
-/** Pruh nahoře, když prohlížeč hlásí, že jsme offline. */
+/**
+ * Pruhy o stavu spojení a verze: offline podle prohlížeče, „obnovuji spojení“ po výpadku spojení se serverem
+ * a nabídka obnovit stránku, když je připravená nová verze aplikace (nepřepíná se sama, hráč si vybere kdy).
+ */
 export function OfflineBanner() {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  const status = useNetSelector((n) => n.status);
+  // „Obnovuji spojení“ jen po ztrátě už navázaného spojení, ne při prvním připojování po načtení stránky.
+  const wasOnline = useRef(false);
+  useEffect(() => {
+    if (status === 'online') wasOnline.current = true;
+  }, [status]);
+  const update = useSyncExternalStore(onUpdateChange, getUpdateState);
   useEffect(() => {
     const on = () => setOnline(true);
     const off = () => setOnline(false);
@@ -83,6 +95,18 @@ export function OfflineBanner() {
       window.removeEventListener('offline', off);
     };
   }, []);
-  if (online) return null;
-  return <Notice kind="error">{t('pwa.offline')}</Notice>;
+  if (!online) return <Notice kind="error">{t('pwa.offline')}</Notice>;
+  return (
+    <>
+      {status === 'connecting' && wasOnline.current && <Notice kind="warning">{t('pwa.reconnecting')}</Notice>}
+      {update !== 'none' && (
+        <Notice kind="warning">
+          {t('pwa.updateAvailable')}{' '}
+          <Button variant="primary" className="px-3" onClick={applyUpdate}>
+            {t('pwa.updateReload')}
+          </Button>
+        </Notice>
+      )}
+    </>
+  );
 }

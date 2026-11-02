@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LEAF_TYPES, t, type LeafType, type PollCondition, type PollGroup, type PollLeaf } from '@kb/shared';
 import { get, post } from '../api';
 import { useChatStore } from '../chat-store';
@@ -223,10 +223,13 @@ function AddLeaf({ onAdd }: { onAdd: (t: LeafType) => void }) {
 export function EligiblePreview({ condition }: { condition: PollCondition }) {
   const [res, setRes] = useState<{ count: number; players: Dir[] } | null>(null);
   const [err, setErr] = useState(false);
+  // Náhled se obnovuje podle obsahu podmínky (ne identity objektu); do dotazu jde vždy její poslední podoba.
   const key = JSON.stringify(condition);
+  const latest = useRef(condition);
+  latest.current = condition;
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      post<{ count: number; players: { userId: string; nickname: string }[] }>('/api/polls/preview', { condition })
+      post<{ count: number; players: { userId: string; nickname: string }[] }>('/api/polls/preview', { condition: latest.current })
         .then((r) => {
           setRes({ count: r.count, players: r.players.map((p) => ({ id: p.userId, nickname: p.nickname })) });
           setErr(false);

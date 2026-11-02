@@ -492,7 +492,7 @@ function LedgerPanel() {
     void get<{ kinds: string[] }>('/api/admin/ledger/kinds').then((r) => setKinds(r.kinds)).catch(() => undefined);
     void get<{ rows: { userId: string; nickname: string }[] }>('/api/admin/balances').then((r) => setPeople(r.rows)).catch(() => undefined);
   }, []);
-  const query = (): URLSearchParams => {
+  const query = useCallback((): URLSearchParams => {
     const p = new URLSearchParams();
     if (kind) p.set('kind', kind);
     if (account) p.set('account', account);
@@ -504,12 +504,12 @@ function LedgerPanel() {
     p.set('sort', sort.key);
     p.set('dir', sort.dir);
     return p;
-  };
+  }, [kind, account, from, to, text, min, limit, sort]);
   useEffect(() => {
     const p = query();
     const timer = window.setTimeout(() => void get<LedgerTx[]>(`/api/admin/ledger?${p.toString()}`).then(setRows).catch(() => undefined), 250);
     return () => window.clearTimeout(timer);
-  }, [kind, account, from, to, text, min, limit, sort]);
+  }, [query]);
   const names = new Map(people.map((x) => [`wallet:${x.userId}`, x.nickname]));
   const accountText = (a: string) => names.get(a) ?? (a === 'house' ? t('cashier.house') : a === 'mint' ? t('cashier.ledger.mint') : a);
   const sortHead = (key: 'time' | 'kind' | 'amount', label: string) => (

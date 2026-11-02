@@ -5,7 +5,7 @@ import { get } from '../api';
 import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
-import { PLAN_OPTIONS, setPlan, usePlan, type Plan } from './plan';
+import { PLAN_OPTIONS, currentCallAmount, planFor, planTarget, setPlan, usePlan, type Plan } from './plan';
 import { tournamentWaitLines, type TournamentInfo } from './InfoCard';
 
 interface Clock {
@@ -150,9 +150,11 @@ export function ClockWidget({ tournamentId, timeBank }: { tournamentId: string; 
 }
 
 /** Plánovaný tah: zvolí se dopředu, provede se automaticky na tahu. */
-export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí dobrovolného straddle (jen u stolu s dobrovolným straddle). */ onStraddle?: (want: boolean) => void }) {
-  const plan = usePlan();
+export function PlanBar({ view, tableId, onStraddle }: { view: TableView; tableId: string; /** Přepnutí dobrovolného straddle (jen u stolu s dobrovolným straddle). */ onStraddle?: (want: boolean) => void }) {
+  const plan = planFor(usePlan(), tableId);
   const values = useSettings().values;
+  // Mezi handami (i při ukázání výsledku) se plán týká až příští handy; hráč to má vidět.
+  const target = planTarget(view);
   const on = (p: Plan) => values[PLAN_OPTIONS.find((o) => o.plan === p)!.setting] !== false;
   // Stejná mřížka a barvy jako akční tlačítka (Fold | Check/Call | Bet/Raise | All-in): plánovaný tah leží přesně tam, kde bude potom akční tlačítko,
   // takže klik na „Check“ nikdy nedopadne na jiné akční tlačítko, když přijde hráč na tah.
@@ -163,7 +165,7 @@ export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí 
           key={p}
           className={`tk-act tk-plan-btn px-1 ${tone} h-13 min-w-0 flex-1 text-xs font-semibold leading-tight ${plan === p ? 'ring-2 ring-text ring-offset-2 ring-offset-surface' : 'opacity-50'}`}
           aria-pressed={plan === p}
-          onClick={() => setPlan(plan === p ? null : p, view.handId)}
+          onClick={() => setPlan(plan === p ? null : p, { tableId, handId: target, callAmount: currentCallAmount(view) })}
         >
           {t(`table.plan.${p}`)}
         </button>
@@ -171,7 +173,12 @@ export function PlanBar({ view, onStraddle }: { view: TableView; /** Přepnutí 
     </div>
   );
   return (
-    <div className="tk-planbar grid w-full grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={t('table.widget.plan')} title={t('table.plan.help')}>
+    <div className="tk-planbar grid w-full grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={t('table.widget.plan')} title={target === null ? `${t('table.plan.help')} ${t('table.plan.nextHand')}.` : t('table.plan.help')}>
+      {plan && target === null && (
+        <p role="status" className="col-span-2 text-center text-xs text-muted sm:col-span-4">
+          {t('table.plan.nextHand')}
+        </p>
+      )}
       {cell([{ plan: 'fold', tone: 'tk-act-fold' }, { plan: 'checkFold', tone: 'tk-act-fold' }])}
       {cell([{ plan: 'check', tone: 'tk-act-check' }, { plan: 'call', tone: 'tk-act-call' }])}
       {/* místo tlačítka Bet/Raise: plán na zvýšení nelze, ale pozice zůstává; dobrovolný straddle je tady */}
