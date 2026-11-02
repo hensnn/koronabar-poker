@@ -30,6 +30,13 @@ const SIGNED: BoardColumn[] = ['profit', 'cashProfit', 'tournamentProfit', 'boun
 const MEDALS = ['🥇', '🥈', '🥉'];
 const num = (n: number) => n.toLocaleString('cs-CZ');
 
+/** Vysvětlení sloupce po najetí myší (jen tam, kde existuje). */
+const tHelp = (c: string): string | undefined => {
+  const key = `boards.help.${c}`;
+  const v = t(key);
+  return v === key ? undefined : v;
+};
+
 function cell(col: BoardColumn, r: BoardRow, forms: CurrencyForms): string {
   const v = r[col];
   if (v === undefined || v === null) return '–';
@@ -81,7 +88,7 @@ export function BoardView({ view, bgImage, preview = false }: { view: BoardViewD
                   <th className="tk-board-cell">{t('boards.col.rank')}</th>
                   <th className="tk-board-cell">{t('boards.col.player')}</th>
                   {view.columns.map((c) => (
-                    <th key={c} className="tk-board-cell text-right">
+                    <th key={c} className="tk-board-cell text-right" title={tHelp(c)}>
                       {t(`boards.col.${c}`)}
                     </th>
                   ))}
