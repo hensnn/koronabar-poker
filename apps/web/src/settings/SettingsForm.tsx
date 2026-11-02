@@ -84,7 +84,7 @@ export function orderCategories(cats: string[], first?: string[]): string[] {
 }
 
 /** Rozbalovací panel: hlavička s názvem, počtem položek a odznakem změn; obsah se ukáže po rozbalení. */
-function Panel({ title, open, onToggle, count, changed, dotClass, headClass = '', level = 1, children }: { title: string; open: boolean; onToggle: () => void; count: number; changed: number; dotClass?: string; headClass?: string; level?: 1 | 2; children: ReactNode }) {
+export function Panel({ title, open, onToggle, count, changed, dotClass, headClass = '', level = 1, children }: { title: string; open: boolean; onToggle: () => void; count: number; changed: number; dotClass?: string; headClass?: string; level?: 1 | 2; children: ReactNode }) {
   return (
     <section className={`rounded-md border ${level === 1 ? 'border-line bg-surface' : 'border-line bg-raised'}`}>
       <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-center px-3 py-2 gap-2 text-left">
@@ -214,8 +214,8 @@ export function SettingsForm(p: Props) {
           {found.length === 0 && <p className="text-muted">{q ? t('settings.searchNone') : t('settings.nothing')}</p>}
         </div>
       ) : (
-        <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          <nav aria-label={t('settings.sections')} className="flex flex-wrap gap-2 md:sticky md:top-2 md:w-56 md:shrink-0 md:flex-col md:gap-1">
+        <div className="@container"><div className="flex flex-col gap-4 @2xl:flex-row @2xl:items-start">
+          <nav aria-label={t('settings.sections')} className="flex flex-wrap gap-2 @2xl:sticky @2xl:top-2 @2xl:w-56 @2xl:shrink-0 @2xl:flex-col @2xl:gap-1">
             {sections.map((s) => {
               const changed = s.cats.reduce((n, c) => n + (changedBy[c] ?? 0), 0);
               return (
@@ -240,6 +240,7 @@ export function SettingsForm(p: Props) {
             {active?.cats.map(category)}
             {!active && <p className="text-muted">{t('settings.nothing')}</p>}
           </div>
+        </div>
         </div>
       )}
     </div>
