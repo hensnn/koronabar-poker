@@ -241,39 +241,47 @@ export function MessagesPage() {
   const visibleUsers = users.filter((u) => u.status !== 'blocked' && u.nickname.toLowerCase().includes(userQuery.toLowerCase())).slice(0, 80);
   const channelLabel = (c: Channel) => t(`messages.channel.${c}`);
 
+  const roleChecks = (keys: string[], key: 'roleKeys' | 'excludeRoleKeys') =>
+    roles.map((r) => (
+      <label key={r.key} className="flex items-center gap-1">
+        <input type="checkbox" checked={keys.includes(r.key)} onChange={(e) => setAudience({ ...audience, [key]: toggle(keys, r.key, e.target.checked) })} />
+        {r.name}
+      </label>
+    ));
+
   return (
     <div className="flex flex-col gap-3">
-      <Notice>{t('messages.help')}</Notice>
+      <details className="rounded-md border border-line px-3 py-1 text-sm">
+        <summary className="cursor-pointer font-medium">{t('messages.helpToggle')}</summary>
+        <p className="py-1 text-muted">{t('messages.help')}</p>
+      </details>
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
 
       <Card title={t('messages.templates')}>
-        <div className="flex flex-wrap items-end gap-2">
-          <Select label={t('messages.tpl.tournament')} value={audience.tournamentId} onChange={(e) => setAudience({ ...audience, tournamentId: e.target.value })}>
-            <option value="">{t('messages.tpl.noTournament')}</option>
-            {tours.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name} ({x.players})
-              </option>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+            <Select label={t('messages.tpl.tournament')} value={audience.tournamentId} onChange={(e) => setAudience({ ...audience, tournamentId: e.target.value })}>
+              <option value="">{t('messages.tpl.noTournament')}</option>
+              {tours.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name} ({x.players})
+                </option>
+              ))}
+            </Select>
+            {TEMPLATES.map((id) => (
+              <Button key={id} onClick={() => { setCurrentTpl(''); applyTemplate(id); }}>
+                {t(`messages.tpl.${id}`)}
+              </Button>
             ))}
-          </Select>
-          {TEMPLATES.map((id) => (
-            <Button key={id} onClick={() => { setCurrentTpl(''); applyTemplate(id); }}>
-              {t(`messages.tpl.${id}`)}
-            </Button>
-          ))}
-        </div>
-        <div className="mt-3 flex flex-col gap-2">
-          <span className="font-medium">{t('messages.customTitle')}</span>
-          {custom.length === 0 && <p className="text-sm text-muted">{t('messages.customEmpty')}</p>}
-          <div className="flex flex-wrap gap-2">
+          </div>
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+            <span className="pb-1.5 font-medium" title={custom.length === 0 ? t('messages.customEmpty') : undefined}>{t('messages.customTitle')}</span>
             {custom.map((c) => (
               <Button key={c.id} variant={c.id === currentTpl ? 'primary' : 'secondary'} onClick={() => applyCustom(c)}>
                 {c.name}
               </Button>
             ))}
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <TextInput label={t('messages.tplName')} value={tplName} maxLength={80} onChange={(e) => setTplName(e.target.value)} hint={t('messages.tplHint')} />
+            <TextInput label={t('messages.tplName')} value={tplName} maxLength={80} title={t('messages.tplHint')} onChange={(e) => setTplName(e.target.value)} />
             <Button disabled={!tplName.trim() || !title.trim() || !body.trim()} onClick={() => void saveTemplate(true)}>
               {t('messages.tplSaveNew')}
             </Button>
@@ -287,115 +295,115 @@ export function MessagesPage() {
         </div>
       </Card>
 
-      <Card title={t('messages.audience')}>
+      <div className="grid gap-3 lg:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <label className="flex items-center gap-2 font-medium">
-            <input type="checkbox" checked={audience.everyone} onChange={(e) => setAudience({ ...audience, everyone: e.target.checked })} />
-            {t('messages.everyone')}
-          </label>
-          <div className="flex flex-col gap-1">
-            <span className="font-medium">{t('messages.roles')}</span>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {roles.map((r) => (
-                <label key={r.key} className="flex items-center gap-1">
-                  <input type="checkbox" checked={audience.roleKeys.includes(r.key)} onChange={(e) => setAudience({ ...audience, roleKeys: toggle(audience.roleKeys, r.key, e.target.checked) })} />
-                  {r.name}
-                </label>
-              ))}
-            </div>
-          </div>
-          <Select label={t('messages.registered')} value={audience.tournamentId} onChange={(e) => setAudience({ ...audience, tournamentId: e.target.value })}>
-            <option value="">{t('messages.registeredNone')}</option>
-            {tours.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name} ({x.players})
-              </option>
-            ))}
-          </Select>
-          <div className="flex flex-col gap-1">
-            <TextInput label={t('messages.people')} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} />
-            <ul className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-md border border-line p-2">
-              {visibleUsers.map((u) => (
-                <li key={u.id}>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={audience.userIds.includes(u.id)} onChange={(e) => setAudience({ ...audience, userIds: toggle(audience.userIds, u.id, e.target.checked) })} />
-                    {u.nickname}
-                  </label>
-                </li>
-              ))}
-              {visibleUsers.length === 0 && <li className="text-sm text-muted">{t('messages.peopleNone')}</li>}
-            </ul>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="font-medium">{t('messages.exclude')}</span>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {roles.map((r) => (
-                <label key={r.key} className="flex items-center gap-1">
-                  <input type="checkbox" checked={audience.excludeRoleKeys.includes(r.key)} onChange={(e) => setAudience({ ...audience, excludeRoleKeys: toggle(audience.excludeRoleKeys, r.key, e.target.checked) })} />
-                  {r.name}
-                </label>
-              ))}
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={audience.excludeSelf} onChange={(e) => setAudience({ ...audience, excludeSelf: e.target.checked })} />
-                {t('messages.excludeSelf')}
-              </label>
-            </div>
-          </div>
-        </div>
-      </Card>
 
-      <Card title={t('messages.compose')}>
-        <div className="flex flex-col gap-3">
-          <TextInput label={t('messages.subject')} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} hint={t('messages.variables')} />
-          <TextArea label={t('messages.text')} value={body} rows={8} maxLength={4000} onChange={(e) => setBody(e.target.value)} />
-          <TextInput label={t('messages.link')} value={link} onChange={(e) => setLink(e.target.value)} hint={t('messages.linkHint')} />
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <span className="font-medium">{t('messages.channels')}</span>
-            {(['app', 'push', 'email'] as const).map((c) => (
-              <label key={c} className="flex items-center gap-1">
-                <input type="checkbox" checked={channels.includes(c)} onChange={(e) => setChannels(toggle(channels, c, e.target.checked) as Channel[])} />
-                {channelLabel(c)}
-              </label>
-            ))}
-          </div>
-        </div>
-      </Card>
-
-      <Card title={t('messages.preview')}>
-        <div className="flex flex-col gap-2">
-          {previewError && <Notice kind="error">{previewError}</Notice>}
-          {!ready && <p className="text-sm text-muted">{t('messages.previewWait')}</p>}
-          {preview && (
-            <>
-              <p className="font-medium">
-                {t('messages.previewCount', { n: preview.count })}
-                {channels.includes('email') && <span className="text-sm font-normal text-muted"> · {t('messages.previewEmail', { n: preview.emailable, none: preview.noEmail })}</span>}
-              </p>
-              {preview.tooMany && <Notice kind="error">{t('messages.tooMany')}</Notice>}
-              <div className="flex flex-wrap gap-1">
-                {preview.names.map((n) => (
-                  <Badge key={n}>{n}</Badge>
-                ))}
-                {preview.count > preview.names.length && <Badge>+{preview.count - preview.names.length}</Badge>}
+          <Card title={t('messages.audience')}>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <label className="flex items-center gap-2 font-medium">
+                  <input type="checkbox" checked={audience.everyone} onChange={(e) => setAudience({ ...audience, everyone: e.target.checked })} />
+                  {t('messages.everyone')}
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={audience.excludeSelf} onChange={(e) => setAudience({ ...audience, excludeSelf: e.target.checked })} />
+                  {t('messages.excludeSelf')}
+                </label>
               </div>
-              {preview.sample && (
-                <div className="rounded-md border border-line bg-raised p-3 text-sm">
-                  <strong>{preview.sample.title}</strong>
-                  <div className="whitespace-pre-wrap">{preview.sample.body}</div>
-                </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
+                <span className="font-medium">{t('messages.roles')}</span>
+                {roleChecks(audience.roleKeys, 'roleKeys')}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
+                <span className="font-medium">{t('messages.exclude')}</span>
+                {roleChecks(audience.excludeRoleKeys, 'excludeRoleKeys')}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Select label={t('messages.registered')} value={audience.tournamentId} onChange={(e) => setAudience({ ...audience, tournamentId: e.target.value })}>
+                  <option value="">{t('messages.registeredNone')}</option>
+                  {tours.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name} ({x.players})
+                    </option>
+                  ))}
+                </Select>
+                <TextInput label={t('messages.people')} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} />
+              </div>
+              <ul className="grid max-h-28 grid-cols-2 gap-x-3 gap-y-0.5 overflow-y-auto rounded-md border border-line p-2 sm:grid-cols-3">
+                {visibleUsers.map((u) => (
+                  <li key={u.id}>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={audience.userIds.includes(u.id)} onChange={(e) => setAudience({ ...audience, userIds: toggle(audience.userIds, u.id, e.target.checked) })} />
+                      {u.nickname}
+                    </label>
+                  </li>
+                ))}
+                {visibleUsers.length === 0 && <li className="col-span-full text-sm text-muted">{t('messages.peopleNone')}</li>}
+              </ul>
+            </div>
+          </Card>
+
+          <Card title={t('messages.preview')}>
+            <div className="flex flex-col gap-2">
+              {previewError && <Notice kind="error">{previewError}</Notice>}
+              {!ready && <p className="text-sm text-muted">{t('messages.previewWait')}</p>}
+              {preview && (
+                <>
+                  <p className="font-medium">
+                    {t('messages.previewCount', { n: preview.count })}
+                    {channels.includes('email') && <span className="text-sm font-normal text-muted"> · {t('messages.previewEmail', { n: preview.emailable, none: preview.noEmail })}</span>}
+                  </p>
+                  {preview.tooMany && <Notice kind="error">{t('messages.tooMany')}</Notice>}
+                  <div className="flex max-h-16 flex-wrap gap-1 overflow-y-auto">
+                    {preview.names.map((n) => (
+                      <Badge key={n}>{n}</Badge>
+                    ))}
+                    {preview.count > preview.names.length && <Badge>+{preview.count - preview.names.length}</Badge>}
+                  </div>
+                  {preview.sample && (
+                    <div className="max-h-48 overflow-y-auto rounded-md border border-line bg-raised p-3 text-sm">
+                      <strong>{preview.sample.title}</strong>
+                      <div className="whitespace-pre-wrap">{preview.sample.body}</div>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={busy || !ready} onClick={() => void send(true)}>
-              {t('messages.sendTest')}
-            </Button>
-            <Button variant="primary" disabled={busy || !ready || !preview || preview.count === 0 || preview.tooMany} onClick={() => void send(false)}>
-              {t('messages.send')}
-            </Button>
-          </div>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={busy || !ready} onClick={() => void send(true)}>
+                  {t('messages.sendTest')}
+                </Button>
+                <Button variant="primary" disabled={busy || !ready || !preview || preview.count === 0 || preview.tooMany} onClick={() => void send(false)}>
+                  {t('messages.send')}
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+
+        <div className="flex flex-col gap-3">
+          <Card title={t('messages.compose')}>
+            <div className="flex flex-col gap-2">
+              <TextInput label={t('messages.subject')} value={title} maxLength={120} title={t('messages.variables')} placeholder={t('messages.variables')} onChange={(e) => setTitle(e.target.value)} />
+              <TextArea label={t('messages.text')} value={body} rows={9} maxLength={4000} onChange={(e) => setBody(e.target.value)} />
+              <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
+                <div className="min-w-48 flex-1">
+                  <TextInput label={t('messages.link')} value={link} title={t('messages.linkHint')} onChange={(e) => setLink(e.target.value)} />
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-1">
+                  <span className="font-medium">{t('messages.channels')}</span>
+                  {(['app', 'push', 'email'] as const).map((c) => (
+                    <label key={c} className="flex items-center gap-1">
+                      <input type="checkbox" checked={channels.includes(c)} onChange={(e) => setChannels(toggle(channels, c, e.target.checked) as Channel[])} />
+                      {channelLabel(c)}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+        </div>
+      </div>
 
       <Card title={t('messages.history')}>
         {history.length === 0 && <p className="text-sm text-muted">{t('messages.historyEmpty')}</p>}
