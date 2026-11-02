@@ -1,10 +1,13 @@
 import { useDensity } from '../density';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button, NumInput } from '../ui';
 import {
   categoryKey,
-  groupOf,
-  SPECIAL_GROUPS,
+  categoryRank,
+  panelGroupIds,
+  panelGroupOf,
+  SECTIONS,
+  sectionOf,
   helpKey,
   isVisible,
   labelKey,
@@ -80,23 +83,62 @@ export function orderCategories(cats: string[], first?: string[]): string[] {
   return cats.map((c) => (CATEGORY_ORDER.includes(c) ? wanted[i++]! : c));
 }
 
-/** Formulář vygenerovaný z registru nastavení: žádný parametr se nepíše ručně. */
+/** Rozbalovací panel: hlavička s názvem, počtem položek a odznakem změn; obsah se ukáže po rozbalení. */
+function Panel({ title, open, onToggle, count, changed, dotClass, headClass = '', level = 1, children }: { title: string; open: boolean; onToggle: () => void; count: number; changed: number; dotClass?: string; headClass?: string; level?: 1 | 2; children: ReactNode }) {
+  return (
+    <section className={`rounded-md border ${level === 1 ? 'border-line bg-surface' : 'border-line bg-raised'}`}>
+      <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-center px-3 py-2 gap-2 text-left">
+        <span aria-hidden="true" className="w-4 shrink-0 text-muted">{open ? '▾' : '▸'}</span>
+        {dotClass && <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />}
+        <span className={`min-w-0 flex-1 ${level === 1 ? `text-base font-bold ${headClass}` : 'font-semibold text-text'}`}>{title}</span>
+        {changed > 0 && (
+          <span className="rounded-full bg-accent px-1.5 text-xs text-on-act" title={t('settings.changedInCategory', { n: changed })}>
+            {changed}
+          </span>
+        )}
+        <span className="shrink-0 text-xs text-muted">{t('settings.panelCount', { n: count })}</span>
+      </button>
+      {open && <div className="flex flex-col gap-2 border-t border-line p-3">{children}</div>}
+    </section>
+  );
+}
+
+/** Formulář vygenerovaný z registru nastavení: žádný parametr se nepíše ručně. Oddíl (postranní panel) → kategorie (panel) → podskupina (vnořený panel). */
 export function SettingsForm(p: Props) {
   const [query, setQuery] = useState('');
   const [onlyChanged, setOnlyChanged] = useState(false);
-  const cats = useMemo(
-    () => orderCategories(p.registry.categories().filter((c) => p.registry.all().some((d) => d.category === c && p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind))), p.categoryOrder),
-    [p.registry, p.allowedKeys, p.values, p.gameKind, p.categoryOrder],
-  );
+  // Všechny panely jsou po otevření sbalené; klíč je „kategorie“ nebo „kategorie/podskupina“.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+
+  const byCat = useMemo(() => {
+    const m = new Map<string, SettingDef[]>();
+    for (const d of p.registry.all()) {
+      if (!p.allowedKeys(d) || !isVisible(p.registry, d.key, p.values, p.gameKind)) continue;
+      m.set(d.category, [...(m.get(d.category) ?? []), d]);
+    }
+    return m;
+  }, [p.registry, p.allowedKeys, p.values, p.gameKind]);
   const changedBy = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const d of p.registry.all()) if (p.allowedKeys(d) && isVisible(p.registry, d.key, p.values, p.gameKind) && p.origins[d.key] === p.editScope) out[d.category] = (out[d.category] ?? 0) + 1;
+    for (const [c, defs] of byCat) out[c] = defs.filter((d) => p.origins[d.key] === p.editScope).length;
     return out;
-  }, [p.registry, p.allowedKeys, p.values, p.origins, p.editScope, p.gameKind]);
+  }, [byCat, p.origins, p.editScope]);
   const changedTotal = Object.values(changedBy).reduce((a, b) => a + b, 0);
-  const [active, setActive] = useState(cats[0] ?? '');
-  const current = cats.includes(active) ? active : cats[0];
-  const q = fold(query);
+
+  // Oddíly s alespoň jednou viditelnou kategorií; uvnitř oddílu pořadí z `SECTIONS` (osobní nastavení smí mít vlastní).
+  const sections = useMemo(() => {
+    const cats = [...byCat.keys()];
+    const ids = [...SECTIONS.map((s) => s.id as string), 'other'];
+    return ids
+      .map((id) => {
+        const inSection = cats.filter((c) => sectionOf(c) === id).sort((a, b) => categoryRank(a) - categoryRank(b));
+        return { id, cats: p.categoryOrder ? orderCategories(inSection, p.categoryOrder) : inSection };
+      })
+      .filter((s) => s.cats.length > 0);
+  }, [byCat, p.categoryOrder]);
+  const [activeId, setActiveId] = useState(sections[0]?.id ?? '');
+  const active = sections.find((s) => s.id === activeId) ?? sections[0];
   const allCats = useMemo(() => p.registry.categories(), [p.registry]);
   // Příbuzné skupiny (všechny „Turnaj: …“) mají stejný odstín, ostatní se střídají.
   const tone = (c: string) => {
@@ -107,84 +149,99 @@ export function SettingsForm(p: Props) {
   };
 
   // Fulltext: všechna slova dotazu se musí najít v názvu, nápovědě, klíči, kategorii nebo názvech možností.
+  const q = fold(query);
   const words = q.split(/\s+/).filter(Boolean);
   const matches = (d: SettingDef) => {
     const hay = fold([t(labelKey(d.key)), t(helpKey(d.key)), d.key, t(categoryKey(d.category)), ...(d.type === 'enum' ? d.options.map((o) => t(optionKey(d.key, o))) : [])].join(' '));
     return words.every((w) => hay.includes(w));
   };
-  const defs = p.registry
-    .all()
-    .filter((d) => p.allowedKeys(d))
-    .filter((d) => (q ? matches(d) : onlyChanged || d.category === current))
-    .filter((d) => !onlyChanged || p.origins[d.key] === p.editScope)
-    .filter((d) => isVisible(p.registry, d.key, p.values, p.gameKind));
-  // Uvnitř Speciálních prvků se nastavení řadí podle podskupin (stabilní řazení drží původní pořadí uvnitř skupiny).
-  const groupIdx = (d: SettingDef) => {
-    const g = groupOf(d.key, d.category);
-    return g ? SPECIAL_GROUPS.indexOf(g) : -1;
+  const flat = Boolean(q) || onlyChanged;
+  const found = flat
+    ? sections
+        .flatMap((s) => s.cats)
+        .flatMap((c) => byCat.get(c) ?? [])
+        .filter((d) => (!q || matches(d)) && (!onlyChanged || p.origins[d.key] === p.editScope))
+    : [];
+
+  const row = (d: SettingDef) => <Row key={d.key} def={d} {...p} rowClass={`border-l-4 ${tone(d.category).row}`} />;
+  const setAll = (value: boolean) => {
+    const keys = (active?.cats ?? []).flatMap((c) => [c, ...panelGroupIds(c).map((g) => `${c}/${g}`)]);
+    setOpen((o) => ({ ...o, ...Object.fromEntries(keys.map((k) => [k, value])) }));
   };
-  if (!q && !onlyChanged) defs.sort((a, b) => groupIdx(a) - groupIdx(b));
+
+  const category = (c: string) => {
+    const defs = byCat.get(c) ?? [];
+    const groups = panelGroupIds(c);
+    const tn = tone(c);
+    return (
+      <Panel key={c} title={t(categoryKey(c))} open={Boolean(open[c])} onToggle={() => toggle(c)} count={defs.length} changed={changedBy[c] ?? 0} dotClass={tn.dot} headClass={tn.head}>
+        {groups.length === 0
+          ? defs.map(row)
+          : groups.map((g) => {
+              const inGroup = defs.filter((d) => panelGroupOf(d.key, c) === g);
+              if (inGroup.length === 0) return null;
+              const id = `${c}/${g}`;
+              return (
+                <Panel key={g} level={2} title={t(`settings.group.${g}`)} open={Boolean(open[id])} onToggle={() => toggle(id)} count={inGroup.length} changed={inGroup.filter((d) => p.origins[d.key] === p.editScope).length}>
+                  {inGroup.map(row)}
+                </Panel>
+              );
+            })}
+      </Panel>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
-      <input
-        className={field}
-        type="search"
-        placeholder={t('settings.search')}
-        aria-label={t('settings.search')}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <input className={field} type="search" placeholder={t('settings.search')} aria-label={t('settings.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" role="switch" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
         {t('settings.onlyChanged', { n: changedTotal })}
       </label>
-      {!q && !onlyChanged && (
-        <div role="tablist" className="flex flex-wrap gap-2">
-          {cats.map((c) => (
-            <button
-              key={c}
-              role="tab"
-              aria-selected={c === current}
-              onClick={() => setActive(c)}
-              className={`flex items-center gap-2 rounded-md border px-3 py-1 border-l-4 ${tone(c).tab} ${
-                c === current ? `${tone(c).box} bg-raised font-semibold text-text` : 'border-line bg-surface text-text'
-              }`}
-            >
-              <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(c).dot}`} />
-              {t(categoryKey(c))}
-              {(changedBy[c] ?? 0) > 0 && (
-                <span className="rounded-full bg-accent px-1.5 text-xs text-on-act" title={t('settings.changedInCategory', { n: changedBy[c] ?? 0 })}>
-                  {changedBy[c]}
-                </span>
+      {flat ? (
+        <div className="flex flex-col gap-3 rounded-md border-2 border-line p-3">
+          {found.map((d, i) => (
+            <div key={d.key} className="flex flex-col gap-1">
+              {(i === 0 || found[i - 1]!.category !== d.category) && (
+                <h3 className={`mt-2 flex items-center gap-2 text-sm font-bold ${tone(d.category).head}`}>
+                  <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(d.category).dot}`} />
+                  {t(categoryKey(d.category))}
+                </h3>
               )}
-            </button>
+              {row(d)}
+            </div>
           ))}
+          {found.length === 0 && <p className="text-muted">{q ? t('settings.searchNone') : t('settings.nothing')}</p>}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4 md:flex-row md:items-start">
+          <nav aria-label={t('settings.sections')} className="flex flex-wrap gap-2 md:sticky md:top-2 md:w-56 md:shrink-0 md:flex-col md:gap-1">
+            {sections.map((s) => {
+              const changed = s.cats.reduce((n, c) => n + (changedBy[c] ?? 0), 0);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-current={s.id === active?.id ? 'page' : undefined}
+                  onClick={() => setActiveId(s.id)}
+                  className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-left ${s.id === active?.id ? 'border-primary bg-raised font-semibold text-text' : 'border-line bg-surface text-text'}`}
+                >
+                  {t(`settings.section.${s.id}`)}
+                  {changed > 0 && <span className="rounded-full bg-accent px-1.5 text-xs text-on-act">{changed}</span>}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <button type="button" className="underline" onClick={() => setAll(true)}>{t('settings.expandAll')}</button>
+              <button type="button" className="underline" onClick={() => setAll(false)}>{t('settings.collapseAll')}</button>
+            </div>
+            {active?.cats.map(category)}
+            {!active && <p className="text-muted">{t('settings.nothing')}</p>}
+          </div>
         </div>
       )}
-      <div className={`flex flex-col gap-3 rounded-md border-2 p-3 ${q ? 'border-line' : tone(current ?? '').box}`}>
-        {!q && !onlyChanged && current && (
-          <h3 className={`flex items-center gap-2 text-lg font-bold ${tone(current).head}`}>
-            <span aria-hidden="true" className={`inline-block h-3 w-3 rounded-full ${tone(current).dot}`} />
-            {t(categoryKey(current))}
-          </h3>
-        )}
-        {defs.map((d, i) => (
-          <div key={d.key} className="flex flex-col gap-1">
-            {!q && !onlyChanged && groupOf(d.key, d.category) && (i === 0 || groupOf(defs[i - 1]!.key, defs[i - 1]!.category) !== groupOf(d.key, d.category)) && (
-              <h4 className="mt-3 border-b border-line pb-1 font-heading text-base font-bold text-text">{t(`settings.group.${groupOf(d.key, d.category)}`)}</h4>
-            )}
-            {(q || onlyChanged) && (i === 0 || defs[i - 1]!.category !== d.category) && (
-              <h3 className={`mt-2 flex items-center gap-2 text-sm font-bold ${tone(d.category).head}`}>
-                <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${tone(d.category).dot}`} />
-                {t(categoryKey(d.category))}
-              </h3>
-            )}
-            <Row def={d} {...p} rowClass={`border-l-4 ${tone(d.category).row}`} />
-          </div>
-        ))}
-        {defs.length === 0 && <p className="text-muted">{q ? t('settings.searchNone') : t('settings.nothing')}</p>}
-      </div>
     </div>
   );
 }

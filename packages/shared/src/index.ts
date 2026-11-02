@@ -1,5 +1,6 @@
 export * from './settings/types.js';
 export * from './settings/groups.js';
+export * from './settings/sections.js';
 export * from './settings/registry.js';
 export * from './settings/resolve.js';
 export * from './settings/validate.js';
