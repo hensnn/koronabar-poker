@@ -114,6 +114,8 @@ const levelText = (l: LevelDto | null): string => (l ? `${l.smallBlind}/${l.bigB
 
 // ---------- přehled turnajů ----------
 
+const FILTER_KEY = 'kb.tournaments.showFinished';
+
 export function TournamentsPage() {
   const { me } = useSession();
   const [data, setData] = useState<{ tournaments: Summary[]; templates: Template[] } | null>(null);
@@ -121,7 +123,22 @@ export function TournamentsPage() {
   const [creating, setCreating] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [tab, setTab] = useState<'list' | 'calendar' | 'series'>('list');
-  const [filter, setFilter] = useState<'open' | 'all'>('open');
+  // Volba „Ukázat i skončené“ se pamatuje v prohlížeči, aby se nemusela zapínat pokaždé.
+  const [filter, setFilterState] = useState<'open' | 'all'>(() => {
+    try {
+      return localStorage.getItem(FILTER_KEY) === 'all' ? 'all' : 'open';
+    } catch {
+      return 'open';
+    }
+  });
+  const setFilter = (v: 'open' | 'all') => {
+    setFilterState(v);
+    try {
+      localStorage.setItem(FILTER_KEY, v);
+    } catch {
+      /* bez uložení */
+    }
+  };
   const reload = useCallback(() => {
     get<{ tournaments: Summary[]; templates: Template[] }>('/api/tournaments')
       .then((d) => {
