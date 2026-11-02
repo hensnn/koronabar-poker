@@ -58,9 +58,9 @@ Výsledky poslední kontroly jsou na konci tohoto dokumentu.
 
 ## Výsledky poslední kontroly (2. 11. 2026)
 
-- : bez chyb.
-- : bez chyb.
-- : projde, jen tři varování INEFFECTIVE_DYNAMIC_IMPORT.
-- : 150 souborů a 1297 testů prošlo, 1 přeskočený; běh se zastavil na časovém limitu v .
--  spuštěný zvlášť: 5 z 5 prošlo (zhruba 5 minut).
+- `pnpm typecheck`: bez chyb.
+- `pnpm lint`: bez chyb.
+- `pnpm build`: projde, jen tři varování INEFFECTIVE_DYNAMIC_IMPORT.
+- `pnpm test`: 150 souborů a 1297 testů prošlo, 1 přeskočený; běh se zastavil na časovém limitu v `scenario-matrix.test.ts`.
+- `scenario-matrix.test.ts` spuštěný zvlášť: 5 z 5 prošlo (zhruba 5 minut).
 - Prohlížeč (telefon 375 px): úprava šablony na celou obrazovku bez vodorovného posuvu, lišta neuložených změn viditelná, bez chyb aplikace v konzoli.
