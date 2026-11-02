@@ -10,7 +10,7 @@ import { SummaryTable, type TournamentSummary } from './tournament-result';
 import { ShareToChat } from './chat-extras';
 import { CalendarPanel, fmtDate, PlansPanel, ScheduleDialog, SeriesPanel } from './planning';
 import { CreateDialog, EditDialog, type Template } from './lobby';
-import { MoneyPreview, RebuyCard, StructureEditor, TournamentBasics } from './structure-editor';
+import { MoneyPreview, StructureEditor, TournamentBasics } from './structure-editor';
 import { RulesDialog } from './rules';
 import { LiveDirectorPanel } from './live';
 import { useAnnounceRoom } from '../announcer/host';
@@ -254,7 +254,6 @@ export function TournamentsPage() {
               )}
               <StructureEditor values={values} set={set} />
               <MoneyPreview values={values} />
-              <RebuyCard values={values} set={set} />
               {values['tournament.payoutPreset'] === 'custom' && <PayoutEditor values={values} set={set} />}
             </>
           )}
@@ -810,7 +809,6 @@ export function TournamentPage({ id }: { id: string }) {
             <>
               <StructureEditor values={values} set={set} />
               <MoneyPreview values={values} />
-              <RebuyCard values={values} set={set} />
             </>
           )}
           onClose={() => {

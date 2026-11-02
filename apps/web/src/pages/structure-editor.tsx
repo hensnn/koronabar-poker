@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { computePayouts, estimateTournament, formatStructure, generateStructure, labelKey, optionKey, parseStructure, percentsFor, scopeAllowed, scaleStructure, STRUCTURE_PRESETS, t, type Level, type PayoutPreset, type SettingValue, type SettingValues } from '@kb/shared';
 import { get } from '../api';
 import { registry } from '../settings';
@@ -47,6 +47,21 @@ export function EstimateLine({ values, players }: { values: SettingValues; playe
   const e = useMemo(() => estimateTournament(values, { players }), [values, players]);
   if (e.minutes === null) return <span className="text-danger">{t('tournament.estimateNone')}</span>;
   return <span className="text-sm">{t('tournament.estimateResult', { minutes: e.minutes, from: e.range![0], to: e.range![1], levels: e.levels ?? 0 })}</span>;
+}
+
+/** Sbalitelná karta: v hlavičce název a stručné shrnutí, obsah se ukáže po rozbalení. */
+function Fold({ title, summary, children }: { title: string; summary?: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="kd-card rounded-lg border border-line bg-surface">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-left">
+        <span aria-hidden="true" className="w-4 shrink-0 text-muted">{open ? '▾' : '▸'}</span>
+        <h2 className="font-heading text-lg font-bold">{title}</h2>
+        {summary && <span className="min-w-0 text-sm text-muted">{summary}</span>}
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </section>
+  );
 }
 
 /** Číselné pole s popiskem z registru nastavení. */
@@ -193,7 +208,7 @@ export function StructureEditor({ values, set }: { values: SettingValues; set: S
   };
   const generate = () => set('tournament.structure', formatStructure(levelsFor({ ...values, 'tournament.structure': '' }, n).levels));
   return (
-    <Card title={t('tournament.structure')}>
+    <Fold title={t('tournament.structure')} summary={preview.error ? undefined : <EstimateLine values={values} players={n} />}>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
@@ -264,7 +279,7 @@ export function StructureEditor({ values, set }: { values: SettingValues; set: S
           </>
         )}
       </div>
-    </Card>
+    </Fold>
   );
 }
 
@@ -296,7 +311,7 @@ export function MoneyPreview({ values }: { values: SettingValues; set?: Set }) {
     }
   }, [values, n, total]);
   return (
-    <Card title={t('money.title')}>
+    <Fold title={t('money.title')} summary={t('money.playerPays', { total: buyIn + fee, buyIn, fee })}>
       <div className="flex flex-col gap-3">
         <label className="flex items-center gap-1 text-sm">
           {t('structure.players')}
@@ -328,47 +343,6 @@ export function MoneyPreview({ values }: { values: SettingValues; set?: Set }) {
           </div>
         )}
       </div>
-    </Card>
-  );
-}
-
-/** Rebuy, add-on a re-entry podrobně: žetony, do kterého levelu, kolikrát. */
-export function RebuyCard({ values, set }: { values: SettingValues; set: Set }) {
-  return (
-    <Card title={t('rebuy.title')}>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2">
-          <Toggle k="tournament.rebuyEnabled" values={values} set={set} />
-          {values['tournament.rebuyEnabled'] && (
-            <div className="flex flex-wrap items-center gap-3 pl-6">
-              <NumField k="tournament.rebuyCost" values={values} set={set} min={1} />
-              <NumField k="tournament.rebuyChips" values={values} set={set} min={1} />
-              <NumField k="tournament.rebuyUntilLevel" values={values} set={set} min={1} />
-              <NumField k="tournament.rebuyMax" values={values} set={set} min={1} />
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col gap-2">
-          <Toggle k="tournament.addonEnabled" values={values} set={set} />
-          {values['tournament.addonEnabled'] && (
-            <div className="flex flex-wrap items-center gap-3 pl-6">
-              <NumField k="tournament.addonCost" values={values} set={set} min={1} />
-              <NumField k="tournament.addonChips" values={values} set={set} min={1} />
-              <NumField k="tournament.addonFromLevel" values={values} set={set} min={1} />
-              <NumField k="tournament.addonUntilLevel" values={values} set={set} min={1} />
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col gap-2">
-          <Toggle k="tournament.reentryEnabled" values={values} set={set} />
-          {values['tournament.reentryEnabled'] && (
-            <div className="flex flex-wrap items-center gap-3 pl-6">
-              <NumField k="tournament.reentryMax" values={values} set={set} min={1} />
-            </div>
-          )}
-        </div>
-        <p className="text-sm text-muted">{t('rebuy.hint')}</p>
-      </div>
-    </Card>
+    </Fold>
   );
 }

@@ -5,7 +5,7 @@ import { registry } from '../../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, DataTable, Modal, Notice, Select, Td, TextArea, TextInput } from '../../ui';
 import { BulkTemplateEditor } from './templates-bulk';
-import { MoneyPreview, RebuyCard, StructureEditor, TournamentBasics } from '../structure-editor';
+import { MoneyPreview, StructureEditor, TournamentBasics } from '../structure-editor';
 
 interface Template {
   id: string;
@@ -213,7 +213,6 @@ function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template
           <>
             <StructureEditor values={resolved.values} set={setOne} />
             <MoneyPreview values={resolved.values} />
-            <RebuyCard values={resolved.values} set={setOne} />
           </>
         )}
         {gameKind === 'tournament' && <Button onClick={() => setAdvanced(!advanced)}>{advanced ? t('lobby.hideAdvanced') : t('lobby.showAdvanced')}</Button>}
