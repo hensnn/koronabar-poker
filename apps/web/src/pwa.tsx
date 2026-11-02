@@ -49,11 +49,11 @@ export function useInstall(): { state: 'installed' | 'available' | 'ios' | 'unsu
 /** Karta „Nainstalovat aplikaci“ (v profilu). */
 export function InstallCard() {
   const { state, install } = useInstall();
-  if (state === 'unsupported') return null;
   return (
     <div className="flex flex-col gap-2 rounded-md border border-line p-3">
       <h3 className="font-bold">{t('pwa.install')}</h3>
       {state === 'installed' && <p className="text-sm text-muted">{t('pwa.installed')}</p>}
+      {state === 'unsupported' && <p className="text-sm text-muted">{t('pwa.installManual')}</p>}
       {state === 'available' && (
         <>
           <p className="text-sm text-muted">{t('pwa.installHelp')}</p>
@@ -65,6 +65,7 @@ export function InstallCard() {
         </>
       )}
       {state === 'ios' && <p className="text-sm text-muted">{t('pwa.installIos')}</p>}
+      <p className="text-sm text-muted">{t('pwa.otherDevices')}</p>
     </div>
   );
 }

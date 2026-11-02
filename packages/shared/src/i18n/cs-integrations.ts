@@ -6,6 +6,8 @@ export const csIntegrations: Record<string, string> = {
   'pwa.installed': 'Aplikace je nainstalovaná a otevřená jako samostatné okno.',
   'pwa.installHelp': 'Nainstaluj si hernu jako aplikaci: bude mít vlastní ikonu a okno a upozornění ti budou chodit i při zavřeném prohlížeči.',
   'pwa.installButton': 'Nainstalovat',
+  'pwa.installManual': 'Tlačítko tu není, protože prohlížeč instalaci nenabízí (aplikace už na tomto zařízení může být nainstalovaná). Zkus ručně: v Chrome nebo Edge nabídka ⋮ → „Nainstalovat aplikaci“ (v Androidu „Přidat na plochu“), v Safari na iPhonu Sdílet → „Přidat na plochu“.',
+  'pwa.otherDevices': 'Na dalším zařízení (mobil, tablet, jiný počítač) otevři v prohlížeči adresu herny a nainstaluj ji tam stejným postupem; každé zařízení se instaluje zvlášť.',
   'pwa.installIos': 'Na iPhonu a iPadu otevři nabídku Sdílet v Safari a vyber „Přidat na plochu“.',
   'pwa.offline': 'Jsi offline. Hra potřebuje internet, po obnovení připojení se aplikace připojí sama.',
   'unit.d': 'dní',
