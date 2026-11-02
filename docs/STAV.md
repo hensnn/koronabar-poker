@@ -584,3 +584,4 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 
 - Okna a šablony (2. 11. 2026): rozložení formuláře nastavení se řídí šířkou okna (container query), ne obrazovky, takže v úzkém okně šablony nebo stolu jsou oddíly nahoře a ve širokém vlevo. Okno Pravidla stolu používá stejné oddíly a sbalené panely (jen ke čtení).
 - Nastavení na celou obrazovku (2. 11. 2026): Modal má variantu `page` (tlačítko Zpět, bez okna); používá ji úprava a zakládání stolu a turnaje, šablony, hromadná změna šablon a struktury blindů.
+- Popisky nastavení (2. 11. 2026): popis a upozornění k parametru jsou sbalené na konci položky, rozbalí se tlačítkem „?“ a stav se pamatuje v prohlížeči (kb.settings.helpOpen).

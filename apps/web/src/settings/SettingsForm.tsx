@@ -1,4 +1,3 @@
-import { useDensity } from '../density';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button, NumInput } from '../ui';
 import {
@@ -247,6 +246,15 @@ export function SettingsForm(p: Props) {
   );
 }
 
+const HELP_STORE = 'kb.settings.helpOpen';
+function helpOpenKeys(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(HELP_STORE) ?? '[]') as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
 function Row({ def, values, origins, editScope, onChange, onReset, issues, pendingKeys, rowClass = '' }: Props & { def: SettingDef; rowClass?: string }) {
   const value = values[def.key] as SettingValue;
   const unsaved = pendingKeys?.includes(def.key) ?? false;
@@ -258,9 +266,19 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
   const changed = own;
   const when = WHEN[def.mutability] ?? WHEN.anytime!;
   const isBool = def.type === 'bool';
-  // Nápověda je v úsporné hustotě sbalená a rozbalí se klepnutím na „?“; v ostatních hustotách je vidět hned.
-  const density = useDensity();
-  const [helpOpen, setHelpOpen] = useState(density !== 'compact');
+  // Popis a upozornění jsou sbalené na konci položky; rozbalí se klepnutím na „?“ a zapamatuje se to pro každý parametr zvlášť.
+  const [helpOpen, setHelpOpenState] = useState(() => helpOpenKeys().has(def.key));
+  const setHelpOpen = (v: boolean) => {
+    setHelpOpenState(v);
+    const keys = helpOpenKeys();
+    if (v) keys.add(def.key);
+    else keys.delete(def.key);
+    try {
+      localStorage.setItem(HELP_STORE, JSON.stringify([...keys]));
+    } catch {
+      /* úložiště nemusí být dostupné */
+    }
+  };
   const badge = (
     <span className={`ml-2 inline-flex items-center gap-1 rounded-full border px-2 text-xs ${when.cls}`}>
       <span aria-hidden="true">{when.icon}</span>
@@ -284,7 +302,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
                 {when.icon}
               </span>
             )}
-            <button type="button" className="ml-2 rounded-full border border-line px-1.5 text-xs text-muted" aria-expanded={helpOpen} aria-label={t('settings.helpToggle')} title={t('settings.helpToggle')} onClick={() => setHelpOpen((v) => !v)}>
+            <button type="button" className="ml-2 rounded-full border border-line px-1.5 text-xs text-muted" aria-expanded={helpOpen} aria-label={t('settings.helpToggle')} title={t('settings.helpToggle')} onClick={() => setHelpOpen(!helpOpen)}>
               ?
             </button>
             </span>
@@ -298,12 +316,6 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
               )}
             </span>
           </div>
-          {helpOpen && (
-            <p className="text-sm text-muted">
-              {t(helpKey(def.key))}
-              {badge}
-            </p>
-          )}
         </div>
       </div>
       {!isBool && (
@@ -311,6 +323,12 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
           <Control def={def} id={id} value={value} onChange={(v) => onChange(def.key, v)} />
           {buyInInCurrency(def.key, Number(value), values) && <p className="mt-1 text-sm text-muted">= {buyInInCurrency(def.key, Number(value), values)}</p>}
         </div>
+      )}
+      {helpOpen && (
+        <p className="mt-1 border-t border-line pt-1 text-sm text-muted">
+          {t(helpKey(def.key))}
+          {badge}
+        </p>
       )}
       {errs.map((e, i) => (
         <p key={i} role="alert" className="mt-1 text-danger">
