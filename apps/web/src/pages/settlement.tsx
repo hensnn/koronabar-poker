@@ -161,7 +161,6 @@ export function SettlementPanel() {
                 </div>
               </details>
             )}
-            <p className="text-sm text-muted">{t('settlement.virtualNote')}</p>
           </>
         )}
       </div>

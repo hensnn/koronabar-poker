@@ -1,4 +1,4 @@
-/** Tvary názvu měny pro češtinu: 1 Korona, 2 až 4 Korony, 5 a víc Koron (a desetinná čísla: Koruny). */
+/** Tvary názvu měny pro češtinu: 1 Korona, 2 až 4 Korony, 5 a víc Koron (a desetinná čísla: Korony). */
 export type CurrencyForms = readonly [one: string, few: string, many: string];
 
 export function currencyWord(n: number, forms: CurrencyForms): string {

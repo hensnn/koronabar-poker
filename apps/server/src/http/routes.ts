@@ -2198,7 +2198,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const { target, ...rest } = b;
     return reply.send({ id: await svc.wallet.createRequest(need(req).id, { ...rest, payload: target ? { target } : undefined }) });
   }));
-  // Úvěr: předschválená linka (Koruny se při nedostatku na platbu za hru načerpají samy), splátka a správa linek.
+  // Úvěr: předschválená linka (Korony se při nedostatku na platbu za hru načerpají samy), splátka a správa linek.
   app.get('/api/wallet/credit', guard(async (req, reply) => reply.send(svc.wallet.creditInfo(need(req).id))));
   app.post('/api/wallet/credit/repay', guard(async (req, reply) => {
     const b = z.object({ amount }).parse(req.body);

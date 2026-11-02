@@ -177,7 +177,7 @@ export class WalletService {
     return { txId: tx.id };
   }
 
-  /** Kam strhnutá měna jde: do mintu (Koruny zaniknou, opak dobití), nebo na účet domu (např. pokuta jako příjem herny). Bez volby platí nastavení. */
+  /** Kam strhnutá měna jde: do mintu (Korony zaniknou, opak dobití), nebo na účet domu (např. pokuta jako příjem herny). Bez volby platí nastavení. */
   private debitTarget(target?: 'mint' | 'house'): 'mint' | 'house' {
     return target ?? (String(this.deps.settings()['economy.debitTarget']) === 'house' ? 'house' : 'mint');
   }
@@ -195,7 +195,7 @@ export class WalletService {
   }
 
   private async execDebit(actorId: string, p: { userId: string; amount: number; reason: string; to?: 'mint' | 'house' }, meta: WalletMeta = {}) {
-    // Jen ze zůstatku, který hráč opravdu má. Cíl: mint (Koruny zanikají jako opak dobití) nebo dům (příjem herny).
+    // Jen ze zůstatku, který hráč opravdu má. Cíl: mint (Korony zanikají jako opak dobití) nebo dům (příjem herny).
     const to = this.debitTarget(p.to);
     const tx = this.deps.ledger.post({
       kind: 'manual_adjustment',
@@ -315,7 +315,7 @@ export class WalletService {
   }
 
   /**
-   * Předschválený úvěr: když hráči při platbě za hru (vstup, dokoupení, rebuy, sázka) chybí Koruny, doplní se chybějící částka
+   * Předschválený úvěr: když hráči při platbě za hru (vstup, dokoupení, rebuy, sázka) chybí Korony, doplní se chybějící částka
    * z účtu vydání měny jako dluh, pokud se vejde do jeho volného limitu. Jinak se platba zamítne jako dosud.
    */
   private autoCredit = (account: string, shortfall: number, req: TxRequest): TxRequest | null => {
@@ -369,7 +369,7 @@ export class WalletService {
     await this.deps.audit.log({ actorId, action: 'mena.uver_limit', targetType: 'user', targetId: userId, after: { limit }, ...meta });
   }
 
-  /** Splátka úvěru z peněženky zpět na účet vydání měny (Koruny zanikají, dluh klesá). */
+  /** Splátka úvěru z peněženky zpět na účet vydání měny (Korony zanikají, dluh klesá). */
   async creditRepay(userId: string, amount: number, meta: WalletMeta = {}): Promise<{ txId: number }> {
     AMOUNT(amount);
     const debt = this.creditDebt(userId);

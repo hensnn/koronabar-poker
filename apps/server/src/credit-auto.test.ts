@@ -55,7 +55,7 @@ describe('předschválený úvěr při platbě za hru', { timeout: 90_000 }, () 
     await s.server.tournaments.liveRegister(org, id, b);
     expect(s.server.wallet.creditInfo(b).debt).toBe(70);
 
-    // součet celé knihy sedí (vydané Koruny = peněženky + turnaj + dům)
+    // součet celé knihy sedí (vydané Korony = peněženky + turnaj + dům)
     await s.server.journal.flush();
     const rec = (await s.server.wallet.balances(s.admin)).reconciliation;
     expect(rec.issued).toBe(rec.wallets + rec.house + rec.funds + rec.tables + rec.tournaments + rec.external);

@@ -774,7 +774,7 @@ function winningCards(view: TableView): Set<string> | null {
 function AmountDialog({ title, topUp, view, balance: wallet, error, onCancel, onOk }: { title: string; /** Dokoupení: nejvýš do maximálního buy-inu (počítá se se současným stackem). */ topUp?: boolean; view: TableView; balance: number; /** Chyba z posledního pokusu (např. ochrana hit and run): ukáže se přímo v dialogu. */ error?: string; onCancel: () => void; onOk: (currency: number) => void }) {
   const info = view.info;
   const rate = info.chipsPerCurrencyUnit;
-  // Předschválený úvěr: chybějící Koruny se při platbě samy načerpají, takže se počítá s peněženkou plus volným úvěrem.
+  // Předschválený úvěr: chybějící Korony se při platbě samy načerpají, takže se počítá s peněženkou plus volným úvěrem.
   const [credit, setCredit] = useState(0);
   useEffect(() => {
     void get<{ enabled: boolean; available: number }>('/api/wallet/credit').then((c) => setCredit(c.enabled ? c.available : 0)).catch(() => setCredit(0));

@@ -8,7 +8,7 @@ Stav k 1. 11. 2026. Co přesně je hotové a proč, je v `docs/STAV.md` (chronol
 
 ## 1. Co je to za projekt
 
-**KoronaBar Poker**: self-hosted webová pokerová herna pro domácí hry přátel přes internet. Cash game i turnaje, **virtuální měna Korona (Koruny, Koron) bez peněžní hodnoty**, všechno nastavitelné v GUI. Nasazení: Docker Compose za Nginx Proxy Manager, PostgreSQL.
+**KoronaBar Poker**: self-hosted webová pokerová herna pro domácí hry přátel přes internet. Cash game i turnaje, **virtuální měna Korona (Korony, Koron) bez peněžní hodnoty**, všechno nastavitelné v GUI. Nasazení: Docker Compose za Nginx Proxy Manager, PostgreSQL.
 
 ### Nepřekročitelná pravidla (z `CLAUDE.md`, platí vždy)
 1. **Server je jediná autorita.** Klient nikdy nedostane cizí karty ani stav balíčku. Každá akce a zpráva se validuje a kontroluje oprávnění na serveru.
@@ -23,7 +23,7 @@ Stav k 1. 11. 2026. Co přesně je hotové a proč, je v `docs/STAV.md` (chronol
 ### Další pravidla spolupráce
 - Veřejný repozitář: **žádné osobní údaje** (jen zástupné domény a e-maily, commity pod noreply). Dev heslo `vyvoj-heslo-123` je jen vývojové.
 - Texty pro uživatele **nikdy přímo v kódu**, vždy přes překladové soubory (`packages/shared/src/i18n/cs*.ts`). Kód, názvy a komentáře v kódu anglicky nebo česky podle okolí (komentáře v repu jsou převážně česky).
-- **Měna se píše Korona / Koruny / Koron s velkým K** (výslovné přání majitele). Malé „koruna“ jen pro skutečnou korunu (chipleader).
+- **Měna se píše Korona / Korony / Koron s velkým K** (výslovné přání majitele). Malé „koruna“ jen pro skutečnou korunu (chipleader).
 - Commituj po menších logických celcích, česká popisná zpráva, a **až po zelených testech**. Trailer: `Co-Authored-By: <model> <noreply@anthropic.com>`. Push do `origin/main` (jediná větev).
 - Po změně vzhledu vždy vykreslit a prohlédnout (build, dev server, měření DOM / snímek). Třídy nepojmenovávat `tk-…`, pokud nejde o herní prvky (kolize s kartami).
 
@@ -92,7 +92,7 @@ Boti pro zkoušení stolů: `pnpm --filter @kb/server exec tsx scripts/dev-bot.t
 - **Nic se z knihy nemaže.** Oprava = protipohyb (storno). Smazání historie hry nemění knihu.
 
 ### Kontokorent (dřív „úvěr“)
-- Když hráči při platbě za hru (`cash_buyin/topup`, `turnaj_buyin/rebuy/addon`, `bet_stake`, `head_bounty_post`) chybí Koruny, `Ledger.setOverdraft` si vyžádá `credit_draw` z `mint` na chybějící částku (do limitu hráče) a platba proběhne. Klíč `credit:auto:<klíč platby>` zajišťuje idempotenci.
+- Když hráči při platbě za hru (`cash_buyin/topup`, `turnaj_buyin/rebuy/addon`, `bet_stake`, `head_bounty_post`) chybí Korony, `Ledger.setOverdraft` si vyžádá `credit_draw` z `mint` na chybějící částku (do limitu hráče) a platba proběhne. Klíč `credit:auto:<klíč platby>` zajišťuje idempotenci.
 - **Z každého příjmu na peněženku** (dobití, výhra, vrácení vkladu, výběr od stolu…) se **nejdřív splácí dluh** (`credit_repay` zpět na `mint`, klíč `credit:autorepay:<tx>:<user>`). Hráč to nemění; správce smí vypnout `economy.creditAutoRepay`.
 - Limit: výchozí `economy.creditLimit`, osobní v tabulce `credit_lines` (Pokladna → Kontokorent hráčů, oprávnění `mena.dobit`). Dluhy a limity drží `WalletService` v paměti, po startu `loadCredit()`.
 - Splátka je **samostatný pohyb**: výhra ve hře ve statistikách zůstává celá.

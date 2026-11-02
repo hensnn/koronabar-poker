@@ -89,7 +89,7 @@ describe('dobíjení a strhávání měny', () => {
     expect(s.ledger.balance(accounts.wallet(hrac))).toBe(0);
   });
 
-  it('strhnutí ve výchozím stavu Koruny ruší (do mintu, opak dobití), jde ale zvolit i dům; pod nulu nejde', async () => {
+  it('strhnutí ve výchozím stavu Korony ruší (do mintu, opak dobití), jde ale zvolit i dům; pod nulu nejde', async () => {
     const s = await setup();
     const pok = await s.user('Pok', 'pokladnik');
     const hrac = await s.user('Hrac', 'hrac');
@@ -97,7 +97,7 @@ describe('dobíjení a strhávání měny', () => {
     const mintBefore = s.ledger.balance(accounts.mint());
     await s.wallet.debit(pok, hrac, 300, 'oprava omylu');
     expect(s.ledger.balance(accounts.wallet(hrac))).toBe(700);
-    expect(s.ledger.balance(accounts.mint())).toBe(mintBefore + 300); // Koruny zanikly
+    expect(s.ledger.balance(accounts.mint())).toBe(mintBefore + 300); // Korony zanikly
     expect(s.ledger.balance(accounts.house())).toBe(0);
     await s.wallet.debit(pok, hrac, 100, 'pokuta', {}, 'house');
     expect(s.ledger.balance(accounts.wallet(hrac))).toBe(600);
@@ -314,7 +314,7 @@ describe('kontokorent (předschválený polštář s automatickým splácením)'
   const buyIn = (s: Awaited<ReturnType<typeof withCredit>>, userId: string, amount: number, key: string) =>
     s.ledger.post({ kind: 'cash_buyin', idempotencyKey: key, entries: [{ account: accounts.wallet(userId), amount: -amount }, { account: accounts.table('t1'), amount }] });
 
-  it('chybějící Koruny na buy-in se samy načerpají na dluh (bez žádosti), v knize z účtu vydání měny; součet knihy je 0', async () => {
+  it('chybějící Korony na buy-in se samy načerpají na dluh (bez žádosti), v knize z účtu vydání měny; součet knihy je 0', async () => {
     const s = await withCredit({ 'economy.creditLimit': 500 });
     const pok = await s.user('Pok', 'pokladnik');
     const hrac = await s.user('Hrac', 'hrac');
