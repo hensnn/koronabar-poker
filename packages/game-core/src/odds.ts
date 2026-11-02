@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { evaluate, getCardCode } from '@pokertools/evaluator';
 import type { Card } from './types.js';
 
@@ -78,7 +79,8 @@ export function computeOdds(players: OddsPlayer[], board: Card[], pots: OddsPot[
       for (let j = i + 1; j < need; j++) idx[j] = idx[j - 1]! + 1;
     }
   } else {
-    const rng = opt.rng ?? Math.random;
+    // Odhad šancí jde do statistik (EV, bad beat), proto i tady kryptografický zdroj náhody.
+    const rng = opt.rng ?? (() => randomInt(2 ** 48 - 1) / (2 ** 48 - 1));
     const pool = [...unseenCodes];
     for (let s = 0; s < opt.simulations; s++) {
       for (let i = 0; i < need; i++) {

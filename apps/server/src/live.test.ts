@@ -153,7 +153,7 @@ describe('živý turnaj na více stolech', { timeout: 90_000 }, () => {
 
 describe('živý cash', { timeout: 60_000 }, () => {
   it('buy-iny, poplatek a cash-outy; uzavřít jde jen při přesném vyúčtování', async () => {
-    const s = await start();
+    const s = await start({ 'liveCash.enabled': true });
     const org = await s.user('organizator');
     const [a, b] = [await s.user(), await s.user()];
     const { id } = await s.server.liveCash.create(org, 'Pátek');

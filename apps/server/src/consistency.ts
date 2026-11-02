@@ -141,6 +141,33 @@ export class ConsistencyService {
     // 8) skončený turnaj s výsledky má řádky ve statistikách
     add('resultsRecorded', (await this.missingResults()).map((id) => `turnaj ${id} je skončený, ale nemá výsledky ve statistikách`));
 
+    // 9) otevřené sázky: držené vklady v evidenci odpovídají úschově v knize (evidence se zapisuje mimo dávku knihy)
+    const openBets = await db.select({ id: schema.bets.id }).from(schema.bets).where(inArray(schema.bets.status, ['open', 'locked', 'proposed', 'disputed']));
+    const openBad: string[] = [];
+    if (openBets.length) {
+      const held = await db
+        .select({ betId: schema.betStakes.betId, sum: sql<number>`sum(${schema.betStakes.amount})::int` })
+        .from(schema.betStakes)
+        .where(inArray(schema.betStakes.betId, openBets.map((b) => b.id)))
+        .groupBy(schema.betStakes.betId);
+      const heldMap = new Map(held.map((h) => [h.betId, Number(h.sum)]));
+      for (const b of openBets) {
+        const inLedger = this.deps.ledger.balance(accounts.escrow(`bet:${b.id}`));
+        if ((heldMap.get(b.id) ?? 0) !== inLedger) openBad.push(`sázka ${b.id}: vklady v evidenci ${heldMap.get(b.id) ?? 0}, úschova v knize ${inLedger}`);
+      }
+    }
+    add('openBetsEscrow', openBad);
+
+    // 10) výdaje domu odkazují na existující pohyb knihy
+    const expenses = await db.select({ id: schema.houseExpenses.id, txId: schema.houseExpenses.txId }).from(schema.houseExpenses).where(sql`${schema.houseExpenses.txId} is not null`);
+    const txIds = [...new Set(expenses.map((e) => Number(e.txId)))];
+    const known = new Set(txIds.length ? (await db.select({ id: lt_.id }).from(lt_).where(inArray(lt_.id, txIds))).map((r) => Number(r.id)) : []);
+    add('houseExpensesLinked', expenses.filter((e) => !known.has(Number(e.txId))).map((e) => `výdaj ${e.id}: pohyb ${e.txId} v knize neexistuje`));
+
+    // 11) žádosti hráčů uprostřed vyřizování (pád serveru mezi dobitím a zápisem stavu)
+    const stuck = await db.select({ id: schema.userRequests.id, decidedAt: schema.userRequests.decidedAt }).from(schema.userRequests).where(eq(schema.userRequests.status, 'deciding'));
+    add('requestsNotStuck', stuck.map((r) => `žádost ${r.id} zůstala ve stavu „vyřizuje se“ od ${r.decidedAt?.toISOString() ?? '?'}; zkontroluj v knize pohyb s klíčem request:${r.id} a žádost ručně uzavři`));
+
     return { at: this.deps.now(), ok: checks.every((c) => c.ok), checks };
   }
 }

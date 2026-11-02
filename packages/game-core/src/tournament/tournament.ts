@@ -100,6 +100,10 @@ export interface TournamentState {
   players: PlayerRecord[];
   /** Vyřazení v pořadí, v jakém vypadávali (poslední je nejlépe umístěný z vyřazených). */
   eliminations: string[];
+  /** Hráči vyřazení v téže handě se stejným stackem na jejím začátku: dělí místo i výplatu (pravidla TDA). */
+  tiedGroups?: string[][];
+  /** Výplaty se nepodařilo dokončit (chyba knihy): turnaj zůstává běžící a dokončení se zopakuje při další události. */
+  finishError?: string;
   payments: Payment[];
   startedAt: number | null;
   finishedAt: number | null;
@@ -141,6 +145,8 @@ export type TournamentEvent =
   | { type: 'reentry'; userId: string; name: string; chips: number; cost: number }
   | { type: 'eliminated'; userId: string; name: string; remaining: number; by: { userId: string; weight: number; equity?: number | null }[] }
   | { type: 'bubble' }
+  /** Výplaty se nepodařilo dokončit; turnaj zůstává běžící a čeká na opakování. */
+  | { type: 'finishFailed'; message: string }
   | { type: 'dealProposed'; method: DealMethod }
   | { type: 'dealAccepted'; method: DealMethod; keep: number }
   | { type: 'dealRejected' }
@@ -155,6 +161,8 @@ export interface TournamentTable {
   chipsOf(userId: string): number | null;
   /** Je hráč připojený? (null = neznámo) */
   isConnected?(userId: string): boolean | null;
+  /** Je volné místo pro dalšího hráče (včetně možnosti otevřít další stůl)? Bez metody se počítá z `playersSeated`. */
+  canSeat?(): boolean;
   hold(fresh?: boolean): void;
   release(): void;
   playersSeated(): { userId: string; seat: number }[];
@@ -450,6 +458,8 @@ export class Tournament {
     if (this.rec(userId)) throw new TournamentError('ALREADY_REGISTERED');
     const seatedOrRegistered = this.st.players.filter((p) => p.status !== 'out').length;
     if (seatedOrRegistered >= this.maxPlayers()) throw new TournamentError('FULL');
+    // Pozdní registrace: místo u stolu se ověří dřív, než hráč zaplatí.
+    if (this.st.status === 'running' && !this.canSeatNow()) throw new TournamentError('FULL');
     const cost = num(s, 'tournament.buyIn');
     const fee = num(s, 'tournament.fee');
     const key = `trn:${this.deps.id}:reg:${userId}:${this.entryNo(userId)}`;
@@ -457,8 +467,21 @@ export class Tournament {
     const rec: PlayerRecord = { userId, name, status: 'registered', entries: 1, rebuys: 0, addon: false, decideUntil: null, head: 0, bountyEarned: 0, bountyUnpaid: 0 };
     this.st.players.push(rec);
     // Při pozdní registraci už běží turnaj, hlava se přičte hned; před startem se u mystery sestaví pytlík až při startu.
-    if (this.st.status === 'running' || this.bountyType() !== 'mystery') this.addBounty(rec, part);
-    if (this.st.status === 'running') this.seat(rec, num(s, 'tournament.startingStack'));
+    const bountyAdded = this.st.status === 'running' || this.bountyType() !== 'mystery';
+    if (bountyAdded) this.addBounty(rec, part);
+    if (this.st.status === 'running') {
+      try {
+        this.seat(rec, num(s, 'tournament.startingStack'));
+      } catch (e) {
+        // Usazení selhalo až po zaplacení: platba se vrátí a registrace zruší, aby peníze nezůstaly v prize poolu bez hráče.
+        this.st.players = this.st.players.filter((p) => p !== rec);
+        if (bountyAdded) this.removeBounty(rec, part);
+        const payment = this.st.payments.find((p) => p.key === key && !p.refunded);
+        if (payment) this.refund(payment);
+        this.save();
+        throw e instanceof TournamentError ? e : new TournamentError('FULL');
+      }
+    }
     this.save();
     if (this.st.status === 'registering' && s['tournament.autoStartWhenFull'] && this.st.players.length >= this.maxPlayers()) this.start();
   }
@@ -519,6 +542,24 @@ export class Tournament {
     if (part <= 0) return;
     if (this.bountyType() === 'mystery') this.st.bag = [...(this.st.bag ?? []), part];
     else p.head = (p.head ?? 0) + part;
+  }
+
+  /** Opak `addBounty` při zrušení právě zaplaceného vstupu (usazení selhalo). */
+  private removeBounty(p: PlayerRecord, part: number): void {
+    if (part <= 0) return;
+    if (this.bountyType() === 'mystery') {
+      const bag = [...(this.st.bag ?? [])];
+      const i = bag.lastIndexOf(part);
+      if (i >= 0) bag.splice(i, 1);
+      this.st.bag = bag;
+    } else p.head = Math.max(0, (p.head ?? 0) - part);
+  }
+
+  /** Je u stolů místo pro dalšího hráče? (před platbou pozdní registrace nebo re-entry) */
+  private canSeatNow(): boolean {
+    if (!this.table) return true;
+    if (this.table.canSeat) return this.table.canSeat();
+    return this.table.playersSeated().length < this.maxPlayers();
   }
 
   /** Mystery hodnoty se při startu přeškálují tak, aby jejich součet přesně odpovídal vybrané bounty. */
@@ -613,6 +654,7 @@ export class Tournament {
   private seat(p: PlayerRecord, chips: number, seat?: number): void {
     const taken = new Set(this.table?.playersSeated().map((x) => x.seat) ?? []);
     const free = Array.from({ length: this.maxPlayers() }, (_, i) => i).filter((i) => !taken.has(i));
+    if (seat === undefined && free.length === 0) throw new TournamentError('FULL');
     const target = seat ?? free[randomInt(free.length)];
     if (target === undefined) throw new TournamentError('FULL');
     this.table?.seatTournamentPlayer(p.userId, p.name, target, chips);
@@ -794,8 +836,11 @@ export class Tournament {
       }
       this.save();
     } else if (e.type === 'bust') {
-      // Souběžná vypadnutí: kdo měl na začátku handy méně žetonů, skončil hůř.
+      // Souběžná vypadnutí: kdo měl na začátku handy méně žetonů, skončil hůř; při stejném stacku se místo i výplata dělí.
       const ordered = [...e.players].sort((a, b) => a.startStack - b.startStack);
+      const stacks = new Map<number, string[]>();
+      for (const b of ordered) stacks.set(b.startStack, [...(stacks.get(b.startStack) ?? []), b.userId]);
+      for (const group of stacks.values()) if (group.length > 1) this.st.tiedGroups = [...(this.st.tiedGroups ?? []), group];
       for (const b of ordered) {
         this.noteKillers(b.userId, e.hand ?? []);
         this.knockout(b.userId, e.hand ?? []);
@@ -1109,12 +1154,33 @@ export class Tournament {
     const waiting = p.status === 'deciding';
     if (!waiting && !this.canReenter(userId)) throw new TournamentError('REENTRY_NOT_ALLOWED');
     if (waiting && !this.canReenterNow(p, true)) throw new TournamentError('REENTRY_NOT_ALLOWED');
-    const part = this.pay(userId, 'turnaj_buyin', num(s, 'tournament.buyIn'), num(s, 'tournament.fee'), `trn:${this.deps.id}:reg:${userId}:${this.entryNo(userId)}`);
+    if (!waiting && !this.canSeatNow()) throw new TournamentError('FULL');
+    const key = `trn:${this.deps.id}:reg:${userId}:${this.entryNo(userId)}`;
+    const part = this.pay(userId, 'turnaj_buyin', num(s, 'tournament.buyIn'), num(s, 'tournament.fee'), key);
     this.addBounty(p, part);
+    const before = { entries: p.entries, rebuys: p.rebuys, addon: p.addon, eliminations: [...this.st.eliminations], tiedGroups: this.st.tiedGroups?.map((g) => [...g]) };
     p.entries++;
     p.rebuys = 0;
     p.addon = false;
     this.st.eliminations = this.st.eliminations.filter((id) => id !== userId);
+    if (this.st.tiedGroups) this.st.tiedGroups = this.st.tiedGroups.map((g) => g.filter((id) => id !== userId)).filter((g) => g.length > 1);
+    if (!waiting) {
+      try {
+        this.seat(p, num(s, 'tournament.startingStack'));
+      } catch (e) {
+        // Usazení selhalo až po zaplacení: vrátit platbu i stav hráče.
+        p.entries = before.entries;
+        p.rebuys = before.rebuys;
+        p.addon = before.addon;
+        this.st.eliminations = before.eliminations;
+        this.st.tiedGroups = before.tiedGroups;
+        this.removeBounty(p, part);
+        const payment = this.st.payments.find((x) => x.key === key && !x.refunded);
+        if (payment) this.refund(payment);
+        this.save();
+        throw e instanceof TournamentError ? e : new TournamentError('FULL');
+      }
+    }
     if (waiting) {
       // Hráč s nulovým stackem u stolu ještě sedí: dostane nový startovní stack.
       this.decideTimers.get(userId)?.();
@@ -1125,8 +1191,6 @@ export class Tournament {
       delete p.decideLeftMs;
       delete p.decideOffline;
       this.releaseAfterDecision();
-    } else {
-      this.seat(p, num(s, 'tournament.startingStack'));
     }
     this.deps.onEvent?.({ type: 'reentry', userId, name: p.name, chips: num(s, 'tournament.startingStack'), cost: num(s, 'tournament.buyIn') });
     this.save();
@@ -1205,11 +1269,31 @@ export class Tournament {
   }
 
   private finish(dealOrder?: string[]): void {
-    const s = this.deps.settings();
     this.voting.cancelAll();
     this.cancelClock();
     for (const t of this.decideTimers.values()) t();
     this.decideTimers.clear();
+    try {
+      this.payOutAndFinish(dealOrder);
+      delete this.st.finishError;
+    } catch (e) {
+      // Výplaty se nedokončily (např. ruční zásah do knihy): turnaj zůstane běžící se zřetelnou chybou.
+      // Klíče pohybů jsou pevné, takže opakované dokončení nic nevyplatí dvakrát.
+      this.st.finishError = e instanceof Error ? e.message : String(e);
+      this.save();
+      this.deps.onEvent?.({ type: 'finishFailed', message: this.st.finishError });
+    }
+  }
+
+  /** Zopakuje dokončení turnaje po předchozí chybě výplat (ruční zásah ředitele). */
+  retryFinish(): void {
+    if (this.st.status !== 'running' || !this.st.finishError) throw new TournamentError('STATE');
+    this.checkFinish();
+    if (this.st.finishError) throw new TournamentError('INVALID', { reason: this.st.finishError });
+  }
+
+  private payOutAndFinish(dealOrder?: string[]): void {
+    const s = this.deps.settings();
     const winner = dealOrder ? this.rec(dealOrder[0]!)! : this.alive()[0]!;
     const order = [...(dealOrder ?? [winner.userId]), ...[...this.st.eliminations].reverse()];
     const unique = order.length;
@@ -1217,7 +1301,7 @@ export class Tournament {
     const guarantee = num(s, 'tournament.guarantee');
     const collected = this.prizePool();
     if (guarantee > collected) this.deps.money.overlay(this.deps.id, guarantee - collected, `trn:${this.deps.id}:overlay`);
-    this.st.overlay = Math.max(0, guarantee - collected);
+    this.st.overlay = Math.max(this.st.overlay ?? 0, Math.max(0, guarantee - collected));
     const pool = this.prizePool();
     let amounts: number[] = [];
     let toHouse = pool;
@@ -1226,6 +1310,8 @@ export class Tournament {
       const r = computePayouts(pool, pct, { roundTo: num(s, 'tournament.payoutRoundTo'), remainder: s['tournament.payoutRemainder'] as RemainderRule });
       amounts = r.amounts;
       toHouse = r.toHouse;
+      // Pojistka: výplaty a zbytek domu musí dát přesně prize pool, jinak se nic nevyplácí.
+      if (amounts.reduce((a, b) => a + b, 0) + toHouse !== pool) throw new Error(`výplaty ${amounts.reduce((a, b) => a + b, 0)} + dům ${toHouse} ≠ pool ${pool}`);
     }
     // Bounty: nevyplacené odměny (režim „na konci“) a zbytek na účtu bounty (hlava vítěze, nevylosované hodnoty) připadnou vítězi.
     if (this.bountyType() !== 'none') {
@@ -1254,6 +1340,15 @@ export class Tournament {
     // Dohoda: účastníci dostanou dohodnuté částky (vítěz navíc ponechanou část), ostatní výplatu za své místo.
     const deal = this.st.deal;
     const results = order.map((userId, i) => ({ userId, name: this.rec(userId)?.name ?? '', place: i + 1, payout: deal && userId in deal.amounts ? deal.amounts[userId]! + (i === 0 ? deal.keep : 0) : (amounts[i] ?? 0), bounty: this.rec(userId)?.bountyEarned ?? 0 }));
+    // Souběžně vyřazení se stejným stackem na začátku handy dělí výplaty za svá místa rovným dílem (pořadí míst zůstává podle sedadel).
+    for (const group of this.st.tiedGroups ?? []) {
+      const rows = results.filter((r) => group.includes(r.userId) && !(deal && r.userId in deal.amounts));
+      if (rows.length < 2) continue;
+      const parts = distribute(rows.reduce((a, r) => a + r.payout, 0), rows.map(() => 1));
+      rows.forEach((r, i) => {
+        r.payout = parts[i]!;
+      });
+    }
     for (const r of results) if (r.payout > 0) this.deps.money.payout(this.deps.id, r.userId, r.payout, `trn:${this.deps.id}:payout:${r.place}`);
     if (toHouse > 0) this.deps.money.toHouse(this.deps.id, toHouse, `trn:${this.deps.id}:house`);
     this.st.results = results;

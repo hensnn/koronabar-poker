@@ -10,8 +10,7 @@ import {
   type PermissionChecker,
   type SettingValue,
   type SettingValues,
-  type SettingsRegistry,
-} from '@kb/shared';
+  type SettingsRegistry, RETIRED_SETTING_KEYS } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import type { BetFacts } from './bets.js';
 import { schema, type Db } from './db/index.js';
@@ -144,6 +143,8 @@ export function tournamentChatText(e: TournamentEvent): string | null {
       return t('chat.sys.tAddon', { nick: e.name, chips: e.chips });
     case 'reentry':
       return t('chat.sys.tReentry', { nick: e.name, chips: e.chips });
+    case 'finishFailed':
+      return t('chat.sys.tFinishFailed');
   }
 }
 
@@ -514,6 +515,7 @@ export class TournamentManager {
     const clean: Record<string, SettingValue> = {};
     for (const [k, v] of Object.entries(values)) {
       const def = this.deps.registry.get(k);
+      if (!def && RETIRED_SETTING_KEYS.has(k)) continue;
       if (!def || !scopeAllowed(def.scopes, 'table') || def.secret) throw new TournamentError('INVALID', { key: k });
       clean[k] = v as SettingValue;
     }

@@ -565,6 +565,8 @@ export const csTournament: Record<string, string> = {
   'settings.sounds.maxFileKb.help': 'Největší velikost jednoho nahraného zvuku (v kB). Větší soubory server odmítne.',
   'settings.sounds.maxSeconds.label': 'Nejdelší zvuk',
   'settings.sounds.maxSeconds.help': 'Nejdelší délka vlastního zvuku v sekundách. Delší záznam server odmítne; při nahrání vyber jen kratší úsek.',
+  'settings.sounds.ffmpegTimeoutSeconds.label': 'Časový limit převodu zvuku',
+  'settings.sounds.ffmpegTimeoutSeconds.help': 'Za kolik sekund server ukončí převod nahraného zvuku (ffmpeg), když se zasekne na poškozeném souboru. Nahrávání pak skončí chybou místo věčného čekání.',
   'settings.sounds.maxPerUser.label': 'Nejvíc zvuků na hráče',
   'settings.sounds.maxPerUser.help': 'Kolik vlastních zvuků smí mít jeden hráč.',
   'settings.sounds.requireApproval.label': 'Sdílené zvuky schvaluje kurátor',
@@ -1521,6 +1523,8 @@ export const csTournament: Record<string, string> = {
   'settings.integrations.enabled.help': 'Hlavní vypínač: když je vypnutý, aplikace nic neposílá do MQTT, webhooků ani Discordu.',
   'settings.integrations.webhooksEnabled.label': 'Odchozí webhooky',
   'settings.integrations.webhooksEnabled.help': 'Povolí posílání událostí na adresy webhooků ze seznamu.',
+  'settings.integrations.allowPrivateUrls.label': 'Webhooky i na vnitřní adresy',
+  'settings.integrations.allowPrivateUrls.help': 'Ve výchozím stavu server odmítne adresu webhooku, která míří do vnitřní sítě (localhost, 10.x, 192.168.x, 172.16–31.x): ochrana před zneužitím serveru k volání vnitřních služeb. Zapni jen tehdy, když má webhook mířit např. na Home Assistant ve stejné síti.',
   'settings.integrations.webhookMaxAttempts.label': 'Nejvíc pokusů o doručení',
   'settings.integrations.webhookMaxAttempts.help': 'Po tolika neúspěšných pokusech se doručení vzdá a zůstane v logu jako chybné.',
   'settings.integrations.webhookRetrySeconds.label': 'Odstup prvního opakování',
@@ -1630,7 +1634,7 @@ export const csTournament: Record<string, string> = {
   'settings.assistant.globalDaily.label': 'Požadavků celkem za den',
   'settings.assistant.globalDaily.help': 'Denní strop pro celou aplikaci (0 = bez omezení).',
   'settings.assistant.autoKeys.label': 'Parametry bez potvrzení',
-  'settings.assistant.autoKeys.help': 'Klíče parametrů oddělené čárkou, jejichž drobná změna se provede hned bez potvrzení (jen vlastní osobní nastavení a stoly, ke kterým má uživatel právo).',
+  'settings.assistant.autoKeys.help': 'Klíče parametrů oddělené čárkou, jejichž drobná změna se provede hned bez potvrzení (jen vlastní osobní nastavení a stoly, ke kterým má uživatel právo). Pozor: u těchto klíčů asistent mění hodnoty rovnou podle toho, co mu uživatel napíše, bez kontrolního kroku. Nech prázdné, pokud chceš každou změnu potvrzovat.',
   'settings.assistant.disabledTools.label': 'Vypnuté nástroje',
   'settings.assistant.disabledTools.help': 'Názvy nástrojů oddělené čárkou, které asistent ani MCP nesmí použít.',
   'settings.assistant.proposalMinutes.label': 'Platnost návrhu',
@@ -1816,6 +1820,8 @@ export const csTournament: Record<string, string> = {
   'settings.email.notifyYear.help': 'Pošle ti souhrn výdělku za uplynulý rok (jen když ho správce zapnul).',
   'settings.stats.categoryMinGames.label': 'Minimum turnajů pro podíly v kategoriích',
   'settings.stats.categoryMinGames.help': 'V kategoriích „kdo je v čem nejlepší“ (podíl výher, podíl umístění v penězích, průměrné místo) se hodnotí jen hráči, kteří odehráli aspoň tolik turnajů.',
+  'settings.stats.cacheSeconds.label': 'Mezipaměť žebříčku',
+  'settings.stats.cacheSeconds.help': 'Jak dlouho (v sekundách) se spočítaný žebříček drží v paměti, než se počítá znovu. Nová uložená handa nebo výsledek hry ho zahodí hned; 0 = počítat při každém zobrazení.',
   'settings.stats.categoryTop.label': 'Počet hráčů v kategorii',
   'settings.stats.categoryTop.help': 'Kolik nejlepších hráčů se ukáže v každé kategorii srovnání hráčů (Statistiky → Přehled hráčů).',
   'settings.stats.publicProfiles.label': 'Statistiky hráčů vidí všichni',
@@ -1976,6 +1982,7 @@ export const csTournament: Record<string, string> = {
   'chat.sys.tBubble': 'Bublina! Příští vyřazený hráč odchází bez výhry.',
   'tournament.bubble': 'Bublina',
   'chat.sys.tCancelled': 'Turnaj byl zrušen, všem se vrátily platby.',
+  'chat.sys.tFinishFailed': 'Výplaty turnaje se nepodařilo dokončit. Ředitel musí zkontrolovat účetní knihu a dokončení zopakovat.',
 
 
   // ----- obrazovky turnajů -----

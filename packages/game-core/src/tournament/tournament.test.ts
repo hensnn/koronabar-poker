@@ -1242,3 +1242,58 @@ describe('turnaj: přestávka a nabídka add-onu až po úplném dohrání handy
   }
 });
 
+
+describe('pozdní registrace: platba až po ověření místa (audit 2. 11. 2026)', () => {
+  it('plný stůl odmítne pozdní registraci před platbou a peněženka zůstane beze změny', async () => {
+    const h = harness({ 'tournament.lateRegLevels': 3, 'table.seats': 2, 'tournament.minPlayers': 2 }, 3);
+    h.tour.register('u1', 'U1');
+    h.tour.register('u2', 'U2');
+    h.tour.start();
+    expect(h.tour.lateRegOpen()).toBe(true);
+    const before = h.ledger.balance(accounts.wallet('u3'));
+    expect(() => h.tour.register('u3', 'U3')).toThrowError(expect.objectContaining({ code: 'FULL' }));
+    expect(h.ledger.balance(accounts.wallet('u3'))).toBe(before);
+    expect(h.tour.state().players.some((p) => p.userId === 'u3')).toBe(false);
+  });
+
+  it('když usazení selže až po platbě, platba se vrátí a hráč není v turnaji', () => {
+    const clock = new FakeClock();
+    const ledger = new Ledger();
+    const money = new TournamentMoney(ledger);
+    const settings = resolveSettings(reg, [{ scope: 'global', values: { 'tournament.buyIn': 100, 'tournament.fee': 10, 'tournament.startingStack': 1500, 'tournament.lateRegLevels': 3, 'tournament.minPlayers': 2, 'tournament.levelMinutes': 1 } }]).values;
+    const cash = new CashService(ledger);
+    for (const u of ['u1', 'u2', 'u3']) cash.mint(u, 1000, `m-${u}`);
+    const tour = new Tournament({ id: 'T', settings: () => settings, clock, money });
+    const seated = new Map<string, number>();
+    let failNext = false;
+    // stůl, který hlásí volné místo, ale usazení selže (stav se mezitím změnil)
+    tour.attachTable({
+      seatTournamentPlayer: (userId, _name, seat) => {
+        if (failNext) throw new Error('INVALID_SEAT');
+        seated.set(userId, seat);
+      },
+      addTournamentChips: () => undefined,
+      removeTournamentPlayer: (userId) => void seated.delete(userId),
+      chipsOf: () => 1500,
+      hold: () => undefined,
+      release: () => undefined,
+      playersSeated: () => [...seated].map(([userId, seat]) => ({ userId, seat })),
+      close: () => undefined,
+      canSeat: () => true,
+    });
+    tour.register('u1', 'U1');
+    tour.register('u2', 'U2');
+    tour.start();
+    failNext = true;
+    expect(() => tour.register('u3', 'U3')).toThrowError(expect.objectContaining({ code: 'FULL' }));
+    expect(ledger.balance(accounts.wallet('u3'))).toBe(1000);
+    expect(tour.state().players.some((p) => p.userId === 'u3')).toBe(false);
+    expect(ledger.balance(accounts.tournament('T'))).toBe(200);
+    expect(ledger.balance(accounts.house())).toBe(20);
+    // po uvolnění místa už registrace projde
+    failNext = false;
+    tour.register('u3', 'U3');
+    expect(ledger.balance(accounts.wallet('u3'))).toBe(890);
+    expect(ledger.balance(accounts.tournament('T'))).toBe(300);
+  });
+});

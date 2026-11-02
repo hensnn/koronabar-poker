@@ -241,12 +241,13 @@ export class TableManager {
     const queued: string[] = [];
     const now: Record<string, SettingValue> = {};
     const later: Record<string, SettingValue> = {};
-    for (const [k, v] of Object.entries(changes)) {
+    for (const k of Object.keys(changes)) {
+      // Vyřazený klíč (RETIRED) se z nastavení tiše vypustí, nesmí se uložit jako „undefined“.
+      if (!(k in clean)) continue;
       const dec = decideChange(this.deps.registry, k, ctx);
       if (dec.result === 'denied') throw new TableError('DENIED', [{ keys: [k], messageKey: dec.reasonKey }]);
       if (dec.result === 'pending') later[k] = clean[k]!;
       else now[k] = clean[k]!;
-      void v;
     }
     const before = { ...row.settings };
     if (Object.keys(now).length) {

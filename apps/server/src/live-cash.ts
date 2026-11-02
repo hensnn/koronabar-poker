@@ -65,7 +65,7 @@ export class LiveCashService {
   ) {}
 
   private director(userId: string): void {
-    if (!this.deps.settings()['live.enabled']) throw new LiveError('DISABLED');
+    if (!this.deps.settings()['live.enabled'] || !this.deps.settings()['liveCash.enabled']) throw new LiveError('DISABLED');
     if (!this.deps.perms.can(userId, 'zivahra.rizeni').allowed) throw new LiveError('FORBIDDEN');
   }
 
@@ -78,6 +78,34 @@ export class LiveCashService {
   private async save(id: string, st: LiveCashState, status?: string): Promise<void> {
     await this.deps.db.update(schema.liveCashGames).set({ state: st, ...(status ? { status } : {}) }).where(eq(schema.liveCashGames.id, id));
     this.deps.onChanged?.(id);
+  }
+
+  /** Operace jedné živé hry běží za sebou: stav se čte z DB a zapisuje zpět, souběh by přepsal evidenci nebo zopakoval klíč pohybu. */
+  private locks = new Map<string, Promise<unknown>>();
+  private locked<T>(id: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(id) ?? Promise.resolve();
+    const next = prev.then(fn, fn);
+    const settled = next.catch(() => undefined).then(() => {
+      if (this.locks.get(id) === settled) this.locks.delete(id);
+    });
+    this.locks.set(id, settled);
+    return next;
+  }
+
+  buyIn(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
+    return this.locked(id, () => this.doBuyIn(actorId, id, userId, amount, meta));
+  }
+
+  timeFee(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
+    return this.locked(id, () => this.doTimeFee(actorId, id, userId, amount, meta));
+  }
+
+  cashOut(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
+    return this.locked(id, () => this.doCashOut(actorId, id, userId, amount, meta));
+  }
+
+  close(actorId: string, id: string, meta: Meta = {}): Promise<void> {
+    return this.locked(id, () => this.doClose(actorId, id, meta));
   }
 
   private open(row: { status: string }): void {
@@ -110,7 +138,7 @@ export class LiveCashService {
   }
 
   /** Buy-in nebo top-up: peníze jdou z peněženky hráče na účet stolu. */
-  async buyIn(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
+  private async doBuyIn(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
     this.director(actorId);
     const a = this.amount(amount);
     const { row, st } = await this.load(id);
@@ -135,7 +163,7 @@ export class LiveCashService {
   }
 
   /** Poplatek za čas: hráč ho platí z peněženky přímo domu (stůl se jím nezatěžuje). */
-  async timeFee(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
+  private async doTimeFee(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
     this.director(actorId);
     const a = this.amount(amount);
     const { row, st } = await this.load(id);
@@ -157,7 +185,7 @@ export class LiveCashService {
   }
 
   /** Cash-out: hráč odchází od stolu a dostane částku za své žetony. Nesmí být víc, než je na účtu stolu. */
-  async cashOut(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
+  private async doCashOut(actorId: string, id: string, userId: string, amount: number, meta: Meta = {}): Promise<void> {
     this.director(actorId);
     const a = this.amount(amount, 0);
     const { row, st } = await this.load(id);
@@ -178,7 +206,7 @@ export class LiveCashService {
   }
 
   /** Vyúčtování: hra se uzavře, až jsou všichni hráči po cash-outu a na účtu stolu nezbyla ani jedna Koruna. */
-  async close(actorId: string, id: string, meta: Meta = {}): Promise<void> {
+  private async doClose(actorId: string, id: string, meta: Meta = {}): Promise<void> {
     this.director(actorId);
     const { row, st } = await this.load(id);
     this.open(row);

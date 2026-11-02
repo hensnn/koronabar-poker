@@ -129,6 +129,8 @@ export class WalletService {
       /** Dopíše čekající zápisy knihy do databáze (historie pohybů se čte z ní, paměť knihy po restartu drží jen zůstatky). */
       flush?: () => Promise<void>;
       notify?: (e: { kind: 'request_created' | 'request_decided'; requestId: string; userId: string; approved?: boolean }) => void;
+      /** Je účet hry (stůl, turnaj, bounty, úschova) právě používaný běžící hrou? Bez funkce se ruční úprava herních účtů nepovolí vůbec. */
+      gameAccountLocked?: (account: string) => boolean;
     },
   ) {
     // Předschválený úvěr: při nedostatku Koron na platbu za hru se chybějící částka sama načerpá (v mezích limitu hráče).
@@ -162,10 +164,10 @@ export class WalletService {
     return { done: true, txId: (await this.execTopUp(actorId, { userId, amount, reason }, meta)).txId };
   }
 
-  private async execTopUp(actorId: string, p: { userId: string; amount: number; reason: string }, meta: WalletMeta = {}) {
+  private async execTopUp(actorId: string, p: { userId: string; amount: number; reason: string }, meta: WalletMeta = {}, key?: string) {
     const tx = this.deps.ledger.post({
       kind: 'mint',
-      idempotencyKey: `topup:${randomUUID()}`,
+      idempotencyKey: key ?? `topup:${randomUUID()}`,
       entries: [
         { account: accounts.mint(), amount: -p.amount },
         { account: accounts.wallet(p.userId), amount: p.amount },
@@ -215,6 +217,12 @@ export class WalletService {
   async adjust(actorId: string, entries: Entry[], reason: string, meta: WalletMeta = {}, houseExpense?: HouseExpenseNote): Promise<WalletResult> {
     if (!reason?.trim()) throw new PermissionError('INVALID', { field: 'reason' });
     if (entries.length < 2) throw new PermissionError('INVALID', { field: 'entries' });
+    // Účty běžících her (stůl, turnaj, bounty, úschova sázek) ruční úprava nesmí měnit: herní stav v paměti by o tom nevěděl
+    // a výplaty by pak selhaly uprostřed. Uzavřené hry smí opravit, když to server dovolí (`gameAccountLocked`).
+    for (const e of entries) {
+      const game = /^(table|tournament|bounty|escrow):/.test(e.account);
+      if (game && (this.deps.gameAccountLocked?.(e.account) ?? true)) throw new PermissionError('INVALID', { field: 'entries', reason: 'running_game', account: e.account });
+    }
     const d = this.deps.perms.can(actorId, 'mena.upravit_knihu');
     if (!d.allowed) throw new PermissionError('FORBIDDEN');
     if (d.needsApproval) return { done: false, approvalId: await this.deps.approvals.request(actorId, 'mena.upravit_knihu', { entries, reason, houseExpense }, meta) };
@@ -454,23 +462,46 @@ export class WalletService {
       // Vyřízení žádosti je dobití z účtu „vydání měny“ v rámci limitů vyřizujícího.
       const d = this.deps.perms.can(actorId, 'mena.vyridit_zadost', { amount: r.amount ?? 0 });
       if (!d.allowed) throw new PermissionError('LIMIT_EXCEEDED', { limits: d.limits });
-      txId = (await this.execTopUp(actorId, { userId: r.userId, amount: r.amount!, reason: `žádost ${id}${note ? `: ${note}` : ''}` }, meta)).txId;
+    }
+    // Žádost si nejdřív „zabere“ ten, kdo ji vyřizuje (podmíněná změna stavu): dva souběžné kliky na Schválit nesmí dobít dvakrát.
+    const [claimed] = await this.deps.db
+      .update(schema.userRequests)
+      .set({ status: 'deciding', decidedBy: actorId, decidedAt: new Date(), decisionNote: note })
+      .where(and(eq(schema.userRequests.id, id), eq(schema.userRequests.status, 'pending')))
+      .returning({ id: schema.userRequests.id });
+    if (!claimed) throw new PermissionError('INVALID', { field: 'status', status: 'deciding' });
+    const release = async () => {
+      await this.deps.db.update(schema.userRequests).set({ status: 'pending', decidedBy: null, decidedAt: null, decisionNote: null }).where(and(eq(schema.userRequests.id, id), eq(schema.userRequests.status, 'deciding')));
+    };
+    if (approve && r.kind === 'dobiti') {
+      try {
+        // Klíč pohybu je odvozený ze žádosti: i kdyby se vyřízení opakovalo, kniha dobití neprovede dvakrát.
+        txId = (await this.execTopUp(actorId, { userId: r.userId, amount: r.amount!, reason: `žádost ${id}${note ? `: ${note}` : ''}` }, meta, `request:${id}`)).txId;
+      } catch (e) {
+        await release();
+        throw e;
+      }
     }
     if (approve && r.kind === 'prevod') {
       // Odepsání z peněženky na účet „převod ven“ (žádné peníze); znovu se ověří zůstatek i nastavení.
       const target = (r.payload as { target?: string } | null)?.target;
-      this.checkTransfer(r.userId, r.amount ?? undefined, target);
-      const tx = this.deps.ledger.post({
-        kind: 'transfer_out',
-        idempotencyKey: `transfer:${id}`,
-        entries: [
-          { account: accounts.wallet(r.userId), amount: -r.amount! },
-          { account: accounts.external(target!), amount: r.amount! },
-        ],
-        createdBy: actorId,
-        note: `převod do: ${target}${note ? ` (${note})` : ''}`,
-      });
-      txId = tx.id;
+      try {
+        this.checkTransfer(r.userId, r.amount ?? undefined, target);
+        const tx = this.deps.ledger.post({
+          kind: 'transfer_out',
+          idempotencyKey: `transfer:${id}`,
+          entries: [
+            { account: accounts.wallet(r.userId), amount: -r.amount! },
+            { account: accounts.external(target!), amount: r.amount! },
+          ],
+          createdBy: actorId,
+          note: `převod do: ${target}${note ? ` (${note})` : ''}`,
+        });
+        txId = tx.id;
+      } catch (e) {
+        await release();
+        throw e;
+      }
     }
     await this.deps.db.update(schema.userRequests).set({ status: approve ? 'approved' : 'rejected', decidedBy: actorId, decidedAt: new Date(), decisionNote: note }).where(eq(schema.userRequests.id, id));
     await this.deps.audit.log({ actorId, action: approve ? 'zadost.schvalit' : 'zadost.zamitnout', targetType: 'request', targetId: id, after: { kind: r.kind, txId }, reason: note, ...meta });

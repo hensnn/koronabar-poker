@@ -113,7 +113,9 @@ export class InsufficientFundsError extends LedgerError {
 }
 
 export interface LedgerPolicy {
+  /** Povolený záporný zůstatek peněženky. Při zapnutém kontokorentu se nepoužije: chybějící částku kryje kontokorent až do nuly, nic se nesčítá. */
   negativeBalanceLimit: number;
+  creditEnabled?: boolean;
 }
 
 export interface LedgerStore {
@@ -160,24 +162,27 @@ export class MemoryLedgerStore implements LedgerStore {
   }
 
   atomic<T>(fn: (s: MutableState) => T): T {
-    const balances = new Map(this.balances);
-    const txs = [...this.txs];
-    const byKey = new Map(this.byKey);
+    // Změny se sbírají stranou a zapíšou až po úspěchu `fn`: žádné kopírování celé historie při každém pohybu.
+    const changed = new Map<AccountId, number>();
+    const added: Tx[] = [];
+    const addedKeys = new Map<string, Tx>();
     const state: MutableState = {
-      balance: (a) => balances.get(a) ?? 0,
-      setBalance: (a, v) => void balances.set(a, v),
-      find: (k) => byKey.get(k) ?? (this.knownKeys.has(k) ? LOADED_TX : undefined),
+      balance: (a) => (changed.has(a) ? changed.get(a)! : (this.balances.get(a) ?? 0)),
+      setBalance: (a, v) => void changed.set(a, v),
+      find: (k) => addedKeys.get(k) ?? this.byKey.get(k) ?? (this.knownKeys.has(k) ? LOADED_TX : undefined),
       append: (t) => {
-        const tx = { ...t, id: this.idOffset + txs.length + 1 };
-        txs.push(tx);
-        byKey.set(tx.idempotencyKey, tx);
+        const tx = { ...t, id: this.idOffset + this.txs.length + added.length + 1 };
+        added.push(tx);
+        addedKeys.set(tx.idempotencyKey, tx);
         return tx;
       },
     };
     const result = fn(state);
-    this.balances = balances;
-    this.txs = txs;
-    this.byKey = byKey;
+    for (const [a, v] of changed) this.balances.set(a, v);
+    for (const tx of added) {
+      this.txs.push(tx);
+      this.byKey.set(tx.idempotencyKey, tx);
+    }
     return result;
   }
   balance(a: AccountId): number {
@@ -273,8 +278,21 @@ export class Ledger {
       if (!(e instanceof InsufficientFundsError) || !this.overdraftFn || !e.account.startsWith('wallet:')) throw e;
       const topUp = this.overdraftFn(e.account, e.shortfall, req);
       if (!topUp) throw e;
-      this.postCore(topUp);
-      return this.postCore(req);
+      const drawn = this.postCore(topUp);
+      try {
+        return this.postCore(req);
+      } catch (err) {
+        // Původní pohyb selhal i po doplnění: doplnění se vrátí zpět, aby hráči nezůstal dluh bez zaplacené služby.
+        this.postCore({
+          kind: 'credit_repay',
+          idempotencyKey: `${topUp.idempotencyKey}:undo`,
+          gameId: topUp.gameId,
+          createdBy: topUp.createdBy,
+          note: 'vrácení čerpání: platba se nezdařila',
+          entries: drawn.entries.map((x) => ({ account: x.account, amount: -x.amount })),
+        });
+        throw err;
+      }
     }
   }
 
@@ -317,7 +335,9 @@ export class Ledger {
   }
 
   private floor(account: AccountId): number {
-    return account.startsWith('wallet:') ? -this.policy.negativeBalanceLimit : 0;
+    if (!account.startsWith('wallet:')) return 0;
+    // Kontokorent a záporný limit se nesčítají: s kontokorentem je dolní mez peněženky nula a chybějící částku kryje čerpání.
+    return this.policy.creditEnabled ? 0 : -this.policy.negativeBalanceLimit;
   }
 
   /** Kontrola invariantu: součet všech účtů včetně `mint` je 0. */

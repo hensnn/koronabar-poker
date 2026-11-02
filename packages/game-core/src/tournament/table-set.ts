@@ -149,10 +149,20 @@ export class TournamentTableSet implements TournamentTable {
     return t.table.playersSeated().filter((s) => s.mode !== 'leaving').length;
   }
 
-  private freeSeat(t: Entry): number | null {
+  /** Fyzicky volná místa: odcházející hráči (`leaving`) místo drží až do předělu, i když se do `count` nepočítají. */
+  private freeSeats(t: Entry): number[] {
     const taken = new Set(t.table.playersSeated().map((s) => s.seat));
-    const free = Array.from({ length: this.seats() }, (_, i) => i).filter((i) => !taken.has(i));
+    return Array.from({ length: this.seats() }, (_, i) => i).filter((i) => !taken.has(i));
+  }
+
+  private freeSeat(t: Entry): number | null {
+    const free = this.freeSeats(t);
     return free.length ? free[this.rnd(free.length)]! : null;
+  }
+
+  /** Je kam usadit dalšího hráče (volné místo, nebo lze otevřít další stůl)? */
+  canSeat(): boolean {
+    return this.tables.some((t) => this.freeSeats(t).length > 0) || this.tables.length < this.o.maxTables();
   }
 
   // ---------- rozhraní pro turnaj ----------
@@ -164,7 +174,8 @@ export class TournamentTableSet implements TournamentTable {
 
   /** Usadí hráče k nejméně obsazenému stolu na náhodné místo; `seat` z turnaje se ignoruje (vyvažuje se podle počtu). */
   seatTournamentPlayer(userId: string, name: string, _seat: number, chips: number): void {
-    let candidates = this.tables.filter((t) => this.count(t) < this.seats());
+    // Kandidát musí mít fyzicky volné místo (hráč čekající na odchod ho ještě drží).
+    let candidates = this.tables.filter((t) => this.freeSeats(t).length > 0);
     if (candidates.length === 0 && this.tables.length < this.o.maxTables()) candidates = [this.add(this.nextId())];
     if (candidates.length === 0) throw new Error('FULL');
     const min = Math.min(...candidates.map((t) => this.count(t)));

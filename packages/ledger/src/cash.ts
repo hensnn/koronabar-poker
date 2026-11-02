@@ -49,7 +49,7 @@ export class CashService {
     if (!Number.isInteger(chips) || chips < 0) throw new LedgerError('NOT_INTEGER', String(chips));
     const currency = Math.floor(chips / chipsPerUnit);
     const remainderChips = chips - currency * chipsPerUnit;
-    // Zbytek žetonů se nedá vyjádřit v měně; účetně se na stole neeviduje (viz tableCurrencyFor).
+    // Zbytek žetonů se nedá vyjádřit v měně: zůstává na účtu stolu a při zavření stolu připadne domu (`sweepTable`).
     if (currency === 0) return 0;
     this.ledger.post({
       kind,
@@ -62,6 +62,26 @@ export class CashService {
       ],
     });
     return currency;
+  }
+
+  /**
+   * Zavření stolu: co na účtu stolu zbylo po vyplacení všech hráčů (zaokrouhlení při kurzu žetonů > 1),
+   * připadne domu, aby účet zrušeného stolu skončil na nule. Vrací převedenou částku.
+   */
+  sweepTable(tableId: string, key: string): number {
+    const left = this.ledger.balance(accounts.table(tableId));
+    if (left <= 0) return 0;
+    this.ledger.post({
+      kind: 'rake',
+      idempotencyKey: key,
+      gameId: tableId,
+      note: `zbytek žetonů při zavření stolu (${left})`,
+      entries: [
+        { account: accounts.table(tableId), amount: -left },
+        { account: accounts.house(), amount: left },
+      ],
+    });
+    return left;
   }
 
   /** Rake z handy: ze stolu domu a (část) do jackpotového fondu. Částky jsou v měně. */

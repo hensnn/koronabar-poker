@@ -131,6 +131,8 @@ export class TableActor {
   private timers: (() => void)[] = [];
   private turnTimer: (() => void) | null = null;
   private deadline: number | null = null;
+  /** Handa skončila, ale rake, bonusy a jackpoty se zaúčtují až po animaci: odchody se do té doby odkládají jako uprostřed handy. */
+  private settling = false;
   private bankActive = false;
   private bankStartedAt = 0;
   private actingUser: string | null = null;
@@ -275,7 +277,7 @@ export class TableActor {
     this.guard(() => {
       if (this.opt.tournament) throw new GameError('TOURNAMENT_TABLE');
       const e = this.mustSeat(userId);
-      if (this.phase === 'hand' || this.phase === 'runout') {
+      if (this.midHand()) {
         e.mode = 'leaving';
         this.autoFoldIfNeeded();
         this.changed();
@@ -284,6 +286,11 @@ export class TableActor {
       this.cashOutAndRemove(e);
       this.changed();
     });
+  }
+
+  /** Probíhá handa, nebo se po ní ještě účtuje (odchod musí počkat na předěl, aby se neobešel rake). */
+  private midHand(): boolean {
+    return this.phase === 'hand' || this.phase === 'runout' || this.settling;
   }
 
   // ---------- turnajové příkazy (volá je turnaj, ne hráč) ----------
@@ -340,7 +347,7 @@ export class TableActor {
   removeTournamentPlayer(userId: string): void {
     this.guard(() => {
       const e = this.mustSeat(userId);
-      if (this.phase === 'hand' || this.phase === 'runout') {
+      if (this.midHand()) {
         e.mode = 'leaving';
         this.autoFoldIfNeeded();
         this.changed();
@@ -482,20 +489,60 @@ export class TableActor {
 
   setConnected(userId: string, connected: boolean): void {
     const e = this.seats.get(userId);
-    if (!e) return;
-    const was = e.connected;
-    e.connected = connected;
-    if (!connected && this.actingUser === userId) this.startTurnTimer();
-    if (was !== connected) this.opt.onEvent?.({ type: 'connection', userId, connected });
-    this.changed();
+    if (!e || this.phase === 'stopped') return;
+    try {
+      const was = e.connected;
+      e.connected = connected;
+      if (!connected && this.actingUser === userId) this.shortenTurnForDisconnect(e);
+      if (was !== connected) this.opt.onEvent?.({ type: 'connection', userId, connected });
+      this.changed();
+    } catch (err) {
+      this.error = err;
+      this.stopOnError();
+    }
   }
 
-  /** Akce hráče. Server ji ověří (tah, množství) a teprve pak provede. */
-  act(userId: string, action: PlayerAction): void {
+  /**
+   * Odpojení hráče na tahu: zbývající čas se jen zkrátí na toleranci odpojení, nikdy neprodlouží.
+   * Běžící rezerva se nezahazuje ani neobnovuje (dřív odpojení vracelo celý time bank a nulovalo zavolaný čas).
+   */
+  private shortenTurnForDisconnect(e: SeatEntry): void {
+    if (this.phase !== 'hand' || this.actingUser !== e.userId || !this.turnTimer || this.deadline === null) return;
+    const now = this.opt.clock.now();
+    const grace = num(this.opt.settings(), 'time.disconnectGraceSeconds') * 1000;
+    if (this.deadline <= now + grace) return;
+    this.turnTimer();
+    const userId = e.userId;
+    this.deadline = now + grace;
+    this.changed();
+    this.turnTimer = this.opt.clock.setTimeout(() => this.onDisconnectGraceExpired(userId), grace);
+  }
+
+  private onDisconnectGraceExpired(userId: string): void {
+    if (this.phase !== 'hand' || this.actingUser !== userId) return;
+    try {
+      const e = this.seats.get(userId);
+      // Rezerva, která už běžela, se o spotřebovaný čas zkrátí (bez přírůstků: tah ještě neskončil).
+      if (e) this.consumeBank(e);
+      // Hráč se mezitím vrátil: dostane to, co by dostal po vypršení základního času (rezerva, časový žeton).
+      if (e && e.connected && !this.clockCalled && this.bankMode() !== 'none') {
+        this.onBaseExpired(userId);
+        return;
+      }
+      this.timeoutAction(userId);
+    } catch (err) {
+      this.error = err;
+      this.stopOnError();
+    }
+  }
+
+  /** Akce hráče. Server ji ověří (tah, množství) a teprve pak provede. `handId` z klienta chrání před opožděnou nebo zdvojenou zprávou. */
+  act(userId: string, action: PlayerAction, handId?: string): void {
     this.guard(() => {
       const e = this.mustSeat(userId);
       if (this.phase !== 'hand') throw new GameError('NO_HAND');
       const h = this.adapter.state();
+      if (handId !== undefined && handId !== h.handId) throw new GameError('STALE_ACTION');
       if (h.actingSeat !== e.seat) throw new GameError('NOT_YOUR_TURN');
       this.apply(userId, action, false);
     });
@@ -646,6 +693,8 @@ export class TableActor {
     this.timers = [];
     this.turnTimer?.();
     this.pendingStart?.();
+    this.readyTimer?.();
+    this.readyTimer = null;
     this.phase = 'stopped';
   }
 
@@ -658,9 +707,13 @@ export class TableActor {
     this.timers = [];
     this.turnTimer?.();
     this.pendingStart?.();
+    this.readyTimer?.();
+    this.readyTimer = null;
     const midHand = this.phase === 'hand';
     this.phase = 'stopped';
     for (const e of [...this.seats.values()]) this.cashOutAndRemove(e, 'cash_return', midHand);
+    // Zbytek žetonů, který se při kurzu > 1 nedal vyplatit, připadne domu: účet zavřeného stolu končí na nule.
+    if (!this.opt.tournament) this.opt.cash.sweepTable(this.opt.tableId, `sweep:${this.opt.tableId}:${randomUUID()}`);
     this.changed();
   }
 
@@ -923,6 +976,8 @@ export class TableActor {
     this.startStacks = new Map();
     if (busts.length) this.opt.onEvent?.({ type: 'bust', players: busts, hand: contested });
     this.opt.onBoundary?.();
+    // Turnaj mohl na předělu stůl zrušit (sloučení stolů): zrušený stůl už nic neplánuje ani neukládá.
+    if ((this.phase as Phase) === 'stopped') return;
     // Čekání na big blind má smysl jen, když ostatní mají s kým hrát.
     const regulars = [...this.seats.values()].filter((e) => e.mode === 'in' && e.chips > 0 && !e.fresh).length;
     if (regulars < 2) for (const e of this.seats.values()) e.fresh = false;
@@ -1207,6 +1262,15 @@ export class TableActor {
   }
 
   /** Při jednání v time banku se odečte spotřebovaný čas. */
+  /** Odečte z rezervy jen spotřebovaný čas (bez přírůstků Fischer/Bronstein). */
+  private consumeBank(e: SeatEntry): void {
+    if (!this.bankActive) return;
+    this.bankActive = false;
+    if (this.bankMode() === 'chips') return;
+    const used = Math.max(0, Math.ceil((this.opt.clock.now() - this.bankStartedAt) / 1000));
+    e.timeBank = Math.max(0, e.timeBank - used);
+  }
+
   private settleBank(e: SeatEntry): void {
     if (!this.bankActive) return;
     this.bankActive = false;
@@ -1468,6 +1532,7 @@ export class TableActor {
     const pre = this.lastState;
     const runout = showdown && remaining > 0 && pre !== null && this.wasRunout(pre);
     this.phase = runout ? 'runout' : 'pause';
+    this.settling = true;
 
     let t = 0;
     const at = (delay: number, fn: () => void) => {
@@ -1775,6 +1840,7 @@ export class TableActor {
   }
 
   private finishHand(): void {
+    this.settling = false;
     this.settleSevenTwo();
     this.settleRakeAndJackpots();
     this.pipeline.run('onHandEnd', this.moduleCtx(), this.handState());
@@ -1876,7 +1942,7 @@ export class TableActor {
     this.later(ms, () => {
       const cur = this.seats.get(e.userId);
       if (!cur || cur.mode !== 'out' || cur.outSince !== since) return;
-      if (this.phase === 'hand' || this.phase === 'runout') {
+      if (this.midHand()) {
         cur.mode = 'leaving';
         return;
       }
