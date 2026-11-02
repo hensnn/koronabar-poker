@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { computePayouts, estimateTournament, formatStructure, generateStructure, labelKey, optionKey, parseStructure, percentsFor, scaleStructure, STRUCTURE_PRESETS, t, type Level, type PayoutPreset, type SettingValue, type SettingValues } from '@kb/shared';
+import { computePayouts, estimateTournament, formatStructure, generateStructure, labelKey, optionKey, parseStructure, percentsFor, scopeAllowed, scaleStructure, STRUCTURE_PRESETS, t, type Level, type PayoutPreset, type SettingValue, type SettingValues } from '@kb/shared';
 import { get } from '../api';
+import { registry } from '../settings';
+import { SettingsForm } from '../settings/SettingsForm';
 import { can, useSession } from '../session';
 import { Button, Card, DataTable, NumInput, Td } from '../ui';
 import { StructureDialog, type BlindStructure } from './admin/structures';
 
 type Set = (k: string, v: SettingValue) => void;
 const numCls = 'w-24';
+/** Parametry, které zúžené nastavení turnaje ukazuje výš vlastními poli (v přehledu speciálních prvků se neopakují). */
+const SHOWN_ABOVE = ['tournament.rebuyEnabled', 'tournament.rebuyCost', 'tournament.rebuyMax', 'tournament.addonEnabled', 'tournament.addonCost'];
 const selectCls = 'rounded-sm border border-line bg-surface px-2 py-1 text-text';
 
 /** Levely ze zadané struktury, nebo vygenerované podle cílové délky (jako to udělá server při startu). */
@@ -125,36 +129,20 @@ export function TournamentBasics({ values, set }: { values: SettingValues; set: 
           )}
         </div>
       </div>
-      <div className="mt-3 grid gap-3 border-t border-line pt-3 sm:grid-cols-2">
-        <h4 className="font-medium sm:col-span-2">{t('basics.special')}</h4>
-        <div className="flex flex-col gap-2">
-          <Toggle k="tournament.reentryEnabled" values={values} set={set} />
-          {values['tournament.reentryEnabled'] && (
-            <div className="flex flex-wrap gap-3 pl-6">
-              <NumField k="tournament.reentryMax" values={values} set={set} min={1} label={t('basics.maxCount')} />
-            </div>
-          )}
-          <Toggle k="tournament.dealEnabled" values={values} set={set} />
-          <Toggle k="tournament.headBounty" values={values} set={set} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="flex flex-wrap items-center gap-2 text-sm">
-            {t(labelKey('tournament.bountyType'))}
-            <select className={selectCls} value={String(values['tournament.bountyType'])} onChange={(e) => set('tournament.bountyType', e.target.value)}>
-              {['none', 'fixed', 'pko', 'mystery'].map((o) => (
-                <option key={o} value={o}>
-                  {t(optionKey('tournament.bountyType', o))}
-                </option>
-              ))}
-            </select>
-          </label>
-          {values['tournament.bountyType'] !== 'none' && (
-            <div className="flex flex-wrap gap-3 pl-6">
-              <NumField k="tournament.bountyPercent" values={values} set={set} />
-              {values['tournament.bountyType'] === 'pko' && <NumField k="tournament.pkoCashPercent" values={values} set={set} />}
-            </div>
-          )}
-        </div>
+      <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+        <h4 className="font-medium">{t('basics.special')}</h4>
+        <SettingsForm
+          bare
+          registry={registry}
+          values={values}
+          origins={Object.fromEntries(registry.all().map((d) => [d.key, values[d.key] !== d.default ? 'template' : 'default']))}
+          editScope="template"
+          onChange={set}
+          onReset={(k) => set(k, registry.get(k)!.default)}
+          issues={[]}
+          allowedKeys={(d) => d.category === 'special' && scopeAllowed(d.scopes as never, 'table') && !SHOWN_ABOVE.includes(d.key)}
+          gameKind="tournament"
+        />
       </div>
     </Card>
   );

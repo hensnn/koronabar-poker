@@ -38,6 +38,8 @@ interface Props {
   gameKind?: 'cash' | 'tournament' | 'live';
   /** Vlastní pořadí karet (kategorií): uvedené jdou první v tomto pořadí (osobní nastavení). */
   categoryOrder?: string[];
+  /** Zjednodušené zobrazení uvnitř jiné karty: bez hledání, bez postranního panelu, panely podskupin přímo pod sebou. */
+  bare?: boolean;
 }
 
 const field =
@@ -172,6 +174,18 @@ export function SettingsForm(p: Props) {
     const defs = byCat.get(c) ?? [];
     const groups = panelGroupIds(c);
     const tn = tone(c);
+    if (p.bare && groups.length > 0) {
+      return groups.map((g) => {
+        const inGroup = defs.filter((d) => panelGroupOf(d.key, c) === g);
+        if (inGroup.length === 0) return null;
+        const id = `${c}/${g}`;
+        return (
+          <Panel key={id} title={t(`settings.group.${g}`)} open={Boolean(open[id])} onToggle={() => toggle(id)} count={inGroup.length} changed={inGroup.filter((d) => p.origins[d.key] === p.editScope).length}>
+            {inGroup.map(row)}
+          </Panel>
+        );
+      });
+    }
     return (
       <Panel key={c} title={t(categoryKey(c))} open={Boolean(open[c])} onToggle={() => toggle(c)} count={defs.length} changed={changedBy[c] ?? 0} dotClass={tn.dot} headClass={tn.head}>
         {groups.length === 0
@@ -189,6 +203,8 @@ export function SettingsForm(p: Props) {
       </Panel>
     );
   };
+
+  if (p.bare) return <div className="flex flex-col gap-2">{sections.flatMap((x) => x.cats).map(category)}</div>;
 
   return (
     <div className="flex flex-col gap-4">
