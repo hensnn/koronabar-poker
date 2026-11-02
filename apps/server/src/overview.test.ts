@@ -50,6 +50,23 @@ describe('přehled mezi hráči', () => {
     await expect(s.server.overview.compare([], 'balance')).rejects.toThrow('INVALID');
   });
 
+  it('barva hráče: správce ji přidělí, přehled i srovnání ji vrací, ostatní hráči ji měnit nemohou', async () => {
+    const s = await start();
+    const before = await s.server.overview.overview();
+    const colors = before.rows.map((r) => r.color);
+    expect(new Set(colors).size).toBe(colors.length);
+    await s.server.accounts.setChartColor(s.admin, s.player, 7);
+    const after = await s.server.overview.overview();
+    expect(after.rows.find((r) => r.userId === s.player)!.color).toBe(7);
+    expect(after.rows.find((r) => r.userId === s.admin)!.color).not.toBe(7);
+    const cmp = await s.server.overview.compare([s.player, s.admin], 'balance');
+    expect(cmp.series.find((x) => x.userId === s.player)!.color).toBe(7);
+    await expect(s.server.accounts.setChartColor(s.player, s.admin, 2)).rejects.toThrow('FORBIDDEN');
+    await expect(s.server.accounts.setChartColor(s.admin, s.player, 13)).rejects.toThrow();
+    await s.server.accounts.setChartColor(s.admin, s.player, null);
+    expect((await s.server.overview.overview()).rows.find((r) => r.userId === s.player)!.color).not.toBe(7);
+  });
+
   it('počet hand v přehledu zahrnuje jen cash, ne ruce z turnajů', async () => {
     const s = await start();
     const at = new Date();

@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import { hash, verify } from '@node-rs/argon2';
-import { DEFAULT_ROLE_KEY, NEWBIE_ROLE_KEY, type SettingValues } from '@kb/shared';
+import { DEFAULT_ROLE_KEY, NEWBIE_ROLE_KEY, PLAYER_COLOR_COUNT, type SettingValues } from '@kb/shared';
 import { schema, type Db } from '../db/index.js';
 import type { AuditService, AuditSource } from './audit.js';
 import { inviteCode, randomToken, sha256 } from './crypto.js';
@@ -439,10 +439,18 @@ export class AccountService {
     await this.deps.onActivated?.(targetId);
   }
 
+  /** Správce přidělí hráči barvu pro grafy a statistiky (1 až 12), nebo ji zruší (null = automaticky). */
+  async setChartColor(actorId: string, targetId: string, color: number | null, meta: Meta = {}): Promise<void> {
+    if (!this.deps.perms.can(actorId, 'uzivatel.upravit').allowed) throw new AccountError('FORBIDDEN');
+    if (color !== null && (!Number.isInteger(color) || color < 1 || color > PLAYER_COLOR_COUNT)) throw new AccountError('NOT_FOUND');
+    await this.db.update(schema.users).set({ chartColor: color }).where(eq(schema.users.id, targetId));
+    void meta;
+  }
+
   async listUsers(actorId: string) {
     if (!this.deps.perms.can(actorId, 'uzivatel.zobrazit').allowed) throw new AccountError('FORBIDDEN');
     const rows = await this.db.select().from(schema.users);
-    return rows.map((u) => ({ ...this.toSessionUser(u), createdAt: u.createdAt, lastSeenAt: u.lastSeenAt, roles: this.deps.perms.assignmentsOf(u.id).map((a) => ({ id: a.id, roleId: a.roleId, role: a.role?.name, scopeType: a.scopeType, scopeId: a.scopeId, validTo: a.validTo })) }));
+    return rows.map((u) => ({ ...this.toSessionUser(u), chartColor: u.chartColor, createdAt: u.createdAt, lastSeenAt: u.lastSeenAt, roles: this.deps.perms.assignmentsOf(u.id).map((a) => ({ id: a.id, roleId: a.roleId, role: a.role?.name, scopeType: a.scopeType, scopeId: a.scopeId, validTo: a.validTo })) }));
   }
 
   // ---------- první start a nouzová obnova ----------

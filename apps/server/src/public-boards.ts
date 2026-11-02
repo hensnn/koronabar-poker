@@ -5,6 +5,7 @@ import { type BoardAppearance, currencyFormsOf, boardName, effectiveColumns, ran
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { sideNets } from './side-results.js';
 import { schema, type Db } from './db/index.js';
+import { playerColors } from './player-colors.js';
 import type { RatingService } from './rating.js';
 import type { StatsService } from './stats.js';
 import { thin } from './timeline.js';
@@ -58,7 +59,7 @@ export interface PublicBoardView {
   updatedAt: number;
   refreshSeconds: number;
   /** Vývoj zisku z turnajů v čase pro nejlepší hráče (prázdné, když graf nebo částky nejsou zapnuté). */
-  chart: { id: string; name: string; points: [number, number][] }[];
+  chart: { id: string; name: string; color: number; points: [number, number][] }[];
   /** Vzhled stránky (logo, pozadí, barvy, hustota…). */
   appearance: BoardAppearance;
 }
@@ -270,11 +271,12 @@ export class PublicBoardService {
     if (from) conds.push(gte(gr.finishedAt, from));
     const rows = await this.deps.db.select({ userId: gr.userId, at: gr.finishedAt, net: sql<string>`${gr.payout} + ${gr.bounty} - ${gr.spent}` }).from(gr).where(and(...conds)).orderBy(asc(gr.finishedAt));
     const sideRows = await sideNets(this.deps.db, { userIds: players.map((p) => p.id), from });
+    const colors = await playerColors(this.deps.db);
     return players.map((p, i) => {
       let sum = 0;
       const own = [...rows.filter((r) => r.userId === p.id).map((r) => [r.at.getTime(), Number(r.net)] as [number, number]), ...sideRows.filter((r) => r.userId === p.id).map((r) => [r.at, r.net] as [number, number])].sort((a, b) => a[0] - b[0]);
       const points = own.map((r) => [r[0], (sum += r[1])] as [number, number]);
-      return { id: String(i), name: p.name, points: thin(points) };
+      return { id: String(i), name: p.name, color: colors.get(p.id) ?? 1, points: thin(points) };
     });
   }
 }

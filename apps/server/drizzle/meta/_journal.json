@@ -302,6 +302,13 @@
       "when": 1793527812130,
       "tag": "0042_uverove_linky",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793600000000,
+      "tag": "0043_barva_hrace",
+      "breakpoints": true
     }
   ]
 }

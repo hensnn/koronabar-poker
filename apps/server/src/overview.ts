@@ -3,6 +3,7 @@ import { accounts, type Ledger } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
 import { gameEvents, gameNets } from './side-results.js';
 import { schema, type Db } from './db/index.js';
+import { playerColors } from './player-colors.js';
 import type { BriefDto } from './progress.js';
 import { thin, type Point } from './timeline.js';
 
@@ -36,6 +37,8 @@ export interface DivisionInfo {
 export interface OverviewRow {
   userId: string;
   nickname: string;
+  /** Barva hráče (1 až 12) ve statistikách a grafech. */
+  color: number;
   balance: number;
   xp: number;
   level: number;
@@ -107,6 +110,7 @@ export class OverviewService {
     const divT = (id: string) => (dt ? (dt.byUser.get(id) ?? dt.fallback) : null);
     const divC = (id: string) => (dc ? (dc.byUser.get(id) ?? dc.fallback) : null);
     const divisionOf = (id: string) => (tOn ? divT(id) : cOn ? divC(id) : null);
+    const colors = await playerColors(db);
     const rows: OverviewRow[] = users.map((u) => {
       const b = briefs.get(u.id);
       const tn = nets.get(u.id)?.tournament ?? 0;
@@ -114,6 +118,7 @@ export class OverviewService {
       return {
         userId: u.id,
         nickname: u.nickname,
+        color: colors.get(u.id) ?? 1,
         balance: this.deps.ledger.balance(accounts.wallet(u.id)),
         xp: xp.get(u.id) ?? 0,
         level: b?.level ?? 1,
@@ -136,13 +141,14 @@ export class OverviewService {
   }
 
   /** Vývoj vybraných hráčů v čase: výdělek ze všech her (turnaje + cash + živý cash v měně), zůstatek nebo XP. */
-  async compare(userIds: string[], metric: CompareMetric): Promise<{ series: { userId: string; nickname: string; points: Point[] }[] }> {
+  async compare(userIds: string[], metric: CompareMetric): Promise<{ series: { userId: string; nickname: string; color: number; points: Point[] }[] }> {
     this.visible();
     const ids = [...new Set(userIds)].slice(0, MAX_COMPARE);
     if (ids.length === 0 || !['balance', 'profit', 'xp'].includes(metric)) throw new OverviewError('INVALID');
     const db = this.deps.db;
     const nick = new Map((await db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, ids))).map((u) => [u.id, u.nickname]));
-    const out: { userId: string; nickname: string; points: Point[] }[] = [];
+    const colors = await playerColors(db);
+    const out: { userId: string; nickname: string; color: number; points: Point[] }[] = [];
     if (metric === 'balance') {
       const wallets = ids.map((i) => accounts.wallet(i));
       const moves = await db
@@ -153,13 +159,13 @@ export class OverviewService {
         .orderBy(asc(schema.ledgerTransactions.id));
       for (const id of ids) {
         let sum = 0;
-        out.push({ userId: id, nickname: nick.get(id) ?? '?', points: thin(moves.filter((m) => m.account === accounts.wallet(id)).map((m) => [m.at.getTime(), (sum += Number(m.amount))] as Point)) });
+        out.push({ userId: id, nickname: nick.get(id) ?? '?', color: colors.get(id) ?? 1, points: thin(moves.filter((m) => m.account === accounts.wallet(id)).map((m) => [m.at.getTime(), (sum += Number(m.amount))] as Point)) });
       }
     } else if (metric === 'xp') {
       const rows = await db.select({ userId: schema.xpEvents.userId, at: schema.xpEvents.createdAt, amount: schema.xpEvents.amount }).from(schema.xpEvents).where(inArray(schema.xpEvents.userId, ids)).orderBy(asc(schema.xpEvents.createdAt), asc(schema.xpEvents.id));
       for (const id of ids) {
         let sum = 0;
-        out.push({ userId: id, nickname: nick.get(id) ?? '?', points: thin(rows.filter((r) => r.userId === id).map((r) => [r.at.getTime(), (sum += r.amount)] as Point)) });
+        out.push({ userId: id, nickname: nick.get(id) ?? '?', color: colors.get(id) ?? 1, points: thin(rows.filter((r) => r.userId === id).map((r) => [r.at.getTime(), (sum += r.amount)] as Point)) });
       }
     } else {
       // Výdělek v čase z pohybů v účetní knize (součet na konci = Výdělek v přehledu); žetony u stolu se přidají jako poslední bod.
@@ -171,7 +177,7 @@ export class OverviewService {
         let sum = 0;
         const points = events.filter((e) => e.userId === id).map((e) => [e.at, (sum += e.amount)] as Point);
         if (seated.get(id)) points.push([Date.now(), sum + seated.get(id)!]);
-        out.push({ userId: id, nickname: nick.get(id) ?? '?', points: thin(points) });
+        out.push({ userId: id, nickname: nick.get(id) ?? '?', color: colors.get(id) ?? 1, points: thin(points) });
       }
     }
       return { series: out };

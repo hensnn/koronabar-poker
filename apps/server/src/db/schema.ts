@@ -31,6 +31,8 @@ export const users = pgTable(
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     passwordHash: text('password_hash').notNull(),
     avatar: text('avatar'),
+    /** Barva hráče ve statistikách a grafech (1 až 12, design tokeny `color.seriesN`); null = přidělí se automaticky. */
+    chartColor: integer('chart_color'),
     /** active | pending (čeká na ověření/schválení) | blocked */
     status: text('status').notNull().default('active'),
     blockedReason: text('blocked_reason'),

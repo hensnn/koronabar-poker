@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { t } from '@kb/shared';
+import { playerColorVar, t } from '@kb/shared';
 
 export type Pt = [number, number];
 
@@ -180,15 +180,17 @@ export function BarChart({ bars, label }: { bars: { x: number; v: number; tip: s
   );
 }
 
-/** Barvy čar srovnání: třídy z design tokenů (text-*), ať se mění s motivem; čáry se navíc liší tvarem čárkování. */
-export const SERIES_CLASSES = ['text-primary', 'text-accent', 'text-secondary', 'text-success', 'text-danger', 'text-warning', 'text-info', 'text-text'] as const;
-const DASHES = ['', '6 3', '2 3', '10 3 2 3', '', '6 3', '2 3', '10 3 2 3'];
 
 export interface Series {
   id: string;
   name: string;
+  /** Barva hráče (1 až 12, design token `color.seriesN`); bez ní se vezme podle pořadí. */
+  color?: number;
   points: Pt[];
 }
+
+/** Barva čáry řady: barva hráče z tokenů, aby měl hráč všude stejnou barvu a čáry se lišily jen barvou. */
+const seriesColor = (s: Series, i: number): string => playerColorVar(s.color ?? i + 1);
 
 /** Srovnání více hráčů v jednom grafu: společné osy, legenda (najetím se čára zvýrazní) a hodnoty všech při najetí na čas. */
 export function MultiLineChart({ series, label, signed = false }: { series: Series[]; label: string; signed?: boolean }) {
@@ -257,8 +259,8 @@ export function MultiLineChart({ series, label, signed = false }: { series: Seri
             const last = s.points[s.points.length - 1]!;
             pts.push(`${sx(geo.x1)},${sy(last[1])}`);
             return (
-              <g key={s.id} className={SERIES_CLASSES[i % SERIES_CLASSES.length]} opacity={dim ? 0.2 : 1}>
-                <polyline points={pts.join(' ')} fill="none" stroke="currentColor" strokeWidth={focus === s.id ? 3 : 2} strokeDasharray={DASHES[i % DASHES.length]} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              <g key={s.id} style={{ color: seriesColor(s, i) }} opacity={dim ? 0.2 : 1}>
+                <polyline points={pts.join(' ')} fill="none" stroke="currentColor" strokeWidth={focus === s.id ? 3 : 2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                 <circle cx={sx(geo.x1)} cy={sy(last[1])} r="3" fill="currentColor" />
               </g>
             );
@@ -270,9 +272,9 @@ export function MultiLineChart({ series, label, signed = false }: { series: Seri
         {series.map((s, i) => {
           const v = hoverX !== null ? valueAt(s, hoverX) : (s.points[s.points.length - 1]?.[1] ?? null);
           return (
-            <li key={s.id} className={`flex cursor-default items-center gap-1 ${SERIES_CLASSES[i % SERIES_CLASSES.length]}`} onPointerEnter={() => setFocus(s.id)} onPointerLeave={() => setFocus(null)}>
+            <li key={s.id} className="flex cursor-default items-center gap-1" style={{ color: seriesColor(s, i) }} onPointerEnter={() => setFocus(s.id)} onPointerLeave={() => setFocus(null)}>
               <svg width="22" height="8" aria-hidden>
-                <line x1="0" x2="22" y1="4" y2="4" stroke="currentColor" strokeWidth="2" strokeDasharray={DASHES[i % DASHES.length]} />
+                <line x1="0" x2="22" y1="4" y2="4" stroke="currentColor" strokeWidth="3" />
               </svg>
               <span className="text-text">{s.name}</span>
               <span className="font-mono text-text">{v === null ? '–' : `${signed && v > 0 ? '+' : ''}${Math.round(v)}`}</span>

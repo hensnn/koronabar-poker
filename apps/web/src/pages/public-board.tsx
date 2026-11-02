@@ -21,7 +21,7 @@ export interface BoardViewData {
   currencyForms: CurrencyForms;
   updatedAt: number;
   refreshSeconds: number;
-  chart: { id: string; name: string; points: Pt[] }[];
+  chart: { id: string; name: string; color?: number; points: Pt[] }[];
   appearance: BoardAppearance;
 }
 

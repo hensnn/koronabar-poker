@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { t } from '@kb/shared';
+import { playerColorVar, t } from '@kb/shared';
 import { del, errorText, get, patch, post } from '../api';
 import { can, useSession } from '../session';
 import { CardView } from '../table/CardView';
@@ -253,6 +253,7 @@ function StatsView({ userId, season }: { userId: string; season: string }) {
 interface OverviewRow {
   userId: string;
   nickname: string;
+  color: number;
   balance: number;
   xp: number;
   level: number;
@@ -315,8 +316,8 @@ function PlayersOverview({ meId }: { meId: string }) {
   const selected = useMemo(() => (picked && rows ? picked.filter((id) => rows.some((r) => r.userId === id)) : picked) ?? (rows ? [meId, ...rows.filter((r) => r.userId !== meId).slice(0, 3).map((r) => r.userId)].slice(0, 4) : []), [picked, rows, meId]);
   useEffect(() => {
     if (selected.length === 0) return;
-    get<{ series: { userId: string; nickname: string; points: Pt[] }[] }>(`/api/stats/compare?users=${selected.join(',')}&metric=${metric}`)
-      .then((d) => setSeries(d.series.map((x) => ({ id: x.userId, name: x.nickname, points: x.points }))))
+    get<{ series: { userId: string; nickname: string; color: number; points: Pt[] }[] }>(`/api/stats/compare?users=${selected.join(',')}&metric=${metric}`)
+      .then((d) => setSeries(d.series.map((x) => ({ id: x.userId, name: x.nickname, color: x.color, points: x.points }))))
       .catch((e) => setError(errorText(e)));
   }, [selected, metric]);
   const since = useMemo(() => (range === 'all' ? 0 : Date.now() - Number(range) * 86_400_000), [range]);
@@ -370,6 +371,7 @@ function PlayersOverview({ meId }: { meId: string }) {
               <input type="checkbox" aria-label={t('overview.compareCol')} checked={selected.includes(r.userId)} onChange={() => toggle(r.userId)} />
             </Td>
             <Td>
+              <span aria-hidden className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: playerColorVar(r.color) }} />
               <strong>{r.nickname}</strong> {r.userId === meId && <Badge tone="primary">{t('overview.me')}</Badge>}
             </Td>
             <Td>

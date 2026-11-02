@@ -3,7 +3,7 @@ import { buildCategories, loginLayoutOf, ledgerCsv, tournamentCsv, DISCORD_SLOTS
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
-import { PERMISSIONS, permissionCategories, type ApiScope, type Scope } from '@kb/shared';
+import { PERMISSIONS, PLAYER_COLOR_COUNT, permissionCategories, type ApiScope, type Scope } from '@kb/shared';
 import { AccountError, type AccountService, type SessionUser } from '../auth/accounts.js';
 import type { AuditService } from '../auth/audit.js';
 import type { PermissionService } from '../auth/permissions.js';
@@ -386,6 +386,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       return reply.send({ ok: true });
     }));
   userAction('block', (a, t, b, m) => svc.accounts.blockUser(a, t, b.reason, b.until ?? null, m), z.object({ reason: z.string().min(1).max(300), until: date }));
+  userAction('chart-color', (a, t, b, m) => svc.accounts.setChartColor(a, t, b.color ?? null, m), z.object({ color: z.number().int().min(1).max(PLAYER_COLOR_COUNT).nullable() }));
   userAction('unblock', (a, t, _b, m) => svc.accounts.unblockUser(a, t, m));
   userAction('force-password', (a, t, _b, m) => svc.accounts.forcePasswordChange(a, t, m));
   userAction('verify-email', (a, t, _b, m) => svc.accounts.markEmailVerified(a, t, m));

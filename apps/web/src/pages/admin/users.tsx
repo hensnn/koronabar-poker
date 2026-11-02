@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { t } from '@kb/shared';
+import { PLAYER_COLOR_COUNT, playerColorVar, t } from '@kb/shared';
 import { del, errorText, get, post } from '../../api';
 import { can, useSession } from '../../session';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Td, TextInput } from '../../ui';
@@ -13,6 +13,7 @@ interface UserRow {
   blockedReason: string | null;
   createdAt: string;
   lastSeenAt: string | null;
+  chartColor: number | null;
   roles: { id: string; roleId: string; role?: string; scopeType: string; scopeId: string; validTo: string | null }[];
 }
 interface RoleRow {
@@ -31,6 +32,7 @@ export function UsersPage() {
   const [query, setQuery] = useState('');
   const [rolesFor, setRolesFor] = useState<UserRow | null>(null);
   const [blockFor, setBlockFor] = useState<UserRow | null>(null);
+  const [colorFor, setColorFor] = useState<UserRow | null>(null);
   const reload = useCallback(() => {
     get<UserRow[]>('/api/admin/users').then(setUsers).catch((e) => setError(errorText(e)));
     if (can(me, 'role.zobrazit')) get<RoleRow[]>('/api/admin/roles').then(setRoles).catch(() => undefined);
@@ -53,7 +55,7 @@ export function UsersPage() {
     <div className="flex flex-col gap-3">
       <TextInput label={t('lobby.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
       {error && <Notice kind="error">{error}</Notice>}
-      <DataTable head={[t('auth.nickname'), t('auth.email'), t('admin.status'), t('admin.rolesCol'), t('admin.lastSeen'), '']}>
+      <DataTable head={[t('auth.nickname'), t('auth.email'), t('admin.status'), t('admin.rolesCol'), t('admin.colorCol'), t('admin.lastSeen'), '']}>
         {users
           .filter((u) => u.nickname.toLowerCase().includes(query.toLowerCase()) || (u.email ?? '').toLowerCase().includes(query.toLowerCase()))
           .map((u) => (
@@ -73,6 +75,17 @@ export function UsersPage() {
                     </Badge>
                   ))}
                 </div>
+              </Td>
+              <Td>
+                <button
+                  type="button"
+                  disabled={!can(me, 'uzivatel.upravit')}
+                  title={t('admin.colorTitle', { nick: u.nickname })}
+                  aria-label={t('admin.colorTitle', { nick: u.nickname })}
+                  className="h-5 w-5 rounded-full border border-line"
+                  style={u.chartColor ? { background: playerColorVar(u.chartColor) } : undefined}
+                  onClick={() => setColorFor(u)}
+                />
               </Td>
               <Td className="text-sm">{u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString('cs-CZ') : '–'}</Td>
               <Td>
@@ -109,8 +122,41 @@ export function UsersPage() {
           ))}
       </DataTable>
       {rolesFor && <AssignDialog user={rolesFor} roles={roles} onClose={() => { setRolesFor(null); reload(); }} />}
+      {colorFor && <ColorDialog user={colorFor} onClose={() => { setColorFor(null); reload(); }} />}
       {blockFor && <BlockDialog user={blockFor} onClose={() => { setBlockFor(null); reload(); }} />}
     </div>
+  );
+}
+
+function ColorDialog({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const [error, setError] = useState('');
+  const pick = (color: number | null) =>
+    post(`/api/admin/users/${user.id}/chart-color`, { color })
+      .then(onClose)
+      .catch((e) => setError(errorText(e)));
+  return (
+    <Modal title={t('admin.colorTitle', { nick: user.nickname })} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted">{t('admin.colorHelp')}</p>
+        {error && <Notice kind="error">{error}</Notice>}
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: PLAYER_COLOR_COUNT }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              type="button"
+              aria-label={t('admin.colorPick', { n })}
+              aria-pressed={user.chartColor === n}
+              className={`h-8 w-8 rounded-full border-2 ${user.chartColor === n ? 'border-text' : 'border-line'}`}
+              style={{ background: playerColorVar(n) }}
+              onClick={() => void pick(n)}
+            />
+          ))}
+        </div>
+        <div>
+          <Button onClick={() => void pick(null)}>{t('admin.colorAuto')}</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

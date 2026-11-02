@@ -34,6 +34,7 @@ export * from './hand-stats.js';
 export * from './progress.js';
 export * from './achievements.js';
 export * from './rating.js';
+export * from './player-color.js';
 export * from './public-board.js';
 export * from './guide.js';
 export * from './branding.js';
