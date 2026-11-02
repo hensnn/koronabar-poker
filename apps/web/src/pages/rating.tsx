@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { can, useSession } from '../session';
+import { PlayerDotById } from '../player-color';
 import { Badge, Button, Card, DataTable, Modal, Notice, Tabs, Td } from '../ui';
 
 type Scope = 'tournament' | 'cash';
@@ -177,7 +178,10 @@ export function RatingSection() {
                 {seasonData.rows.map((r) => (
                   <tr key={r.userId}>
                     <Td>{r.rank}</Td>
-                    <Td>{r.nickname}</Td>
+                    <Td>
+                      <PlayerDotById userId={r.userId} />
+                      {r.nickname}
+                    </Td>
                     <Td className="font-mono">{r.rating ?? '–'}</Td>
                     <Td className="font-mono">{r.delta === null ? '–' : r.delta > 0 ? `+${r.delta}` : r.delta}</Td>
                     <Td>{r.divisionIcon} {r.division}</Td>
@@ -193,7 +197,10 @@ export function RatingSection() {
               {board.map((r) => (
                 <tr key={r.userId}>
                   <Td>{r.rank}</Td>
-                  <Td>{r.nickname}</Td>
+                  <Td>
+                    <PlayerDotById userId={r.userId} />
+                    {r.nickname}
+                  </Td>
                   <Td className="font-mono">{r.rating ?? '–'}</Td>
                   <Td>{r.divisionIcon} {r.division}</Td>
                   <Td className="font-mono">{r.games}</Td>

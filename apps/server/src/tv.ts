@@ -4,6 +4,7 @@ import type { Card, TableView, TableActor } from '@kb/game-core';
 import type { PermissionChecker, SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
+import { nicknameColors } from './player-colors.js';
 import type { LeaderRow, StatsRange } from './stats.js';
 import { resultSummary, type TournamentManager } from './tournaments.js';
 import type { TableManager } from './tables.js';
@@ -489,7 +490,9 @@ export class TvService {
     const board = this.s()['evening.enabled'] ? await this.deps.evenings().tvBoard() : null;
     const evening: Row[] = board ? board.players.map((p) => ({ rank: p.rank, nickname: p.nickname, value: p.net })) : top((await stats.leaderboard({ from: day, to: null })).filter((r) => r.total !== 0));
     const rating = (await this.deps.rating().leaderboard('tournament')).slice(0, 10).map((r) => ({ rank: r.rank, nickname: r.nickname, rating: r.rating, division: r.division, divisionIcon: r.divisionIcon }));
-    const out = { seasonName: current?.name ?? null, season, rating, evening };
+    const colors = await nicknameColors(this.deps.db);
+    const paint = <T extends { nickname: string }>(rows: T[]): (T & { color?: number })[] => rows.map((r) => ({ ...r, color: colors.get(r.nickname) }));
+    const out = { seasonName: current?.name ?? null, season: paint(season), rating: paint(rating), evening: paint(evening) };
     this.cache = { at: now, leaderboard: out };
     return out;
   }
@@ -569,10 +572,12 @@ interface Row {
   rank: number;
   nickname: string;
   value: number;
+  color?: number;
 }
 interface RatingRow {
   rank: number;
   nickname: string;
+  color?: number;
   rating: number | null;
   division: string;
   divisionIcon?: string;

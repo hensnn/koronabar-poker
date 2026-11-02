@@ -11,6 +11,7 @@ import type { SettingsStore } from '../settings-store.js';
 import { SESSION_COOKIE } from './cookies.js';
 import { sendError } from './errors.js';
 import { schema, type Db } from '../db/index.js';
+import { playerColors } from '../player-colors.js';
 import { eq } from 'drizzle-orm';
 import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, sanitizeSettingsProfile, type SettingsTemplate } from '@kb/shared';
 import type { EmailService } from '../email/service.js';
@@ -1981,6 +1982,11 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     } catch (e) {
       overviewErr(e, reply);
     }
+  }));
+  // Barvy všech hráčů pro grafy, statistiky a žebříčky (kód 1 až 60, viz shared/player-color).
+  app.get('/api/stats/player-colors', guard(async (req, reply) => {
+    need(req);
+    reply.send({ colors: Object.fromEntries(await playerColors(svc.db)) });
   }));
   app.get('/api/stats/compare', guard(async (req, reply) => {
     need(req);

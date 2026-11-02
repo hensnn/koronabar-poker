@@ -62,7 +62,7 @@ describe('přehled mezi hráči', () => {
     const cmp = await s.server.overview.compare([s.player, s.admin], 'balance');
     expect(cmp.series.find((x) => x.userId === s.player)!.color).toBe(7);
     await expect(s.server.accounts.setChartColor(s.player, s.admin, 2)).rejects.toThrow('FORBIDDEN');
-    await expect(s.server.accounts.setChartColor(s.admin, s.player, 13)).rejects.toThrow();
+    await expect(s.server.accounts.setChartColor(s.admin, s.player, 61)).rejects.toThrow();
     await s.server.accounts.setChartColor(s.admin, s.player, null);
     expect((await s.server.overview.overview()).rows.find((r) => r.userId === s.player)!.color).not.toBe(7);
   });

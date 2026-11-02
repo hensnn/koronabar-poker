@@ -37,6 +37,8 @@ export interface BoardRowView {
   level?: number;
   rankName?: string;
   rankIcon?: string;
+  /** Barva hráče (kód 1 až 60). */
+  color?: number;
   rating?: number | null;
   division?: string;
   divisionIcon?: string;
@@ -232,8 +234,9 @@ export class PublicBoardService {
     list.sort((a, b) => key[c.sort](b) - key[c.sort](a) || a.nickname.localeCompare(b.nickname, 'cs'));
     if (c.limit > 0) list = list.slice(0, c.limit);
 
+    const colors = await playerColors(this.deps.db);
     const rows: BoardRowView[] = list.map((x, i) => {
-      const row: BoardRowView = { rank: i + 1, nickname: boardName(x.nickname, c.nameMode) };
+      const row: BoardRowView = { rank: i + 1, nickname: boardName(x.nickname, c.nameMode), color: colors.get(x.id) };
       const has = (col: BoardColumn) => columns.includes(col);
       if (has('profit')) row.profit = x.profit;
       if (has('cashProfit')) row.cashProfit = x.cashProfit;

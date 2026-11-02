@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { playerColorVar, t } from '@kb/shared';
+import { t } from '@kb/shared';
+import { PlayerDot, PlayerDotById } from '../player-color';
 import { del, errorText, get, patch, post } from '../api';
 import { can, useSession } from '../session';
 import { CardView } from '../table/CardView';
@@ -371,7 +372,7 @@ function PlayersOverview({ meId }: { meId: string }) {
               <input type="checkbox" aria-label={t('overview.compareCol')} checked={selected.includes(r.userId)} onChange={() => toggle(r.userId)} />
             </Td>
             <Td>
-              <span aria-hidden className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: playerColorVar(r.color) }} />
+              <PlayerDot color={r.color} />
               <strong>{r.nickname}</strong> {r.userId === meId && <Badge tone="primary">{t('overview.me')}</Badge>}
             </Td>
             <Td>
@@ -418,6 +419,7 @@ function Leaderboard({ season, seasons }: { season: string; seasons: Season[] })
             <Td>{i + 1}</Td>
             <Td>
               <button className="underline" onClick={() => setOpen(r)}>
+                <PlayerDotById userId={r.userId} />
                 {r.nickname}
               </button>
             </Td>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
+import { PlayerDot } from '../player-color';
 import { ThemeProvider } from '../theme/ThemeProvider';
 import { CardView } from '../table/CardView';
 import { AnnouncerPlayer } from '../announcer/engine';
@@ -407,7 +408,7 @@ function PlayersScreen({ tr }: { tr: TvTournament }) {
   );
 }
 
-function Board({ title, rows }: { title: string; rows: { rank: number; nickname: string; value: string | number; icon?: string }[] }) {
+function Board({ title, rows }: { title: string; rows: { rank: number; nickname: string; value: string | number; icon?: string; color?: number }[] }) {
   if (rows.length === 0) return null;
   return (
     <section className="flex min-w-0 flex-1 flex-col gap-2">
@@ -416,7 +417,8 @@ function Board({ title, rows }: { title: string; rows: { rank: number; nickname:
         {rows.map((r) => (
           <li key={r.rank} className="flex justify-between gap-4 border-b border-line py-1">
             <span className="truncate">
-              {r.rank}. {r.icon} {r.nickname}
+              {r.rank}. <PlayerDot color={r.color} />
+              {r.icon} {r.nickname}
             </span>
             <span className="font-mono">{r.value}</span>
           </li>

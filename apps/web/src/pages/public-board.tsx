@@ -3,6 +3,7 @@ import { currencyWord, t, type BoardAppearance, type BoardColumn, type CurrencyF
 import { ApiError, get } from '../api';
 import { BrandMark, useBrand } from '../brand';
 import { MultiLineChart, type Pt } from './charts';
+import { PlayerDot } from '../player-color';
 
 export interface BoardRow {
   rank: number;
@@ -101,6 +102,7 @@ export function BoardView({ view, bgImage, preview = false }: { view: BoardViewD
                     <tr key={r.rank} className={`tk-board-row ${top ? 'tk-board-top' : ''}`}>
                       <td className="tk-board-cell font-mono">{a.medals && r.rank <= MEDALS.length ? MEDALS[r.rank - 1] : r.rank}</td>
                       <td className="tk-board-cell font-semibold text-text">
+                        <PlayerDot color={r.color as number | undefined} />
                         {r.rankIcon ? `${r.rankIcon} ` : ''}
                         {r.nickname}
                       </td>

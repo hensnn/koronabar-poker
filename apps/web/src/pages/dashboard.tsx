@@ -3,6 +3,7 @@ import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { get } from '../api';
 import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
+import { PlayerDotById } from '../player-color';
 import { useSettings } from '../settings';
 import { useMySeats } from '../my-seat';
 import { Badge, Button, Card, Notice } from '../ui';
@@ -312,6 +313,7 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
             {row.rank.icon}
           </span>
         )}
+        <PlayerDotById userId={row.userId} />
         {row.nickname}
       </strong>
       <span className="min-w-0 flex-1 basis-0 truncate text-center">

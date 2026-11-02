@@ -310,4 +310,4 @@ Rating hráče se překládá na divizi s ikonou: 🥔 Brambora, 🐟 Kapr, 🦊
 
 Sadu divizí přepneš v Nastavení → Rating → Sada divizí: Zvířátka (výchozí), Vojenské hodnosti (🔰 Vojín, 🪖 Desátník, 🎖️ Poručík, ⭐ Major, 🌟 Generál) nebo Vlastní (použije se text z nastavení Divize). Přepnutí mění jen názvy a ikony, rating hráčů zůstává. Ikona divize je také ve veřejných žebříčcích a v televizním zobrazení.
 
-- **Barva hráče:** v grafech srovnání (Statistiky → Přehled hráčů) a ve veřejném přehledu má každý hráč svou plnou barvu. Správce ji nastaví v **Správa → Uživatelé → sloupec Barva** (kliknutím na kruh, volba "Automaticky" vrátí výchozí). Odstíny 1 až 12 jde změnit v editoru vzhledu (Barva hráče 1 až 12).
+- **Barva hráče:** každý hráč má svou barvu, která se ukazuje jako tečka u jména v žebříčcích a přehledech (lobby, Statistiky, rating, veřejný přehled, televize) a jako barva čáry v grafech srovnání. Správce ji nastaví v **Správa → Uživatelé → sloupec Barva**: paleta má 12 odstínů (sloupce) a 5 tónů od světlého po tmavý (řádky); volba "Automaticky" přidělí volnou barvu podle pořadí registrace. Základní odstíny jde změnit v editoru vzhledu (Barva hráče 1 až 12).
