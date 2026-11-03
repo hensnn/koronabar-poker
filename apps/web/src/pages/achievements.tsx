@@ -41,7 +41,7 @@ export function AchievementShowcase() {
   if (!list) return null;
   const got = list.filter((a) => a.earned).length;
   return (
-    <Card title={`${t('achievements.title')} (${t('achievements.earned', { a: got, b: list.length })})`}>
+    <Card title={`${t('achievements.title')} (${t('achievements.earned', { a: got, b: list.length })})`} foldId="uspechy|prehled">
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((a) => (
           <li key={a.key} className={`flex items-start gap-3 rounded-md border px-3 py-2 ${a.earned ? 'border-primary bg-raised' : 'border-line opacity-60'}`}>

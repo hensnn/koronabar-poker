@@ -480,7 +480,10 @@ export async function applySet(data: SettingsProfileData): Promise<{ applied: nu
 
 // Změna na jiném zařízení téhož hráče se projeví hned.
 onSocket<{ scope: string; device: string | null; key: string; value: SettingValue | null }>('settings:changed', (m) => {
-  if (m.scope === 'user') {
+  if (m.scope === 'global') {
+    const { [m.key]: _d, ...rest } = state.global;
+    set({ global: m.value === null ? rest : { ...state.global, [m.key]: m.value } });
+  } else if (m.scope === 'user') {
     const { [m.key]: _d, ...rest } = state.user;
     set({ user: m.value === null ? rest : { ...state.user, [m.key]: m.value } });
   } else if (m.scope === 'userDevice' && profile && m.device === profile.kind) {

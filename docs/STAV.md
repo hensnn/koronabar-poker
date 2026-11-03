@@ -632,3 +632,10 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Seznam místností v chatu je teď ve výchozím stavu kompaktní: jeden úsporný seznam bez rámečků, stoly jsou spolu s kanály (značka 🪑), prázdné oddíly (Skupiny, Soukromé zprávy) se nezobrazují, akce jsou ikonky pod seznamem a seznam „Online“ je sbalený. Na telefonu je seznam jedním řádkem s posouváním do stran, takže zprávy začínají hned pod ním.
 - Osobní nastavení (sada „vzhled“, dá se nastavit zvlášť pro telefon a počítač): `ui.chatList` (Kompaktní / Karty), `ui.chatTablesWithChannels`, `ui.chatHideEmpty`. Staré zobrazení v kartách se vrátí volbou „Karty“.
 - Správce: `chat.groupsEnabled` (Skupinové chaty, ve výchozím stavu zapnuto). Po vypnutí nejde založit skupinu, skupiny se nikomu neukážou ani nedoručí; data zůstanou a po zapnutí se vrátí. Soukromé zprávy 1:1 se nemění. Hlídá to server (test v `chat.test.ts`).
+
+### Kontrolní průchod po změnách (3. 11. 2026)
+- Testovací plán je v `docs/TESTPLAN.md` (automatické kontroly, ruční scénáře na telefonu a počítači, souběh, co jde ověřit jen na skutečném zařízení).
+- Opraveno: změna globálního nastavení (např. vypnutí skupinových chatů) se ostatním přihlášeným projeví hned přes `settings:changed` (provozní parametry správců se nerozesílají), dřív až po obnovení stránky.
+- Opraveno: karty s počtem v názvu (Online v chatu, Úspěchy, Zděděné hodnoty ve Správě) mají pevný identifikátor, takže se stav zabalení neztrácí při změně počtu.
+- Ověřeno bez nálezu: zprávy v kanálu a v chatu stolu, usednutí, all-in, rebuy a odchod se třemi boty (kniha po každém kroku v pořádku, 12 kontrol), nastavení zvlášť pro telefon a počítač, sdílení sady tam a zpět.
+- Poznámka: sdílený export sady obsahuje výsledné hodnoty (i ty zděděné z „Oboje“), takže po převzetí jsou na zařízení „přibité“; je to záměr, ale změna v „Oboje“ se pak na tomto zařízení neprojeví.

@@ -5,7 +5,7 @@ import fastifyStatic from '@fastify/static';
 import { Server } from 'socket.io';
 import { CashService, Ledger, accounts as ledgerAccounts } from '@kb/ledger';
 import { realClock, type Clock } from '@kb/game-core';
-import { coerceSettingValue, createDefaultRegistry, formatLocal, t as tr, timezoneOf, type SettingValues } from '@kb/shared';
+import { coerceSettingValue, createDefaultRegistry, formatLocal, isInternalSetting, t as tr, timezoneOf, type SettingValues } from '@kb/shared';
 import { AccountService, type AccountNotifier } from './auth/accounts.js';
 import { AuditService } from './auth/audit.js';
 import { PermissionService } from './auth/permissions.js';
@@ -1109,6 +1109,8 @@ export async function buildServer(opts: ServerOptions = {}) {
   hooks.pushWallet = (userId) => void io.to(`user:${userId}`).emit('wallet', { balance: ledger.balance(ledgerAccounts.wallet(userId)) });
   // Osobní nastavení se po změně hned projeví i na dalších zařízeních téhož hráče.
   settings.onChange((scope, scopeId, key, value) => {
+    // Změna globálního nastavení se hned projeví všem (provozní parametry správců se nerozesílají).
+    if (scope === 'global' && !isInternalSetting(key)) io.emit('settings:changed', { scope, device: null, key, value: value ?? null });
     if (scope === 'user' || scope === 'userDevice') {
       const [userId, device] = scopeId.split(':');
       io.to(`user:${userId}`).emit('settings:changed', { scope, device: device ?? null, key, value: value ?? null });

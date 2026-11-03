@@ -123,7 +123,7 @@ export function ChatPage() {
               </Button>
             ))}
           </div>
-          <Card title={t('chat.online', { n: presence.length })}>{onlineList}</Card>
+          <Card title={t('chat.online', { n: presence.length })} foldId="chat|online-karta">{onlineList}</Card>
         </aside>
       ) : (
         <aside className="flex min-w-0 flex-col gap-2">

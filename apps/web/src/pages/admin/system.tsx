@@ -88,7 +88,7 @@ function InheritedGameValues({ global, onDone }: { global: Partial<SettingValues
     }
   };
   return (
-    <Card title={t('admin.inherited.title', { n: left.length })}>
+    <Card title={t('admin.inherited.title', { n: left.length })} foldId="system|zdedene">
       <p className="mb-2 text-sm text-muted">{t('admin.inherited.help')}</p>
       <DataTable head={[t('admin.inherited.setting'), t('admin.inherited.value'), t('admin.inherited.default'), '']}>
         {left.map((k) => (
