@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
-import { Button } from '../ui';
-import { mobileScale } from './mobile';
+import { Button, Fold } from '../ui';
+import { applyMobileGeometry, mobileScale } from './mobile';
 import { CardView } from './CardView';
 import { Link } from '../router';
 import { TimeStrip } from './TimerRing';
@@ -107,12 +107,13 @@ export function MobileOptions() {
     </label>
   );
   return (
-    <fieldset className="flex flex-col gap-1 border-t border-line pt-2">
-      <legend className="text-xs font-semibold text-muted">{t('table.m.options')}</legend>
+    <Fold title={t('table.m.options')} foldId="stul|zobrazeni-na-telefonu" className="text-sm">
+    <div className="flex flex-col gap-1">
       {row('ui.mobileTurnAlert')}
       {row('ui.mobileAutoFullscreen', false)}
       {row('ui.hideMyCards', false)}
-    </fieldset>
+    </div>
+    </Fold>
   );
 }
 
@@ -127,6 +128,15 @@ export function MobileScalePanel({ seatCount }: { seatCount: number }) {
     document.documentElement.style.setProperty('--tk-mscale', String(mobileScale({ ...values, 'ui.mobileTableScale': n }, seatCount)));
   };
   const commit = (n = v) => void saveUserSetting('ui.mobileTableScale', n, true).catch(() => undefined);
+  // Výška stolu: stejný postup (náhled hned, uložení po puštění).
+  const savedH = Number(values['ui.mobileTableHeight'] ?? 100);
+  const [h, setH] = useState(savedH);
+  useEffect(() => setH(savedH), [savedH]);
+  const previewH = (n: number) => {
+    setH(n);
+    applyMobileGeometry(Number(values['ui.mobileTableAspect'] ?? 85), n);
+  };
+  const commitH = (n = h) => void saveUserSetting('ui.mobileTableHeight', n, true).catch(() => undefined);
   return (
     <div className="flex flex-col gap-3">
       <label className="flex items-center gap-2">
@@ -134,6 +144,12 @@ export function MobileScalePanel({ seatCount }: { seatCount: number }) {
         <input type="range" className="flex-1" min={60} max={110} step={5} value={v} aria-label={t('table.scale.title')} onChange={(e) => preview(Number(e.target.value))} onPointerUp={() => commit()} onKeyUp={() => commit()} onBlur={() => commit()} />
         <span className="w-12 text-right font-mono">{v} %</span>
       </label>
+      <label className="flex items-center gap-2">
+        <span className="w-24 shrink-0">{t('table.height.title')}</span>
+        <input type="range" className="flex-1" min={70} max={130} step={5} value={h} aria-label={t('table.height.title')} onChange={(e) => previewH(Number(e.target.value))} onPointerUp={() => commitH()} onKeyUp={() => commitH()} onBlur={() => commitH()} />
+        <span className="w-12 text-right font-mono">{h} %</span>
+      </label>
+      <p className="-mt-2 text-xs text-muted">{t('table.height.hint')}</p>
       <label className="flex items-start gap-2 text-sm" title={t('settings.ui.mobileAutoShrink.help')}>
         <input type="checkbox" role="switch" className="mt-1" checked={values['ui.mobileAutoShrink'] !== false} onChange={(e) => void saveUserSetting('ui.mobileAutoShrink', e.target.checked, true).catch(() => undefined)} />
         <span>{t('settings.ui.mobileAutoShrink.label')}</span>
@@ -144,6 +160,8 @@ export function MobileScalePanel({ seatCount }: { seatCount: number }) {
           onClick={() => {
             preview(100);
             commit(100);
+            previewH(100);
+            commitH(100);
           }}
         >
           {t('table.scale.reset')}

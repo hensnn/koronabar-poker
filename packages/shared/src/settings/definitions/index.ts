@@ -825,6 +825,7 @@ const ui: SettingDef[] = [
   bool('ui.mobileAllIcons', { category: 'ui', mutability: A, scopes: USER }, false),
   bool('ui.mobileAutoFullscreen', { category: 'ui', mutability: A, scopes: USER }, false),
   int('ui.mobileTableScale', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 100, 60, 110),
+  int('ui.mobileTableHeight', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 100, 70, 130),
   bool('ui.mobileAutoShrink', { category: 'ui', mutability: A, scopes: USER }, true),
   text('ui.mobileOrder', { category: 'ui', mutability: A, scopes: USER }, '', 800),
   bool('ui.mobileTurnAlert', { category: 'ui', mutability: A, scopes: USER }, true),
