@@ -10,6 +10,7 @@ import { deviceId, deviceKindOverride, loadKindLayers, resetForBoth, resetKindSe
 import { SettingsForm } from '../settings/SettingsForm';
 import { Button, Card, Notice, Spinner, Tabs, TextInput } from '../ui';
 import { Guide } from './guide';
+import { MobileOrderEditor } from '../table/MobileOrderEditor';
 import { LimitsSection } from './limits';
 import { useFeatures } from '../features';
 import { NotesSection } from './notes';
@@ -178,8 +179,8 @@ export function SettingsPage() {
       <Tabs
         tabs={[
           { id: 'both' as const, label: t('settings.personal.tab.both') },
-          { id: 'desktop' as const, label: t('settings.personal.tab.desktop') + (here === 'desktop' ? ` ${t('settings.personal.thisDevice')}` : '') },
-          { id: 'phone' as const, label: t('settings.personal.tab.phone') + (here === 'phone' ? ` ${t('settings.personal.thisDevice')}` : '') },
+          { id: 'desktop' as const, label: '🖥️ ' + t('settings.personal.tab.desktop') + (here === 'desktop' ? ` ${t('settings.personal.thisDevice')}` : '') },
+          { id: 'phone' as const, label: '📱 ' + t('settings.personal.tab.phone') + (here === 'phone' ? ` ${t('settings.personal.thisDevice')}` : '') },
         ]}
         value={target}
         onChange={(id) => {
@@ -193,6 +194,11 @@ export function SettingsPage() {
         <Spinner label={t('app.loading')} />
       ) : (
         <>
+          {target === 'phone' && (
+            <Card title={`📱 ${t('mobile.order.title')}`} foldId="nastaveni|poradi-telefon">
+              <MobileOrderEditor values={values} onChange={change} />
+            </Card>
+          )}
           <ThemeChooser onPick={(id) => change('ui.themeId', id)} current={String(values['ui.themeId'])} />
           <SettingsForm registry={registry} values={values} origins={origins} editScope={editScope} onChange={change} onReset={reset} issues={[]} allowedKeys={(d) => userKeys.some((x) => x.key === d.key)} categoryOrder={PERSONAL_ORDER} />
         </>

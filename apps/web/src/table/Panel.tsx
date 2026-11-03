@@ -4,6 +4,8 @@ import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { Button, Modal } from '../ui';
 import { moveToSide, reorder, sideOf, toggleCollapsed, toggleHidden, toggleSide, WIDGET_IDS, type Layout, type Side, type WidgetId } from './layout';
 import { useMobileLayout } from './mobile';
+import { MobileOrderEditor } from './MobileOrderEditor';
+import { ORDER_KEY, parseMobileOrder } from './mobile-order';
 import { useTableWidgets, type WidgetDef } from './widgets';
 
 /** Rámeček jednoho widgetu: sbalitelná hlavička s volitelnými doplňky. */
@@ -57,6 +59,7 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted">{t('table.panelWidgetsHelp')}</p>
+      <p className="text-sm text-muted">🖥️ {t('table.panelDesktopOnly')}</p>
       <div className="grid gap-3 md:grid-cols-2">
         {sides.map((side) => {
           const other: Side = side === 'left' ? 'right' : 'left';
@@ -148,7 +151,7 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
   );
 
   const settingsModal = open ? (
-    <Modal title={t('table.panelSettings')} wide onClose={() => setOpen(false)}>
+    <Modal title={`🖥️ ${t('table.panelSettings')}`} wide onClose={() => setOpen(false)}>
       <LayoutSettings onClose={() => setOpen(false)} />
     </Modal>
   ) : null;
@@ -178,10 +181,27 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
  */
 export function MobileInfoPanel() {
   const { layout, setLayout, defs } = useTableWidgets();
+  const settings = useSettings();
+  const [editing, setEditing] = useState(false);
   const shown = (id: WidgetId) => defs[id].show && !layout.hidden.includes(id) && id !== 'chat';
-  const order = [...new Set<WidgetId>(['table', 'info', ...WIDGET_IDS])].filter(shown);
+  const order = parseMobileOrder(settings.values[ORDER_KEY]).info.filter(shown);
   return (
     <>
+      <div className="flex justify-end">
+        <Button onClick={() => setEditing(true)} aria-label={t('mobile.order.open')} title={t('mobile.order.open')}>
+          📱 ⇅
+        </Button>
+      </div>
+      {editing && (
+        <Modal title={`📱 ${t('mobile.order.title')}`} onClose={() => setEditing(false)}>
+          <MobileOrderEditor values={settings.values} onChange={(k, v) => void saveUserSetting(k, v, true).catch(() => undefined)} />
+          <div className="mt-3">
+            <Button variant="primary" onClick={() => setEditing(false)}>
+              {t('table.close')}
+            </Button>
+          </div>
+        </Modal>
+      )}
       {order.map((id) => (
         <Frame key={id} id={id} def={defs[id]} layout={layout} setLayout={setLayout} />
       ))}
@@ -198,7 +218,7 @@ export function PanelSettingsButton({ iconOnly = false }: { iconOnly?: boolean }
         ⚙{iconOnly ? '' : ` ${t('table.panelsButton')}`}
       </Button>
       {open && (
-        <Modal title={t('table.panelSettings')} wide onClose={() => setOpen(false)}>
+        <Modal title={`🖥️ ${t('table.panelSettings')}`} wide onClose={() => setOpen(false)}>
           <LayoutSettings onClose={() => setOpen(false)} />
         </Modal>
       )}

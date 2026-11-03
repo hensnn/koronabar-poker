@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
@@ -7,6 +8,7 @@ import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
 import { SoundStrip } from '../pages/sounds';
 import { useTableWidgets } from './widgets';
+import { parseMobileOrder, ORDER_KEY } from './mobile-order';
 
 /**
  * Horní lišta nového mobilního rozložení stolu: zpět, krátký název (blindy nebo turnaj) a tři ikony se zásuvkami
@@ -91,36 +93,35 @@ export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { v
   const sounds = v['ui.mobileSounds'] === true;
   if (!events && !timer && !best && !sounds) return null;
   const acting = view.actingSeat !== null;
-  return (
-    <div className="tk-mid flex flex-col gap-1.5">
-      {timer && (acting || mine) && <TimeStrip deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />}
-      {best && mine && (
-        <div className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
-          {view.myBest?.cards && view.myBest.cards.length > 0 && (
-            <span className="flex shrink-0 gap-0.5" aria-hidden>
-              {view.myBest.cards.map((c) => (
-                <CardView key={c} card={c} mini still />
-              ))}
-            </span>
-          )}
-          <span className="min-w-0">
-            <span className="text-muted">{t('table.widget.best')}: </span>
-            <span className="font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</span>
+  const parts: Record<'timer' | 'best' | 'sounds' | 'events', ReactNode> = {
+    timer: timer && (acting || mine) && <TimeStrip key="timer" deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />,
+    best: best && mine && (
+      <div key="best" className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
+        {view.myBest?.cards && view.myBest.cards.length > 0 && (
+          <span className="flex shrink-0 gap-0.5" aria-hidden>
+            {view.myBest.cards.map((c) => (
+              <CardView key={c} card={c} mini still />
+            ))}
           </span>
-        </div>
-      )}
-      {sounds && mine && <SoundStrip target={{ kind: 'table', id: tableId }} />}
-      {events && log.length > 0 && (
-        <ul className="flex flex-col gap-0.5 rounded-md bg-raised px-2 py-1 text-xs text-muted" aria-label={t('table.m.events')}>
-          {log.map((l) => (
-            <li key={l.key} className="truncate">
-              {l.text}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+        )}
+        <span className="min-w-0">
+          <span className="text-muted">{t('table.widget.best')}: </span>
+          <span className="font-semibold">{view.myBest ? t(view.myBest.key, view.myBest.params) : t('table.widget.bestNone')}</span>
+        </span>
+      </div>
+    ),
+    sounds: sounds && mine && <SoundStrip key="sounds" target={{ kind: 'table', id: tableId }} />,
+    events: events && log.length > 0 && (
+      <ul key="events" className="flex flex-col gap-0.5 rounded-md bg-raised px-2 py-1 text-xs text-muted" aria-label={t('table.m.events')}>
+        {log.map((l) => (
+          <li key={l.key} className="truncate">
+            {l.text}
+          </li>
+        ))}
+      </ul>
+    ),
+  };
+  return <div className="tk-mid flex flex-col gap-1.5">{parseMobileOrder(v[ORDER_KEY]).mid.map((id) => parts[id])}</div>;
 }
 
 /** Zaškrtávátka v kartě „O hře“: co se na telefonu ukazuje mezi stolem a tlačítky a zda se upozorní na můj tah. */
