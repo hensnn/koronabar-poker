@@ -29,7 +29,7 @@ import { PublicBoardPage } from './pages/public-board';
 import { NotificationBell } from './notifications';
 import { SoundMenu } from './sound-menu';
 import { DashboardPage } from './pages/dashboard';
-import { NavTabs, useNavCounts, type NavTab } from './nav-tabs';
+import { BottomNav, NavTabs, useNavCounts, type NavTab } from './nav-tabs';
 import { useTournamentAutoJoin } from './tournament-autojoin';
 import { MyTableButton } from './my-table-button';
 import { SaveErrorToast } from './save-error-toast';
@@ -182,7 +182,7 @@ function Shell({ me }: { me: Me }) {
   if (off('/ankety', features.polls) || off('/chat', features.chat || features.polls) || off('/vecery', features.evenings) || off('/postup', features.xp || features.rating) || off('/obchod', features.shop)) page = <Redirect to="/" />;
 
   return (
-    <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>
+    <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl pb-20 md:pb-3"}`}>
       <SaveErrorToast />
       <header className={`flex items-center justify-between gap-2 ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
         <BrandMark header />
@@ -202,11 +202,11 @@ function Shell({ me }: { me: Me }) {
           <span className="order-first">
             <MyTableButton path={path} />
           </span>
-          <Link to="/" aria-current={path === '/' ? 'page' : undefined} className={`order-[-9000] flex items-center rounded-md border px-3 py-1 ${path === '/' ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
+          <Link to="/" aria-current={path === '/' ? 'page' : undefined} className={`order-[-9000] hidden items-center rounded-md border px-3 py-1 md:flex ${path === '/' ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
             {t('nav.lobby')}
           </Link>
           {isAdmin(me) && (
-            <Link to="/admin" aria-current={path.startsWith('/admin') ? 'page' : undefined} className={`order-[-8000] flex items-center rounded-md border px-3 py-1 ${path.startsWith('/admin') ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
+            <Link to="/admin" aria-current={path.startsWith('/admin') ? 'page' : undefined} className={`order-[-8000] hidden items-center rounded-md border px-3 py-1 md:flex ${path.startsWith('/admin') ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
               {t('nav.admin')}
             </Link>
           )}
@@ -218,7 +218,11 @@ function Shell({ me }: { me: Me }) {
           <AnnouncerHost />
         </nav>
       </header>
-      {!stul && !path.startsWith('/admin') && <NavTabs tabs={tabs} isActive={isActive} />}
+      {!stul && !path.startsWith('/admin') && (
+        <div className="hidden md:block">
+          <NavTabs tabs={tabs} isActive={isActive} />
+        </div>
+      )}
       {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}
       <TournamentResultHost />
       <HeadBountyClaimedHost />
@@ -232,6 +236,7 @@ function Shell({ me }: { me: Me }) {
         </ErrorBoundary>
       </main>
       {!blocked && features.assistant && <AssistantLauncher floating={!stul} />}
+      {!stul && <BottomNav tabs={[...tabs, ...(isAdmin(me) ? [{ to: '/admin', label: t('nav.admin') }] : [])]} isActive={isActive} path={path} />}
     </div>
   );
 }
