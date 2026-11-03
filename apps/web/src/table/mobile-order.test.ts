@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOrder, effectiveOrder, MOBILE_WIDGETS, moveItem, moveToZone, parseMobileOrder, serializeOrder, toggleToolScreen, toolScreens, ZONES, zoneOf } from './mobile-order';
+import { defaultOrder, effectiveOrder, forLandscape, MOBILE_WIDGETS, moveItem, moveToZone, parseMobileOrder, serializeOrder, toggleToolScreen, toolScreens, ZONES, zoneOf } from './mobile-order';
 
 const everywhereOnce = (o: ReturnType<typeof parseMobileOrder>) => {
   const all = ZONES.flatMap((z) => o[z]);
@@ -92,5 +92,21 @@ describe('rozmístění widgetů na telefonu', () => {
     const o = parseMobileOrder(JSON.stringify({ v: 3, screens: 3, s1: ['timer'], s2: ['info'], s3: ['chat'], icon: [], hidden: [] }));
     expect(toolScreens(o, 'chat')).toEqual([1, 2, 3]);
     expect(o.s1[0]).toBe('timer');
+  });
+  it('na šířku je výchozí jedna obrazovka: v pravém sloupci jen pruh času, ostatní widgety mimo lištu', () => {
+    const o = forLandscape(parseMobileOrder('', {}, true));
+    expect(o.screens).toBe(1);
+    expect(o.s1).toEqual(['timer']);
+    expect(o.s2).toEqual([]);
+    expect(o.icon).toEqual(expect.arrayContaining(['info', 'chat', 'players']));
+    expect(toolScreens(o, 'w:players')).toEqual([]);
+    everywhereOnce(o);
+  });
+  it('rozmístění z více obrazovek se na šířku sloučí do jedné', () => {
+    const raw = JSON.stringify({ v: 4, screens: 3, tools: {}, s1: ['timer', 'best'], s2: ['players'], s3: ['chat'], icon: [], hidden: [] });
+    const o = forLandscape(parseMobileOrder(raw, {}, true));
+    expect(o.s1).toEqual(['timer', 'best']);
+    expect(o.icon).toEqual(expect.arrayContaining(['players', 'chat']));
+    everywhereOnce(o);
   });
 });

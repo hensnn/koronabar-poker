@@ -50,6 +50,7 @@ export function InfoSlot() {
 export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
   const { defs } = useTableWidgets();
   const order = useMobileOrder();
+  const landscape = useLandscapePhone();
   const acting = view.actingSeat !== null;
   const parts: Record<MobileWidget, ReactNode> = {
     timer: (acting || mine) && <TimeStrip key="timer" deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />,
@@ -92,6 +93,16 @@ export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { v
         <h3 className="text-xs font-semibold text-muted">{def.title}</h3>
         {def.body}
       </section>
+    );
+  }
+  // Na šířku je pruh času v pravém sloupci nad ovládacím panelem, ostatní widgety pod ním.
+  if (landscape) {
+    const rest = order.s1.filter((id) => id !== 'timer');
+    return (
+      <>
+        {order.s1.includes('timer') && parts.timer && <div className="tk-mid-top">{parts.timer}</div>}
+        <div className="tk-mid flex flex-col gap-1.5">{rest.map((id) => parts[id])}</div>
+      </>
     );
   }
   return <div className="tk-mid flex flex-col gap-1.5">{order.s1.map((id) => parts[id])}</div>;

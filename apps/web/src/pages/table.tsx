@@ -14,7 +14,7 @@ import { mobileScale, useFollowPhoneProfile, useLandscapePhone, useMobileAttribu
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
-import { LandscapePane, MobilePager, MobileScreen, MobileWidgetDrawer } from '../table/MobilePager';
+import { MobilePager, MobileScreen, MobileWidgetDrawer } from '../table/MobilePager';
 import { MobileOrderEditor, WIDGET_TITLE_KEY } from '../table/MobileOrderEditor';
 import { TOOL_ICON, TOOL_IDS, toolScreens, WIDGET_ICON, zoneOf, type MobileWidget, type ToolId } from '../table/mobile-order';
 import { TournamentBanner } from '../table/TablePanel';
@@ -353,7 +353,6 @@ export function TablePage({ tableId }: { tableId: string }) {
             quickPost={String(settings.values['ui.quickBetsPostflop'])}
             quickPre={String(settings.values['ui.quickBetsPreflop'])}
             modern={modern}
-          mid={landscape ? (def) => <LandscapePane first={def} order={order} page={page} onPage={setPage} channel={channel} /> : undefined}
             extra={
               seated && !modern ? (
                 <span className="tk-tp-mobile">

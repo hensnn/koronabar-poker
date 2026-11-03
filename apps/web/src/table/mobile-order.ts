@@ -11,6 +11,8 @@ export type Zone = (typeof ZONES)[number];
 export const ORDER_KEY = 'ui.mobileOrder';
 /** Rozmístění pro telefon na šířku (na výšku a na šířku se nemíchají). */
 export const ORDER_KEY_LANDSCAPE = 'ui.mobileOrderLandscape';
+/** Rozmístění na šířku je vždy jedna obrazovka: widgety z dalších obrazovek přejdou mezi ikony. */
+export const forLandscape = (o: MobileOrder): MobileOrder => effectiveOrder({ ...o, screens: 1 });
 export const orderKeyFor = (landscape: boolean): string => (landscape ? ORDER_KEY_LANDSCAPE : ORDER_KEY);
 
 /** Starší samostatná zaškrtávátka; dnes slouží jen k výchozímu rozmístění, dokud si hráč neuloží vlastní. */
@@ -51,7 +53,12 @@ export function allowedZones(id: MobileWidget): Zone[] {
 }
 
 /** Výchozí rozmístění: pod stolem to, co starší zaškrtávátka zapínala (pruh času, kombinace, události); informace na obrazovce 2, chat na 3. */
-export function defaultOrder(values: Record<string, unknown> = {}): MobileOrder {
+export function defaultOrder(values: Record<string, unknown> = {}, landscape = false): MobileOrder {
+  // Na šířku je jedna obrazovka: vpravo pruh času a ovládací panel, ostatní widgety jsou jen v nabídce ☰ (jako ikony mimo lištu).
+  if (landscape) {
+    const icons = (['table', 'info', 'players', 'best', 'events', 'sounds', 'bounties', 'chat'] as const).map((id) => id as MobileWidget);
+    return { screens: 1, tools: Object.fromEntries(icons.filter((id) => id !== 'info' && id !== 'chat').map((id) => [`w:${id}`, [] as number[]])), s1: ['timer'], s2: [], s3: [], icon: icons, hidden: [] };
+  }
   const on = (id: 'timer' | 'best' | 'sounds' | 'events'): boolean => {
     const f = LEGACY_FLAG[id]!;
     return f.def ? values[f.key] !== false : values[f.key] === true;
@@ -65,8 +72,8 @@ export function defaultOrder(values: Record<string, unknown> = {}): MobileOrder 
  * Uložené rozmístění; neznámé a nepřípustné položky se zahodí, chybějící (např. z novější verze) se doplní do výchozího místa.
  * Starší verze 2 (pod stolem / informace / skryté) se převede. Bez uložené hodnoty platí výchozí rozmístění.
  */
-export function parseMobileOrder(raw: unknown, values: Record<string, unknown> = {}): MobileOrder {
-  const def = defaultOrder(values);
+export function parseMobileOrder(raw: unknown, values: Record<string, unknown> = {}, landscape = false): MobileOrder {
+  const def = defaultOrder(values, landscape);
   let obj: Record<string, unknown> | null = null;
   try {
     const v = typeof raw === 'string' && raw ? JSON.parse(raw) : raw;

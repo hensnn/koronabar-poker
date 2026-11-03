@@ -3,7 +3,7 @@ import { t } from '@kb/shared';
 import type { Channel } from '../chat-store';
 import { ChatPanel } from '../pages/chat';
 import { Frame } from './Panel';
-import type { MobileOrder, MobileWidget } from './mobile-order';
+import type { MobileWidget } from './mobile-order';
 import { useTableWidgets } from './widgets';
 import type { WidgetId } from './layout';
 
@@ -105,25 +105,3 @@ export function MobileWidgetDrawer({ id, channel }: { id: MobileWidget; channel:
   return <WidgetBody id={id} channel={channel} visible />;
 }
 
-/**
- * Telefon na šířku: pod pevným ovládacím panelem jsou záložky 1, 2 a 3 (podle počtu obrazovek), stůl zůstává vidět.
- * Záložka 1 je pás pod stolem (`first`), záložky 2 a 3 jsou widgety z těchto obrazovek.
- */
-export function LandscapePane({ first, order, page, onPage, channel }: { first: ReactNode; order: MobileOrder; page: number; onPage: (p: number) => void; channel: Channel | undefined }) {
-  const total = order.screens;
-  const current = Math.min(page, total - 1);
-  return (
-    <div className="tk-pane flex min-h-0 flex-1 flex-col gap-1">
-      {total > 1 && (
-        <div role="tablist" aria-label={t('mobile.screens')} className="flex gap-1">
-          {Array.from({ length: total }, (_, i) => (
-            <button key={i} role="tab" aria-selected={i === current} aria-label={t('mobile.screenN', { n: i + 1 })} onClick={() => onPage(i)} className={`flex-1 rounded-md border border-line px-2 py-0.5 text-sm ${i === current ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
-              {i + 1}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{current === 0 ? first : <MobileScreen ids={current === 1 ? order.s2 : order.s3} channel={channel} visible />}</div>
-    </div>
-  );
-}

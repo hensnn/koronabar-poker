@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { setProfileKind, useSettings } from '../settings';
-import { effectiveOrder, orderKeyFor, parseMobileOrder } from './mobile-order';
+import { effectiveOrder, forLandscape, orderKeyFor, parseMobileOrder } from './mobile-order';
 
 function useMedia(query: string): boolean {
   const mq = typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(query) : null;
@@ -115,5 +115,5 @@ export function applyMobileGeometry(aspectPct: number, heightPct: number): void 
 export function useMobileOrder() {
   const values = useSettings().values;
   const landscape = useLandscapePhone();
-  return effectiveOrder(parseMobileOrder(values[orderKeyFor(landscape)], values));
+  return landscape ? forLandscape(parseMobileOrder(values[orderKeyFor(true)], values, true)) : effectiveOrder(parseMobileOrder(values[orderKeyFor(false)], values));
 }

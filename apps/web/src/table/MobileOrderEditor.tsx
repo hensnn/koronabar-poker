@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { t, type SettingValue } from '@kb/shared';
 import { Button, Tabs } from '../ui';
-import { allowedZones, effectiveOrder, moveItem, moveToZone, orderKeyFor, parseMobileOrder, serializeOrder, TOOL_ICON, TOOL_IDS, TOOL_TITLE_KEY, toggleToolScreen, toolScreens, WIDGET_ICON, type MobileOrder, type MobileWidget, type Zone } from './mobile-order';
+import { allowedZones, effectiveOrder, forLandscape, moveItem, moveToZone, orderKeyFor, parseMobileOrder, serializeOrder, TOOL_ICON, TOOL_IDS, TOOL_TITLE_KEY, toggleToolScreen, toolScreens, WIDGET_ICON, type MobileOrder, type MobileWidget, type Zone } from './mobile-order';
 
 export const WIDGET_TITLE_KEY: Record<MobileWidget, string> = {
   timer: 'mobile.order.part.timer',
@@ -35,10 +35,11 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
   const [tab, setTab] = useState<'widgets' | 'icons'>('widgets');
   const [landscape, setLandscape] = useState(landscapeNow);
   const key = orderKeyFor(landscape);
-  const order = parseMobileOrder(values[key], values);
+  // Na šířku je jedna obrazovka (vpravo pod ovládacím panelem); na výšku 1 až 3 obrazovky.
+  const order = landscape ? forLandscape(parseMobileOrder(values[key], values, true)) : parseMobileOrder(values[key], values);
   const save = (next: MobileOrder) => onChange(key, serializeOrder(next));
   const screens = Array.from({ length: order.screens }, (_, i) => i + 1);
-  const zones: Zone[] = ['s1', ...(order.screens >= 2 ? (['s2'] as const) : []), ...(order.screens >= 3 ? (['s3'] as const) : []), 'icon', 'hidden'];
+  const zones: Zone[] = landscape ? ['s1', 'icon', 'hidden'] : ['s1', ...(order.screens >= 2 ? (['s2'] as const) : []), ...(order.screens >= 3 ? (['s3'] as const) : []), 'icon', 'hidden'];
   const offered = (id: MobileWidget) => allowedZones(id).filter((z) => zones.includes(z));
   const widgetIcons = order.icon.filter((id) => id !== 'info' && id !== 'chat');
 
@@ -55,6 +56,7 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
         ))}
       </div>
       <p className="text-sm text-muted">{landscape ? t('mobile.order.landscapeHelp') : t('mobile.order.help')}</p>
+      {!landscape && (
       <div role="radiogroup" aria-label={t('mobile.order.screens')} className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{t('mobile.order.screens')}</span>
         {([1, 2, 3] as const).map((n) => (
@@ -63,6 +65,7 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
           </button>
         ))}
       </div>
+      )}
       <Tabs tabs={[{ id: 'widgets' as const, label: t('mobile.order.tab.widgets') }, { id: 'icons' as const, label: t('mobile.order.tab.icons') }]} value={tab} onChange={setTab} />
 
       {tab === 'widgets' &&
@@ -70,8 +73,8 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
           const list = order[zone];
           const st = ZONE_STYLE[zone];
           return (
-            <section key={zone} className={`rounded-md border-2 p-3 ${st.box}`} aria-label={t(`mobile.order.zone.${zone}`)}>
-              <h3 className={`mb-2 font-bold ${st.head}`}>{t(`mobile.order.zone.${zone}`)}</h3>
+            <section key={zone} className={`rounded-md border-2 p-3 ${st.box}`} aria-label={zone === 's1' && landscape ? t('mobile.order.zone.s1Landscape') : t(`mobile.order.zone.${zone}`)}>
+              <h3 className={`mb-2 font-bold ${st.head}`}>{zone === 's1' && landscape ? t('mobile.order.zone.s1Landscape') : t(`mobile.order.zone.${zone}`)}</h3>
               <ul className="flex flex-col gap-1">
                 {list.map((id, i) => (
                   <li key={id} className="flex flex-col gap-1 rounded-sm bg-surface px-2 py-1">

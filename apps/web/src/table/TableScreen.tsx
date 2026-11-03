@@ -49,8 +49,6 @@ interface Props {
   extra?: React.ReactNode;
   /** Nové mobilní rozložení: bez pravého sloupce a bez pruhu s akcemi pod stolem (jsou v zásuvkách). */
   modern?: boolean;
-  /** Telefon na šířku: vlastní obsah místo pásu pod stolem (dostane výchozí pás jako první záložku). */
-  mid?: (defaultMid: ReactNode) => ReactNode;
 }
 
 const btn = 'rounded-md border border-line bg-surface px-3 py-1';
@@ -76,7 +74,7 @@ function betPosition(seat: number, viewerSeat: number | null, count: number, mob
 /** O kolik procent výšky stolu leží střed sázky nad horním okrajem mých karet (výška hromádky žetonů s částkou). */
 const BET_ABOVE_CARDS = 9;
 
-export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern = false, mid }: Props) {
+export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern = false }: Props) {
   // Jen výřezy stavu sítě: změna přítomnosti v chatu nebo jiného stolu stůl nepřekresluje.
   const view = useNetSelector((s) => s.views[tableId]);
   const clockOffset = useNetSelector((s) => s.clockOffset);
@@ -488,10 +486,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
 
       {/* Vše vedle stolu (stav tahu, akční lišta, akce, widgety) je v jednom obalu: na šířku telefonu tvoří vlastní posuvný sloupec, jinde je obal průhledný. */}
       <div className="tk-side-col">
-      {modern && (() => {
-        const def = <MobileMid view={view} mine={mine} inBb={inBb} offset={clockOffset} log={actionLog.slice(-3)} tableId={tableId} />;
-        return mid ? mid(def) : def;
-      })()}
+      {modern && <MobileMid view={view} mine={mine} inBb={inBb} offset={clockOffset} log={actionLog.slice(-3)} tableId={tableId} />}
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
       <div className={`tk-turn-row ${view.ready ? 'tk-turn-ready' : ''}`}>
       {myTurn ? (
