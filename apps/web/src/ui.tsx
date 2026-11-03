@@ -2,7 +2,9 @@ import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from './settings';
 import { createPortal } from 'react-dom';
 import { isNumericColumn, sortTableRows, type SortDir } from './sort';
-import { Children, useEffect, useId, useRef, useState, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { foldScope, useFold } from './fold-state';
+import { useLocation } from './router';
+import { createContext, Children, useContext, useEffect, useId, useRef, useState, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -71,16 +73,65 @@ export function Select({ label, error, children, ...p }: SelectHTMLAttributes<HT
   return <Field label={label} error={error}>{(id, d) => <select id={id} aria-describedby={d} className={inputClass} {...p}>{children}</select>}</Field>;
 }
 
-export function Card({ title, children, actions }: { title?: string; children: ReactNode; actions?: ReactNode }) {
+/** Uvnitř oken (dialogů) se karty nezabalují: okno je krátkodobé a skládá se z jednoho celku. */
+const NoFold = createContext(false);
+
+/** Identifikátor zabalitelné karty: stránka + název, nebo výslovně zadaný `foldId` (když se název mění, např. s počtem). */
+function useFoldId(title: string | undefined, foldId?: string): string {
+  const { path } = useLocation();
+  return foldId ?? `${foldScope(path)}|${title ?? ''}`;
+}
+
+/**
+ * Karta s nadpisem. Karta s nadpisem se dá zabalit klepnutím na nadpis a volba se pamatuje v osobním nastavení
+ * (pro typ zařízení). `defaultOpen` je stav, dokud si hráč nezvolí jinak; `summary` se ukazuje v hlavičce zabalené karty.
+ */
+export function Card({ title, children, actions, foldId, defaultOpen = true, summary, foldable = true }: { title?: string; children: ReactNode; actions?: ReactNode; foldId?: string; defaultOpen?: boolean; summary?: ReactNode; foldable?: boolean }) {
+  const inModal = useContext(NoFold);
+  const id = useFoldId(title, foldId);
+  const [open, setOpen] = useFold(id, defaultOpen);
+  const folds = foldable && !!title && !inModal;
   return (
     <section className="kd-card rounded-lg border border-line bg-surface">
       {(title || actions) && (
-        <header className="mb-3 flex items-center justify-between gap-2">
-          {title && <h2 className="font-heading text-lg font-bold">{title}</h2>}
+        <header className={`${folds && !open ? '' : 'mb-3'} flex items-center justify-between gap-2`}>
+          {title &&
+            (folds ? (
+              <h2 className="min-w-0 flex-1 font-heading text-lg font-bold">
+                <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-left font-heading font-bold">
+                  <span aria-hidden="true" className="w-4 shrink-0 text-muted">{open ? '▾' : '▸'}</span>
+                  <span>{title}</span>
+                  {!open && summary && <span className="min-w-0 text-sm font-normal text-muted">{summary}</span>}
+                </button>
+              </h2>
+            ) : (
+              <h2 className="font-heading text-lg font-bold">{title}</h2>
+            ))}
           {actions}
         </header>
       )}
-      {children}
+      <div hidden={folds && !open}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * Zabalitelný oddíl pro vedlejší obsah (místo prvku `<details>`): volba se pamatuje, výchozí stav je zabaleno.
+ * Obsah zůstává v dokumentu i zabalený, takže se nezahodí rozepsaný text.
+ */
+export function Fold({ title, children, foldId, defaultOpen = false, summary, className = '' }: { title: ReactNode; children: ReactNode; foldId?: string; defaultOpen?: boolean; summary?: ReactNode; className?: string }) {
+  const id = useFoldId(typeof title === 'string' ? title : undefined, foldId);
+  const [open, setOpen] = useFold(id, defaultOpen);
+  return (
+    <section className={`rounded-md border border-line bg-surface ${className}`}>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full flex-wrap items-center px-4 py-3 gap-x-3 gap-y-1 text-left">
+        <span aria-hidden="true" className="w-4 shrink-0 text-muted">{open ? '▾' : '▸'}</span>
+        <span className="font-heading text-lg font-bold">{title}</span>
+        {!open && summary && <span className="min-w-0 text-sm text-muted">{summary}</span>}
+      </button>
+      <div hidden={!open} className="px-4 pb-4">
+        {children}
+      </div>
     </section>
   );
 }
@@ -300,7 +351,7 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
             </button>
             <h2 className="font-heading text-lg font-bold">{title}</h2>
           </div>
-          {children}
+          <NoFold.Provider value={true}>{children}</NoFold.Provider>
         </div>
       </div>,
       document.body,
@@ -310,7 +361,7 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onMouseDown={() => (down.current = ref.current ? { w: ref.current.offsetWidth, h: ref.current.offsetHeight } : null)} onMouseUp={() => changedSince(down.current) && saveSize()} style={sizeKey ? sizeStyle(storedW, storedH) : undefined} className={`max-h-full ${sizeKey ? 'w-[32rem] max-w-full' : fit ? 'w-fit max-w-full' : `w-full ${wide ? 'max-w-4xl' : 'max-w-lg'}`} kd-modal overflow-auto rounded-lg border border-line bg-surface shadow-lg ${sizeKey ? 'flex min-h-48 min-w-64 resize flex-col' : ''}`}>
         <h2 className="mb-3 font-heading text-lg font-bold">{title}</h2>
-        {sizeKey ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}
+        <NoFold.Provider value={true}>{sizeKey ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}</NoFold.Provider>
       </div>
     </div>,
     document.body,

@@ -591,3 +591,13 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Předání práce (2. 11. 2026): závěrečné testy a simulace, souhrn a nápady na další úpravy jsou v docs/PREDANI.md.
 - Závěrečný audit (2. 11. 2026): kompletní kontrola kódu, testů a simulací; 5 vysokých, 25 středních a řada nízkých nálezů s doporučeným pořadím oprav je v docs/AUDIT.md (sekce „Závěrečný audit 2. 11. 2026“). Nic z toho zatím není opraveno; první na řadě jsou rake obejitelný odchodem hned po showdownu, dvojí dobití při souběžném schválení žádosti a platba před usazením při pozdní registraci.
 - Opravy po auditu (3. 11. 2026): všech 5 vysokých a 25 středních nálezů z docs/AUDIT.md je opraveno (sekce „Opravy po auditu“), včetně výkonu a zpřísnění lintu. Nové volby prostředí TRUST_PROXY a BIND_ADDRESS (docs/NASAZENI.md), nová nastavení system.timezone, system.maxSocketsPerUser, system.announceRoomsPerSocket, system.uploadMaxConcurrentPerUser, sounds.ffmpegTimeoutSeconds, integrations.allowPrivateUrls, stats.cacheSeconds. Migrace 0045 (anonymizace, indexy, restrict). Smazání hráče hráče anonymizuje. Kontokorent: nastavení `economy.negativeBalanceLimit` odstraněno (rozhodnutí majitele 3. 11. 2026: kontokorent dělá totéž pro vstup do hry bez prostředků, navíc jen pro platby za hru, s limitem na hráče a odděleně viditelným dluhem). Peněženka nejde pod nulu, `Ledger` už nemá `setPolicy`; klíč je v `RETIRED_SETTING_KEYS`, uložená hodnota se při načtení tiše vypustí. Zadání (docs/ZADANI.md) zmiňuje limit záporného zůstatku; nahrazuje ho kontokorent.
+
+## Úpravy rozhraní (3. 11. 2026)
+- **Zabalitelné karty s pamětí**: každá karta s nadpisem (`Card`) a oddíl `Fold` (náhrada `<details>`) se dá zabalit; volba se ukládá do osobního nastavení `ui.foldState` zvlášť pro telefon a počítač (ukládají se jen odchylky od výchozího stavu). V oknech (dialozích) se karty nezabalují. Panely podrobného nastavení si pamatují rozbalení také.
+- **Cash stoly**: nová karta „Hlavní nastavení stolu“ (blindy, ante, BB ante, straddle, buy-in, noví hráči, speciální prvky) při zakládání a úpravě stolu i v šablonách.
+- **Statistiky**: výchozí období je právě běžící sezóna, volba se pamatuje; Postup je poslední záložka (starý odkaz `/postup` přesměruje).
+- **Nastavení**: Diagnostika účtu je samostatná záložka za Návodem.
+- **Peněženka**: pořadí Zůstatek, Vyúčtování večera, Historie pohybů (filtr skupiny, řazení po sloupcích), Převod, Žádost o dobití, Kontokorent.
+- **Stoly / Večery**: večery jsou ve stránce Stoly, položka Večery z nabídky zmizela.
+- **Ankety** na hlavní stránce jsou ve výchozím stavu zabalené (v hlavičce počet k hlasování).
+- **Zvuky**: nahrazený vestavěný zvuk se počítá do využití úložiště (dřív ukazovalo 0).

@@ -151,8 +151,13 @@ describe('zvukové emotikony', { timeout: 60_000 }, () => {
     expect(await code(c.server.sounds.replaceAudio(b, s1.id, { data: WAV, ext: 'wav' }))).toBe('FORBIDDEN');
     await c.server.sounds.replaceAudio(c.admin, s2.id, { data: WAV, ext: 'wav' }); // správce knihovny smí nahradit cizí
     // vestavěný zvuk (např. Bomba, Svist) jde nahradit; zkratka zůstává, běžný hráč ne
+    const usedBefore = await c.server.sounds.usage();
     const swap = await c.server.sounds.replaceAudio(c.admin, builtin.id, { data: WAV, ext: 'wav' });
     expect(swap).toMatchObject({ id: builtin.id, builtin: true, shortcut: builtin.shortcut });
+    // nahrazený vestavěný zvuk se počítá do využití úložiště jako nahraný
+    const usedAfter = await c.server.sounds.usage();
+    expect(usedAfter.count).toBe(usedBefore.count + 1);
+    expect(usedAfter.bytes).toBe(usedBefore.bytes + WAV.length);
     expect(await code(c.server.sounds.replaceAudio(a, builtin.id, { data: WAV, ext: 'wav' }))).toBe('FORBIDDEN');
   });
 

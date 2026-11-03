@@ -4,6 +4,7 @@ export const csGuide: Record<string, string> = {
   'guide.title': 'Návod',
   'guide.tab.settings': 'Nastavení',
   'guide.tab.guide': 'Návod',
+  'guide.tab.diagnostics': 'Diagnostika účtu',
 
   // ---------- podrobný návod ----------
   'guide.search': 'Hledat v návodu',

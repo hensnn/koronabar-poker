@@ -25,21 +25,22 @@ interface LevelRow {
 }
 
 /** Stránka Postup: XP a úrovně, když je XP zapnuté; rating a divize běží i bez XP. */
-export function ProgressPage() {
+/** Postup (XP, úspěchy, rating); `embedded` = jako záložka ve statistikách, bez vlastního nadpisu stránky. */
+export function ProgressPage({ embedded = false }: { embedded?: boolean }) {
   const features = useFeatures();
   if (!features.xp) {
     return (
-      <main className="flex flex-col gap-3">
-        <h1 className="font-heading text-2xl font-bold">{t('nav.progress')}</h1>
+      <div className="flex flex-col gap-3">
+        {!embedded && <h1 className="font-heading text-2xl font-bold">{t('nav.progress')}</h1>}
         {features.rating && <RatingSection />}
         <RatingAdmin />
-      </main>
+      </div>
     );
   }
-  return <XpProgress />;
+  return <XpProgress embedded={embedded} />;
 }
 
-function XpProgress() {
+function XpProgress({ embedded }: { embedded: boolean }) {
   const features = useFeatures();
   const [me, setMe] = useState<Me | null>(null);
   const [levels, setLevels] = useState<LevelRow[]>([]);
@@ -56,8 +57,8 @@ function XpProgress() {
   if (!me) return <Spinner label={t('app.loading')} />;
   const pct = Math.min(100, Math.round((me.into / me.need) * 100));
   return (
-    <main className="flex flex-col gap-3">
-      <h1 className="font-heading text-2xl font-bold">{t('xp.title')}</h1>
+    <div className="flex flex-col gap-3">
+      {!embedded && <h1 className="font-heading text-2xl font-bold">{t('xp.title')}</h1>}
       <Card>
         <div className="flex flex-wrap items-center gap-4">
           <span className={`text-5xl ${rankColorClass(me.rank.color)}`} aria-hidden>
@@ -105,6 +106,6 @@ function XpProgress() {
       </Card>
       <AchievementAdmin />
       <RatingAdmin />
-    </main>
+    </div>
   );
 }

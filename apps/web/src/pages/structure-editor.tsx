@@ -357,3 +357,71 @@ export function MoneyPreview({ values }: { values: SettingValues; set?: Set }) {
     </Fold>
   );
 }
+
+/**
+ * Hlavní nastavení cash stolu na jednom místě nahoře (stejně jako u turnaje): blindy, ante, big blind ante,
+ * straddle, buy-in, noví hráči a ostatní speciální prvky. Podrobnosti jsou v podrobném nastavení níž.
+ * `allowed` skryje parametry, které se u rozehraného stolu už nesmí měnit.
+ */
+export function CashBasics({ values, set, allowed }: { values: SettingValues; set: Set; allowed?: (key: string) => boolean }) {
+  const ok = (k: string) => allowed?.(k) ?? true;
+  const straddle = !!values['table.straddleEnabled'];
+  // Speciální prvky jen jako zaškrtávátka; podrobnosti jsou v podrobném nastavení.
+  const specials = registry.all().filter((d) => d.category === 'special' && d.type === 'bool' && !d.dependsOn && scopeAllowed(d.scopes as never, 'table') && isVisible(registry, d.key, values, 'cash') && ok(d.key));
+  const choiceField = (k: string, options: string[]) => (
+    <label className="flex flex-wrap items-center gap-2 text-sm">
+      {t(labelKey(k))}
+      <select className={selectCls} value={String(values[k])} onChange={(e) => set(k, e.target.value)}>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {t(optionKey(k, o))}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  return (
+    <Card title={t('basics.cashTitle')} foldId="stoly|hlavni-nastaveni-cash">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <h4 className="font-medium">{t('basics.blindsHeading')}</h4>
+          {ok('table.smallBlind') && <NumField k="table.smallBlind" values={values} set={set} min={1} />}
+          {ok('table.bigBlind') && <NumField k="table.bigBlind" values={values} set={set} min={1} />}
+          {ok('table.ante') && <NumField k="table.ante" values={values} set={set} />}
+          {ok('table.bbAnte') && <Toggle k="table.bbAnte" values={values} set={set} />}
+        </div>
+        <div className="flex flex-col gap-2">
+          <h4 className="font-medium">{t('basics.buyInHeading')}</h4>
+          {ok('cash.minBuyInBb') && <NumField k="cash.minBuyInBb" values={values} set={set} min={1} />}
+          {ok('cash.maxBuyInBb') && <NumField k="cash.maxBuyInBb" values={values} set={set} min={1} />}
+          {ok('table.seats') && <NumField k="table.seats" values={values} set={set} min={2} />}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+        <h4 className="font-medium">{t('basics.specialCash')}</h4>
+        {ok('table.straddleEnabled') && <Toggle k="table.straddleEnabled" values={values} set={set} />}
+        {straddle && (
+          <div className="flex flex-wrap items-center gap-3 pl-6">
+            {ok('table.straddleType') && choiceField('table.straddleType', ['utg', 'mississippi'])}
+            {ok('table.straddleMultiplier') && <NumField k="table.straddleMultiplier" values={values} set={set} min={2} />}
+            {ok('table.straddleMandatory') && <Toggle k="table.straddleMandatory" values={values} set={set} />}
+          </div>
+        )}
+        {ok('table.newPlayerRule') && choiceField('table.newPlayerRule', ['waitForBb', 'postDeadBlind'])}
+        {values['table.newPlayerRule'] === 'postDeadBlind' && ok('table.deadBlindBb') && (
+          <div className="pl-6">
+            <NumField k="table.deadBlindBb" values={values} set={set} min={1} />
+          </div>
+        )}
+        {specials.length > 0 && (
+          <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            {specials.map((d) => (
+              <Toggle key={d.key} k={d.key} values={values} set={set} />
+            ))}
+          </div>
+        )}
+        <p className="text-sm text-muted">{t('basics.specialMore')}</p>
+      </div>
+    </Card>
+  );
+}

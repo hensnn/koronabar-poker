@@ -45,12 +45,10 @@ const WalletPage = lazyPage(() => import('./pages/wallet'), 'WalletPage');
 const StatsPage = lazyPage(() => import('./pages/stats'), 'StatsPage');
 const PollPage = lazyPage(() => import('./pages/polls'), 'PollPage');
 const PollsPage = lazyPage(() => import('./pages/polls'), 'PollsPage');
-const ProgressPage = lazyPage(() => import('./pages/progress'), 'ProgressPage');
 const LiveCashListPage = lazyPage(() => import('./pages/live'), 'LiveCashListPage');
 const LiveCashPage = lazyPage(() => import('./pages/live'), 'LiveCashPage');
 const TvPage = lazyPage(() => import('./pages/tv'), 'TvPage');
 const EveningPage = lazyPage(() => import('./pages/evenings'), 'EveningPage');
-const EveningsPage = lazyPage(() => import('./pages/evenings'), 'EveningsPage');
 
 const PUBLIC = ['/prihlaseni', '/registrace', '/zapomenute-heslo', '/obnova-hesla', '/overit-email', '/potvrdit-email'];
 
@@ -133,7 +131,7 @@ function Shell({ me }: { me: Me }) {
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/vecery', 'nav.evenings', features.evenings), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/postup', 'nav.progress', features.xp || features.rating), item('/obchod', 'nav.shop', shopOn)] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.personalSettings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
     ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
   )
@@ -149,7 +147,7 @@ function Shell({ me }: { me: Me }) {
   const zivyCash = matchPath('/zivy-cash/:id', path);
   const vecer = matchPath('/vecery/:id', path);
 
-  const isActive = (to: string) => (to === '/' ? path === '/' : to === '/stoly' ? path.startsWith('/stoly') || path.startsWith('/turnaj') : path.startsWith(to));
+  const isActive = (to: string) => (to === '/' ? path === '/' : to === '/stoly' ? path.startsWith('/stoly') || path.startsWith('/turnaj') || path.startsWith('/vecery') : to === '/statistiky' ? path.startsWith('/statistiky') || path.startsWith('/postup') : path.startsWith(to));
 
   let page;
   if (blocked) page = <BlockedPage me={me} />;
@@ -158,14 +156,14 @@ function Shell({ me }: { me: Me }) {
   else if (path === '/stoly') page = <TablesPage />;
   else if (path === '/turnaje' || path === '/cash') page = <Redirect to="/stoly" />;
   else if (vecer) page = <EveningPage id={vecer.id!} />;
-  else if (path === '/vecery') page = <EveningsPage />;
+  else if (path === '/vecery') page = <Redirect to="/stoly" />;
   else if (zivyCash) page = <LiveCashPage id={zivyCash.id!} />;
   else if (path === '/zivy-cash') page = <LiveCashListPage />;
   else if (path === '/') page = <DashboardPage />;
   else if (path === '/chat') page = <ChatPage />;
   else if (path === '/penezenka') page = <WalletPage />;
   else if (path === '/statistiky') page = <StatsPage />;
-  else if (path === '/postup') page = <ProgressPage />;
+  else if (path === '/postup') page = <Redirect to="/statistiky?tab=postup" />;
   else if (path === '/obchod') page = <ShopPage />;
   else if (path === '/vzhled') page = <ThemeEditorPage />;
   else if (anketa) page = <PollPage id={anketa.id!} />;

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button, NumInput } from '../ui';
+import { foldScope, setFolds, useFold } from '../fold-state';
+import { useLocation } from '../router';
 import {
   categoryKey,
   categoryRank,
@@ -85,10 +87,13 @@ export function orderCategories(cats: string[], first?: string[]): string[] {
 }
 
 /** Rozbalovací panel: hlavička s názvem, počtem položek a odznakem změn; obsah se ukáže po rozbalení. */
-export function Panel({ title, open, onToggle, count, changed, dotClass, headClass = '', level = 1, children }: { title: string; open: boolean; onToggle: () => void; count: number; changed: number; dotClass?: string; headClass?: string; level?: 1 | 2; children: ReactNode }) {
+export function Panel({ title, open: openProp, onToggle, foldId, count, changed, dotClass, headClass = '', level = 1, children }: { title: string; open?: boolean; onToggle?: () => void; /** Panel si pamatuje rozbalení v osobním nastavení (místo `open` a `onToggle`). */ foldId?: string; count: number; changed: number; dotClass?: string; headClass?: string; level?: 1 | 2; children: ReactNode }) {
+  const [savedOpen, setSavedOpen] = useFold(foldId ?? '', false);
+  const open = foldId ? savedOpen : Boolean(openProp);
+  const onClick = foldId ? () => setSavedOpen(!savedOpen) : onToggle;
   return (
     <section className={`rounded-md border ${level === 1 ? 'border-line bg-surface' : 'border-line bg-raised'}`}>
-      <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-center px-3 py-2 gap-2 text-left">
+      <button type="button" aria-expanded={open} onClick={onClick} className="flex w-full items-center px-3 py-2 gap-2 text-left">
         <span aria-hidden="true" className="w-4 shrink-0 text-muted">{open ? '▾' : '▸'}</span>
         {dotClass && <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />}
         <span className={`min-w-0 flex-1 ${level === 1 ? `text-base font-bold ${headClass}` : 'font-semibold text-text'}`}>{title}</span>
@@ -108,9 +113,9 @@ export function Panel({ title, open, onToggle, count, changed, dotClass, headCla
 export function SettingsForm(p: Props) {
   const [query, setQuery] = useState('');
   const [onlyChanged, setOnlyChanged] = useState(false);
-  // Všechny panely jsou po otevření sbalené; klíč je „kategorie“ nebo „kategorie/podskupina“.
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+  // Panely jsou výchozí sbalené a pamatují si volbu; klíč je „kategorie“ nebo „kategorie/podskupina“, pod stránkou a druhem hry.
+  const { path } = useLocation();
+  const foldPrefix = `nastaveni:${foldScope(path)}:${p.gameKind ?? ''}:`;
 
   const { registry, allowedKeys, values, gameKind } = p;
   const byCat = useMemo(() => {
@@ -168,7 +173,7 @@ export function SettingsForm(p: Props) {
   const row = (d: SettingDef) => <Row key={d.key} def={d} {...p} rowClass={`border-l-4 ${tone(d.category).row}`} />;
   const setAll = (value: boolean) => {
     const keys = (active?.cats ?? []).flatMap((c) => [c, ...panelGroupIds(c).map((g) => `${c}/${g}`)]);
-    setOpen((o) => ({ ...o, ...Object.fromEntries(keys.map((k) => [k, value])) }));
+    setFolds(keys.map((k) => ({ id: foldPrefix + k, open: value, def: false })));
   };
 
   const category = (c: string) => {
@@ -181,14 +186,14 @@ export function SettingsForm(p: Props) {
         if (inGroup.length === 0) return null;
         const id = `${c}/${g}`;
         return (
-          <Panel key={id} title={t(`settings.group.${g}`)} open={Boolean(open[id])} onToggle={() => toggle(id)} count={inGroup.length} changed={inGroup.filter((d) => p.origins[d.key] === p.editScope).length}>
+          <Panel key={id} title={t(`settings.group.${g}`)} foldId={foldPrefix + id} count={inGroup.length} changed={inGroup.filter((d) => p.origins[d.key] === p.editScope).length}>
             {inGroup.map(row)}
           </Panel>
         );
       });
     }
     return (
-      <Panel key={c} title={t(categoryKey(c))} open={Boolean(open[c])} onToggle={() => toggle(c)} count={defs.length} changed={changedBy[c] ?? 0} dotClass={tn.dot} headClass={tn.head}>
+      <Panel key={c} title={t(categoryKey(c))} foldId={foldPrefix + c} count={defs.length} changed={changedBy[c] ?? 0} dotClass={tn.dot} headClass={tn.head}>
         {groups.length === 0
           ? defs.map(row)
           : groups.map((g) => {
@@ -196,7 +201,7 @@ export function SettingsForm(p: Props) {
               if (inGroup.length === 0) return null;
               const id = `${c}/${g}`;
               return (
-                <Panel key={g} level={2} title={t(`settings.group.${g}`)} open={Boolean(open[id])} onToggle={() => toggle(id)} count={inGroup.length} changed={inGroup.filter((d) => p.origins[d.key] === p.editScope).length}>
+                <Panel key={g} level={2} title={t(`settings.group.${g}`)} foldId={foldPrefix + id} count={inGroup.length} changed={inGroup.filter((d) => p.origins[d.key] === p.editScope).length}>
                   {inGroup.map(row)}
                 </Panel>
               );

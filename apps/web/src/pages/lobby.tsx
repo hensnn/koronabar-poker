@@ -7,6 +7,7 @@ import { can, useSession } from '../session';
 import { registry } from '../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../settings/SettingsForm';
 import { Badge, Button, Modal, Notice, Spinner, TextInput } from '../ui';
+import { CashBasics } from './structure-editor';
 
 interface LobbyTable {
   id: string;
@@ -153,12 +154,13 @@ export interface CreateProps {
   /** Doplňující editory (struktura blindů, vlastní výplaty) pod formulářem nastavení. */
   extras?: (v: { values: SettingValues; set: (k: string, v: SettingValue) => void }) => React.ReactNode;
   /** Hlavní nastavení hned nahoře (nad podrobným formulářem). */
-  top?: (v: { values: SettingValues; set: (k: string, v: SettingValue) => void }) => React.ReactNode;
+  top?: (v: { values: SettingValues; set: (k: string, v: SettingValue) => void; /** Které parametry smí uživatel právě měnit (jen při úpravě rozehraného stolu). */ allowed?: (key: string) => boolean }) => React.ReactNode;
 }
 
 export type { Template };
 
-export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', postPath = '/api/lobby/tables', title, nameLabel, extras, top, bodyExtra }: CreateProps) {
+export function CreateDialog({ templates, onClose, onCreated, kind = 'cash', postPath = '/api/lobby/tables', title, nameLabel, extras, top: topProp, bodyExtra }: CreateProps) {
+  const top = topProp ?? (kind === 'cash' ? ({ values, set }: Parameters<NonNullable<CreateProps['top']>>[0]) => <CashBasics values={values} set={set} /> : undefined);
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? '');
   // Turnaj dostane navržený název (šablona + čas založení), dokud ho hráč sám nepřepíše.
   const suggestName = (x?: Template) => (kind === 'tournament' && x ? `${t(x.name).replace(/^Turnaj:\s*/i, '')} ${new Date().toLocaleString(undefined, { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}` : '');
@@ -256,8 +258,9 @@ interface Details {
   isAdmin: boolean;
 }
 
-export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/lobby/tables', extras, top }: { tableId: string; onClose: () => void; kind?: 'cash' | 'tournament'; basePath?: string; extras?: CreateProps['extras']; top?: CreateProps['top'] }) {
+export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/lobby/tables', extras, top: topProp }: { tableId: string; onClose: () => void; kind?: 'cash' | 'tournament'; basePath?: string; extras?: CreateProps['extras']; top?: CreateProps['top'] }) {
   const detailsPath = kind === 'tournament' ? `${basePath}/${tableId}/details` : `${basePath}/${tableId}`;
+  const top = topProp ?? (kind === 'cash' ? ({ values, set, allowed }: Parameters<NonNullable<CreateProps['top']>>[0]) => <CashBasics values={values} set={set} allowed={allowed} /> : undefined);
   const [d, setD] = useState<Details | null>(null);
   const [changes, setChanges] = useState<Record<string, SettingValue>>({});
   const [error, setError] = useState('');
@@ -285,7 +288,7 @@ export function EditDialog({ tableId, onClose, kind = 'cash', basePath = '/api/l
   return (
     <Modal page title={`${t('lobby.edit')}: ${d.name}`} onClose={onClose} dirty={dirty}>
       <div className="flex flex-col gap-3">
-        {top?.({ values, set: (k, v) => setChanges((c) => ({ ...c, [k]: v })) })}
+        {top?.({ values, set: (k, v) => setChanges((c) => ({ ...c, [k]: v })), allowed: (k) => decideChange(registry, k, ctx).result !== 'denied' })}
         <SettingsForm
           registry={registry}
           values={values}

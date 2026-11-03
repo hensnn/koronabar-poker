@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get } from '../../api';
-import { Badge, Card, DataTable, Notice, Td } from '../../ui';
+import { Badge, Card, DataTable, Fold, Notice, Td } from '../../ui';
 
 interface Row {
   userId: string;
@@ -49,9 +49,8 @@ export function BalancesCard({ refreshKey = 0 }: { refreshKey?: number }) {
     <Card title={t('cashier.balances')}>
       <p className="mb-2 text-sm text-muted">{t('cashier.balancesHelp')}</p>
       <p className="mb-2 font-mono text-sm">{t('cashier.balancesTotal', { wallets: num(data.totals.wallets), house: num(data.totals.house), players: data.totals.players })}</p>
-      <details className="mb-3 rounded-md border border-line bg-surface">
-        <summary className="cursor-pointer px-3 py-2 font-semibold">{t('cashier.recon.title')}</summary>
-        <div className="flex flex-col px-3 pb-3 gap-2">
+      <Fold className="mb-3" title={t('cashier.recon.title')}>
+        <div className="flex flex-col gap-2">
           <p className="text-sm text-muted">{t('cashier.recon.help')}</p>
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-sm">
             <dt className="font-bold">{t('cashier.recon.issued')}</dt>
@@ -90,7 +89,7 @@ export function BalancesCard({ refreshKey = 0 }: { refreshKey?: number }) {
             ))}
           </DataTable>
         </div>
-      </details>
+      </Fold>
       <input type="search" aria-label={t('cashier.balancesSearch')} placeholder={t('cashier.balancesSearch')} value={query} onChange={(e) => setQuery(e.target.value)} className="mb-2 w-full rounded-sm border border-line bg-surface px-3 py-2 text-text" />
       <DataTable head={[t('cashier.user'), t('cashier.balanceCol'), t('cashier.statusCol'), t('cashier.lastMove')]}>
         {rows.map((r) => (

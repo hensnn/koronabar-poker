@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get, post, put } from '../api';
-import { Button, Notice, TextInput } from '../ui';
+import { Button, Fold, Notice, TextInput } from '../ui';
 
 type Fields = Record<string, number>;
 interface View {
@@ -53,9 +53,8 @@ export function LimitsSection() {
 
   const show = view.show ?? { usage: true, session: true, break: true };
   return (
-    <details className="rounded-md border border-line bg-surface">
-      <summary className="cursor-pointer px-4 py-3 font-heading text-lg font-bold">{t('limits.title')}</summary>
-      <div className="flex flex-col px-4 pb-4 gap-4">
+    <Fold title={t('limits.title')}>
+      <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">{t('limits.help', { hours: view.loosenDelayHours })}</p>
         {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
         {(show.usage || (show.session && view.sessionMinutes > 0)) && (
@@ -109,6 +108,6 @@ export function LimitsSection() {
         </section>
         )}
       </div>
-    </details>
+    </Fold>
   );
 }

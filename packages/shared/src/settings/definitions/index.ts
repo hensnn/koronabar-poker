@@ -763,6 +763,7 @@ const ui: SettingDef[] = [
   bool('ui.sizePerDisplay', { category: 'ui', mutability: A, scopes: USER }, true),
   text('ui.sizeProfiles', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.sizePerDisplay', truthy: true } }, '', 4000),
   text('ui.tableLayout', { category: 'ui', mutability: A, scopes: USER }, '', 1500),
+  text('ui.foldState', { category: 'ui', mutability: A, scopes: USER }, '', 4000),
   int('ui.tableSideWidth', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 640),
   int('ui.tableSideHeight', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 3000),
   int('ui.noteWindowWidth', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 2000),

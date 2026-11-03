@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get } from '../api';
-import { Button, Card, DataTable, Notice, Spinner, Tabs, Td } from '../ui';
+import { Button, Card, DataTable, Fold, Notice, Spinner, Tabs, Td } from '../ui';
 
 type Parts = Partial<Record<string, number>>;
 /** Pořadí složek ve sloupcích, shodné s tabulkou výsledků turnaje (Buy-in, Rebuy, Add-on, Výhra, Bounty). */
@@ -147,8 +147,7 @@ export function SettlementPanel() {
               <Notice kind="warning">{t('settlement.incompletePeriod')}</Notice>
             )}
             {view.games.length > 0 && (
-              <details open>
-                <summary className="cursor-pointer">{t('settlement.byGame', { n: view.games.length })}</summary>
+              <Fold title={t('settlement.byGame', { n: view.games.length })} foldId="penezenka|vyuctovani-hry" defaultOpen>
                 <div className="mt-2 flex flex-col gap-4">
                   {view.games.map((g) => (
                     <section key={g.id} className="flex flex-col gap-1">
@@ -159,7 +158,7 @@ export function SettlementPanel() {
                     </section>
                   ))}
                 </div>
-              </details>
+              </Fold>
             )}
           </>
         )}

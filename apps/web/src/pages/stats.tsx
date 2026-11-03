@@ -10,6 +10,8 @@ import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Tabs, T
 import { CategoriesView } from './stats-categories';
 import { YearView } from './stats-year';
 import { useSettings } from '../settings';
+import { useLocation } from '../router';
+import { ProgressPage } from './progress';
 import { useFeatures } from '../features';
 import { BarChart, LineChart, MultiLineChart, type Pt, type Series } from './charts';
 
@@ -571,11 +573,32 @@ function SeasonsAdmin({ seasons, reload }: { seasons: Season[]; reload: () => vo
   );
 }
 
+const SEASON_PREF = 'kb.stats.season';
+
+/** Naposledy zvolené období; bez volby platí právě běžící sezóna. */
+function loadSeason(): string {
+  try {
+    return localStorage.getItem(SEASON_PREF) || 'current';
+  } catch {
+    return 'current';
+  }
+}
+
 export function StatsPage() {
   const { me } = useSession();
   const settings = useSettings();
-  const [tab, setTab] = useState<'mine' | 'year' | 'players' | 'board' | 'hands' | 'seasons'>('mine');
-  const [season, setSeason] = useState('all');
+  const features = useFeatures();
+  const wantProgress = new URLSearchParams(useLocation().search).get('tab') === 'postup';
+  const [tab, setTab] = useState<'mine' | 'year' | 'players' | 'board' | 'hands' | 'seasons' | 'progress'>(wantProgress ? 'progress' : 'mine');
+  const [season, setSeasonState] = useState(loadSeason);
+  const setSeason = (v: string) => {
+    setSeasonState(v);
+    try {
+      localStorage.setItem(SEASON_PREF, v);
+    } catch {
+      /* bez úložiště se volba jen nezapamatuje */
+    }
+  };
   const [seasons, setSeasons] = useState<Season[]>([]);
   const manage = can(me, 'statistiky.sezony');
   const reload = useCallback(() => {
@@ -584,6 +607,10 @@ export function StatsPage() {
       .catch(() => undefined);
   }, []);
   useEffect(reload, [reload]);
+  // Zapamatovaná sezóna, která už neexistuje, se vrátí na běžící.
+  useEffect(() => {
+    if (seasons.length > 0 && season !== 'all' && season !== 'current' && !seasons.some((x) => x.id === season)) setSeason('current');
+  }, [seasons, season]);
   const tabs = [
     { id: 'mine' as const, label: t('stats.tabMine') },
     ...(settings.values['stats.yearEnabled'] === false ? [] : [{ id: 'year' as const, label: t('year.tab') }]),
@@ -591,6 +618,7 @@ export function StatsPage() {
     { id: 'board' as const, label: t('stats.tabBoard') },
     { id: 'hands' as const, label: t('stats.tabHands') },
     ...(manage ? [{ id: 'seasons' as const, label: t('stats.tabSeasons') }] : []),
+    ...(features.xp || features.rating ? [{ id: 'progress' as const, label: t('nav.progress') }] : []),
   ];
   return (
     <main className="flex flex-col gap-3">
@@ -608,6 +636,7 @@ export function StatsPage() {
       {tab === 'board' && <Leaderboard season={season} seasons={seasons} />}
       {tab === 'hands' && me && <HandsList me={me.user.id} />}
       {tab === 'seasons' && manage && <SeasonsAdmin seasons={seasons} reload={reload} />}
+      {tab === 'progress' && <ProgressPage embedded />}
     </main>
   );
 }

@@ -5,7 +5,7 @@ import { registry } from '../../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../../settings/SettingsForm';
 import { Badge, Button, DataTable, Modal, Notice, Select, Td, TextArea, TextInput } from '../../ui';
 import { BulkTemplateEditor } from './templates-bulk';
-import { MoneyPreview, StructureEditor, TournamentBasics } from '../structure-editor';
+import { CashBasics, MoneyPreview, StructureEditor, TournamentBasics } from '../structure-editor';
 
 interface Template {
   id: string;
@@ -209,6 +209,7 @@ function TemplateEditor({ base, kind, copy, onClose, onSaved }: { base: Template
           <option value={kind}>{t(`templates.kind.${kind}`)}</option>
         </Select>
         {gameKind === 'tournament' && <TournamentBasics values={resolved.values} set={setOne} />}
+        {gameKind === 'cash' && <CashBasics values={resolved.values} set={setOne} />}
         {gameKind === 'tournament' && (
           <>
             <StructureEditor values={resolved.values} set={setOne} />

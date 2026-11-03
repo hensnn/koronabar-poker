@@ -5,13 +5,14 @@ interface Loc {
   search: string;
 }
 
-let loc: Loc = { path: window.location.pathname, search: window.location.search };
+const hasWindow = typeof window !== 'undefined';
+let loc: Loc = hasWindow ? { path: window.location.pathname, search: window.location.search } : { path: '/', search: '' };
 const listeners = new Set<() => void>();
 const update = () => {
   loc = { path: window.location.pathname, search: window.location.search };
   listeners.forEach((l) => l());
 };
-window.addEventListener('popstate', update);
+if (hasWindow) window.addEventListener('popstate', update);
 
 export function useLocation(): Loc {
   return useSyncExternalStore(

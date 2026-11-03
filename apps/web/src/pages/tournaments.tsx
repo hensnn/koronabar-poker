@@ -4,7 +4,7 @@ import { errorText, get, post } from '../api';
 import { onSocket } from '../net';
 import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
-import { Badge, Button, Card, DataTable, Notice, Spinner, Tabs, Td } from '../ui';
+import { Badge, Button, Card, DataTable, Fold, Notice, Spinner, Tabs, Td } from '../ui';
 import { DealPanel } from './deal';
 import { SummaryTable, type TournamentSummary } from './tournament-result';
 import { ShareToChat } from './chat-extras';
@@ -782,8 +782,7 @@ export function TournamentPage({ id }: { id: string }) {
       {features.bets && <BetsPanel tournamentId={view.id} />}
 
       <Card title={t('tournament.structure')}>
-        <details>
-          <summary className="cursor-pointer">{t('tournament.levelsCount', { n: view.levels.length })}</summary>
+        <Fold title={t('tournament.levelsCount', { n: view.levels.length })} foldId="turnaj|urovne">
           <DataTable sortable={false} head={[t('tournament.levelCol'), t('lobby.blinds'), t('tournament.ante')]}>
             {view.levels.map((l, i) => (
               <tr key={i} className={i + 1 === view.levelNumber && running ? 'bg-raised' : ''}>
@@ -795,7 +794,7 @@ export function TournamentPage({ id }: { id: string }) {
               </tr>
             ))}
           </DataTable>
-        </details>
+        </Fold>
       </Card>
 
       {rules && <RulesDialog detailsPath={`/api/tournaments/${view.id}/details`} kind="tournament" onClose={() => setRules(false)} />}

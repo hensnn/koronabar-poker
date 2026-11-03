@@ -5,7 +5,8 @@ import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { useSettings } from '../settings';
 import { del, errorText, get, post, put } from '../api';
 import { can, useSession } from '../session';
-import { Badge, Button, Card, DataTable, Notice, Td, TextInput, Select, TextArea } from '../ui';
+import { Badge, Button, Card, DataTable, Fold, Notice, Td, TextInput, Select, TextArea } from '../ui';
+import { walletGroupOf, WALLET_GROUPS, type WalletGroup } from './wallet-groups';
 
 interface HistoryRow {
   id: number;
@@ -73,15 +74,121 @@ export function WalletPage() {
   }, []);
   useEffect(reload, [reload, me?.balance]);
 
+  const [group, setGroup] = useState<WalletGroup | ''>('');
+  const shownHist = group ? hist.filter((h) => walletGroupOf(h.kind) === group) : hist;
   return (
     <div className="flex flex-col gap-3">
       <h1 className="font-heading text-2xl font-bold">{t('wallet.title')}</h1>
-      <Card>
+      <Card title={t('wallet.balance')}>
         <p className="text-lg">
-          {t('wallet.balance')}: <strong className="font-mono">{formatCurrency(me?.balance ?? 0, currencyFormsOf(settings.values))}</strong>
+          <strong className="font-mono">{formatCurrency(me?.balance ?? 0, currencyFormsOf(settings.values))}</strong>
         </p>
       </Card>
       {error && <Notice kind="error">{error}</Notice>}
+
+      <SettlementPanel />
+
+      <Card title={t('wallet.history')}>
+        <div className="mb-3 max-w-xs">
+          <Select label={t('wallet.group.label')} value={group} onChange={(e) => setGroup(e.target.value as WalletGroup | '')}>
+            <option value="">{t('wallet.group.all')}</option>
+            {WALLET_GROUPS.filter((g) => hist.some((h) => walletGroupOf(h.kind) === g)).map((g) => (
+              <option key={g} value={g}>
+                {t(`wallet.group.${g}`)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <p className="mb-2 text-sm text-muted">{t('wallet.history.count', { n: shownHist.length, total: hist.length })}</p>
+        {shownHist.length === 0 && hist.length > 0 && <p className="mb-2 text-muted">{t('wallet.history.empty')}</p>}
+        <DataTable head={[t('wallet.when'), t('wallet.kind'), t('wallet.amount'), t('wallet.note')]}>
+          {shownHist.map((h) => (
+            <tr key={h.id}>
+              <Td>{new Date(h.at).toLocaleString('cs-CZ')}</Td>
+              <Td>{t(`ledger.kind.${h.kind}`)}</Td>
+              <Td className={`font-mono ${h.amount >= 0 ? 'text-success' : 'text-danger'}`}>{h.amount > 0 ? `+${h.amount}` : h.amount}</Td>
+              <Td>{h.note ?? h.gameId ?? ''}</Td>
+            </tr>
+          ))}
+        </DataTable>
+      </Card>
+
+      {canRequest && transfer?.enabled && (
+        <Card title={t('wallet.transfer.title')}>
+          <p className="mb-2 text-sm text-muted">{t('wallet.transfer.help', { min: transfer.min, max: transfer.max })}</p>
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const n = Number(tAmount);
+              if (!Number.isInteger(n) || n < transfer.min || n > transfer.max) return setTMsg({ kind: 'error', text: t('wallet.transfer.range', { min: transfer.min, max: transfer.max }) });
+              if (n > (me?.balance ?? 0)) return setTMsg({ kind: 'error', text: t('wallet.transfer.balance') });
+              try {
+                await post('/api/requests', { kind: 'prevod', amount: n, message: tMessage, target: tTarget });
+                setTAmount('');
+                setTMessage('');
+                setTMsg({ kind: 'success', text: t('wallet.transfer.sent') });
+                reload();
+              } catch (er) {
+                setTMsg({ kind: 'error', text: errorText(er) });
+              }
+            }}
+          >
+            <Select label={t('wallet.transfer.target')} value={tTarget} onChange={(e) => setTTarget(e.target.value)}>
+              {transfer.targets.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </Select>
+            <TextInput label={t('wallet.request.amount')} type="number" min={transfer.min} max={transfer.max} value={tAmount} onChange={(e) => setTAmount(e.target.value)} required />
+            <TextInput label={t('wallet.request.message')} value={tMessage} onChange={(e) => setTMessage(e.target.value)} maxLength={500} />
+            <Button variant="primary" type="submit" disabled={!tTarget}>
+              {t('wallet.transfer.submit')}
+            </Button>
+          </form>
+          {tMsg && <Notice kind={tMsg.kind}>{tMsg.text}</Notice>}
+        </Card>
+      )}
+
+      {canRequest && (topupRequests || reqs.some((r) => r.userId === me?.user.id)) && (
+        <Card title={t('wallet.request.title')}>
+          {topupRequests && (
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await post('/api/requests', { kind: 'dobiti', amount: Number(amount), message });
+                setAmount('');
+                setMessage('');
+                setError('');
+                reload();
+              } catch (er) {
+                setError(errorText(er));
+              }
+            }}
+          >
+            <TextInput label={t('wallet.request.amount')} type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} required />
+            <TextInput label={t('wallet.request.message')} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} />
+            <Button variant="primary" type="submit">
+              {t('wallet.request.submit')}
+            </Button>
+          </form>
+          )}
+          <DataTable head={[t('wallet.kind'), t('wallet.request.amount'), t('wallet.request.status'), t('wallet.request.note'), '']}>
+            {reqs.filter((r) => r.userId === me?.user.id).map((r) => (
+              <tr key={r.id}>
+                <Td>{kindLabel(r)}</Td>
+                <Td className="font-mono">{r.amount}</Td>
+                <Td><Badge tone={r.status === 'approved' ? 'success' : r.status === 'rejected' ? 'danger' : 'muted'}>{t(`request.status.${r.status}`)}</Badge></Td>
+                <Td>{r.decisionNote}</Td>
+                <Td>{r.status === 'pending' && <Button onClick={() => void del(`/api/requests/${r.id}`).then(reload)}>{t('wallet.request.cancel')}</Button>}</Td>
+              </tr>
+            ))}
+          </DataTable>
+        </Card>
+      )}
 
       {canRequest && credit && (credit.debt > 0 || (credit.enabled && credit.limit > 0)) && (
         <Card title={t('wallet.credit.title')}>
@@ -135,97 +242,6 @@ export function WalletPage() {
         </Card>
       )}
 
-      {canRequest && (topupRequests || reqs.some((r) => r.userId === me?.user.id)) && (
-        <Card title={t('wallet.request.title')}>
-          {topupRequests && (
-          <form
-            className="flex flex-wrap items-end gap-3"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                await post('/api/requests', { kind: 'dobiti', amount: Number(amount), message });
-                setAmount('');
-                setMessage('');
-                setError('');
-                reload();
-              } catch (er) {
-                setError(errorText(er));
-              }
-            }}
-          >
-            <TextInput label={t('wallet.request.amount')} type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} required />
-            <TextInput label={t('wallet.request.message')} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} />
-            <Button variant="primary" type="submit">
-              {t('wallet.request.submit')}
-            </Button>
-          </form>
-          )}
-          <DataTable head={[t('wallet.kind'), t('wallet.request.amount'), t('wallet.request.status'), t('wallet.request.note'), '']}>
-            {reqs.filter((r) => r.userId === me?.user.id).map((r) => (
-              <tr key={r.id}>
-                <Td>{kindLabel(r)}</Td>
-                <Td className="font-mono">{r.amount}</Td>
-                <Td><Badge tone={r.status === 'approved' ? 'success' : r.status === 'rejected' ? 'danger' : 'muted'}>{t(`request.status.${r.status}`)}</Badge></Td>
-                <Td>{r.decisionNote}</Td>
-                <Td>{r.status === 'pending' && <Button onClick={() => void del(`/api/requests/${r.id}`).then(reload)}>{t('wallet.request.cancel')}</Button>}</Td>
-              </tr>
-            ))}
-          </DataTable>
-        </Card>
-      )}
-
-      {canRequest && transfer?.enabled && (
-        <Card title={t('wallet.transfer.title')}>
-          <p className="mb-2 text-sm text-muted">{t('wallet.transfer.help', { min: transfer.min, max: transfer.max })}</p>
-          <form
-            className="flex flex-wrap items-end gap-3"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const n = Number(tAmount);
-              if (!Number.isInteger(n) || n < transfer.min || n > transfer.max) return setTMsg({ kind: 'error', text: t('wallet.transfer.range', { min: transfer.min, max: transfer.max }) });
-              if (n > (me?.balance ?? 0)) return setTMsg({ kind: 'error', text: t('wallet.transfer.balance') });
-              try {
-                await post('/api/requests', { kind: 'prevod', amount: n, message: tMessage, target: tTarget });
-                setTAmount('');
-                setTMessage('');
-                setTMsg({ kind: 'success', text: t('wallet.transfer.sent') });
-                reload();
-              } catch (er) {
-                setTMsg({ kind: 'error', text: errorText(er) });
-              }
-            }}
-          >
-            <Select label={t('wallet.transfer.target')} value={tTarget} onChange={(e) => setTTarget(e.target.value)}>
-              {transfer.targets.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </Select>
-            <TextInput label={t('wallet.request.amount')} type="number" min={transfer.min} max={transfer.max} value={tAmount} onChange={(e) => setTAmount(e.target.value)} required />
-            <TextInput label={t('wallet.request.message')} value={tMessage} onChange={(e) => setTMessage(e.target.value)} maxLength={500} />
-            <Button variant="primary" type="submit" disabled={!tTarget}>
-              {t('wallet.transfer.submit')}
-            </Button>
-          </form>
-          {tMsg && <Notice kind={tMsg.kind}>{tMsg.text}</Notice>}
-        </Card>
-      )}
-
-      <SettlementPanel />
-
-      <Card title={t('wallet.history')}>
-        <DataTable head={[t('wallet.when'), t('wallet.kind'), t('wallet.amount'), t('wallet.note')]}>
-          {hist.map((h) => (
-            <tr key={h.id}>
-              <Td>{new Date(h.at).toLocaleString('cs-CZ')}</Td>
-              <Td>{t(`ledger.kind.${h.kind}`)}</Td>
-              <Td className={`font-mono ${h.amount >= 0 ? 'text-success' : 'text-danger'}`}>{h.amount > 0 ? `+${h.amount}` : h.amount}</Td>
-              <Td>{h.note ?? h.gameId ?? ''}</Td>
-            </tr>
-          ))}
-        </DataTable>
-      </Card>
     </div>
   );
 }
@@ -349,9 +365,8 @@ function ConsistencyCard() {
     }
   };
   return (
-    <details className="rounded-md border border-line bg-surface">
-      <summary className="cursor-pointer px-4 py-3 font-heading text-lg font-bold">{t('consistency.title')}</summary>
-      <div className="flex flex-col px-4 pb-4 gap-3">
+    <Fold title={t('consistency.title')}>
+      <div className="flex flex-col gap-3">
         <p className="text-sm text-muted">{t('consistency.help')}</p>
         <div>
           <Button variant="primary" disabled={busy} onClick={() => void run()}>
@@ -392,7 +407,7 @@ function ConsistencyCard() {
           </>
         )}
       </div>
-    </details>
+    </Fold>
   );
 }
 

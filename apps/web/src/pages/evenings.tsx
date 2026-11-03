@@ -5,7 +5,7 @@ import { onSocket } from '../net';
 import { Link, navigate } from '../router';
 import type { Card as PokerCard } from '@kb/game-core';
 import { CardView } from '../table/CardView';
-import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Td, TextInput } from '../ui';
+import { Badge, Button, Card, DataTable, Fold, Modal, Notice, Select, Spinner, Td, TextInput } from '../ui';
 
 interface ListItem {
   id: string;
@@ -275,9 +275,8 @@ export function EveningPage({ id }: { id: string }) {
           <h3 className="font-bold">{t('evening.bestHandTitle')}</h3>
           {s.bestHand ? <BestHandView hand={s.bestHand} /> : <p className="text-sm text-muted">{t('evening.bestHandNone')}</p>}
         </div>
-        <details className="mt-4 rounded-md border border-line">
-          <summary className="cursor-pointer px-3 py-2 font-semibold">{t('evening.legend.title')}</summary>
-          <dl className="flex flex-col px-3 pb-3 gap-2 text-sm">
+        <Fold className="mt-4" title={t('evening.legend.title')}>
+          <dl className="flex flex-col gap-2 text-sm">
             {(['mvp', 'hunter', 'banker', 'badBeat', 'bestHand'] as const).map((k) => (
               <div key={k}>
                 <dt className="font-semibold">{t(`evening.legend.${k}`)}</dt>
@@ -285,7 +284,7 @@ export function EveningPage({ id }: { id: string }) {
               </div>
             ))}
           </dl>
-        </details>
+        </Fold>
       </Card>
 
       <Card title={t('evening.stats')}>
@@ -341,9 +340,8 @@ export function EveningPage({ id }: { id: string }) {
         </div>
       </Card>
 
-      <details className="rounded-md border border-line bg-surface">
-        <summary className="cursor-pointer px-4 py-3 font-heading text-lg font-bold">{t('evening.movements')}</summary>
-        <div className="px-4 pb-4">
+      <Fold title={t('evening.movements')}>
+        <div>
         <p className="mb-2 text-sm text-muted">{t('evening.movementsHelp')}</p>
         {s.lines === undefined ? (
           <p className="text-muted">{t('evening.movementsOld')}</p>
@@ -377,7 +375,7 @@ export function EveningPage({ id }: { id: string }) {
           </div>
         )}
         </div>
-      </details>
+      </Fold>
     </div>
   );
 }

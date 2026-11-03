@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { t } from '@kb/shared';
 import { searchGuide } from './guide-data';
+import { Fold } from '../ui';
 
 // Celé názvy tříd, aby je Tailwind našel; barvy jsou jen tokeny motivu.
 const TONES = ['border-l-success', 'border-l-info', 'border-l-warning', 'border-l-accent'] as const;
@@ -23,8 +24,7 @@ export function Guide() {
       />
       {q !== '' && <p className="text-sm text-muted">{chapters.length > 0 ? t('guide.results', { n: chapters.length }) : t('guide.noResults')}</p>}
       {chapters.map(({ id, index, title, shown }) => (
-        <details key={id + (q ? 'q' : '')} className={`rounded-md border border-line border-l-4 bg-surface ${TONES[index % TONES.length]}`} open={q !== '' || index === 0}>
-          <summary className="cursor-pointer px-3 py-2 font-semibold">{title}</summary>
+        <Fold key={id + (q ? 'q' : '')} title={title} foldId={`navod|${id}`} defaultOpen={q !== '' || index === 0} className={`border-l-4 ${TONES[index % TONES.length]}`}>
           <ul className="flex flex-col px-5 pb-3 pt-1 gap-1.5">
             {shown.map((p, n) => (
               <li key={n} className="list-disc">
@@ -32,7 +32,7 @@ export function Guide() {
               </li>
             ))}
           </ul>
-        </details>
+        </Fold>
       ))}
     </div>
   );

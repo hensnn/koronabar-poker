@@ -81,6 +81,18 @@ export interface UploadInput {
   share?: boolean;
 }
 
+let defaultSizes: Map<string, number> | null = null;
+/** Velikost původních vestavěných zvuků podle zkratky (spočítá se jednou). */
+function builtinDefaultSize(shortcut: string): number | undefined {
+  defaultSizes ??= new Map(builtinSounds().map((b) => [b.shortcut, b.data.length]));
+  return defaultSizes.get(shortcut);
+}
+
+/** Vestavěný zvuk, jehož soubor správce nahradil vlastním; ten se do využití úložiště počítá jako nahraný. */
+function isReplacedBuiltin(r: { builtin: boolean; shortcut: string; sizeBytes: number; mime: string }): boolean {
+  return r.builtin && (r.mime !== 'audio/wav' || builtinDefaultSize(r.shortcut) !== Number(r.sizeBytes));
+}
+
 const SHORTCUT = /^[a-z0-9_]{2,20}$/;
 const MB = 1024 * 1024;
 
@@ -255,7 +267,10 @@ export class SoundService {
 
   async usage(): Promise<{ bytes: number; quotaBytes: number; count: number }> {
     const [u] = await this.deps.db.select({ bytes: sql<string>`coalesce(sum(${schema.soundEmotes.sizeBytes}), 0)`, count: sql<number>`count(*)` }).from(schema.soundEmotes).where(eq(schema.soundEmotes.builtin, false));
-    return { bytes: Number(u?.bytes ?? 0), quotaBytes: Number(this.s['sounds.storageQuotaMb']) * MB, count: Number(u?.count ?? 0) };
+    // Nahrazený vestavěný zvuk zabírá místo stejně jako nahraný, jen nemá majitele.
+    const builtins = await this.deps.db.select({ shortcut: schema.soundEmotes.shortcut, sizeBytes: schema.soundEmotes.sizeBytes, mime: schema.soundEmotes.mime, builtin: schema.soundEmotes.builtin }).from(schema.soundEmotes).where(eq(schema.soundEmotes.builtin, true));
+    const replaced = builtins.filter(isReplacedBuiltin);
+    return { bytes: Number(u?.bytes ?? 0) + replaced.reduce((n, r) => n + Number(r.sizeBytes), 0), quotaBytes: Number(this.s['sounds.storageQuotaMb']) * MB, count: Number(u?.count ?? 0) + replaced.length };
   }
 
   // ---------- nahrávání ----------
@@ -361,7 +376,7 @@ export class SoundService {
       throw new SoundError(e instanceof Error && e.message === 'TOOL_MISSING' ? 'TOOL_MISSING' : 'INVALID_AUDIO');
     }
     const u = await this.usage();
-    if (u.bytes - (r.builtin ? 0 : Number(r.sizeBytes)) + out.data.length > u.quotaBytes) throw new SoundError('QUOTA_EXCEEDED');
+    if (u.bytes - (!r.builtin || isReplacedBuiltin(r) ? Number(r.sizeBytes) : 0) + out.data.length > u.quotaBytes) throw new SoundError('QUOTA_EXCEEDED');
     await writeFile(this.file(id), out.data);
     await this.deps.db.update(schema.soundEmotes).set({ mime: out.mime, durationMs: out.durationMs, sizeBytes: out.data.length }).where(eq(schema.soundEmotes.id, id));
     return (await this.dtos([await this.load(id)], userId))[0]!;

@@ -36,7 +36,7 @@ type Rule = [id: string, re: RegExp];
 export const SUBGROUP_RULES: Record<string, Rule[]> = {
   ui: [
     ['ui.look', /^ui\.(colorMode|density|themeId|fontScalePercent|reducedMotion)$/],
-    ['ui.layout', /^ui\.(tablePanel|sizePerDisplay|sizeProfiles|tableLayout|tableSide|noteWindow|tableArea|tableFitWindow|tableHeightPercent|tableChat|compactHeader)/],
+    ['ui.layout', /^ui\.(tablePanel|sizePerDisplay|sizeProfiles|tableLayout|foldState|tableSide|noteWindow|tableArea|tableFitWindow|tableHeightPercent|tableChat|compactHeader)/],
     ['ui.show', /^(ui\.(showPlayerNotes|showSymbol|showChipLabel|rotateToMe|hideMyCards|chipLeaderCrown|winImpact|betChips|tableWaitInfo|tournamentWaitBanner|tableNotices|timeoutNotice|showSystem|showPlayers|showInBb)|chat\.show)/],
     ['ui.showdown', /^ui\.(showdown|runItResponse)/],
     ['ui.actions', /^ui\.(auto|quickBets|plan)/],

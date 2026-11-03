@@ -173,7 +173,7 @@ export function PollsPanel() {
   }, [load]);
   if (rows.length === 0) return null;
   return (
-    <Card title={t('polls.title.page')}>
+    <Card title={t('polls.title.page')} foldId="domu|ankety" defaultOpen={false} summary={t('polls.panel.count', { n: rows.length })}>
       <ul className="flex flex-col gap-2">
         {rows.slice(0, 5).map((p) => (
           <PollRow key={p.id} p={p} />

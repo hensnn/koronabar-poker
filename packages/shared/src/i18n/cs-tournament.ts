@@ -961,6 +961,7 @@ export const csTournament: Record<string, string> = {
   'error.POLL_NOT_TIED': 'Anketa nečeká na rozhodnutí remízy.',
   'nav.polls': 'Ankety',
   'polls.title.page': 'Ankety',
+  'polls.panel.count': 'k hlasování: {n}',
   'polls.title': 'Otázka',
   'polls.description': 'Popis (nepovinný)',
   'polls.new': 'Nová anketa',
