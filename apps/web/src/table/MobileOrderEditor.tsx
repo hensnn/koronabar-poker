@@ -1,52 +1,67 @@
 import { t, type SettingValue } from '@kb/shared';
 import { Button } from '../ui';
-import type { WidgetId } from './layout';
-import { MID_FLAG, moveItem, ORDER_KEY, parseMobileOrder, serializeOrder, type MidPart, type MobileOrder } from './mobile-order';
+import { allowedZones, moveItem, moveToZone, ORDER_KEY, parseMobileOrder, serializeOrder, type MobileOrder, type MobileWidget, type Zone } from './mobile-order';
 
-const INFO_TITLE: Record<WidgetId, string> = {
-  table: 'table.widget.table',
+const TITLE: Record<MobileWidget, string> = {
+  timer: 'mobile.order.part.timer',
   best: 'table.widget.best',
-  players: 'table.widget.players',
-  events: 'table.widget.events',
-  chat: 'table.chat',
   sounds: 'table.widget.sounds',
-  info: 'table.info.title',
+  events: 'table.widget.events',
+  players: 'table.widget.players',
+  table: 'table.widget.table',
   bounties: 'table.info.rewards',
+  info: 'table.info.title',
+};
+
+const ZONE_STYLE: Record<Zone, { box: string; head: string }> = {
+  mid: { box: 'border-info bg-info/10', head: 'text-info' },
+  info: { box: 'border-warning bg-warning/10', head: 'text-warning' },
+  hidden: { box: 'border-line bg-raised', head: 'text-muted' },
 };
 
 /**
- * Pořadí widgetů na telefonu: části pod stolem (s vypínačem) a widgety v zásuvce ℹ️. Jde použít na telefonu i z počítače
- * (v Nastavení → Telefon), proto dostává hodnoty a ukládání zvenku.
+ * Rozmístění widgetů na telefonu: pod stolem (nad pevným ovládacím panelem), v informacích (zásuvka ℹ️) nebo skryté.
+ * Pořadí se mění šipkami, místo výběrem. Jde použít na telefonu i z počítače (Nastavení → Telefon), proto dostává hodnoty a ukládání zvenku.
  */
 export function MobileOrderEditor({ values, onChange }: { values: Record<string, unknown>; onChange: (key: string, value: SettingValue) => void }) {
-  const order = parseMobileOrder(values[ORDER_KEY]);
+  const order = parseMobileOrder(values[ORDER_KEY], values);
   const save = (next: MobileOrder) => onChange(ORDER_KEY, serializeOrder(next));
-  const row = <T extends string>(id: T, label: string, i: number, list: T[], move: (dir: -1 | 1) => void, flag?: { key: string; def: boolean }, visible?: { on: boolean; set: (on: boolean) => void }) => (
-    <li key={id} className="flex flex-wrap items-center gap-1 rounded-sm bg-surface px-2 py-1">
-      <label className="flex min-w-0 flex-1 items-center gap-2">
-        {visible && <input type="checkbox" checked={visible.on} onChange={(e) => visible.set(e.target.checked)} aria-label={label} />}
-        {flag && <input type="checkbox" checked={flag.def ? values[flag.key] !== false : values[flag.key] === true} onChange={(e) => onChange(flag.key, e.target.checked)} />}
-        <span className="truncate">{label}</span>
-      </label>
-      <Button aria-label={t('table.moveUp')} disabled={i === 0} onClick={() => move(-1)}>
-        ↑
-      </Button>
-      <Button aria-label={t('table.moveDown')} disabled={i === list.length - 1} onClick={() => move(1)}>
-        ↓
-      </Button>
-    </li>
-  );
+  const zones: Zone[] = ['mid', 'info', 'hidden'];
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted">{t('mobile.order.help')}</p>
-      <section className="rounded-md border-2 border-info bg-info/10 p-3" aria-label={t('mobile.order.mid')}>
-        <h3 className="mb-2 font-bold text-info">{t('mobile.order.mid')}</h3>
-        <ul className="flex flex-col gap-1">{order.mid.map((id: MidPart, i) => row(id, t(`mobile.order.part.${id}`), i, order.mid, (d) => save({ ...order, mid: moveItem(order.mid, id, d) }), MID_FLAG[id]))}</ul>
-      </section>
-      <section className="rounded-md border-2 border-warning bg-warning/10 p-3" aria-label={t('mobile.order.info')}>
-        <h3 className="mb-2 font-bold text-warning">{t('mobile.order.info')}</h3>
-        <ul className="flex flex-col gap-1">{order.info.map((id, i) => row(id, t(INFO_TITLE[id]), i, order.info, (d) => save({ ...order, info: moveItem(order.info, id, d) }), undefined, id === 'info' ? undefined : { on: !order.hidden.includes(id), set: (on) => save({ ...order, hidden: on ? order.hidden.filter((x) => x !== id) : [...order.hidden, id] }) }))}</ul>
-      </section>
+      {zones.map((zone) => {
+        const list = order[zone];
+        const st = ZONE_STYLE[zone];
+        return (
+          <section key={zone} className={`rounded-md border-2 p-3 ${st.box}`} aria-label={t(`mobile.order.zone.${zone}`)}>
+            <h3 className={`mb-2 font-bold ${st.head}`}>{t(`mobile.order.zone.${zone}`)}</h3>
+            <ul className="flex flex-col gap-1">
+              {list.map((id, i) => (
+                <li key={id} className="flex flex-wrap items-center gap-1 rounded-sm bg-surface px-2 py-1">
+                  <span className="min-w-32 flex-1">{t(TITLE[id])}</span>
+                  <Button aria-label={t('table.moveUp')} disabled={i === 0} onClick={() => save({ ...order, [zone]: moveItem(list, id, -1) })}>
+                    ↑
+                  </Button>
+                  <Button aria-label={t('table.moveDown')} disabled={i === list.length - 1} onClick={() => save({ ...order, [zone]: moveItem(list, id, 1) })}>
+                    ↓
+                  </Button>
+                  {allowedZones(id).length > 1 && (
+                    <select className="rounded-sm border border-line bg-surface px-1 py-1" aria-label={t('mobile.order.moveTo', { name: t(TITLE[id]) })} value={zone} onChange={(e) => save(moveToZone(order, id, e.target.value as Zone))}>
+                      {allowedZones(id).map((z) => (
+                        <option key={z} value={z}>
+                          {t(`mobile.order.zone.${z}`)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </li>
+              ))}
+              {list.length === 0 && <li className="text-sm text-muted">{t('mobile.order.empty')}</li>}
+            </ul>
+          </section>
+        );
+      })}
       <div>
         <Button onClick={() => onChange(ORDER_KEY, '')}>{t('mobile.order.reset')}</Button>
       </div>

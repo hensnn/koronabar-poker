@@ -8,7 +8,7 @@ import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
 import { SoundStrip } from '../pages/sounds';
 import { useTableWidgets } from './widgets';
-import { parseMobileOrder, ORDER_KEY } from './mobile-order';
+import { parseMobileOrder, ORDER_KEY, type MobileWidget } from './mobile-order';
 
 /**
  * Horní lišta nového mobilního rozložení stolu: zpět, krátký název (blindy nebo turnaj) a tři ikony se zásuvkami
@@ -88,20 +88,16 @@ export function InfoSlot() {
 }
 
 /**
- * Prostor mezi stolem a tlačítky na telefonu: moje kombinace, poslední události a pruh času.
- * Každá část se zapíná v kartě „O hře“ (osobní nastavení), aby si každý nechal jen to, co potřebuje.
+ * Pás mezi stolem a pevným ovládacím panelem na telefonu: widgety, které si hráč dal „pod stůl“ (Nastavení → Telefon, nebo ⇅ v informacích).
+ * Pás vyplní zbytek výšky a případný přebytek se v něm posouvá; ovládací panel pod ním se tím nikdy nepohne.
  */
 export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
   const v = useSettings().values;
-  const events = v['ui.mobileEvents'] !== false;
-  const timer = v['ui.mobileTimerBar'] !== false;
-  const best = v['ui.mobileBest'] !== false;
-  const sounds = v['ui.mobileSounds'] === true;
-  if (!events && !timer && !best && !sounds) return null;
+  const { defs } = useTableWidgets();
   const acting = view.actingSeat !== null;
-  const parts: Record<'timer' | 'best' | 'sounds' | 'events', ReactNode> = {
-    timer: timer && (acting || mine) && <TimeStrip key="timer" deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />,
-    best: best && mine && (
+  const parts: Record<MobileWidget, ReactNode> = {
+    timer: (acting || mine) && <TimeStrip key="timer" deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />,
+    best: mine && (
       <div key="best" className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
         {view.myBest?.cards && view.myBest.cards.length > 0 && (
           <span className="flex shrink-0 gap-0.5" aria-hidden>
@@ -116,8 +112,8 @@ export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { v
         </span>
       </div>
     ),
-    sounds: sounds && mine && <SoundStrip key="sounds" target={{ kind: 'table', id: tableId }} />,
-    events: events && log.length > 0 && (
+    sounds: mine && <SoundStrip key="sounds" target={{ kind: 'table', id: tableId }} />,
+    events: log.length > 0 && (
       <ul key="events" className="flex flex-col gap-0.5 rounded-md bg-raised px-2 py-1 text-xs text-muted" aria-label={t('table.m.events')}>
         {log.map((l) => (
           <li key={l.key} className="truncate">
@@ -126,8 +122,22 @@ export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { v
         ))}
       </ul>
     ),
+    players: null,
+    table: null,
+    bounties: null,
+    info: null,
   };
-  return <div className="tk-mid flex flex-col gap-1.5">{parseMobileOrder(v[ORDER_KEY]).mid.map((id) => parts[id])}</div>;
+  // Ostatní widgety (hráči, můj stůl, odměny) se vykreslí stejně jako v zásuvce, jen v kompaktní kartě.
+  for (const id of ['players', 'table', 'bounties'] as const) {
+    const def = defs[id];
+    parts[id] = def.show && (
+      <section key={id} className="rounded-md border border-line bg-surface px-2 py-1 text-sm">
+        <h3 className="text-xs font-semibold text-muted">{def.title}</h3>
+        {def.body}
+      </section>
+    );
+  }
+  return <div className="tk-mid flex flex-col gap-1.5">{parseMobileOrder(v[ORDER_KEY], v).mid.map((id) => parts[id])}</div>;
 }
 
 /** Zaškrtávátka v kartě „O hře“: co se na telefonu ukazuje mezi stolem a tlačítky a zda se upozorní na můj tah. */
@@ -142,10 +152,9 @@ export function MobileOptions() {
   return (
     <fieldset className="flex flex-col gap-1 border-t border-line pt-2">
       <legend className="text-xs font-semibold text-muted">{t('table.m.options')}</legend>
-      {['ui.mobileBest', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileTurnAlert'].map((k) => row(k))}
+      {row('ui.mobileTurnAlert')}
       {row('ui.mobileAllIcons', false)}
       {row('ui.mobileAutoFullscreen', false)}
-      {row('ui.mobileSounds', false)}
       {row('ui.hideMyCards', false)}
     </fieldset>
   );

@@ -98,7 +98,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const infoSide = layout.right.includes('info') ? 'right' : 'left';
   const actionsInline = layout.hidden.includes('info') || layout.hiddenSides.includes(infoSide);
   const { me } = useSession();
-  const settings = useSettings();
   const features = useFeatures();
   const info = view?.info;
   const mine = view?.seats.find((s) => s.playerId === me?.user.id);
@@ -149,13 +148,13 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
     // Na telefonu je kombinace i zvukové emotikony pod stolem (podle zaškrtávátek v kartě „O hře“); v informacích by byly dvakrát.
     best: {
       title: t('table.widget.best'),
-      show: !!mine && !(mobile && settings.values['ui.mobileBest'] !== false),
+      show: !!mine,
       body: view?.myBest ? <BestHand best={view.myBest} /> : <p className="text-muted">{t('table.widget.bestNone')}</p>,
     },
     // Na telefonu platí: co je zaškrtnuté v kartě „O hře“, ukazuje se pod stolem a v informacích se neopakuje; odškrtnuté se ukáže tady.
     events: {
       title: t('table.widget.events'),
-      show: !!view && !(mobile && settings.values['ui.mobileEvents'] !== false),
+      show: !!view,
       body: actionLog.length === 0 ? <p className="text-muted">{t('table.widget.eventsNone')}</p> : <EventsList log={actionLog} />,
     },
     players: {
@@ -164,7 +163,7 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
       body: view && <PlayersBody view={view} tableId={tableId} tour={tour} inBb={inBb} />,
     },
     chat: { title: t('table.chat'), show: !!chat && features.chat, body: chat?.body ?? null, badge: chat?.unread, actions: chat?.actions },
-    sounds: { title: t('table.widget.sounds'), show: !!mine && !(mobile && settings.values['ui.mobileSounds'] === true), body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
+    sounds: { title: t('table.widget.sounds'), show: !!mine, body: <SoundPalette target={{ kind: 'table', id: tableId }} /> },
     // „O hře“ obsahuje i všechny akce hráče (stůl je vykresluje portálem do tohoto místa): malá tlačítka, aktivní barevná, neaktivní šedá.
     info: {
       title: t('table.info.title'),

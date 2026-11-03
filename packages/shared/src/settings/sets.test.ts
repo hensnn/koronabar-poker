@@ -22,7 +22,8 @@ describe('sady osobního nastavení', () => {
   it('panely a zkratky u stolu se na telefonu nenabízejí, mobilní volby se nenabízejí na počítači', () => {
     expect(usefulOnKind('phone', 'ui.tablePanelWidth')).toBe(false);
     expect(usefulOnKind('phone', 'ui.hotkeyFold')).toBe(false);
-    expect(usefulOnKind('phone', 'ui.mobileBest')).toBe(true);
+    expect(usefulOnKind('phone', 'ui.mobileTurnAlert')).toBe(true);
+    expect(usefulOnKind('phone', 'ui.mobileBest')).toBe(false);
     expect(usefulOnKind('phone', 'ui.hideMyCards')).toBe(true);
     expect(usefulOnKind('desktop', 'ui.mobileBest')).toBe(false);
     expect(usefulOnKind('desktop', 'ui.tablePanelWidth')).toBe(true);

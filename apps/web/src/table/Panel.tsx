@@ -5,7 +5,7 @@ import { Button, Modal } from '../ui';
 import { moveToSide, reorder, sideOf, toggleCollapsed, toggleHidden, toggleSide, WIDGET_IDS, type Layout, type Side, type WidgetId } from './layout';
 import { useMobileLayout } from './mobile';
 import { MobileOrderEditor } from './MobileOrderEditor';
-import { ORDER_KEY, parseMobileOrder } from './mobile-order';
+import { ORDER_KEY, parseMobileOrder, type MobileWidget } from './mobile-order';
 import { useTableWidgets, type WidgetDef } from './widgets';
 
 /** Rámeček jednoho widgetu: sbalitelná hlavička s volitelnými doplňky. */
@@ -183,9 +183,7 @@ export function MobileInfoPanel() {
   const { layout, setLayout, defs } = useTableWidgets();
   const settings = useSettings();
   const [editing, setEditing] = useState(false);
-  const mobileOrder = parseMobileOrder(settings.values[ORDER_KEY]);
-  const shown = (id: WidgetId) => defs[id].show && !mobileOrder.hidden.includes(id) && id !== 'chat';
-  const order = mobileOrder.info.filter(shown);
+  const order = parseMobileOrder(settings.values[ORDER_KEY], settings.values).info.filter((id): id is Exclude<MobileWidget, 'timer'> => id !== 'timer').filter((id) => defs[id].show);
   return (
     <>
       <div className="flex justify-end">

@@ -50,8 +50,13 @@ export function keysOfSet(reg: SettingsRegistry, id: string): string[] {
 /** Parametry, které se na daném druhu zařízení nikdy neprojeví (panely a zkratky u stolu telefon nemá; mobilní rozložení čte vždy profil telefonu). */
 const PHONE_UNUSED = /^ui\.(tablePanel|tableSide|tableChatHeight|tableLayout|tableArea|tableFitWindow|tableHeightPercent|hotkey|sizePerDisplay|sizeProfiles)/;
 const DESKTOP_UNUSED = /^ui\.mobile/;
+/** Starší zaškrtávátka pásu pod stolem; dnes jen výchozí rozmístění (viz `ui.mobileOrder`), proto se nenabízejí. */
+const LEGACY = /^ui\.mobile(Best|Events|TimerBar|Sounds)$/;
 
 /** Má parametr smysl nastavovat pro daný druh zařízení? */
 export function usefulOnKind(kind: DeviceKind, key: string): boolean {
-  return !(kind === 'phone' ? PHONE_UNUSED : DESKTOP_UNUSED).test(key);
+  return !LEGACY.test(key) && !(kind === 'phone' ? PHONE_UNUSED : DESKTOP_UNUSED).test(key);
 }
+
+/** Starší volba, která už nemá vlastní ovládání. */
+export const isLegacyMobileKey = (key: string): boolean => LEGACY.test(key);

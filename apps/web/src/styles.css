@@ -1272,6 +1272,10 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 
 /* Prostor mezi stolem a tlačítky na telefonu (moje kombinace, události, zvuky, pruh času); na šířku je v pravém sloupci pod tlačítky. */
 [data-mobile-modern]:not([data-landscape]) .tk-mid { padding: calc(var(--spacing) * 1) calc(var(--spacing) * 1); }
+/* Ovládací panel je pevně dole a stránka se u stolu neposouvá: pás s widgety vyplní zbytek výšky a přebytek se posouvá jen v něm. */
+[data-mobile-modern]:not([data-landscape]) .tk-mid { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+[data-mobile-modern]:not([data-landscape]) .tk-room, [data-mobile-modern]:not([data-landscape]) .tk-turn-row, [data-mobile-modern]:not([data-landscape]) .tk-actionbar, [data-mobile-modern]:not([data-landscape]) .tk-planbar { flex: none; }
+html[data-mobile-modern] body { overflow: hidden; }
 /* Na šířku je prostor v posuvném pravém sloupci až za akčními tlačítky, v menším provedení. */
 [data-mobile-modern][data-landscape] .tk-side-col > .tk-mid { order: 3; gap: calc(var(--spacing) * 1); }
 [data-mobile-modern][data-landscape] .tk-mid ul { font-size: 0.7rem; }

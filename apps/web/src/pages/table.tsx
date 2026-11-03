@@ -330,7 +330,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <MobileInfoPanel />
             ) : drawer === 'menu' ? (
               <>
-                <div className="flex flex-wrap gap-2">{renderTools(false)}</div>
+                <div className="flex flex-wrap gap-2">{renderTools(true)}</div>
                 <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface p-2">
                   <SoundMenu />
                   <label className="flex items-center gap-2 text-sm">
