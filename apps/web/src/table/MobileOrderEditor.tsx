@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { t, type SettingValue } from '@kb/shared';
 import { Button, Tabs } from '../ui';
-import { allowedZones, effectiveOrder, moveItem, moveToZone, ORDER_KEY, parseMobileOrder, serializeOrder, TOOL_ICON, TOOL_IDS, TOOL_TITLE_KEY, toggleToolScreen, toolScreens, WIDGET_ICON, type MobileOrder, type MobileWidget, type Zone } from './mobile-order';
+import { allowedZones, effectiveOrder, moveItem, moveToZone, orderKeyFor, parseMobileOrder, serializeOrder, TOOL_ICON, TOOL_IDS, TOOL_TITLE_KEY, toggleToolScreen, toolScreens, WIDGET_ICON, type MobileOrder, type MobileWidget, type Zone } from './mobile-order';
 
 export const WIDGET_TITLE_KEY: Record<MobileWidget, string> = {
   timer: 'mobile.order.part.timer',
@@ -31,10 +31,12 @@ const CHIP: Record<Zone, string> = { s1: '1', s2: '2', s3: '3', icon: '🔘', hi
  * na číslo obrazovky. Záložka Ikony: na kterých obrazovkách je ikona v horní liště (všechny jsou vždy v nabídce ☰).
  * Jde použít na telefonu i z počítače (Nastavení → Telefon), proto dostává hodnoty a ukládání zvenku.
  */
-export function MobileOrderEditor({ values, onChange }: { values: Record<string, unknown>; onChange: (key: string, value: SettingValue) => void }) {
+export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = false }: { values: Record<string, unknown>; onChange: (key: string, value: SettingValue) => void; /** Otevřít rovnou rozmístění pro telefon na šířku (např. když je telefon otočený). */ landscape?: boolean }) {
   const [tab, setTab] = useState<'widgets' | 'icons'>('widgets');
-  const order = parseMobileOrder(values[ORDER_KEY], values);
-  const save = (next: MobileOrder) => onChange(ORDER_KEY, serializeOrder(next));
+  const [landscape, setLandscape] = useState(landscapeNow);
+  const key = orderKeyFor(landscape);
+  const order = parseMobileOrder(values[key], values);
+  const save = (next: MobileOrder) => onChange(key, serializeOrder(next));
   const screens = Array.from({ length: order.screens }, (_, i) => i + 1);
   const zones: Zone[] = ['s1', ...(order.screens >= 2 ? (['s2'] as const) : []), ...(order.screens >= 3 ? (['s3'] as const) : []), 'icon', 'hidden'];
   const offered = (id: MobileWidget) => allowedZones(id).filter((z) => zones.includes(z));
@@ -44,7 +46,15 @@ export function MobileOrderEditor({ values, onChange }: { values: Record<string,
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">{t('mobile.order.help')}</p>
+      <div role="radiogroup" aria-label={t('mobile.order.orientation')} className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{t('mobile.order.orientation')}</span>
+        {([false, true] as const).map((l) => (
+          <button key={String(l)} role="radio" aria-checked={landscape === l} onClick={() => setLandscape(l)} className={chipClass(landscape === l)}>
+            {l ? '📱↔ ' + t('mobile.order.landscape') : '📱↕ ' + t('mobile.order.portrait')}
+          </button>
+        ))}
+      </div>
+      <p className="text-sm text-muted">{landscape ? t('mobile.order.landscapeHelp') : t('mobile.order.help')}</p>
       <div role="radiogroup" aria-label={t('mobile.order.screens')} className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{t('mobile.order.screens')}</span>
         {([1, 2, 3] as const).map((n) => (
@@ -118,7 +128,7 @@ export function MobileOrderEditor({ values, onChange }: { values: Record<string,
         </section>
       )}
       <div>
-        <Button onClick={() => onChange(ORDER_KEY, '')}>{t('mobile.order.reset')}</Button>
+        <Button onClick={() => onChange(key, '')}>{t('mobile.order.reset')}</Button>
       </div>
     </div>
   );

@@ -3,14 +3,14 @@ import type { SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
 import { Button, Fold } from '../ui';
-import { applyMobileGeometry, mobileScale } from './mobile';
+import { applyMobileGeometry, mobileScale, useLandscapePhone, useMobileOrder } from './mobile';
 import { CardView } from './CardView';
 import { Link } from '../router';
 import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
 import { SoundStrip } from '../pages/sounds';
 import { useTableWidgets } from './widgets';
-import { effectiveOrder, parseMobileOrder, ORDER_KEY, type MobileWidget } from './mobile-order';
+import { type MobileWidget } from './mobile-order';
 
 /**
  * Horní lišta mobilního rozložení stolu: zpět, krátký název (blindy nebo turnaj), ikony zvolené pro právě zobrazenou obrazovku
@@ -48,8 +48,8 @@ export function InfoSlot() {
  * Pás vyplní zbytek výšky a případný přebytek se v něm posouvá; ovládací panel pod ním se tím nikdy nepohne.
  */
 export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
-  const v = useSettings().values;
   const { defs } = useTableWidgets();
+  const order = useMobileOrder();
   const acting = view.actingSeat !== null;
   const parts: Record<MobileWidget, ReactNode> = {
     timer: (acting || mine) && <TimeStrip key="timer" deadline={view.deadline} offset={offset} bank={view.bankActive} reserve={mine && view.info.timeBankMode && view.info.timeBankMode !== 'none' ? mmss(mine.timeBank * 1000) : undefined} />,
@@ -94,7 +94,7 @@ export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { v
       </section>
     );
   }
-  return <div className="tk-mid flex flex-col gap-1.5">{effectiveOrder(parseMobileOrder(v[ORDER_KEY], v)).s1.map((id) => parts[id])}</div>;
+  return <div className="tk-mid flex flex-col gap-1.5">{order.s1.map((id) => parts[id])}</div>;
 }
 
 /** Zaškrtávátka v kartě „O hře“: co se na telefonu ukazuje mezi stolem a tlačítky a zda se upozorní na můj tah. */
@@ -107,7 +107,7 @@ export function MobileOptions() {
     </label>
   );
   return (
-    <Fold title={t('table.m.options')} foldId="stul|zobrazeni-na-telefonu" className="text-sm">
+    <Fold title={t('table.m.options')} foldId="stul|zobrazeni-na-telefonu" className="text-sm" small>
     <div className="flex flex-col gap-1">
       {row('ui.mobileTurnAlert')}
       {row('ui.mobileAutoFullscreen', false)}
@@ -120,14 +120,16 @@ export function MobileOptions() {
 /** Rychlá úprava měřítka prvků na stole (📐 v nabídce ☰): náhled je okamžitý, uloží se po puštění posuvníku. */
 export function MobileScalePanel({ seatCount }: { seatCount: number }) {
   const values = useSettings().values;
-  const saved = Number(values['ui.mobileTableScale'] ?? 100);
+  const landscape = useLandscapePhone();
+  const scaleKey = landscape ? 'ui.mobileTableScaleLandscape' : 'ui.mobileTableScale';
+  const saved = Number(values[scaleKey] ?? 100);
   const [v, setV] = useState(saved);
   useEffect(() => setV(saved), [saved]);
   const preview = (n: number) => {
     setV(n);
-    document.documentElement.style.setProperty('--tk-mscale', String(mobileScale({ ...values, 'ui.mobileTableScale': n }, seatCount)));
+    document.documentElement.style.setProperty('--tk-mscale', String(mobileScale({ ...values, [scaleKey]: n }, seatCount, landscape)));
   };
-  const commit = (n = v) => void saveUserSetting('ui.mobileTableScale', n, true).catch(() => undefined);
+  const commit = (n = v) => void saveUserSetting(scaleKey, n, true).catch(() => undefined);
   // Výška stolu: stejný postup (náhled hned, uložení po puštění).
   const savedH = Number(values['ui.mobileTableHeight'] ?? 100);
   const [h, setH] = useState(savedH);
@@ -144,17 +146,21 @@ export function MobileScalePanel({ seatCount }: { seatCount: number }) {
         <input type="range" className="flex-1" min={60} max={110} step={5} value={v} aria-label={t('table.scale.title')} onChange={(e) => preview(Number(e.target.value))} onPointerUp={() => commit()} onKeyUp={() => commit()} onBlur={() => commit()} />
         <span className="w-12 text-right font-mono">{v} %</span>
       </label>
+      {!landscape && (
+      <>
       <label className="flex items-center gap-2">
         <span className="w-24 shrink-0">{t('table.height.title')}</span>
         <input type="range" className="flex-1" min={70} max={130} step={5} value={h} aria-label={t('table.height.title')} onChange={(e) => previewH(Number(e.target.value))} onPointerUp={() => commitH()} onKeyUp={() => commitH()} onBlur={() => commitH()} />
         <span className="w-12 text-right font-mono">{h} %</span>
       </label>
       <p className="-mt-2 text-xs text-muted">{t('table.height.hint')}</p>
+      </>
+      )}
       <label className="flex items-start gap-2 text-sm" title={t('settings.ui.mobileAutoShrink.help')}>
         <input type="checkbox" role="switch" className="mt-1" checked={values['ui.mobileAutoShrink'] !== false} onChange={(e) => void saveUserSetting('ui.mobileAutoShrink', e.target.checked, true).catch(() => undefined)} />
         <span>{t('settings.ui.mobileAutoShrink.label')}</span>
       </label>
-      <p className="text-sm text-muted">{t('table.scale.now', { pct: Math.round(mobileScale({ ...values, 'ui.mobileTableScale': v }, seatCount) * 100), seats: seatCount })}</p>
+      <p className="text-sm text-muted">{t('table.scale.now', { pct: Math.round(mobileScale({ ...values, [scaleKey]: v }, seatCount, landscape) * 100), seats: seatCount })}</p>
       <div>
         <Button
           onClick={() => {

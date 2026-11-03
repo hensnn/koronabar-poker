@@ -33,6 +33,7 @@ import { BottomNav, NavTabs, useNavCounts, type NavTab } from './nav-tabs';
 import { useTournamentAutoJoin } from './tournament-autojoin';
 import { MyTableButton } from './my-table-button';
 import { SaveErrorToast } from './save-error-toast';
+import { useLandscapePhone } from './table/mobile';
 
 // Méně časté stránky se načítají až při otevření.
 const ThemeEditorPage = lazyPage(() => import('./pages/theme-editor'), 'ThemeEditorPage');
@@ -178,13 +179,15 @@ function Shell({ me }: { me: Me }) {
   else page = <Redirect to="/" />;
   // Vypnutá funkce nemá mít přístupnou ani adresu.
   const compact = settings.values['ui.compactHeader'] !== false;
+  // Telefon na šířku mimo stůl: bez hlavičky a řádku tlačítek, navigace je svislý pruh vlevo.
+  const rail = useLandscapePhone();
   const off = (prefix: string, on: boolean) => !on && (path === prefix || path.startsWith(prefix + '/'));
   if (off('/ankety', features.polls) || off('/chat', features.chat || features.polls) || off('/vecery', features.evenings) || off('/postup', features.xp || features.rating) || off('/obchod', features.shop)) page = <Redirect to="/" />;
 
   return (
-    <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl pb-20 md:pb-3"}`}>
+    <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : `max-w-5xl ${rail ? 'pl-20' : 'pb-20 md:pb-3'}`}`}>
       <SaveErrorToast />
-      <header className={`hidden items-center justify-between gap-2 md:flex ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
+      <header className={`hidden items-center justify-between gap-2 ${rail ? '' : 'md:flex'} ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
         <BrandMark header />
         <BrandFavicon />
         <nav aria-label={t('nav.main')} className={`flex items-center gap-2 ${compact ? 'min-w-0 flex-wrap' : 'flex-wrap'}`}>
@@ -219,7 +222,7 @@ function Shell({ me }: { me: Me }) {
         </nav>
       </header>
       {!stul && !path.startsWith('/admin') && (
-        <div className="hidden md:block">
+        <div className={rail ? 'hidden' : 'hidden md:block'}>
           <NavTabs tabs={tabs} isActive={isActive} />
         </div>
       )}
@@ -240,6 +243,7 @@ function Shell({ me }: { me: Me }) {
           tabs={[...tabs, ...(isAdmin(me) ? [{ to: '/admin', label: t('nav.admin') }] : [])]}
           isActive={isActive}
           path={path}
+          rail={rail}
           extra={
             <>
               <NotificationBell />

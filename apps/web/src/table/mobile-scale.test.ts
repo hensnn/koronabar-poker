@@ -12,6 +12,9 @@ describe('měřítko prvků na stole na telefonu', () => {
     expect(mobileScale({ 'ui.mobileTableScale': 80, 'ui.mobileAutoShrink': false }, 10)).toBe(0.8);
     expect(mobileScale({ 'ui.mobileTableScale': 10, 'ui.mobileAutoShrink': true }, 10)).toBe(0.5);
     expect(mobileScale({ 'ui.mobileTableScale': 500 }, 6)).toBe(1.1);
+    // na šířku má vlastní měřítko
+    expect(mobileScale({ 'ui.mobileTableScale': 80, 'ui.mobileTableScaleLandscape': 70 }, 6, true)).toBe(0.7);
+    expect(mobileScale({ 'ui.mobileTableScale': 80, 'ui.mobileTableScaleLandscape': 70 }, 6, false)).toBe(0.8);
   });
 });
 

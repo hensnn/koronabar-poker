@@ -119,14 +119,14 @@ export function Card({ title, children, actions, foldId, defaultOpen = true, sum
  * Zabalitelný oddíl pro vedlejší obsah (místo prvku `<details>`): volba se pamatuje, výchozí stav je zabaleno.
  * Obsah zůstává v dokumentu i zabalený, takže se nezahodí rozepsaný text.
  */
-export function Fold({ title, children, foldId, defaultOpen = false, summary, className = '' }: { title: ReactNode; children: ReactNode; foldId?: string; defaultOpen?: boolean; summary?: ReactNode; className?: string }) {
+export function Fold({ title, children, foldId, defaultOpen = false, summary, className = '', small = false }: { title: ReactNode; children: ReactNode; foldId?: string; defaultOpen?: boolean; summary?: ReactNode; className?: string; /** Menší nadpis (vedlejší oddíl uvnitř karty). */ small?: boolean }) {
   const id = useFoldId(typeof title === 'string' ? title : undefined, foldId);
   const [open, setOpen] = useFold(id, defaultOpen);
   return (
     <section className={`rounded-md border border-line bg-surface ${className}`}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full flex-wrap items-center px-4 py-3 gap-x-3 gap-y-1 text-left">
         <span aria-hidden="true" className="w-4 shrink-0 text-muted">{open ? '▾' : '▸'}</span>
-        <span className="font-heading text-lg font-bold">{title}</span>
+        <span className={small ? 'text-sm font-semibold' : 'font-heading text-lg font-bold'}>{title}</span>
         {!open && summary && <span className="min-w-0 text-sm text-muted">{summary}</span>}
       </button>
       <div hidden={!open} className="px-4 pb-4">

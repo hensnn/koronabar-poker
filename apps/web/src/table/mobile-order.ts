@@ -9,6 +9,9 @@ export const ZONES = ['s1', 's2', 's3', 'icon', 'hidden'] as const;
 export type Zone = (typeof ZONES)[number];
 
 export const ORDER_KEY = 'ui.mobileOrder';
+/** Rozmístění pro telefon na šířku (na výšku a na šířku se nemíchají). */
+export const ORDER_KEY_LANDSCAPE = 'ui.mobileOrderLandscape';
+export const orderKeyFor = (landscape: boolean): string => (landscape ? ORDER_KEY_LANDSCAPE : ORDER_KEY);
 
 /** Starší samostatná zaškrtávátka; dnes slouží jen k výchozímu rozmístění, dokud si hráč neuloží vlastní. */
 const LEGACY_FLAG: Partial<Record<MobileWidget, { key: string; def: boolean }>> = {

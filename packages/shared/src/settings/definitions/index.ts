@@ -827,6 +827,8 @@ const ui: SettingDef[] = [
   int('ui.mobileTableScale', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 100, 60, 110),
   int('ui.mobileTableHeight', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 100, 70, 130),
   bool('ui.mobileAutoShrink', { category: 'ui', mutability: A, scopes: USER }, true),
+  int('ui.mobileTableScaleLandscape', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 100, 60, 110),
+  text('ui.mobileOrderLandscape', { category: 'ui', mutability: A, scopes: USER }, '', 800),
   text('ui.mobileOrder', { category: 'ui', mutability: A, scopes: USER }, '', 800),
   bool('ui.mobileTurnAlert', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.tableWaitInfo', { category: 'ui', mutability: A, scopes: USER }, true),

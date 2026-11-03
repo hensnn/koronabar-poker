@@ -10,11 +10,11 @@ import { loadChannels, useChatStore } from '../chat-store';
 import { onSocket, table as tableApi, useNetSelector } from '../net';
 import { Link } from '../router';
 import { defaultOf, saveUserSetting, useSettings } from '../settings';
-import { mobileScale, useFollowPhoneProfile, useMobileAttribute, useMobileLayout } from '../table/mobile';
+import { mobileScale, useFollowPhoneProfile, useLandscapePhone, useMobileAttribute, useMobileLayout, useMobileOrder } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
-import { MobilePager, MobileScreen, MobileWidgetDrawer, useMobileOrder } from '../table/MobilePager';
+import { LandscapePane, MobilePager, MobileScreen, MobileWidgetDrawer } from '../table/MobilePager';
 import { MobileOrderEditor, WIDGET_TITLE_KEY } from '../table/MobileOrderEditor';
 import { TOOL_ICON, TOOL_IDS, toolScreens, WIDGET_ICON, zoneOf, type MobileWidget, type ToolId } from '../table/mobile-order';
 import { TournamentBanner } from '../table/TablePanel';
@@ -67,6 +67,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const mobile = useMobileLayout();
   // Obrazovky na telefonu: 0 = stůl s ovládacím panelem, další se listují prstem; rozmístění widgetů si volí hráč.
   const order = useMobileOrder();
+  const landscapePhone = useLandscapePhone();
+  const landscape = mobile && landscapePhone;
   const [page, setPage] = useState(0);
   const [layoutEditor, setLayoutEditor] = useState(false);
   const goTo = (id: MobileWidget) => {
@@ -78,7 +80,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const modern = mobile;
   useFollowPhoneProfile(mobile);
   const seatCountForScale = useNetSelector((n) => n.views[tableId]?.info.seatCount) ?? 9;
-  useMobileAttribute(mobile, modern, mobileScale(settings.values, seatCountForScale));
+  useMobileAttribute(mobile, modern, mobileScale(settings.values, seatCountForScale, landscape));
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true, chipLabel: settings.values['ui.showChipLabelAtTable'] !== false });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
   useEffect(() => {
@@ -351,6 +353,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             quickPost={String(settings.values['ui.quickBetsPostflop'])}
             quickPre={String(settings.values['ui.quickBetsPreflop'])}
             modern={modern}
+          mid={landscape ? (def) => <LandscapePane first={def} order={order} page={page} onPage={setPage} channel={channel} /> : undefined}
             extra={
               seated && !modern ? (
                 <span className="tk-tp-mobile">
@@ -360,7 +363,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             }
           />
           );
-          return modern ? (
+          return modern && !landscape ? (
             <MobilePager
               first={screen}
               page={page}
@@ -374,7 +377,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       </div>
       {layoutEditor && (
         <Modal title={`📱 ${t('mobile.order.title')}`} onClose={() => setLayoutEditor(false)}>
-          <MobileOrderEditor values={settings.values} onChange={(k, v) => void saveUserSetting(k, v, true).catch(() => undefined)} />
+          <MobileOrderEditor values={settings.values} landscape={landscape} onChange={(k, v) => void saveUserSetting(k, v, true).catch(() => undefined)} />
           <div className="mt-3">
             <Button variant="primary" onClick={() => setLayoutEditor(false)}>
               {t('table.close')}

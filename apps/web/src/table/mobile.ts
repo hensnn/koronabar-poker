@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { setProfileKind, useSettings } from '../settings';
+import { effectiveOrder, orderKeyFor, parseMobileOrder } from './mobile-order';
 
 function useMedia(query: string): boolean {
   const mq = typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(query) : null;
@@ -83,8 +84,8 @@ export function useFollowPhoneProfile(mobile: boolean): void {
 export const autoShrinkFor = (seatCount: number): number => (seatCount >= 10 ? 0.8 : seatCount === 9 ? 0.85 : seatCount === 8 ? 0.92 : 1);
 
 /** Výsledné měřítko prvků na stole na telefonu: volba hráče krát automatické zmenšení (je-li zapnuté), v rozsahu 0,5 až 1,1. */
-export function mobileScale(values: Record<string, unknown>, seatCount: number): number {
-  const base = Math.min(110, Math.max(60, Number(values['ui.mobileTableScale'] ?? 100))) / 100;
+export function mobileScale(values: Record<string, unknown>, seatCount: number, landscape = false): number {
+  const base = Math.min(110, Math.max(60, Number(values[landscape ? 'ui.mobileTableScaleLandscape' : 'ui.mobileTableScale'] ?? 100))) / 100;
   const auto = values['ui.mobileAutoShrink'] === false ? 1 : autoShrinkFor(seatCount);
   return Math.round(Math.min(1.1, Math.max(0.5, base * auto)) * 1000) / 1000;
 }
@@ -108,4 +109,11 @@ export function applyMobileGeometry(aspectPct: number, heightPct: number): void 
   const k = tableHeightFactor(Math.min(130, Math.max(70, heightPct)) / 100, window.innerWidth, window.innerHeight, a);
   root.style.setProperty('--tk-mobile-aspect', String(a / k));
   root.style.setProperty('--tk-mheight', String(k));
+}
+
+/** Rozmístění widgetů a ikon na telefonu podle natočení (na výšku a na šířku mají každé své) a počtu používaných obrazovek. */
+export function useMobileOrder() {
+  const values = useSettings().values;
+  const landscape = useLandscapePhone();
+  return effectiveOrder(parseMobileOrder(values[orderKeyFor(landscape)], values));
 }
