@@ -39,7 +39,7 @@ export function useMobileLayout(): boolean {
  * Zapne `data-mobile` (a na šířku `data-landscape`) na <html>, dokud je stránka stolu v mobilním rozložení;
  * CSS schová nabídku a vše napasuje do okna. Tvar oválu na výšku řídí osobní volba `ui.mobileTableAspect` (v %).
  */
-export function useMobileAttribute(active: boolean, modern = false): void {
+export function useMobileAttribute(active: boolean, modern = false, scale = 1): void {
   const landscape = useLandscapePhone();
   const aspect = Number(useSettings().values['ui.mobileTableAspect'] ?? 115);
   const turnAlert = useSettings().values['ui.mobileTurnAlert'] !== false;
@@ -54,13 +54,16 @@ export function useMobileAttribute(active: boolean, modern = false): void {
     if (active && landscape) root.setAttribute('data-landscape', '1');
     else root.removeAttribute('data-landscape');
     root.style.setProperty('--tk-mobile-aspect', String(Math.max(1, aspect) / 100));
+    if (active) root.style.setProperty('--tk-mscale', String(scale));
+    else root.style.removeProperty('--tk-mscale');
     return () => {
       root.removeAttribute('data-mobile');
       root.removeAttribute('data-mobile-modern');
       root.removeAttribute('data-turn-alert');
       root.removeAttribute('data-landscape');
+      root.style.removeProperty('--tk-mscale');
     };
-  }, [active, modern, landscape, aspect, turnAlert]);
+  }, [active, modern, landscape, aspect, turnAlert, scale]);
 }
 
 /** Mobilní rozložení u stolu na počítači používá nastavení telefonu (karta Telefon), jinak by se jeho volby neprojevily. */
@@ -69,4 +72,14 @@ export function useFollowPhoneProfile(mobile: boolean): void {
     setProfileKind(mobile ? 'phone' : null);
     return () => setProfileKind(null);
   }, [mobile]);
+}
+
+/** Zmenšení prvků na stole podle počtu sedadel (osm: 92 %, devět: 85 %, deset: 80 %), aby se na úzkém displeji nepřekrývaly. */
+export const autoShrinkFor = (seatCount: number): number => (seatCount >= 10 ? 0.8 : seatCount === 9 ? 0.85 : seatCount === 8 ? 0.92 : 1);
+
+/** Výsledné měřítko prvků na stole na telefonu: volba hráče krát automatické zmenšení (je-li zapnuté), v rozsahu 0,5 až 1,1. */
+export function mobileScale(values: Record<string, unknown>, seatCount: number): number {
+  const base = Math.min(110, Math.max(60, Number(values['ui.mobileTableScale'] ?? 100))) / 100;
+  const auto = values['ui.mobileAutoShrink'] === false ? 1 : autoShrinkFor(seatCount);
+  return Math.round(Math.min(1.1, Math.max(0.5, base * auto)) * 1000) / 1000;
 }

@@ -10,7 +10,7 @@ import { loadChannels, useChatStore } from '../chat-store';
 import { onSocket, table as tableApi, useNetSelector } from '../net';
 import { Link } from '../router';
 import { defaultOf, saveUserSetting, useSettings } from '../settings';
-import { useFollowPhoneProfile, useMobileAttribute, useMobileLayout } from '../table/mobile';
+import { mobileScale, useFollowPhoneProfile, useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
@@ -19,7 +19,7 @@ import { MobileOrderEditor, WIDGET_TITLE_KEY } from '../table/MobileOrderEditor'
 import { TOOL_ICON, TOOL_IDS, toolScreens, WIDGET_ICON, zoneOf, type MobileWidget, type ToolId } from '../table/mobile-order';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
-import { MobileBar } from '../table/mobile-ui';
+import { MobileBar, MobileScalePanel } from '../table/mobile-ui';
 import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
@@ -77,7 +77,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
   const modern = mobile;
   useFollowPhoneProfile(mobile);
-  useMobileAttribute(mobile, modern);
+  const seatCountForScale = useNetSelector((n) => n.views[tableId]?.info.seatCount) ?? 9;
+  useMobileAttribute(mobile, modern, mobileScale(settings.values, seatCountForScale));
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true, chipLabel: settings.values['ui.showChipLabelAtTable'] !== false });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
   useEffect(() => {
@@ -219,7 +220,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       </>
     );
   };
-  const drawerTitle = drawer === 'chat' ? t('table.chat') : drawer?.startsWith('w:') ? t(WIDGET_TITLE_KEY[drawer.slice(2) as MobileWidget]) : drawer === 'menu' ? t('table.m.menu') : t('table.panel');
+  const drawerTitle = drawer === 'chat' ? t('table.chat') : drawer === 'scale' ? t('table.scale.title') : drawer?.startsWith('w:') ? t(WIDGET_TITLE_KEY[drawer.slice(2) as MobileWidget]) : drawer === 'menu' ? t('table.m.menu') : t('table.panel');
   // Ikony horní lišty na telefonu: každý nástroj má obrazovky, na kterých je vidět (Nastavení → Telefon → Ikony); všechny jsou vždy v nabídce ☰.
   const mbtn = 'tk-mbar-btn relative rounded-md border border-line bg-surface';
   const iconBtn = (key: string, icon: string, label: string, onClick: () => void, extra: { pressed?: boolean; badge?: number } = {}) => (
@@ -237,6 +238,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     settlement: !isTournament ? iconBtn('settlement', TOOL_ICON.settlement, t('table.settlement'), () => setShowSettlement(true)) : null,
     poll: features.polls && can(me, 'anketa.vytvorit') ? iconBtn('poll', TOOL_ICON.poll, t('polls.tableCreate'), () => setPollOpen(true)) : null,
     layout: iconBtn('layout', TOOL_ICON.layout, t('table.mobileOff'), () => void saveUserSetting('ui.mobileLayout', 'off', true).catch(() => undefined)),
+    scale: iconBtn('scale', TOOL_ICON.scale, t('table.scale.title'), () => setDrawer('scale')),
     fullscreen: iconBtn('fullscreen', focus ? '⤡' : TOOL_ICON.fullscreen, focus ? t('table.fullscreenExit') : t('table.fullscreen'), () => setFocus((v) => !v), { pressed: focus }),
     sound: <SoundMenu key="sound" />,
     assistant: features.assistant ? <AssistantToolButton key="assistant" iconOnly /> : null,
@@ -389,6 +391,8 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="tk-drawer-body flex flex-col gap-2">
             {drawer === 'chat' ? (
               channel && <ChatPanel channel={channel} compact fill />
+            ) : drawer === 'scale' ? (
+              <MobileScalePanel seatCount={tableInfo?.seatCount ?? seatCountForScale} />
             ) : drawer.startsWith('w:') ? (
               <MobileWidgetDrawer id={drawer.slice(2) as MobileWidget} channel={channel} />
             ) : drawer === 'menu' ? (

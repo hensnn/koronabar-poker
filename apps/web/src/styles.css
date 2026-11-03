@@ -1357,3 +1357,12 @@ html[data-mobile-modern] body { overflow: hidden; }
 .tk-pager-first { overflow: hidden; }
 /* Posuvník sázky se při tažení nesmí chytat jako listování obrazovek. */
 .tk-slider-row input[type='range'] { touch-action: none; }
+
+/* Měřítko prvků na stole na telefonu (--tk-mscale: volba hráče a automatické zmenšení při 8 a více sedadlech): sedadla, karty i písmo se zmenší společně. */
+[data-mobile] .tk-table > * { --cw: calc(clamp(var(--tk-size-cardWidth), 6.2cqw, 7rem) * var(--tk-mscale, 1)); }
+[data-mobile] .tk-seat { width: calc(var(--tk-size-cardWidth) * 2.1 * var(--tk-mscale, 1)); }
+[data-mobile-modern] .tk-seat-name { font-size: calc(0.74rem * var(--tk-mscale, 1)); }
+[data-mobile-modern] .tk-seat-stack, [data-mobile-modern] .tk-seat-mine .tk-seat-stack { font-size: calc(0.69rem * var(--tk-mscale, 1)); }
+[data-mobile-modern] .tk-seat-status { font-size: calc(0.64rem * var(--tk-mscale, 1)); }
+[data-mobile-modern] .tk-pot { font-size: calc(0.82rem * var(--tk-mscale, 1)); }
+[data-mobile-modern] .tk-bubble { font-size: calc(0.7rem * var(--tk-mscale, 1)); }

@@ -1,7 +1,9 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { SeatView, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { saveUserSetting, useSettings } from '../settings';
+import { Button } from '../ui';
+import { mobileScale } from './mobile';
 import { CardView } from './CardView';
 import { Link } from '../router';
 import { TimeStrip } from './TimerRing';
@@ -111,5 +113,42 @@ export function MobileOptions() {
       {row('ui.mobileAutoFullscreen', false)}
       {row('ui.hideMyCards', false)}
     </fieldset>
+  );
+}
+
+/** Rychlá úprava měřítka prvků na stole (📐 v nabídce ☰): náhled je okamžitý, uloží se po puštění posuvníku. */
+export function MobileScalePanel({ seatCount }: { seatCount: number }) {
+  const values = useSettings().values;
+  const saved = Number(values['ui.mobileTableScale'] ?? 100);
+  const [v, setV] = useState(saved);
+  useEffect(() => setV(saved), [saved]);
+  const preview = (n: number) => {
+    setV(n);
+    document.documentElement.style.setProperty('--tk-mscale', String(mobileScale({ ...values, 'ui.mobileTableScale': n }, seatCount)));
+  };
+  const commit = (n = v) => void saveUserSetting('ui.mobileTableScale', n, true).catch(() => undefined);
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="flex items-center gap-2">
+        <span className="w-24 shrink-0">{t('table.scale.title')}</span>
+        <input type="range" className="flex-1" min={60} max={110} step={5} value={v} aria-label={t('table.scale.title')} onChange={(e) => preview(Number(e.target.value))} onPointerUp={() => commit()} onKeyUp={() => commit()} onBlur={() => commit()} />
+        <span className="w-12 text-right font-mono">{v} %</span>
+      </label>
+      <label className="flex items-start gap-2 text-sm" title={t('settings.ui.mobileAutoShrink.help')}>
+        <input type="checkbox" role="switch" className="mt-1" checked={values['ui.mobileAutoShrink'] !== false} onChange={(e) => void saveUserSetting('ui.mobileAutoShrink', e.target.checked, true).catch(() => undefined)} />
+        <span>{t('settings.ui.mobileAutoShrink.label')}</span>
+      </label>
+      <p className="text-sm text-muted">{t('table.scale.now', { pct: Math.round(mobileScale({ ...values, 'ui.mobileTableScale': v }, seatCount) * 100), seats: seatCount })}</p>
+      <div>
+        <Button
+          onClick={() => {
+            preview(100);
+            commit(100);
+          }}
+        >
+          {t('table.scale.reset')}
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -19,13 +19,13 @@ const LEGACY_FLAG: Partial<Record<MobileWidget, { key: string; def: boolean }>> 
 };
 
 /** Nástroje stolu v horní liště na telefonu (kromě nich jsou v liště i widgety umístěné jako ikona, klíč `w:<widget>`). */
-export const TOOL_IDS = ['history', 'pause', 'chat', 'info', 'share', 'settlement', 'poll', 'layout', 'fullscreen', 'sound', 'assistant'] as const;
+export const TOOL_IDS = ['history', 'pause', 'chat', 'info', 'share', 'settlement', 'poll', 'layout', 'fullscreen', 'scale', 'sound', 'assistant'] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
-export const TOOL_ICON: Record<ToolId, string> = { history: '📜', pause: '⏸', chat: '💬', info: 'ℹ️', share: '🔗', settlement: '🧾', poll: '🗳️', layout: '🖥️', fullscreen: '⛶', sound: '🔊', assistant: '🤖' };
-export const TOOL_TITLE_KEY: Record<ToolId, string> = { history: 'table.history', pause: 'table.pause', chat: 'table.chatOpen', info: 'table.m.info', share: 'chat.share', settlement: 'table.settlement', poll: 'polls.tableCreate', layout: 'table.mobileOff', fullscreen: 'table.fullscreen', sound: 'sounds.palette', assistant: 'assistant.title' };
+export const TOOL_ICON: Record<ToolId, string> = { history: '📜', pause: '⏸', chat: '💬', info: 'ℹ️', share: '🔗', settlement: '🧾', poll: '🗳️', layout: '🖥️', fullscreen: '⛶', scale: '📐', sound: '🔊', assistant: '🤖' };
+export const TOOL_TITLE_KEY: Record<ToolId, string> = { history: 'table.history', pause: 'table.pause', chat: 'table.chatOpen', info: 'table.m.info', share: 'chat.share', settlement: 'table.settlement', poll: 'polls.tableCreate', layout: 'table.mobileOff', fullscreen: 'table.fullscreen', scale: 'table.scale.title', sound: 'sounds.palette', assistant: 'assistant.title' };
 
 /** Na kterých obrazovkách (1 až 3) je ikona v horní liště; nic = jen v nabídce ☰. */
-const DEFAULT_TOOLS: Record<ToolId, number[]> = { history: [1, 2, 3], pause: [1, 2, 3], chat: [1, 2, 3], info: [1, 2, 3], share: [], settlement: [], poll: [], layout: [], fullscreen: [], sound: [], assistant: [] };
+const DEFAULT_TOOLS: Record<ToolId, number[]> = { history: [1, 2, 3], pause: [1, 2, 3], chat: [1, 2, 3], info: [1, 2, 3], share: [], settlement: [], poll: [], layout: [], fullscreen: [], scale: [], sound: [], assistant: [] };
 
 export interface MobileOrder {
   /** Kolik obrazovek se používá (1 až 3). */

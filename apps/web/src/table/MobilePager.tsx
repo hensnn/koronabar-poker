@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { t } from '@kb/shared';
-import { saveUserSetting, useSettings } from '../settings';
-import { Button, Modal } from '../ui';
+import { useSettings } from '../settings';
 import type { Channel } from '../chat-store';
 import { ChatPanel } from '../pages/chat';
 import { Frame } from './Panel';
-import { MobileOrderEditor } from './MobileOrderEditor';
 import { effectiveOrder, ORDER_KEY, parseMobileOrder, type MobileWidget } from './mobile-order';
 import { useTableWidgets } from './widgets';
 import type { WidgetId } from './layout';
@@ -89,26 +87,9 @@ function WidgetBody({ id, channel, visible }: { id: MobileWidget; channel: Chann
 /** Jedna další obrazovka s widgety (2 nebo 3). */
 export function MobileScreen({ ids, channel, visible }: { ids: MobileWidget[]; channel: Channel | undefined; visible: boolean }) {
   const { layout, setLayout, defs } = useTableWidgets();
-  const [editing, setEditing] = useState(false);
-  const settings = useSettings();
   const shown = ids.filter((id) => id === 'chat' || (id !== 'timer' && defs[id].show));
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain p-1">
-      <div className="flex justify-end">
-        <Button onClick={() => setEditing(true)} aria-label={t('mobile.order.open')} title={t('mobile.order.open')}>
-          📱 ⇅
-        </Button>
-      </div>
-      {editing && (
-        <Modal title={`📱 ${t('mobile.order.title')}`} onClose={() => setEditing(false)}>
-          <MobileOrderEditor values={settings.values} onChange={(k, v) => void saveUserSetting(k, v, true).catch(() => undefined)} />
-          <div className="mt-3">
-            <Button variant="primary" onClick={() => setEditing(false)}>
-              {t('table.close')}
-            </Button>
-          </div>
-        </Modal>
-      )}
       {shown.length === 0 && <p className="text-muted">{t('mobile.screenEmpty')}</p>}
       {shown.map((id) =>
         id === 'chat' ? (
