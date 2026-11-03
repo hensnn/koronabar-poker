@@ -24,24 +24,38 @@ export function MobilePager({ first, pages, page, onPage }: { first: ReactNode; 
   const ref = useRef<HTMLDivElement>(null);
   const moving = useRef(false);
   const timer = useRef(0);
+  const settle = useRef(0);
+  /** Obrazovka, kterou zvolil prst: rodič se o ní dozví až po doznění posunu a stránka se pak nedoroluje podruhé. */
+  const fromScroll = useRef<number | null>(null);
   const total = pages.length + 1;
   const current = Math.min(page, total - 1);
   // Programové přepnutí obrazovky (tlačítka, tečky): plynule se doroluje; průběžné polohy při tom nepřepisují volbu.
   useEffect(() => {
     const el = ref.current;
     if (!el || el.clientWidth === 0) return;
+    if (fromScroll.current === current) {
+      fromScroll.current = null;
+      return;
+    }
     if (Math.round(el.scrollLeft / el.clientWidth) === current) return;
     moving.current = true;
     el.scrollTo({ left: current * el.clientWidth, behavior: 'smooth' });
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => (moving.current = false), 500);
   }, [current]);
+  // Během tahu prstem se nic nepřekresluje (stůl je těžký); poloha se vyhodnotí, až posun doznívá.
   const onScroll = () => {
     if (moving.current) return;
-    const el = ref.current;
-    if (!el || el.clientWidth === 0) return;
-    const p = Math.round(el.scrollLeft / el.clientWidth);
-    if (p !== current) onPage(p);
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => {
+      const el = ref.current;
+      if (!el || el.clientWidth === 0) return;
+      const p = Math.round(el.scrollLeft / el.clientWidth);
+      if (p !== current) {
+        fromScroll.current = p;
+        onPage(p);
+      }
+    }, 120);
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -79,7 +93,7 @@ export function MobileScreen({ ids, channel, visible }: { ids: MobileWidget[]; c
   const settings = useSettings();
   const shown = ids.filter((id) => id === 'chat' || (id !== 'timer' && defs[id].show));
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-1">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain p-1">
       <div className="flex justify-end">
         <Button onClick={() => setEditing(true)} aria-label={t('mobile.order.open')} title={t('mobile.order.open')}>
           📱 ⇅

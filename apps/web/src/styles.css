@@ -1273,7 +1273,7 @@ label:has(> select) { min-width: 0; max-width: 100%; }
 /* Prostor mezi stolem a tlačítky na telefonu (moje kombinace, události, zvuky, pruh času); na šířku je v pravém sloupci pod tlačítky. */
 [data-mobile-modern]:not([data-landscape]) .tk-mid { padding: calc(var(--spacing) * 1) calc(var(--spacing) * 1); }
 /* Ovládací panel je pevně dole a stránka se u stolu neposouvá: pás s widgety vyplní zbytek výšky a přebytek se posouvá jen v něm. */
-[data-mobile-modern]:not([data-landscape]) .tk-mid { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+[data-mobile-modern]:not([data-landscape]) .tk-mid { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 [data-mobile-modern]:not([data-landscape]) .tk-room, [data-mobile-modern]:not([data-landscape]) .tk-turn-row, [data-mobile-modern]:not([data-landscape]) .tk-actionbar, [data-mobile-modern]:not([data-landscape]) .tk-planbar { flex: none; }
 html[data-mobile-modern] body { overflow: hidden; }
 /* Na šířku je prostor v posuvném pravém sloupci až za akčními tlačítky, v menším provedení. */
@@ -1353,7 +1353,7 @@ html[data-mobile-modern] body { overflow: hidden; }
 /* Obrazovky u stolu na telefonu: listuje se prstem doleva a doprava, první je stůl s pevným ovládacím panelem. */
 .tk-pager { overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
 .tk-pager::-webkit-scrollbar { display: none; }
-.tk-pager-page { flex: 0 0 100%; min-width: 0; min-height: 0; scroll-snap-align: start; scroll-snap-stop: always; display: flex; flex-direction: column; }
+.tk-pager-page { flex: 0 0 100%; min-width: 0; min-height: 0; scroll-snap-align: start; display: flex; flex-direction: column; }
 .tk-pager-first { overflow: hidden; }
 /* Posuvník sázky se při tažení nesmí chytat jako listování obrazovek. */
 .tk-slider-row input[type='range'] { touch-action: none; }
