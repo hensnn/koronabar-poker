@@ -459,3 +459,83 @@ describe('HTTP API: lobby', () => {
     expect((await hrac.call('DELETE', `/api/lobby/tables/${id}`)).status).toBe(404);
   });
 });
+
+describe('HTTP API: audit 2026-11 (nastavení, chyby, ankety, limity)', () => {
+  async function playerClient(s: Awaited<ReturnType<typeof start>>, nick: string) {
+    const admin = (await login(s.server, 'Admin', 'admin-heslo-123')).c;
+    const code = (await admin.call('POST', '/api/admin/invites', {})).json.code;
+    const c = http(s.server);
+    await c.call('POST', '/api/auth/register', { inviteCode: code, nickname: nick, email: `${nick.toLowerCase()}@example.cz`, password: 'dlouhe-heslo-1', acceptTerms: true });
+    await c.call('POST', '/api/auth/login', { identifier: nick, password: 'dlouhe-heslo-1' });
+    return { admin, c };
+  }
+
+  it('GET /api/settings/global: hráč nedostane provozní parametry (SMTP, MQTT, Piper), správce ano', async () => {
+    const s = await start({ 'system.emailVerificationRequired': false, 'email.smtpHost': 'smtp.tajny.example', 'integrations.mqttHost': 'mqtt.tajny.example', 'announcer.piperHost': 'piper.tajny.example', 'chat.spectatorChat': false });
+    const { admin, c } = await playerClient(s, 'Hrac');
+    const mine = await c.call('GET', '/api/settings/global');
+    expect(mine.status).toBe(200);
+    expect(mine.json.values['chat.spectatorChat']).toBe(false); // běžné hodnoty hráč dostane
+    expect(mine.json.values['email.smtpHost']).toBeUndefined();
+    expect(mine.json.values['integrations.mqttHost']).toBeUndefined();
+    expect(mine.json.values['announcer.piperHost']).toBeUndefined();
+    expect(mine.json.values['system.publicUrl']).toBeUndefined();
+    expect(JSON.stringify(mine.json)).not.toContain('tajny.example');
+    const full = await admin.call('GET', '/api/settings/global');
+    expect(full.json.values['email.smtpHost']).toBe('smtp.tajny.example');
+    expect(full.json.values['announcer.piperHost']).toBe('piper.tajny.example');
+  });
+
+  it('neočekávaná chyba mimo guard vrátí 500 s kódem UNKNOWN bez textu výjimky; neplatný JSON je 400', async () => {
+    const s = await start();
+    const c = http(s.server);
+    const original = s.server.accounts.authenticate.bind(s.server.accounts);
+    s.server.accounts.authenticate = async () => {
+      throw new Error('tajny detail databaze');
+    };
+    try {
+      const r = await c.call('GET', '/api/lobby');
+      expect(r.status).toBe(500);
+      expect(r.json).toEqual({ code: 'UNKNOWN' });
+    } finally {
+      s.server.accounts.authenticate = original;
+    }
+    const bad = await s.server.app.inject({ method: 'POST', url: '/api/auth/login', headers: { 'content-type': 'application/json', origin: 'http://localhost' }, payload: '{neplatny json' });
+    expect(bad.statusCode).toBe(400);
+    expect(JSON.parse(bad.body)).toEqual({ code: 'INVALID_INPUT' });
+  });
+
+  it('POST /api/polls bez config nebo s neznámým typem skončí 400 INVALID_INPUT, ne 500', async () => {
+    const s = await start({ 'system.emailVerificationRequired': false });
+    const { admin } = await playerClient(s, 'Hrac');
+    const noConfig = await admin.call('POST', '/api/polls', { title: 'Bez configu' });
+    expect(noConfig.status).toBe(400);
+    expect(noConfig.json.code).toBe('INVALID_INPUT');
+    const badType = await admin.call('POST', '/api/polls', { title: 'Divný typ', config: { type: 'neexistuje' } });
+    expect(badType.status).toBe(400);
+    expect(badType.json.code).toBe('INVALID_INPUT');
+    const ok = await admin.call('POST', '/api/polls', { title: 'Hrajeme v pátek?', config: { type: 'yesno' } });
+    expect(ok.status).toBe(200);
+    expect(typeof ok.json.id).toBe('string');
+  });
+
+  it('změna e-mailu má hodinový limit pokusů (RATE_LIMITED, 429)', async () => {
+    const s = await start({ 'system.emailVerificationRequired': false, 'system.mailRequestsPerHour': 2 });
+    const { c } = await playerClient(s, 'Hrac');
+    expect((await c.call('POST', '/api/auth/change-email', { password: 'dlouhe-heslo-1', email: 'a1@example.cz' })).status).toBe(200);
+    expect((await c.call('POST', '/api/auth/change-email', { password: 'dlouhe-heslo-1', email: 'a2@example.cz' })).status).toBe(200);
+    const third = await c.call('POST', '/api/auth/change-email', { password: 'dlouhe-heslo-1', email: 'a3@example.cz' });
+    expect(third.status).toBe(429);
+    expect(third.json.code).toBe('RATE_LIMITED');
+    expect(s.mails.filter((m) => m.kind === 'emailChange')).toHaveLength(2);
+  });
+
+  it('nahrávání: tělo větší než limit z nastavení skončí 413 UPLOAD_TOO_LARGE', async () => {
+    const s = await start({ 'system.emailVerificationRequired': false, 'chat.imageMaxKb': 16 });
+    const { c } = await playerClient(s, 'Hrac');
+    const tooBig = await c.call('POST', '/api/chat/images', { data: Buffer.alloc(40 * 1024, 1).toString('base64') });
+    expect(tooBig.status).toBe(413);
+    expect(tooBig.json.code).toBe('UPLOAD_TOO_LARGE');
+    expect(tooBig.json.params.maxKb).toBe(16);
+  });
+});

@@ -273,3 +273,41 @@ describe('server: Socket.IO brána s účty a oprávněními', () => {
     expect(second.server.tables.list()).toEqual([]);
   });
 });
+
+describe('server: stropy spojení a místností hlasatele', () => {
+  it('další spojení nad limit na hráče se odmítne kódem TOO_MANY_CONNECTIONS a po zavření jednoho zase projde', async () => {
+    const { url, server } = await start({ global: { 'system.maxSocketsPerUser': 2 } });
+    const a = await player(server, 'Alice');
+    const s1 = await client(url, a.cookie);
+    await client(url, a.cookie);
+    await expect(client(url, a.cookie)).rejects.toThrow('TOO_MANY_CONNECTIONS');
+    // jiný hráč má vlastní počítadlo
+    const b = await player(server, 'Bob');
+    await expect(client(url, b.cookie)).resolves.toBeDefined();
+    s1.close();
+    await until(() => server.io.sockets.sockets.size === 2);
+    await expect(client(url, a.cookie)).resolves.toBeDefined();
+  });
+
+  it('announce:join založí místnost jen pro existující turnaj a nejvýš tolik místností, kolik dovolí nastavení', async () => {
+    const { url, server } = await start({ global: { 'system.announceRoomsPerSocket': 1 } });
+    const a = await player(server, 'Alice');
+    const s = await client(url, a.cookie);
+    const [admin] = server.perms.mainAdminIds();
+    const { id } = await server.tournaments.create(admin!, { name: 'Večerní', templateId: 'tour-turbo' });
+    const rooms = () => [...server.io.sockets.adapter.rooms.keys()].filter((r) => r.startsWith('announce:'));
+    s.emit('announce:join', 'neexistujici-hra');
+    s.emit('announce:join', id);
+    await until(() => rooms().includes(`announce:${id}`));
+    expect(rooms()).toEqual([`announce:${id}`]);
+    // druhý turnaj už se nad limit místností nepřidá
+    const second = await server.tournaments.create(admin!, { name: 'Druhý', templateId: 'tour-turbo' });
+    s.emit('announce:join', second.id);
+    await new Promise((r) => setTimeout(r, 150));
+    expect(rooms()).toEqual([`announce:${id}`]);
+    s.emit('announce:leave', id);
+    s.emit('announce:join', second.id);
+    await until(() => rooms().includes(`announce:${second.id}`));
+    expect(rooms()).toEqual([`announce:${second.id}`]);
+  });
+});

@@ -1,10 +1,11 @@
 import { existsSync } from 'node:fs';
 import Fastify from 'fastify';
+import pg from 'pg';
 import fastifyStatic from '@fastify/static';
 import { Server } from 'socket.io';
 import { CashService, Ledger, accounts as ledgerAccounts } from '@kb/ledger';
 import { realClock, type Clock } from '@kb/game-core';
-import { coerceSettingValue, createDefaultRegistry, formatLocal, t as tr, type SettingValues } from '@kb/shared';
+import { coerceSettingValue, createDefaultRegistry, formatLocal, t as tr, timezoneOf, type SettingValues } from '@kb/shared';
 import { AccountService, type AccountNotifier } from './auth/accounts.js';
 import { AuditService } from './auth/audit.js';
 import { PermissionService } from './auth/permissions.js';
@@ -134,11 +135,39 @@ export interface ServerOptions {
   webDir?: string;
   /** Přepsání nastavení výchozího stolu (vrstva stolu). */
   tableSettings?: Record<string, unknown>;
+  /**
+   * Komu věřit hlavičky `X-Forwarded-*` (IP klienta pro limity a audit). Výchozí: jen proxy z vnitřní sítě
+   * (loopback, link-local, privátní rozsahy = Nginx Proxy Manager na stejném stroji nebo v Dockeru); číslo = počet
+   * proxy za sebou; řetězec = adresy/CIDR oddělené čárkou; `true` věří každému a IP jde podvrhnout. Z prostředí `TRUST_PROXY`.
+   */
+  trustProxy?: boolean | number | string | ((address: string, hop: number) => boolean);
+  /** Zámek jedné instance v PostgreSQL (`pg_try_advisory_lock`); vypíná se jen v testech. Na PGlite se nepoužije. */
+  instanceLock?: boolean;
+}
+
+/** Pevný klíč poradního zámku jedné instance (ASCII „KBPO“); druhá replika nad stejnou databází ho nezíská. */
+const INSTANCE_LOCK_KEY = 0x4b42504f;
+
+/**
+ * Kniha, stav stolů a plánovač žijí v paměti jedné instance; dvě repliky nad stejnou databází by rozjely
+ * knihu a zdvojily turnaje. Zámek drží samostatné spojení po celou dobu běhu (zámek na úrovni relace).
+ */
+async function acquireInstanceLock(databaseUrl: string): Promise<{ release: () => Promise<void> }> {
+  const client = new pg.Client({ connectionString: databaseUrl });
+  await client.connect();
+  const r = await client.query<{ locked: boolean }>('SELECT pg_try_advisory_lock($1) AS locked', [INSTANCE_LOCK_KEY]);
+  if (!r.rows[0]?.locked) {
+    await client.end().catch(() => undefined);
+    throw new Error('Nad touto databází už běží jiná instance aplikace. KoronaBar Poker musí běžet v jediné replice; druhou instanci vypněte.');
+  }
+  return { release: () => client.end().catch(() => undefined) };
 }
 
 export async function buildServer(opts: ServerOptions = {}) {
   const registry = createDefaultRegistry();
   const clock = opts.clock ?? realClock;
+  // Na skutečném PostgreSQL nejdřív zámek jedné instance; bez něj se nesmí ani spustit migrace.
+  const instanceLock = !opts.database && opts.databaseUrl && opts.instanceLock !== false ? await acquireInstanceLock(opts.databaseUrl) : null;
   const database = opts.database ?? (opts.databaseUrl ? await openPostgres(opts.databaseUrl) : await openPglite(opts.dataDir));
   const { db } = database;
 
@@ -154,10 +183,15 @@ export async function buildServer(opts: ServerOptions = {}) {
   const ledger = new Ledger(await openLedgerStore(db), { negativeBalanceLimit: 0 }, () => clock.now(), (tx) => journal.push('ledger', ledgerTxOp(tx)));
   const startSettings = settings.resolve();
   const cash = new CashService(ledger, Number(startSettings['cash.chipsPerCurrencyUnit']));
-  ledger.setPolicy({ negativeBalanceLimit: Number(startSettings['economy.negativeBalanceLimit']) });
-  // Limit záporného zůstatku platí hned po změně v nastavení, ne až po restartu.
+  // Kontokorent a záporný limit se nesčítají: se zapnutým kontokorentem je dolní mez peněženky nula a chybějící částku kryje čerpání.
+  const ledgerPolicy = () => {
+    const s = settings.resolve();
+    return { negativeBalanceLimit: Number(s['economy.negativeBalanceLimit']), creditEnabled: !!s['economy.creditEnabled'] };
+  };
+  ledger.setPolicy(ledgerPolicy());
+  // Limit záporného zůstatku i kontokorent platí hned po změně v nastavení, ne až po restartu.
   settings.onChange((_scope, _scopeId, key) => {
-    if (key === 'economy.negativeBalanceLimit') ledger.setPolicy({ negativeBalanceLimit: Number(settings.resolve()['economy.negativeBalanceLimit']) });
+    if (key === 'economy.negativeBalanceLimit' || key === 'economy.creditEnabled') ledger.setPolicy(ledgerPolicy());
   });
 
   const publicOrigin = () => {
@@ -255,6 +289,17 @@ export async function buildServer(opts: ServerOptions = {}) {
     approvals,
     settings: () => settings.resolve(),
     flush: () => journal.flush(),
+    // Ruční úprava knihy nesmí na účty her, které právě běží (stav v paměti by o tom nevěděl); úschovy sázek nikdy.
+    gameAccountLocked: (account) => {
+      const [kind, ...rest] = account.split(':');
+      const id = rest.join(':');
+      if (kind === 'table') return tablesRef.current?.get(id) !== undefined;
+      if (kind === 'tournament' || kind === 'bounty') {
+        const status = tournamentsRef.current?.get(id)?.state().status;
+        return status === 'registering' || status === 'running';
+      }
+      return true;
+    },
     notify: (e) => {
       if (e.kind !== 'request_decided') return;
       void (async () => {
@@ -269,7 +314,20 @@ export async function buildServer(opts: ServerOptions = {}) {
   let chatImages!: ChatImages;
   const hooks = { pushWallet: (_userId: string) => undefined as void };
 
-  const app = Fastify({ logger: opts.logger ?? false, trustProxy: true });
+  // Počet proxy Fastify 5 samo nepodporuje (bere ho jako „nevěřit“), převádí se na funkci podle pořadí skoku.
+  const trustProxy = opts.trustProxy ?? 'loopback,linklocal,uniquelocal';
+  const app = Fastify({ logger: opts.logger ?? false, trustProxy: typeof trustProxy === 'number' ? (_address: string, hop: number) => hop < trustProxy : trustProxy });
+  // Doménové chyby mapuje `guard()` v trasách. Sem dojde, co proklouzlo: chyby Fastify (velikost těla, neplatný JSON)
+  // a neočekávané výjimky. Ty se zapíší do logu, klient dostane jen `UNKNOWN`, nikdy text výjimky.
+  app.setErrorHandler((err: Error & { statusCode?: number }, req, reply) => {
+    const status = typeof err.statusCode === 'number' ? err.statusCode : 500;
+    if (status >= 500) {
+      req.log.error(err);
+      return reply.status(500).send({ code: 'UNKNOWN' });
+    }
+    const code = status === 413 ? 'PAYLOAD_TOO_LARGE' : status === 429 ? 'RATE_LIMITED' : status === 404 ? 'NOT_FOUND' : status === 401 ? 'INVALID_CREDENTIALS' : status === 403 ? 'FORBIDDEN' : 'INVALID_INPUT';
+    return reply.status(status).send({ code });
+  });
   const tablesRef: { current?: TableManager } = {};
   const maintenanceRef: { current?: MaintenanceService } = {};
   const messagesRef: { current?: MessageService } = {};
@@ -281,7 +339,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   const schedulerRef: { current?: Scheduler } = {};
   const notificationsRef: { current?: NotificationService } = {};
   const seriesRef: { current?: SeriesService } = {};
-  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, messages: () => messagesRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, yearStats: () => yearStatsRef.current!, houseExpenses: () => houseExpenses, consistency: () => consistency, mailYear: (userId, year) => mailYear(userId, year), timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: publicOrigin().startsWith('https://'), allowedOrigins });
+  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, messages: () => messagesRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, yearStats: () => yearStatsRef.current!, houseExpenses: () => houseExpenses, consistency: () => consistency, mailYear: (userId, year) => mailYear(userId, year), timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: () => publicOrigin().startsWith('https://'), allowedOrigins });
 
   let broadcast: (tableId: string) => void = () => undefined;
   // Chat: hlavní kanál, kanály stolů a systémové zprávy u stolů.
@@ -591,7 +649,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     },
     seatWanted: (tournamentId, userId) => bountiesRef?.wantedSync(tournamentId, userId) ?? 0,
     onLiveMove: (id, m) => {
-      void notifications.simple(m.userId, 'liveMove', { table: m.toNo, seat: m.seat }, `/turnaj/${id}`);
+      void notifications.simple(m.userId, 'liveMove', { table: m.toNo, seat: m.seat }, `/turnaj/${id}`).catch((err) => console.error('Upozornění na přesun:', err instanceof Error ? err.message : err));
       void (async () => {
         const channelId = await chat.channelIdByKey('table:' + id);
         if (channelId) await chat.system(channelId, tr('chat.sys.tMoved', { nick: m.name, from: m.fromNo, to: m.toNo, seat: m.seat }));
@@ -691,6 +749,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     audit,
     notify: (to, notice) => notifyTournament(to, notice),
     onError: (e) => console.error('Plánovač:', e instanceof Error ? e.message : e),
+    timezone: () => timezoneOf(settings.resolve()),
     tickMs: opts.schedulerTickMs,
     periodic: () => yearlyMail(),
   });
@@ -741,13 +800,15 @@ export async function buildServer(opts: ServerOptions = {}) {
       const user = await accounts.authenticate(token);
       return user ? { userId: user.id, name: user.nickname } : null;
     },
+    // Místnost hlasatele jen pro skutečný turnaj (v paměti) nebo živou hru (v DB).
+    announceRoomExists: async (id) => !!tournaments.get(id) || (await db.select({ id: schema.liveCashGames.id }).from(schema.liveCashGames).where(eq(schema.liveCashGames.id, id)).limit(1)).length > 0,
   });
   sounds = new SoundService({
     db,
     perms,
     settings: () => settings.resolve(),
     dir: opts.soundsDir ?? process.env.SOUNDS_DIR ?? (opts.dataDir ? join(opts.dataDir, '..', 'sounds') : mkdtempSync(join(tmpdir(), 'kb-sounds-'))),
-    processor: opts.audioProcessor ?? new FfmpegProcessor(),
+    processor: opts.audioProcessor ?? new FfmpegProcessor({ timeoutMs: () => Number(settings.resolve()['sounds.ffmpegTimeoutSeconds']) * 1000 }),
     extraSlots: (userId) => cosmeticsRef.extraSoundSlots(userId),
     jinglePref: (userId, kind) => String(settings.resolve([{ scope: 'user', scopeId: userId, values: settings.layer('user', userId) }])[kind === 'join' ? 'sounds.joinJingle' : 'sounds.winJingle'] ?? ''),
     onJingle: (e, kind) => tvRef?.pushJingle(e, kind, true),
@@ -1067,6 +1128,7 @@ export async function buildServer(opts: ServerOptions = {}) {
 
   const maintenance = new MaintenanceService({
     db,
+    dropUserSettings: (id) => settings.dropUserLayers(id),
     ledger,
     cash,
     flush: () => journal.flush(),
@@ -1217,6 +1279,7 @@ export async function buildServer(opts: ServerOptions = {}) {
       io.close();
       await app.close();
       await database.close();
+      await instanceLock?.release();
     },
   };
 }

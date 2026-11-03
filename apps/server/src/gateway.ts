@@ -17,6 +17,8 @@ export interface GatewayDeps {
   /** Přihlášení spojení (cookie relace): vrací uživatele nebo null. */
   authenticate: (socket: Socket) => Promise<{ userId: string; name: string } | null>;
   perms: PermissionChecker;
+  /** Existuje turnaj nebo živá hra s tímto id? (místnosti hlasatele se zakládají jen pro skutečné hry) */
+  announceRoomExists?: (id: string) => Promise<boolean>;
 }
 
 type Ack = (r: { ok: true; data?: unknown } | { ok: false; code: string; params?: Record<string, unknown> }) => void;
@@ -106,6 +108,8 @@ export function setupGateway(deps: GatewayDeps) {
     try {
       const user = await deps.authenticate(socket);
       if (!user) return next(new Error('NOT_LOGGED_IN'));
+      // Strop spojení na hráče (záložky a zařízení): další spojení se odmítne se srozumitelným kódem.
+      if ((connections.get(user.userId) ?? 0) >= Number(deps.settings()['system.maxSocketsPerUser'])) return next(new Error('TOO_MANY_CONNECTIONS'));
       socket.data.user = user;
       next();
     } catch {
@@ -151,11 +155,25 @@ export function setupGateway(deps: GatewayDeps) {
     };
 
     // Hlášky hlasatele: klient na stránce turnaje nebo živé hry se přihlásí do místnosti „announce:<id>“.
+    // Platí rate limit, místnost musí patřit existující hře a počet místností na spojení je omezený.
+    const announceRooms = new Set<string>();
     socket.on('announce:join', (id: unknown) => {
-      if (typeof id === 'string' && id.length <= 80 && deps.perms.can(user.userId, 'stul.zobrazit').allowed) void socket.join(`announce:${id}`);
+      if (!allow()) return;
+      if (typeof id !== 'string' || id.length > 80 || announceRooms.has(id)) return;
+      if (announceRooms.size >= Number(deps.settings()['system.announceRoomsPerSocket'])) return;
+      if (!deps.perms.can(user.userId, 'stul.zobrazit').allowed) return;
+      void (deps.announceRoomExists?.(id) ?? Promise.resolve(true))
+        .then((exists) => {
+          if (!exists || socket.disconnected) return;
+          announceRooms.add(id);
+          return socket.join(`announce:${id}`);
+        })
+        .catch(() => undefined);
     });
     socket.on('announce:leave', (id: unknown) => {
-      if (typeof id === 'string' && id.length <= 80) void socket.leave(`announce:${id}`);
+      if (typeof id !== 'string' || id.length > 80) return;
+      announceRooms.delete(id);
+      void socket.leave(`announce:${id}`);
     });
 
     if (deps.chat) registerChatSocket(socket, { io, chat: deps.chat, user, allow, presence });
@@ -230,7 +248,7 @@ export function setupGateway(deps: GatewayDeps) {
     handle('table:rabbit', 'stul.hrat', (_m, table) => table!.rabbitHunt(user.userId));
     handle('table:ready', 'stul.hrat', ({ ready }, table) => table!.setReady(user.userId, ready));
     handle('table:vote', 'stul.hrat', ({ yes }, table) => table!.voteRunIt(user.userId, yes));
-    handle('table:act', 'stul.hrat', ({ action }, table) => table!.act(user.userId, action as PlayerAction));
+    handle('table:act', 'stul.hrat', ({ action, handId }, table) => table!.act(user.userId, action as PlayerAction, handId));
 
     socket.on('disconnect', () => {
       const mine = [...(subscriptions.get(socket.id) ?? [])];

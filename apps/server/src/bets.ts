@@ -43,6 +43,9 @@ interface Deps {
   onClaimed?: (c: ClaimedBounty) => void;
 }
 
+/** Upozornění je vedlejší: jeho selhání (třeba výpadek DB) nesmí shodit proces ani přerušit vypořádání. */
+const notifySafe = (deps: Deps, ...args: Parameters<NonNullable<Deps['notify']>>): void => void deps.notify?.(...args).catch((e) => console.error('Upozornění ze sázek selhalo:', e instanceof Error ? e.message : e));
+
 export interface ClaimedBounty {
   tournamentId: string;
   posterId: string;
@@ -277,7 +280,7 @@ export class BetService {
     await this.deps.audit.log({ action: 'sazka.vyporadat', targetType: 'bet', targetId: bet.id, after: { outcome, refunded: result.refunded, fee: result.fee } });
     for (const u of new Set(stakes.map((x) => x.userId))) {
       this.deps.onWallet?.(u);
-      void this.deps.notify?.(u, 'betSettled', { title: bet.title || bet.subject, amount: paidBy.get(u) ?? 0, refunded: result.refunded }, `/turnaj/${bet.tournamentId}`);
+      notifySafe(this.deps, u, 'betSettled', { title: bet.title || bet.subject, amount: paidBy.get(u) ?? 0, refunded: result.refunded }, `/turnaj/${bet.tournamentId}`);
     }
     this.deps.onChanged?.(bet.tournamentId);
   }
@@ -296,7 +299,7 @@ export class BetService {
       if (fresh.status !== 'locked') throw new BetError('STATE');
       await this.deps.db.update(schema.bets).set({ status: 'proposed', proposedOutcome: outcome, proposedBy: userId, proposedAt: new Date(this.deps.now()) }).where(eq(schema.bets.id, betId));
       await this.deps.audit.log({ actorId: userId, action: 'sazka.navrhnout_vysledek', targetType: 'bet', targetId: betId, after: { outcome }, ...meta });
-      for (const st of await this.stakesOf(betId)) if (st.userId !== userId) void this.deps.notify?.(st.userId, 'betProposed', { title: bet.title || bet.subject }, `/turnaj/${bet.tournamentId}`);
+      for (const st of await this.stakesOf(betId)) if (st.userId !== userId) notifySafe(this.deps, st.userId, 'betProposed', { title: bet.title || bet.subject }, `/turnaj/${bet.tournamentId}`);
       this.deps.onChanged?.(bet.tournamentId);
     });
   }
@@ -477,7 +480,7 @@ export class HeadBountyService {
 
   private async toPoster(b: Bounty): Promise<void> {
     await this.move(b, [{ account: accounts.wallet(b.posterId), userId: b.posterId, amount: b.amount }], 'head_bounty_return', 'returned', [{ userId: b.posterId, amount: b.amount }]);
-    void this.deps.notify?.(b.posterId, 'headBountyReturned', { amount: b.amount }, `/turnaj/${b.tournamentId}`);
+    notifySafe(this.deps, b.posterId, 'headBountyReturned', { amount: b.amount }, `/turnaj/${b.tournamentId}`);
   }
 
   private async toHouse(b: Bounty): Promise<void> {
@@ -488,7 +491,7 @@ export class HeadBountyService {
   private async claimed(b: Bounty, paid: { userId: string; amount: number }[]): Promise<void> {
     const [target, ...names] = await Promise.all([this.deps.nickOf(b.targetId).catch(() => ''), ...paid.map((x) => this.deps.nickOf(x.userId).catch(() => ''))]);
     const payload: ClaimedBounty = { tournamentId: b.tournamentId, posterId: b.posterId, targetId: b.targetId, target: target ?? '', amount: b.amount, paid: paid.map((x, i) => ({ userId: x.userId, nickname: names[i] ?? '', amount: x.amount })) };
-    void this.deps.notify?.(b.posterId, 'headBountyClaimed', { target: payload.target, amount: b.amount, winners: payload.paid.map((x) => x.nickname).join(', ') }, `/turnaj/${b.tournamentId}`);
+    notifySafe(this.deps, b.posterId, 'headBountyClaimed', { target: payload.target, amount: b.amount, winners: payload.paid.map((x) => x.nickname).join(', ') }, `/turnaj/${b.tournamentId}`);
     this.deps.onClaimed?.(payload);
   }
 
@@ -515,7 +518,7 @@ export class HeadBountyService {
           const shares = distribute(b.amount, valid.map((k) => k.weight));
           const paid = valid.map((k, i) => ({ userId: k.userId, amount: shares[i]! })).filter((x) => x.amount > 0);
           await this.move(b, paid.map((x) => ({ account: accounts.wallet(x.userId), userId: x.userId, amount: x.amount })), 'head_bounty_payout', 'paid', paid);
-          for (const x of paid) void this.deps.notify?.(x.userId, 'headBountyPaid', { amount: x.amount }, `/turnaj/${tournamentId}`);
+          for (const x of paid) notifySafe(this.deps, x.userId, 'headBountyPaid', { amount: x.amount }, `/turnaj/${tournamentId}`);
           await this.claimed(b, paid);
         } else {
           const rule = String(this.s()['headBounty.noKiller']);
@@ -539,7 +542,7 @@ export class HeadBountyService {
         const toWinner = b.status === 'pendingWinner' || rule === 'winner';
         if (toWinner && winnerId && winnerId !== b.targetId) {
           await this.move(b, [{ account: accounts.wallet(winnerId), userId: winnerId, amount: b.amount }], 'head_bounty_payout', 'paid', [{ userId: winnerId, amount: b.amount }]);
-          void this.deps.notify?.(winnerId, 'headBountyPaid', { amount: b.amount }, `/turnaj/${tournamentId}`);
+          notifySafe(this.deps, winnerId, 'headBountyPaid', { amount: b.amount }, `/turnaj/${tournamentId}`);
           await this.claimed(b, [{ userId: winnerId, amount: b.amount }]);
         } else if (rule === 'house' && b.status === 'open') await this.toHouse(b);
         else await this.toPoster(b);
@@ -600,7 +603,7 @@ export class HeadBountyService {
       const affected = [...new Set([b.posterId, ...paidTo.map((x) => x.userId)])];
       for (const u of affected) {
         this.deps.onWallet?.(u);
-        void this.deps.notify?.(u, 'headBountyCancelled', { amount: b.amount }, `/turnaj/${b.tournamentId}`);
+        notifySafe(this.deps, u, 'headBountyCancelled', { amount: b.amount }, `/turnaj/${b.tournamentId}`);
       }
       await this.refreshWanted(b.tournamentId);
       this.deps.onChanged?.(b.tournamentId);

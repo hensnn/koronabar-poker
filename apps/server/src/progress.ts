@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, ne, sql } from 'drizzle-orm';
-import { dayKey, fromLocal, levelFor, levelTable, rankFor, weekKey, type Rank, type SettingValues } from '@kb/shared';
+import { dayKey, fromLocal, levelFor, levelTable, rankFor, timezoneOf, weekKey, type Rank, type SettingValues } from '@kb/shared';
 import { schema, type Db } from './db/index.js';
 
 export interface HandInfo {
@@ -80,6 +80,11 @@ export class ProgressService {
   private get s(): SettingValues {
     return this.deps.settings();
   }
+  /** Časové pásmo pro hranice dne a týdne (nastavení `system.timezone`). */
+  private get tz(): string {
+    return timezoneOf(this.s);
+  }
+
 
   private curve() {
     return { base: num(this.s, 'xp.levelBase'), exponentPercent: num(this.s, 'xp.levelExponentPercent') };
@@ -146,8 +151,8 @@ export class ProgressService {
   onHand(h: HandInfo): void {
     if (!this.s['xp.enabled'] || h.players.length < num(this.s, 'xp.minHumanPlayers')) return;
     this.enqueue(async () => {
-      const day = dayKey(h.playedAt);
-      const week = weekKey(h.playedAt);
+      const day = dayKey(h.playedAt, this.tz);
+      const week = weekKey(h.playedAt, this.tz);
       for (const p of h.players) {
         await this.award(p.userId, 'hand', day, day, num(this.s, 'xp.perHand'), { accumulate: true });
         if (p.wonShowdown) await this.award(p.userId, 'showdownWin', day, day, num(this.s, 'xp.showdownWin'), { accumulate: true });
@@ -179,7 +184,7 @@ export class ProgressService {
       .innerJoin(schema.hands, eq(schema.hands.id, schema.handPlayers.handId))
       .where(and(eq(schema.handPlayers.userId, userId), eq(schema.hands.tableId, tableId), gte(schema.hands.playedAt, from)));
     if ((c?.n ?? 0) >= num(this.s, 'xp.cashSessionHands')) {
-      await this.award(userId, 'cashSession', `${tableId}:${day}`, dayKey(at), num(this.s, 'xp.cashSession'));
+      await this.award(userId, 'cashSession', `${tableId}:${day}`, dayKey(at, this.tz), num(this.s, 'xp.cashSession'));
       this.done.add(key);
     }
   }
@@ -195,7 +200,7 @@ export class ProgressService {
         .insert(schema.tournamentEliminations)
         .values({ tournamentId, victimId: e.userId, place: e.remaining + 1, killers, at: new Date(at) })
         .onConflictDoNothing();
-      for (const k of killers) await this.award(k.userId, 'knockout', `${tournamentId}:${e.userId}`, dayKey(at), num(this.s, 'xp.knockout'));
+      for (const k of killers) await this.award(k.userId, 'knockout', `${tournamentId}:${e.userId}`, dayKey(at, this.tz), num(this.s, 'xp.knockout'));
       this.deps.onActivity?.(killers.map((k) => k.userId), 'tournament');
     });
   }
@@ -205,8 +210,8 @@ export class ProgressService {
     if (!this.s['xp.enabled'] || results.length < num(this.s, 'xp.minHumanPlayers')) return;
     const at = finishedAt ?? this.deps.now();
     this.enqueue(async () => {
-      const day = dayKey(at);
-      const week = weekKey(at);
+      const day = dayKey(at, this.tz);
+      const week = weekKey(at, this.tz);
       const field = results.length;
       for (const r of results) {
         await this.award(r.userId, 'tournamentPlayed', tournamentId, day, num(this.s, 'xp.tournamentPlayed'));
@@ -226,8 +231,8 @@ export class ProgressService {
     if (!this.s['xp.enabled'] || userIds.length < num(this.s, 'xp.minHumanPlayers')) return;
     const at = finishedAt ?? this.deps.now();
     this.enqueue(async () => {
-      const day = dayKey(at);
-      const week = weekKey(at);
+      const day = dayKey(at, this.tz);
+      const week = weekKey(at, this.tz);
       for (const userId of userIds) {
         await this.award(userId, 'cashSession', `live:${gameId}`, day, num(this.s, 'xp.cashSession'));
         await this.award(userId, 'firstDaily', day, day, num(this.s, 'xp.firstDaily'));
@@ -279,9 +284,9 @@ export class ProgressService {
       if ((perHand.get(r.handId) ?? 0) < minPlayers) continue;
       hands++;
       const at = r.at.getTime();
-      const day = dayKey(at);
+      const day = dayKey(at, this.tz);
       awards.push({ userId: r.userId, source: 'firstDaily', ref: day, day, amount: num(s, 'xp.firstDaily'), at });
-      awards.push({ userId: r.userId, source: 'firstWeekly', ref: weekKey(at), day, amount: num(s, 'xp.firstWeekly'), at });
+      awards.push({ userId: r.userId, source: 'firstWeekly', ref: weekKey(at, this.tz), day, amount: num(s, 'xp.firstWeekly'), at });
       awards.push({ userId: r.userId, source: 'hand', ref: day, day, amount: num(s, 'xp.perHand'), at, accumulate: true });
       if (r.wonShowdown) awards.push({ userId: r.userId, source: 'showdownWin', ref: day, day, amount: num(s, 'xp.showdownWin'), at, accumulate: true });
       if (r.kind === 'cash') {
@@ -301,10 +306,10 @@ export class ProgressService {
     for (const [ref, rs] of byRef) {
       if (rs.length < minPlayers) continue;
       const at = rs[0]!.finishedAt.getTime();
-      const day = dayKey(at);
+      const day = dayKey(at, this.tz);
       for (const r of rs) {
         awards.push({ userId: r.userId, source: 'firstDaily', ref: day, day, amount: num(s, 'xp.firstDaily'), at });
-        awards.push({ userId: r.userId, source: 'firstWeekly', ref: weekKey(at), day, amount: num(s, 'xp.firstWeekly'), at });
+        awards.push({ userId: r.userId, source: 'firstWeekly', ref: weekKey(at, this.tz), day, amount: num(s, 'xp.firstWeekly'), at });
         awards.push({ userId: r.userId, source: 'tournamentPlayed', ref, day, amount: num(s, 'xp.tournamentPlayed'), at });
         awards.push({ userId: r.userId, source: 'placement', ref, day, amount: num(s, 'xp.placementPerBeaten') * Math.max(0, rs.length - r.place), at });
         if (r.payout > 0) awards.push({ userId: r.userId, source: 'itm', ref, day, amount: num(s, 'xp.itm'), at });
@@ -320,16 +325,16 @@ export class ProgressService {
     for (const [ref, rs] of lcByRef) {
       if (rs.length < minPlayers) continue;
       const at = rs[0]!.finishedAt.getTime();
-      const day = dayKey(at);
+      const day = dayKey(at, this.tz);
       for (const r of rs) {
         awards.push({ userId: r.userId, source: 'firstDaily', ref: day, day, amount: num(s, 'xp.firstDaily'), at });
-        awards.push({ userId: r.userId, source: 'firstWeekly', ref: weekKey(at), day, amount: num(s, 'xp.firstWeekly'), at });
+        awards.push({ userId: r.userId, source: 'firstWeekly', ref: weekKey(at, this.tz), day, amount: num(s, 'xp.firstWeekly'), at });
         awards.push({ userId: r.userId, source: 'cashSession', ref: `live:${ref}`, day, amount: num(s, 'xp.cashSession'), at });
       }
     }
     for (const e of await db.select().from(schema.tournamentEliminations)) {
       const at = e.at.getTime();
-      for (const k of e.killers) if (k.userId !== e.victimId) awards.push({ userId: k.userId, source: 'knockout', ref: `${e.tournamentId}:${e.victimId}`, day: dayKey(at), amount: num(s, 'xp.knockout'), at });
+      for (const k of e.killers) if (k.userId !== e.victimId) awards.push({ userId: k.userId, source: 'knockout', ref: `${e.tournamentId}:${e.victimId}`, day: dayKey(at, this.tz), amount: num(s, 'xp.knockout'), at });
     }
 
     // chronologicky, s denním stropem; zápis je jedinečný podle (hráč, zdroj, odkaz)

@@ -62,7 +62,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
     ['assistant.tools', /^(mcp\.|assistant\.(localFirst|toolResultChars|historySize|maxToolSteps|disabledTools|proposalMinutes|autoKeys))/],
   ],
   integrations: [
-    ['integrations.general', /^integrations\.(enabled|logDays|bigPotBb)$/],
+    ['integrations.general', /^integrations\.(enabled|logDays|bigPotBb|allowPrivateUrls)$/],
     ['integrations.webhooks', /^integrations\.webhook/],
     ['integrations.discord', /^integrations\.discord/],
     ['integrations.mqtt', /^integrations\.mqtt/],
@@ -79,7 +79,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
   ],
   sounds: [
     ['sounds.player', /^sounds\.(enabled|play|mentionSound|hotkeys|volume|mode)$/],
-    ['sounds.library', /^sounds\.(formats|maxFileKb|maxSeconds|maxPerUser|requireApproval|storageQuotaMb|loudnessTarget)$/],
+    ['sounds.library', /^sounds.(formats|maxFileKb|maxSeconds|maxPerUser|requireApproval|storageQuotaMb|loudnessTarget|ffmpegTimeoutSeconds)$/],
     ['sounds.limits', /^sounds\.(userCooldownSeconds|soundCooldownSeconds|perMinuteLimit)$/],
     ['sounds.jingles', /^sounds\.(jingle|joinJingle|winJingle)/],
   ],

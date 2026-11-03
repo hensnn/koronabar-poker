@@ -75,12 +75,18 @@ export class ApprovalService {
     if (approve) {
       const exec = this.executors.get(req.action);
       if (!exec) throw new Error(`Chybí executor pro akci ${req.action}`);
-      try {
-        result = await exec(req.payload as Record<string, unknown>, req.requestedBy);
-        status = 'executed';
-      } catch (e) {
+      // Oprávnění žadatele se kontroluje znovu až při provedení: kdo o ně mezitím přišel, nesmí akci dokončit ani se schválením.
+      if (!this.perms.can(req.requestedBy, req.action).allowed) {
         status = 'failed';
-        result = { error: e instanceof Error ? e.message : String(e) };
+        result = { error: 'REQUESTER_FORBIDDEN' };
+      } else {
+        try {
+          result = await exec(req.payload as Record<string, unknown>, req.requestedBy);
+          status = 'executed';
+        } catch (e) {
+          status = 'failed';
+          result = { error: e instanceof Error ? e.message : String(e) };
+        }
       }
       await this.db.update(schema.approvalRequests).set({ status, result: result as never }).where(eq(schema.approvalRequests.id, id));
     }

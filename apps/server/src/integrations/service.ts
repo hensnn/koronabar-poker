@@ -23,6 +23,25 @@ import { connectMqtt, MqttError, type MqttConnection, type MqttConnector } from 
 
 export type IntegrationErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'NOT_CONFIGURED';
 
+/** Jméno hostitele nebo IP adresa míří do vnitřní sítě (localhost, privátní rozsahy, link-local, IPv6 ekvivalenty)? */
+export function isPrivateHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+  }
+  if (h.includes(':')) {
+    // IPv6: loopback, nespecifikovaná, unique local (fc00::/7), link-local (fe80::/10) a IPv4 mapované adresy.
+    if (h === '::1' || h === '::') return true;
+    if (/^f[cd][0-9a-f]{2}:/.test(h) || /^fe[89ab][0-9a-f]:/.test(h)) return true;
+    const mapped = h.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (mapped) return isPrivateHost(mapped[1]!);
+  }
+  return false;
+}
+
 export class IntegrationError extends Error {
   constructor(
     public code: IntegrationErrorCode,
@@ -348,15 +367,22 @@ export class IntegrationService {
     });
   }
 
+  /**
+   * Adresa webhooku: jen http(s) a ve výchozím stavu ne do vnitřní sítě (localhost, privátní a link-local rozsahy),
+   * aby se server nedal zneužít k volání vnitřních služeb. Vnitřní adresy povolí `integrations.allowPrivateUrls`.
+   * Netýká se MQTT ani Piperu, ty mají vlastní pole a běžně míří na kontejnery ve stejné síti.
+   */
   private validUrl(url: unknown): string {
     if (typeof url !== 'string') throw new IntegrationError('INVALID', { field: 'url' });
+    let u: URL;
     try {
-      const u = new URL(url.trim());
+      u = new URL(url.trim());
       if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('proto');
-      return u.toString();
     } catch {
       throw new IntegrationError('INVALID', { field: 'url' });
     }
+    if (!this.deps.settings()['integrations.allowPrivateUrls'] && isPrivateHost(u.hostname)) throw new IntegrationError('INVALID', { field: 'url', reason: 'private' });
+    return u.toString();
   }
 
   private validEvents(events: unknown): string[] {

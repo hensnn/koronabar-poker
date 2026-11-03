@@ -300,7 +300,7 @@ export class AccountService {
     return u ? this.toSessionUser(u) : null;
   }
 
-  /** Uživatel podle tokenu z cookie, nebo null. */
+  /** Uživatel podle tokenu z cookie, nebo null. Zablokovaný účet (natrvalo, nebo do budoucího data) se chová jako nepřihlášený i s platnou relací. */
   async authenticate(token: string | undefined): Promise<SessionUser | null> {
     if (!token) return null;
     const [row] = await this.db
@@ -308,7 +308,9 @@ export class AccountService {
       .from(schema.sessions)
       .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
       .where(and(eq(schema.sessions.tokenHash, sha256(token)), gt(schema.sessions.expiresAt, this.now())));
-    return row ? this.toSessionUser(row.u) : null;
+    if (!row) return null;
+    if (row.u.status === 'blocked' && (!row.u.blockedUntil || row.u.blockedUntil.getTime() > this.now().getTime())) return null;
+    return this.toSessionUser(row.u);
   }
 
   /** Ověření hesla před citlivou akcí (znovuzadání hesla). */
@@ -369,10 +371,14 @@ export class AccountService {
 
   /** Změna e-mailu: nová adresa se musí ověřit, na starou přijde upozornění. */
   async requestEmailChange(userId: string, password: string, newEmail: string): Promise<void> {
+    // Stejný hodinový limit jako u ověřovacích e-mailů: bez něj jde cizí schránku zahltit potvrzovacími zprávami.
+    const key = `change-email:${userId}`;
+    if (this.limiter.count(key, 3600_000) >= Number(this.s['system.mailRequestsPerHour'])) throw new AccountError('RATE_LIMITED');
     const [u] = await this.db.select().from(schema.users).where(eq(schema.users.id, userId));
     if (!u || !(await verify(u.passwordHash, password ?? ''))) throw new AccountError('INVALID_CREDENTIALS');
     const email = newEmail.trim();
     if (!EMAIL_RE.test(email)) throw new AccountError('INVALID_EMAIL');
+    this.limiter.record(key, 3600_000);
     const dup = await this.db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.emailLower, email.toLowerCase()));
     if (dup.length) throw new AccountError('EMAIL_TAKEN');
     const token = randomToken();

@@ -27,7 +27,8 @@ export const clientMessages = {
   'table:show': z.object({ tableId, which: z.union([z.literal('both'), z.literal(0), z.literal(1)]) }),
   'table:rabbit': z.object({ tableId }),
   'table:showdown': z.object({ tableId, choice: z.union([z.literal('show'), z.literal('muck')]) }),
-  'table:act': z.object({ tableId, action: actionSchema }),
+  // `handId`: hra odmítne akci, která patří do už skončené handy (zdvojená nebo opožděná zpráva).
+  'table:act': z.object({ tableId, action: actionSchema, handId: z.string().max(64).optional() }),
 } as const;
 
 export type ClientMessageName = keyof typeof clientMessages;

@@ -28,21 +28,48 @@ export interface AudioProcessor {
   process(data: Buffer, format: AudioFormat, opts: ProcessOptions): Promise<{ data: Buffer; mime: string; durationMs: number }>;
 }
 
-function run(bin: string, args: string[]): Promise<{ code: number; stderr: string }> {
+/** Spustí nástroj; po uplynutí `timeoutMs` ho ukončí (zaseknutý ffmpeg na poškozeném souboru nesmí blokovat server). */
+function run(bin: string, args: string[], timeoutMs: number): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
     const p = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      p.kill('SIGKILL');
+    }, timeoutMs);
+    timer.unref?.();
     p.stderr.on('data', (d) => (stderr += String(d)));
-    p.on('error', (e) => reject((e as NodeJS.ErrnoException).code === 'ENOENT' ? new Error('TOOL_MISSING') : e));
-    p.on('close', (code) => resolve({ code: code ?? 1, stderr }));
+    p.on('error', (e) => {
+      clearTimeout(timer);
+      reject((e as NodeJS.ErrnoException).code === 'ENOENT' ? new Error('TOOL_MISSING') : e);
+    });
+    p.on('close', (code) => {
+      clearTimeout(timer);
+      if (timedOut) return reject(new Error('AUDIO_TIMEOUT'));
+      resolve({ code: code ?? 1, stderr });
+    });
   });
 }
 
 const toSeconds = (ms: number) => (ms / 1000).toFixed(3);
 
+export interface FfmpegOptions {
+  /** Cesta k binárce (výchozí FFMPEG_PATH nebo `ffmpeg` z PATH). */
+  bin?: string;
+  /** Časový limit jednoho běhu v ms (z nastavení `sounds.ffmpegTimeoutSeconds`). */
+  timeoutMs: () => number;
+}
+
 /** Používá `ffmpeg` (v Docker obrazu je nainstalovaný). Pracuje přes dočasné soubory, protože m4a nejde číst z roury. */
 export class FfmpegProcessor implements AudioProcessor {
-  constructor(private bin = process.env.FFMPEG_PATH ?? 'ffmpeg') {}
+  private bin: string;
+  private timeoutMs: () => number;
+
+  constructor(opts: FfmpegOptions) {
+    this.bin = opts.bin ?? process.env.FFMPEG_PATH ?? 'ffmpeg';
+    this.timeoutMs = opts.timeoutMs;
+  }
 
   private async withTemp<T>(data: Buffer, format: AudioFormat, fn: (inFile: string, dir: string) => Promise<T>): Promise<T> {
     const dir = await mkdtemp(join(tmpdir(), 'kb-audio-'));
@@ -58,7 +85,7 @@ export class FfmpegProcessor implements AudioProcessor {
   async probe(data: Buffer, format: AudioFormat): Promise<{ durationMs: number }> {
     return this.withTemp(data, format, async (inFile) => {
       // Dekóduje celý soubor do „nic“ a z posledního hlášení času zjistí skutečnou délku.
-      const r = await run(this.bin, ['-hide_banner', '-nostdin', '-i', inFile, '-f', 'null', '-']);
+      const r = await run(this.bin, ['-hide_banner', '-nostdin', '-i', inFile, '-f', 'null', '-'], this.timeoutMs());
       const times = [...r.stderr.matchAll(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/g)];
       const last = times[times.length - 1];
       if (r.code !== 0 || !last) throw new Error('AUDIO_INVALID');
@@ -76,7 +103,7 @@ export class FfmpegProcessor implements AudioProcessor {
         '-af', `loudnorm=I=${o.loudness}:TP=-1.5:LRA=11`,
         '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '96k', '-map_metadata', '-1',
         out,
-      ]);
+      ], this.timeoutMs());
       if (r.code !== 0) throw new Error('AUDIO_INVALID');
       const buf = await readFile(out);
       return { data: buf, mime: 'audio/mpeg', durationMs: o.endMs - o.startMs };

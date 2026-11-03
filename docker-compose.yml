@@ -26,8 +26,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Aplikace musí běžet v jediné replice (stav her a kniha jsou v paměti; druhou instanci odmítne zámek v databázi).
+    deploy:
+      replicas: 1
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      # BIND_ADDRESS: na kterém rozhraní je port vidět. Když Nginx Proxy Manager běží na stejném stroji (síť hostitele),
+      # nastavte v .env BIND_ADDRESS=127.0.0.1, ať port není dostupný z internetu napřímo (obchází se tím HTTPS i limity podle IP).
+      - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-3000}:${PORT:-3000}"
     volumes:
       # Hlavní šifrovací klíč (pokud není v .env jako MASTER_KEY). Zálohujte ho zvlášť od databáze.
       - appdata:/data

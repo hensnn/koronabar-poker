@@ -383,3 +383,39 @@ describe('časové limity pozvánek a ověřovacích odkazů', () => {
     expect(await code(s.accounts.verifyEmail(s.tokenFrom('verify')))).toBe('INVALID_TOKEN');
   });
 });
+
+describe('audit 2026-11: relace zablokovaného účtu a limit změny e-mailu', () => {
+  async function user(s: Awaited<ReturnType<typeof setup>>) {
+    const r = await s.accounts.register(reg1(await s.accounts.createInvite(s.adminId)));
+    await s.accounts.verifyEmail(s.tokenFrom('verify'));
+    return r.userId;
+  }
+
+  it('authenticate vrátí null pro účet zablokovaný natrvalo i do budoucna, po uplynutí blokace relace zase platí', async () => {
+    const s = await setup();
+    const id = await user(s);
+    await s.accounts.blockUser(s.adminId, id, 'spam', new Date(s.now().getTime() + 3600_000));
+    // nové přihlášení po blokaci projde (hráč uvidí důvod), ale relace se nesmí použít na nic dalšího
+    const a = await s.accounts.login('petr', 'dlouhe-heslo-1');
+    expect(a.user.status).toBe('blocked');
+    expect(await s.accounts.authenticate(a.token)).toBeNull();
+    s.advance(2 * 3600_000);
+    expect((await s.accounts.authenticate(a.token))?.nickname).toBe('Petr');
+    await s.accounts.blockUser(s.adminId, id, 'natrvalo', null);
+    const b = await s.accounts.login('petr', 'dlouhe-heslo-1');
+    expect(await s.accounts.authenticate(b.token)).toBeNull();
+    await s.accounts.unblockUser(s.adminId, id);
+    expect((await s.accounts.authenticate(b.token))?.nickname).toBe('Petr');
+  });
+
+  it('žádost o změnu e-mailu se počítá do hodinového limitu; špatné heslo limit nečerpá', async () => {
+    const s = await setup({ 'system.mailRequestsPerHour': 2 });
+    const id = await user(s);
+    expect(await code(s.accounts.requestEmailChange(id, 'spatne', 'x1@example.cz'))).toBe('INVALID_CREDENTIALS');
+    await s.accounts.requestEmailChange(id, 'dlouhe-heslo-1', 'x1@example.cz');
+    await s.accounts.requestEmailChange(id, 'dlouhe-heslo-1', 'x2@example.cz');
+    expect(await code(s.accounts.requestEmailChange(id, 'dlouhe-heslo-1', 'x3@example.cz'))).toBe('RATE_LIMITED');
+    s.advance(3600_000 + 1000);
+    expect(await code(s.accounts.requestEmailChange(id, 'dlouhe-heslo-1', 'x3@example.cz'))).toBe('OK');
+  });
+});

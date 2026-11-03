@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
 import { buildServer } from '../app.js';
 import { schema } from '../db/index.js';
-import { IntegrationError, signWebhook } from './service.js';
+import { IntegrationError, isPrivateHost, signWebhook } from './service.js';
 import { connectPacket, publishPacket } from './mqtt.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
@@ -388,5 +388,22 @@ describe('MQTT a Home Assistant', { timeout: 60_000 }, () => {
     expect(await code(d.server.integrations.testMqtt(d.admin))).toBe('NOT_CONFIGURED');
     const u = await d.user();
     expect(await code(d.server.integrations.testMqtt(u))).toBe('FORBIDDEN');
+  });
+});
+
+describe('webhooky: adresy do vnitřní sítě', () => {
+  it('isPrivateHost pozná localhost, privátní rozsahy, link-local a IPv6 ekvivalenty', () => {
+    for (const h of ['localhost', 'LOCALHOST', 'db.localhost', 'piper.local', 'ha.internal', '127.0.0.1', '127.9.9.9', '10.0.0.5', '172.16.0.1', '172.31.255.254', '192.168.1.20', '169.254.169.254', '100.64.0.1', '0.0.0.0', '::1', '::', 'fd00::1', 'fc12::5', 'fe80::1', '[fe80::1]', '::ffff:192.168.0.1']) expect(isPrivateHost(h), h).toBe(true);
+    for (const h of ['example.cz', 'discord.com', '8.8.8.8', '172.32.0.1', '172.15.0.1', '192.169.0.1', '11.0.0.1', '2606:4700::1111', '::ffff:8.8.8.8']) expect(isPrivateHost(h), h).toBe(false);
+  });
+
+  it('webhook do vnitřní sítě se odmítne, dokud správce nezapne integrations.allowPrivateUrls', async () => {
+    const c = await start();
+    for (const url of ['http://localhost:8123/hook', 'http://192.168.1.10/hook', 'http://10.0.0.5:8080/x', 'http://[::1]:8123/hook', 'http://169.254.169.254/latest']) {
+      expect(await code(c.server.integrations.createEndpoint(c.admin, { name: 'Vnitřní', url })), url).toBe('INVALID');
+    }
+    expect(await code(c.server.integrations.createEndpoint(c.admin, { name: 'Venku', url: 'https://example.cz/hook' }))).toBe('OK');
+    const d = await start({ 'integrations.allowPrivateUrls': true });
+    expect(await code(d.server.integrations.createEndpoint(d.admin, { name: 'Home Assistant', url: 'http://192.168.1.10:8123/api/webhook/abc' }))).toBe('OK');
   });
 });

@@ -19,6 +19,7 @@ import {
   validateValues,
   type AiProviderId,
   answerFromGuide,
+  isInternalSetting,
   searchGuide,
   type AssistantContext,
   type PermissionChecker,
@@ -31,6 +32,7 @@ import {
   type SettingsRegistry,
   type TargetKind,
   type ToolDef,
+  timezoneOf,
 } from '@kb/shared';
 import type { AuditService, AuditSource } from '../auth/audit.js';
 import type { PermissionService } from '../auth/permissions.js';
@@ -378,7 +380,7 @@ export class AssistantService {
     const out: string[] = [];
     for (const [k, v] of Object.entries(values)) {
       const def = this.deps.registry.get(k);
-      if (!def || def.secret || SECRET_PREFIX.test(k) || defaults[k] === v) continue;
+      if (!def || def.secret || SECRET_PREFIX.test(k) || isInternalSetting(k) || defaults[k] === v) continue;
       out.push(`${k}=${v}`);
     }
     return clip(out.join(', ') || '-', 800);
@@ -387,7 +389,7 @@ export class AssistantService {
   private async promptVars(userId: string, ctx: AssistantContext, targetId?: string): Promise<Record<string, string>> {
     const s = this.s();
     const now = new Date(this.deps.now());
-    const tz = 'Europe/Prague';
+    const tz = timezoneOf(s);
     const table = targetId ? this.deps.tables().settingsOf(targetId) : undefined;
     const tour = targetId ? this.deps.tournaments().settingsOf(targetId) : undefined;
     const row = targetId ? (this.deps.tables().list().find((x) => x.id === targetId) ?? this.deps.tournaments().list().find((x) => x.id === targetId)) : undefined;
@@ -446,8 +448,9 @@ export class AssistantService {
     return ASSISTANT_TOOLS.find((x) => x.name === name);
   }
 
+  /** Parametr, který asistent smí vidět a popsat: ne tajný, ne vlastní nastavení asistenta, ne provozní (adresy serverů a účty). */
   private visibleDef(def: SettingDef | undefined): def is SettingDef {
-    return !!def && !def.secret && !SECRET_PREFIX.test(def.key);
+    return !!def && !def.secret && !SECRET_PREFIX.test(def.key) && !isInternalSetting(def.key);
   }
 
   private describeDef(def: SettingDef) {
@@ -703,7 +706,7 @@ export class AssistantService {
     }
     if (denied.length) return { ok: false, denied };
     const diff: ProposalDiffRow[] = [
-      { key: '', label: startAt ? t('assistant.diff.createAt', { name, template: tplText(template.name), time: new Date(startAt).toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' }) }) : t('assistant.diff.create', { name, template: tplText(template.name) }), before: '-', after: name, timing: 'now' },
+      { key: '', label: startAt ? t('assistant.diff.createAt', { name, template: tplText(template.name), time: new Date(startAt).toLocaleString('cs-CZ', { timeZone: timezoneOf(this.s()) }) }) : t('assistant.diff.create', { name, template: tplText(template.name) }), before: '-', after: name, timing: 'now' },
       ...Object.entries(settings).map(([key, v]) => ({ key, label: t(labelKey(key)), before: '-', after: this.fmt(this.deps.registry.get(key)!, v), timing: 'now' as const })),
     ];
     return this.finishProposal(env, [{ type: 'createTournament', name, templateId, settings, startAt }], diff, false);

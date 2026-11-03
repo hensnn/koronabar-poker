@@ -43,7 +43,9 @@ Podrobný návod pro LXC kontejner v Proxmoxu s přesnými příkazy (a instala�
 
 - [ ] Na serveru je Docker a Docker Compose (`docker compose version`).
 - [ ] V `.env` je dlouhé `POSTGRES_PASSWORD`, `ADMIN_PASSWORD` (min. 12 znaků) a vygenerovaný `MASTER_KEY` (`openssl rand -hex 32`). `MASTER_KEY` máš uložený i ve správci hesel.
-- [ ] Port z `.env` (výchozí 3000) je dostupný jen z Nginx Proxy Manageru; pokud je NPM na stejném stroji, můžeš v `docker-compose.yml` omezit `ports` na `127.0.0.1:3000:3000`.
+- [ ] Port z `.env` (výchozí 3000) je dostupný jen z Nginx Proxy Manageru; pokud je NPM na stejném stroji, nastav v `.env` `BIND_ADDRESS=127.0.0.1` (port pak není vidět z internetu napřímo).
+- [ ] `TRUST_PROXY` v `.env` nech prázdné (věří se jen proxy z vnitřní sítě, tedy NPM na stejném stroji nebo v Dockeru). Jen když NPM běží na jiném stroji, zadej jeho IP adresu; `true` nikdy (IP klienta by šla podvrhnout a limity přihlášení obejít).
+- [ ] Aplikace běží v jediné instanci (`app` bez replik). Druhou instanci nad stejnou databází server odmítne při startu.
 - [ ] `docker compose ps` ukazuje `app` jako `healthy` a `db` jako `healthy`.
 - [ ] Po přihlášení jsi v **Správa → Nastavení → Systém** zkontroloval veřejnou adresu a v **Správa → Tajné údaje** zadal, co chceš používat (e-mail, hlasatel, AI, MQTT, Discord).
 - [ ] Na telefonu sis aplikaci nainstaloval (Profil → Nainstalovat aplikaci) a povolil upozornění.

@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { buildCategories, loginLayoutOf, ledgerCsv, tournamentCsv, DISCORD_SLOTS, discordSlotKeys, estimateTournament, type DiscordSlot } from '@kb/shared';
+import { buildCategories, loginLayoutOf, ledgerCsv, tournamentCsv, omitInternalSettings, DISCORD_SLOTS, discordSlotKeys, estimateTournament, ACTION_KINDS, POLL_TYPES, type DiscordSlot } from '@kb/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
@@ -13,7 +13,7 @@ import { sendError } from './errors.js';
 import { schema, type Db } from '../db/index.js';
 import { playerColors } from '../player-colors.js';
 import { eq } from 'drizzle-orm';
-import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, sanitizeSettingsProfile, type SettingsTemplate } from '@kb/shared';
+import { EMAIL_TEMPLATES, SECRETS, SMTP_PRESETS, sanitizeSettingsProfile, timezoneOf, type SettingsTemplate } from '@kb/shared';
 import type { EmailService } from '../email/service.js';
 import type { ApprovalService } from '../auth/approvals.js';
 import type { WalletService } from '../wallet/service.js';
@@ -132,7 +132,7 @@ declare module 'fastify' {
 const id = z.string().uuid();
 const date = z.coerce.date().nullable().optional();
 
-export async function registerRoutes(app: FastifyInstance, svc: Services, opts: { secureCookie: boolean; allowedOrigins: () => string[] }) {
+export async function registerRoutes(app: FastifyInstance, svc: Services, opts: { secureCookie: () => boolean; allowedOrigins: () => string[] }) {
   await app.register(cookie);
   app.decorateRequest('user', null);
   app.decorateRequest('sessionToken', undefined);
@@ -173,8 +173,47 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       return sendError(reply, e);
     }
   };
+  // Příznak `secure` se čte při každém nastavení cookie: změna veřejné adresy v GUI (http ↔ https) platí hned, bez restartu.
   const setCookie = (reply: FastifyReply, token: string, expires: Date) =>
-    reply.setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: opts.secureCookie, path: '/', expires });
+    reply.setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: opts.secureCookie(), path: '/', expires });
+
+  // ---------- nahrávání souborů (base64 v JSON): velikost těla podle nastavení a strop souběžných nahrávání na hráče ----------
+  /**
+   * Soubor jde v těle jako base64 (4/3 velikosti) plus ostatní pole JSON. Rezerva 2× nad limitem souboru je hrubá pojistka
+   * proti zahlcení paměti; přesný limit (se srozumitelnou chybou a hodnotou `max`) hlídá až služba podle druhu souboru.
+   */
+  const UPLOAD_OVERHEAD = 2;
+  const uploading = new Map<string, number>();
+  const uploadCounted = new WeakSet<FastifyRequest>();
+  const uploadDone = (req: FastifyRequest) => {
+    if (!uploadCounted.has(req) || !req.user) return;
+    uploadCounted.delete(req);
+    const left = (uploading.get(req.user.id) ?? 1) - 1;
+    if (left <= 0) uploading.delete(req.user.id);
+    else uploading.set(req.user.id, left);
+  };
+  /** Volby trasy pro nahrávání souboru, jehož největší velikost (kB) určují parametry `sizeKeys` (víc druhů souborů na jedné trase = platí ten největší). */
+  const uploadRoute = (...sizeKeys: string[]) => {
+    const defs = sizeKeys.map((k) => svc.settings['registry'].get(k));
+    const bytes = (kb: number) => Math.ceil(kb * 1024 * UPLOAD_OVERHEAD);
+    return {
+      // Pevný strop Fastify podle horní meze parametrů; aktuální hodnotu z nastavení hlídá kontrola délky níže.
+      bodyLimit: bytes(Math.max(0, ...defs.map((d) => (d?.type === 'int' ? d.max : 0)))),
+      onRequest: async (req: FastifyRequest, reply: FastifyReply) => {
+        if (!req.user) return; // 401 vyřeší handler
+        const s = svc.settings.resolve();
+        const maxKb = Math.max(...sizeKeys.map((k) => Number(s[k])));
+        if (Number(req.headers['content-length'] ?? 0) > bytes(maxKb)) return reply.status(413).send({ code: 'UPLOAD_TOO_LARGE', params: { maxKb } });
+        const max = Number(s['system.uploadMaxConcurrentPerUser']);
+        const current = uploading.get(req.user.id) ?? 0;
+        if (current >= max) return reply.status(429).send({ code: 'UPLOAD_BUSY', params: { max } });
+        uploading.set(req.user.id, current + 1);
+        uploadCounted.add(req);
+      },
+      onResponse: async (req: FastifyRequest) => uploadDone(req),
+      onRequestAbort: async (req: FastifyRequest) => uploadDone(req),
+    };
+  };
 
   const me = (user: SessionUser) => {
     const eff = svc.perms.effective(user.id);
@@ -360,9 +399,11 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     await svc.db.delete(schema.settingsProfiles).where(eq(schema.settingsProfiles.id, id));
     return reply.send({ ok: true });
   }));
+  /** Globální vrstva: správce s právem na globální nastavení ji dostane celou, ostatní bez provozních parametrů (adresy serverů, účty). */
   app.get('/api/settings/global', guard(async (req, reply) => {
-    need(req);
-    return reply.send({ values: svc.settings.layer('global') });
+    const u = need(req);
+    const values = svc.settings.layer('global');
+    return reply.send({ values: svc.perms.can(u.id, 'nastaveni.globalni').allowed ? values : omitInternalSettings(values) });
   }));
   app.put('/api/settings/global', guard(async (req, reply) => {
     const u = need(req);
@@ -838,6 +879,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
         description: `Buy-in ${e.buyIn}${e.fee ? ` + poplatek ${e.fee}` : ''}, startovní stack ${e.startingStack}. Přihlášeno ${e.players}/${e.seats}.`,
       })),
       'KoronaBar Poker: turnaje',
+      timezoneOf(svc.settings.resolve()),
     );
     return reply.header('content-type', 'text/calendar; charset=utf-8').send(ics);
   });
@@ -1539,7 +1581,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       }
     });
   app.get('/api/theme-assets', assetGuard(async (req, reply) => reply.send({ assets: await svc.themeAssets().list(need(req).id) })));
-  app.post('/api/theme-assets', { bodyLimit: 16 * 1024 * 1024 }, assetGuard(async (req, reply) => {
+  app.post('/api/theme-assets', uploadRoute('theme.imageMaxKb', 'branding.imageMaxKb'), assetGuard(async (req, reply) => {
     const b = (req.body ?? {}) as { kind?: string; data?: string };
     reply.send(await svc.themeAssets().upload(need(req).id, String(b.kind ?? ''), Buffer.from(String(b.data ?? ''), 'base64')));
   }));
@@ -1574,7 +1616,23 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const scope = (req.query as { scope?: string }).scope;
     reply.send({ polls: await svc.polls().list(need(req).id, scope === 'closed' || scope === 'mine' ? scope : 'open') });
   }));
-  app.post('/api/polls', pollGuard(async (req, reply) => reply.send({ id: await svc.polls().create(need(req).id, (req.body ?? {}) as never) })));
+  // Tvar těla hlídá zod (chybějící `config` dřív skončilo výjimkou a 500); významovou platnost (prahy, možnosti, délku) dál kontroluje služba anket.
+  const pollOption = z.object({ id: z.string().max(40).optional(), label: z.string().max(200), emoji: z.string().max(16).optional(), image: z.string().max(400).optional(), at: z.number().optional(), value: z.string().max(300).optional() }).passthrough();
+  const pollCreateBody = z
+    .object({
+      title: z.string().max(200),
+      description: z.string().max(2000).nullish(),
+      config: z.object({ type: z.enum(POLL_TYPES), options: z.array(pollOption).max(60).optional() }).passthrough(),
+      condition: z.unknown().optional(),
+      eligibility: z.enum(['fixed', 'live']).optional(),
+      target: z.object({ kind: z.enum(['global', 'channel', 'table']), id: z.string().max(100).optional() }).optional(),
+      durationMinutes: z.number().optional(),
+      results: z.enum(['always', 'afterVote', 'afterClose']).optional(),
+      pinned: z.boolean().optional(),
+      action: z.object({ kind: z.enum(ACTION_KINDS), requireConfirm: z.boolean().optional(), params: z.record(z.string(), z.unknown()).optional() }).nullish(),
+    })
+    .passthrough();
+  app.post('/api/polls', pollGuard(async (req, reply) => reply.send({ id: await svc.polls().create(need(req).id, pollCreateBody.parse(req.body ?? {}) as never) })));
   app.post('/api/polls/preview', pollGuard(async (req, reply) => reply.send(await svc.polls().preview(need(req).id, ((req.body ?? {}) as { condition?: unknown }).condition))));
   app.get('/api/poll-templates', pollGuard(async (req, reply) => reply.send({ templates: await svc.polls().templates(need(req).id) })));
   app.post('/api/poll-templates', pollGuard(async (req, reply) => {
@@ -1766,7 +1824,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   }));
 
   // ---------- obrázky v chatu ----------
-  app.post('/api/chat/images', { bodyLimit: 32 * 1024 * 1024 }, guard(async (req, reply) => {
+  app.post('/api/chat/images', uploadRoute('chat.imageMaxKb'), guard(async (req, reply) => {
     const u = need(req);
     try {
       const data = Buffer.from(String(((req.body ?? {}) as { data?: string }).data ?? ''), 'base64');
@@ -1805,7 +1863,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
         soundErr(e, reply);
       }
     });
-  const UPLOAD = { bodyLimit: 32 * 1024 * 1024 };
+  const UPLOAD = uploadRoute('sounds.maxFileKb');
   const parseUpload = (req: FastifyRequest) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
     return {
@@ -1830,7 +1888,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.post('/api/sounds', { ...UPLOAD }, soundGuard(async (req, reply) => reply.send(await svc.sounds().upload(need(req).id, parseUpload(req)))));
   app.get('/api/sounds/:id/audio', soundGuard(async (req, reply) => {
     const a = await svc.sounds().audio(need(req).id, (req.params as { id: string }).id);
-    reply.header('content-type', a.mime).header('cache-control', 'private, max-age=3600').send(a.data);
+    reply.header('content-type', a.mime).header('cache-control', 'private, max-age=3600').header('x-content-type-options', 'nosniff').send(a.data);
   }));
   app.post('/api/sounds/:id/replace', { ...UPLOAD }, soundGuard(async (req, reply) => reply.send(await svc.sounds().replaceAudio(need(req).id, (req.params as { id: string }).id, parseUpload(req)))));
   app.patch('/api/sounds/:id', soundGuard(async (req, reply) => {
