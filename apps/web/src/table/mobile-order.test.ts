@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOrder, effectiveOrder, forLandscape, MOBILE_WIDGETS, moveItem, moveToZone, parseMobileOrder, serializeOrder, toggleToolScreen, toolScreens, ZONES, zoneOf } from './mobile-order';
+import { defaultOrder, effectiveOrder, forLandscape, mainIndex, screenLayout, MOBILE_WIDGETS, moveItem, moveToZone, parseMobileOrder, serializeOrder, toggleToolScreen, toolScreens, ZONES, zoneOf } from './mobile-order';
 
 const everywhereOnce = (o: ReturnType<typeof parseMobileOrder>) => {
   const all = ZONES.flatMap((z) => o[z]);
@@ -108,5 +108,17 @@ describe('rozmístění widgetů na telefonu', () => {
     expect(o.s1).toEqual(['timer', 'best']);
     expect(o.icon).toEqual(expect.arrayContaining(['players', 'chat']));
     everywhereOnce(o);
+  });
+  it('hlavní obrazovka se stolem může být na jiné pozici', () => {
+    const o = parseMobileOrder('');
+    expect(screenLayout(o)).toEqual(['s1', 's2', 's3']);
+    const mid = { ...o, main: 2 as const };
+    expect(screenLayout(mid)).toEqual(['s2', 's1', 's3']);
+    expect(mainIndex(mid)).toBe(1);
+    expect(screenLayout({ ...o, main: 3 as const })).toEqual(['s2', 's3', 's1']);
+    // hlavní obrazovka mimo používané obrazovky se srovná na poslední
+    expect(screenLayout({ ...o, screens: 2, main: 3 as const })).toEqual(['s2', 's1']);
+    expect(parseMobileOrder(serializeOrder(mid)).main).toBe(2);
+    expect(parseMobileOrder(JSON.stringify({ v: 3, screens: 3, s1: [], s2: [], s3: [], icon: [], hidden: [] })).main).toBe(1);
   });
 });

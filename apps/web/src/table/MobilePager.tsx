@@ -11,14 +11,15 @@ import type { WidgetId } from './layout';
  * Obrazovky u stolu na telefonu: první je stůl s pevným ovládacím panelem, další se listují prstem doleva a doprava (nebo klepnutím na tečky).
  * `page` řídí rodič (tlačítka v horní liště, návrat na stůl při mém tahu); listování prstem ho aktualizuje.
  */
-export function MobilePager({ first, pages, page, onPage }: { first: ReactNode; pages: ReactNode[]; page: number; onPage: (p: number) => void }) {
+export function MobilePager({ pages, tableIndex, page, onPage }: { /** Obrazovky zleva doprava (včetně obrazovky se stolem). */ pages: ReactNode[]; /** Která z nich je stůl s ovládacím panelem. */ tableIndex: number; page: number; onPage: (p: number) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const moving = useRef(false);
   const timer = useRef(0);
   const settle = useRef(0);
   /** Obrazovka, kterou zvolil prst: rodič se o ní dozví až po doznění posunu a stránka se pak nedoroluje podruhé. */
   const fromScroll = useRef<number | null>(null);
-  const total = pages.length + 1;
+  const total = pages.length;
+  const first = useRef(true);
   const current = Math.min(page, total - 1);
   // Programové přepnutí obrazovky (tlačítka, tečky): plynule se doroluje; průběžné polohy při tom nepřepisují volbu.
   useEffect(() => {
@@ -30,7 +31,9 @@ export function MobilePager({ first, pages, page, onPage }: { first: ReactNode; 
     }
     if (Math.round(el.scrollLeft / el.clientWidth) === current) return;
     moving.current = true;
-    el.scrollTo({ left: current * el.clientWidth, behavior: 'smooth' });
+    // při otevření stolu se rovnou skočí na hlavní obrazovku, jinak se plynule doroluje
+    el.scrollTo({ left: current * el.clientWidth, behavior: first.current ? 'instant' : 'smooth' });
+    first.current = false;
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => (moving.current = false), 500);
   }, [current]);
@@ -53,14 +56,13 @@ export function MobilePager({ first, pages, page, onPage }: { first: ReactNode; 
       {total > 1 && (
         <div className="flex items-center justify-center gap-2 py-1" role="tablist" aria-label={t('mobile.screens')}>
           {Array.from({ length: total }, (_, i) => (
-            <button key={i} role="tab" aria-selected={i === current} aria-label={t('mobile.screenN', { n: i + 1 })} onClick={() => onPage(i)} className={`h-2 rounded-full ${i === current ? 'w-6 bg-primary' : 'w-2 bg-line'}`} />
+            <button key={i} role="tab" aria-selected={i === current} aria-label={t('mobile.screenN', { n: i + 1 })} onClick={() => onPage(i)} className={`h-2 ${i === tableIndex ? 'rounded-sm' : 'rounded-full'} ${i === current ? 'w-6 bg-primary' : 'w-2 bg-line'}`} />
           ))}
         </div>
       )}
       <div ref={ref} onScroll={onScroll} className="tk-pager flex min-h-0 flex-1">
-        <div className="tk-pager-page tk-pager-first">{first}</div>
         {pages.map((p, i) => (
-          <div key={i} className="tk-pager-page">
+          <div key={i} className={`tk-pager-page ${i === tableIndex ? 'tk-pager-first' : ''}`}>
             {p}
           </div>
         ))}

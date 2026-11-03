@@ -35,6 +35,8 @@ const DEFAULT_TOOLS: Record<ToolId, number[]> = { history: [1, 2, 3], pause: [1,
 export interface MobileOrder {
   /** Kolik obrazovek se používá (1 až 3). */
   screens: 1 | 2 | 3;
+  /** Na které obrazovce (1 až 3, zleva) je stůl s ovládacím panelem; ostatní obrazovky jsou kolem něj. */
+  main: 1 | 2 | 3;
   /** Vlastní volba obrazovek pro ikony v liště (jen to, co hráč změnil). */
   tools: Record<string, number[]>;
   s1: MobileWidget[];
@@ -57,7 +59,7 @@ export function defaultOrder(values: Record<string, unknown> = {}, landscape = f
   // Na šířku je jedna obrazovka: vpravo pruh času a ovládací panel, ostatní widgety jsou jen v nabídce ☰ (jako ikony mimo lištu).
   if (landscape) {
     const icons = (['table', 'info', 'players', 'best', 'events', 'sounds', 'bounties', 'chat'] as const).map((id) => id as MobileWidget);
-    return { screens: 1, tools: Object.fromEntries(icons.filter((id) => id !== 'info' && id !== 'chat').map((id) => [`w:${id}`, [] as number[]])), s1: ['timer'], s2: [], s3: [], icon: icons, hidden: [] };
+    return { screens: 1, main: 1, tools: Object.fromEntries(icons.filter((id) => id !== 'info' && id !== 'chat').map((id) => [`w:${id}`, [] as number[]])), s1: ['timer'], s2: [], s3: [], icon: icons, hidden: [] };
   }
   const on = (id: 'timer' | 'best' | 'sounds' | 'events'): boolean => {
     const f = LEGACY_FLAG[id]!;
@@ -65,7 +67,7 @@ export function defaultOrder(values: Record<string, unknown> = {}, landscape = f
   };
   const s1 = (['timer', 'best', 'sounds', 'events'] as const).filter(on) as MobileWidget[];
   const s2 = (['table', 'info', 'players', 'best', 'events', 'sounds', 'bounties'] as const).filter((id) => !s1.includes(id));
-  return { screens: 3, tools: values['ui.mobileAllIcons'] === true ? Object.fromEntries(TOOL_IDS.map((id) => [id, [1, 2, 3]])) : {}, s1, s2, s3: ['chat'], icon: [], hidden: on('timer') ? [] : ['timer'] };
+  return { screens: 3, main: 1, tools: values['ui.mobileAllIcons'] === true ? Object.fromEntries(TOOL_IDS.map((id) => [id, [1, 2, 3]])) : {}, s1, s2, s3: ['chat'], icon: [], hidden: on('timer') ? [] : ['timer'] };
 }
 
 /**
@@ -104,7 +106,8 @@ export function parseMobileOrder(raw: unknown, values: Record<string, unknown> =
       if (known && Array.isArray(v)) tools[k] = [...new Set(v.filter((x): x is number => x === 1 || x === 2 || x === 3))].sort();
     }
   }
-  const out: MobileOrder = { screens: n === 1 || n === 2 ? n : 3, tools: obj.v === 4 ? tools : def.tools, s1: take('s1'), s2: take('s2'), s3: take('s3'), icon: take('icon'), hidden: take('hidden') };
+  const m = Number(src.main);
+  const out: MobileOrder = { screens: n === 1 || n === 2 ? n : 3, main: (m === 2 || m === 3 ? m : 1) as 1 | 2 | 3, tools: obj.v === 4 ? tools : def.tools, s1: take('s1'), s2: take('s2'), s3: take('s3'), icon: take('icon'), hidden: take('hidden') };
   for (const zone of ZONES) for (const id of def[zone]) if (!seen.has(id)) { seen.add(id); out[zone].push(id); }
   for (const id of MOBILE_WIDGETS) if (!seen.has(id)) out[allowedZones(id)[0]!].push(id);
   return out;
@@ -167,3 +170,13 @@ export const zoneOf = (order: MobileOrder, id: MobileWidget): Zone => ZONES.find
 
 /** Ikona widgetu v horní liště (když je mezi ikonami). */
 export const WIDGET_ICON: Record<MobileWidget, string> = { timer: '⏱', best: '🃏', sounds: '🔊', events: '📜', players: '👥', table: '🪑', bounties: '🎯', info: 'ℹ️', chat: '💬' };
+
+/** Pořadí obrazovek zleva doprava: `s1` je obrazovka se stolem (na pozici podle `main`), `s2` a `s3` jsou ostatní v pořadí kolem ní. */
+export function screenLayout(o: MobileOrder): ('s1' | 's2' | 's3')[] {
+  const extras: ('s2' | 's3')[] = ['s2', 's3'];
+  const m = mainIndex(o);
+  return Array.from({ length: o.screens }, (_, i) => (i === m ? 's1' : extras.shift()!));
+}
+
+/** Index obrazovky se stolem (od nuly); nikdy mimo používané obrazovky. */
+export const mainIndex = (o: MobileOrder): number => Math.min(Math.max(o.main, 1), o.screens) - 1;

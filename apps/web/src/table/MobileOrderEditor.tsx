@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { t, type SettingValue } from '@kb/shared';
 import { Button, Tabs } from '../ui';
-import { allowedZones, effectiveOrder, forLandscape, moveItem, moveToZone, orderKeyFor, parseMobileOrder, serializeOrder, TOOL_ICON, TOOL_IDS, TOOL_TITLE_KEY, toggleToolScreen, toolScreens, WIDGET_ICON, type MobileOrder, type MobileWidget, type Zone } from './mobile-order';
+import { allowedZones, effectiveOrder, forLandscape, mainIndex, moveItem, moveToZone, orderKeyFor, parseMobileOrder, serializeOrder, TOOL_ICON, TOOL_IDS, TOOL_TITLE_KEY, toggleToolScreen, toolScreens, WIDGET_ICON, screenLayout, type MobileOrder, type MobileWidget, type Zone } from './mobile-order';
 
 export const WIDGET_TITLE_KEY: Record<MobileWidget, string> = {
   timer: 'mobile.order.part.timer',
@@ -39,8 +39,12 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
   const order = landscape ? forLandscape(parseMobileOrder(values[key], values, true)) : parseMobileOrder(values[key], values);
   const save = (next: MobileOrder) => onChange(key, serializeOrder(next));
   const screens = Array.from({ length: order.screens }, (_, i) => i + 1);
-  const zones: Zone[] = landscape ? ['s1', 'icon', 'hidden'] : ['s1', ...(order.screens >= 2 ? (['s2'] as const) : []), ...(order.screens >= 3 ? (['s3'] as const) : []), 'icon', 'hidden'];
-  const offered = (id: MobileWidget) => allowedZones(id).filter((z) => zones.includes(z));
+  const layout = screenLayout(order);
+  const zones: Zone[] = landscape ? ['s1', 'icon', 'hidden'] : [...layout, 'icon', 'hidden'];
+  // Číslo obrazovky zleva, na které je dané místo (obrazovka se stolem je na pozici podle volby hráče).
+  const posOf = (z: Zone): number => (z === 's1' || z === 's2' || z === 's3' ? layout.indexOf(z) + 1 : 0);
+  const zoneLabel = (z: Zone): string => (landscape ? (z === 's1' ? t('mobile.order.zone.s1Landscape') : t(`mobile.order.zone.${z}`)) : z === 's1' ? t('mobile.order.zone.table', { n: posOf(z) }) : z === 's2' || z === 's3' ? t('mobile.order.zone.screenN', { n: posOf(z) }) : t(`mobile.order.zone.${z}`));
+  const offered = (id: MobileWidget) => zones.filter((z) => allowedZones(id).includes(z));
   const widgetIcons = order.icon.filter((id) => id !== 'info' && id !== 'chat');
 
   const chipClass = (on: boolean) => `min-w-9 rounded-md border px-2 py-1 text-sm ${on ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-text'}`;
@@ -66,6 +70,16 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
         ))}
       </div>
       )}
+      {!landscape && order.screens > 1 && (
+        <div role="radiogroup" aria-label={t('mobile.order.main')} className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">{t('mobile.order.main')}</span>
+          {screens.map((n) => (
+            <button key={n} role="radio" aria-checked={mainIndex(order) + 1 === n} onClick={() => save({ ...order, main: n as 1 | 2 | 3 })} className={chipClass(mainIndex(order) + 1 === n)}>
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
       <Tabs tabs={[{ id: 'widgets' as const, label: t('mobile.order.tab.widgets') }, { id: 'icons' as const, label: t('mobile.order.tab.icons') }]} value={tab} onChange={setTab} />
 
       {tab === 'widgets' &&
@@ -73,8 +87,8 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
           const list = order[zone];
           const st = ZONE_STYLE[zone];
           return (
-            <section key={zone} className={`rounded-md border-2 p-3 ${st.box}`} aria-label={zone === 's1' && landscape ? t('mobile.order.zone.s1Landscape') : t(`mobile.order.zone.${zone}`)}>
-              <h3 className={`mb-2 font-bold ${st.head}`}>{zone === 's1' && landscape ? t('mobile.order.zone.s1Landscape') : t(`mobile.order.zone.${zone}`)}</h3>
+            <section key={zone} className={`rounded-md border-2 p-3 ${st.box}`} aria-label={zoneLabel(zone)}>
+              <h3 className={`mb-2 font-bold ${st.head}`}>{zoneLabel(zone)}</h3>
               <ul className="flex flex-col gap-1">
                 {list.map((id, i) => (
                   <li key={id} className="flex flex-col gap-1 rounded-sm bg-surface px-2 py-1">
@@ -91,8 +105,8 @@ export function MobileOrderEditor({ values, onChange, landscape: landscapeNow = 
                       <div role="radiogroup" aria-label={t('mobile.order.moveTo', { name: t(WIDGET_TITLE_KEY[id]) })} className="flex flex-wrap items-center gap-1">
                         <span className="text-xs text-muted">{t('mobile.order.place')}</span>
                         {offered(id).map((z) => (
-                          <button key={z} role="radio" aria-checked={z === zone} title={t(`mobile.order.zone.${z}`)} aria-label={t(`mobile.order.zone.${z}`)} onClick={() => save(moveToZone(order, id, z))} className={chipClass(z === zone)}>
-                            {CHIP[z]}
+                          <button key={z} role="radio" aria-checked={z === zone} title={zoneLabel(z)} aria-label={zoneLabel(z)} onClick={() => save(moveToZone(order, id, z))} className={chipClass(z === zone)}>
+                            {z === 's1' || z === 's2' || z === 's3' ? (landscape ? '1' : String(posOf(z))) : CHIP[z]}
                           </button>
                         ))}
                       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, Fragment } from 'react';
 import { TablePolls } from './polls';
 import { PollEditor } from './poll-editor';
 import { navigate } from '../router';
@@ -16,7 +16,7 @@ import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
 import { MobilePager, MobileScreen, MobileWidgetDrawer } from '../table/MobilePager';
 import { MobileOrderEditor, WIDGET_TITLE_KEY } from '../table/MobileOrderEditor';
-import { TOOL_ICON, TOOL_IDS, toolScreens, WIDGET_ICON, zoneOf, type MobileWidget, type ToolId } from '../table/mobile-order';
+import { TOOL_ICON, TOOL_IDS, mainIndex, screenLayout, toolScreens, WIDGET_ICON, zoneOf, type MobileWidget, type ToolId } from '../table/mobile-order';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
 import { MobileBar, MobileScalePanel } from '../table/mobile-ui';
@@ -69,12 +69,15 @@ export function TablePage({ tableId }: { tableId: string }) {
   const order = useMobileOrder();
   const landscapePhone = useLandscapePhone();
   const landscape = mobile && landscapePhone;
-  const [page, setPage] = useState(0);
+  const layoutZones = screenLayout(order);
+  const tableIdx = mainIndex(order);
+  const [page, setPage] = useState(tableIdx);
+  // Změna hlavní obrazovky v nastavení přepne rovnou na ni.
+  useEffect(() => setPage(tableIdx), [tableIdx]);
   const [layoutEditor, setLayoutEditor] = useState(false);
   const goTo = (id: MobileWidget) => {
     const z = zoneOf(order, id);
-    if (z === 's2') setPage(1);
-    else if (z === 's3') setPage(2);
+    if (z === 's2' || z === 's3') setPage(Math.max(0, layoutZones.indexOf(z)));
     else if (z === 'icon') setDrawer(`w:${id}`);
   };
   const modern = mobile;
@@ -138,8 +141,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const myTurn = !!mySeat && view?.actingSeat === mySeat.seat;
   // Když jsem na tahu, vrátí se obrazovka na stůl (ovládací panel je jen tam).
   useEffect(() => {
-    if (myTurn) setPage(0);
-  }, [myTurn]);
+    if (myTurn) setPage(tableIdx);
+  }, [myTurn, tableIdx]);
   const [pollOpen, setPollOpen] = useState(false);
   const inBb = Boolean(settings.values['ui.showInBb']);
   const seated = !!view?.seats.some((s) => s.playerId === me?.user.id);
@@ -364,10 +367,10 @@ export function TablePage({ tableId }: { tableId: string }) {
           );
           return modern && !landscape ? (
             <MobilePager
-              first={screen}
               page={page}
               onPage={setPage}
-              pages={[...(order.screens >= 2 ? [<MobileScreen key="s2" ids={order.s2} channel={channel} visible={page === 1} />] : []), ...(order.screens >= 3 ? [<MobileScreen key="s3" ids={order.s3} channel={channel} visible={page === 2} />] : [])]}
+              tableIndex={tableIdx}
+              pages={layoutZones.map((z, i) => (z === 's1' ? <Fragment key="table">{screen}</Fragment> : <MobileScreen key={z} ids={order[z]} channel={channel} visible={page === i} />))}
             />
           ) : (
             screen
