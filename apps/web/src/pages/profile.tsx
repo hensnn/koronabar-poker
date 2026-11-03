@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from '../router';
 import { SoundLibrary } from './sounds';
 import { checkContrast, resolveTokens } from '@kb/tokens';
 import { useThemes } from '../theme/ThemeProvider';
-import { t, type SettingValue } from '@kb/shared';
+import { resolveSettings, t, type SettingValue } from '@kb/shared';
 import { errorText, post } from '../api';
 import { logout, useSession } from '../session';
-import { deviceId, deviceKindOverride, setDeviceKindOverride, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
+import { deviceId, deviceKindOverride, loadKindLayers, resetForBoth, resetKindSetting, saveForBoth, saveKindSetting, setDeviceKindOverride, registry, useSettings } from '../settings';
 import { SettingsForm } from '../settings/SettingsForm';
-import { Button, Card, Notice, Tabs, TextInput } from '../ui';
+import { Button, Card, Notice, Spinner, Tabs, TextInput } from '../ui';
 import { Guide } from './guide';
 import { LimitsSection } from './limits';
 import { useFeatures } from '../features';
@@ -109,10 +109,50 @@ export function ProfilePage() {
 export function SettingsPage() {
   const [view, setView] = useState<'settings' | 'guide' | 'diagnostics'>('settings');
   const settings = useSettings();
-  const [target, setTarget] = useState<'user' | 'device'>('user');
+  // Oboje = společné nastavení pro telefon i počítač; Počítač a Telefon = hodnoty jen pro ten druh zařízení (i pro druhý než ten, na kterém právě jsem).
+  const [target, setTarget] = useState<'both' | 'desktop' | 'phone'>('both');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
-  const editScope = target === 'user' ? 'user' : 'userDevice';
+  const here = deviceId();
+  const remote = target !== 'both' && target !== here;
+  const [other, setOther] = useState<Record<string, SettingValue> | null>(null);
+  useEffect(() => {
+    setOther(null);
+    if (!remote) return;
+    let alive = true;
+    loadKindLayers(target as 'phone' | 'desktop')
+      .then((l) => alive && setOther(l.device))
+      .catch((e) => alive && setMsg({ kind: 'error', text: errorText(e) }));
+    return () => {
+      alive = false;
+    };
+  }, [target, remote]);
   const userKeys = useMemo(() => registry.all().filter((d) => d.scopes?.includes('user')), []);
+  const remoteResolved = useMemo(() => (remote && other ? resolveSettings(registry, [{ scope: 'global', values: settings.global }, { scope: 'user', values: settings.user }, { scope: 'userDevice', values: other }]) : null), [remote, other, settings.global, settings.user]);
+  const values = remote ? (remoteResolved?.values ?? {}) : settings.values;
+  const origins = remote ? (remoteResolved?.origins ?? {}) : settings.origins;
+  const editScope = target === 'both' ? 'user' : 'userDevice';
+  const fail = (e: unknown) => setMsg({ kind: 'error', text: errorText(e) });
+
+  const change = (k: string, v: SettingValue) => {
+    if (target === 'both') return void saveForBoth(k, v).catch(fail);
+    if (!remote) return void saveKindSetting(target, k, v).catch(fail);
+    const before = other;
+    setOther((o) => ({ ...(o ?? {}), [k]: v }));
+    void saveKindSetting(target, k, v).catch((e) => {
+      setOther(before);
+      fail(e);
+    });
+  };
+  const reset = (k: string) => {
+    if (target === 'both') return void resetForBoth(k).catch(fail);
+    if (!remote) return void resetKindSetting(target, k).catch(fail);
+    const before = other;
+    setOther((o) => Object.fromEntries(Object.entries(o ?? {}).filter(([x]) => x !== k)));
+    void resetKindSetting(target, k).catch((e) => {
+      setOther(before);
+      fail(e);
+    });
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -135,20 +175,28 @@ export function SettingsPage() {
           <option value="desktop">{t('settings.personal.kind.desktop')}</option>
         </select>
       </label>
-      <Tabs tabs={[{ id: 'user', label: t('settings.personal.all') }, { id: 'device', label: t('settings.personal.device', { kind: t(`settings.personal.kind.${deviceId()}`) }) }]} value={target} onChange={setTarget} />
-      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-      <ThemeChooser onPick={(id) => void saveUserSetting('ui.themeId', id, target === 'device').catch((e) => setMsg({ kind: 'error', text: errorText(e) }))} current={String(settings.values['ui.themeId'])} />
-      <SettingsForm
-        registry={registry}
-        values={settings.values}
-        origins={settings.origins}
-        editScope={editScope}
-        onChange={(k, v: SettingValue) => void saveUserSetting(k, v, target === 'device').catch((e) => setMsg({ kind: 'error', text: errorText(e) }))}
-        onReset={(k) => void resetUserSetting(k, target === 'device').catch((e) => setMsg({ kind: 'error', text: errorText(e) }))}
-        issues={[]}
-        allowedKeys={(d) => userKeys.some((x) => x.key === d.key)}
-        categoryOrder={PERSONAL_ORDER}
+      <Tabs
+        tabs={[
+          { id: 'both' as const, label: t('settings.personal.tab.both') },
+          { id: 'desktop' as const, label: t('settings.personal.tab.desktop') + (here === 'desktop' ? ` ${t('settings.personal.thisDevice')}` : '') },
+          { id: 'phone' as const, label: t('settings.personal.tab.phone') + (here === 'phone' ? ` ${t('settings.personal.thisDevice')}` : '') },
+        ]}
+        value={target}
+        onChange={(id) => {
+          setTarget(id);
+          setMsg(null);
+        }}
       />
+      <p className="text-sm text-muted">{t(`settings.personal.hint.${target}`)}</p>
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      {remote && !other ? (
+        <Spinner label={t('app.loading')} />
+      ) : (
+        <>
+          <ThemeChooser onPick={(id) => change('ui.themeId', id)} current={String(values['ui.themeId'])} />
+          <SettingsForm registry={registry} values={values} origins={origins} editScope={editScope} onChange={change} onReset={reset} issues={[]} allowedKeys={(d) => userKeys.some((x) => x.key === d.key)} categoryOrder={PERSONAL_ORDER} />
+        </>
+      )}
       <SettingsShare />
       <SoundLibrary />
         </>

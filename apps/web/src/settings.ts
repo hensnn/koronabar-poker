@@ -278,6 +278,38 @@ async function layersFor(kind: Kind): Promise<Layers> {
   return { user: r.user, device: r.device };
 }
 
+/** Hodnoty hráče pro druh zařízení (i pro ten, na kterém právě nejsem). */
+export const loadKindLayers = (kind: Kind): Promise<Layers> => layersFor(kind);
+
+/** Uloží osobní hodnotu jen pro daný druh zařízení; pro druhý druh (např. telefon z počítače) rovnou na server. */
+export async function saveKindSetting(kind: Kind, key: string, value: SettingValue): Promise<void> {
+  if (kind === deviceId()) return saveUserSetting(key, value, true);
+  await putLayer(key, value, kind);
+}
+
+/** Smaže hodnotu daného druhu zařízení: platí zase společná nebo výchozí. */
+export async function resetKindSetting(kind: Kind, key: string): Promise<void> {
+  if (kind === deviceId()) return resetUserSetting(key, true);
+  await delLayer(key, kind);
+}
+
+const otherKind = (): Kind => (deviceId() === 'phone' ? 'desktop' : 'phone');
+
+/** Uloží hodnotu pro telefon i počítač najednou: společná hodnota a zrušení zvláštních hodnot obou druhů zařízení, které by ji přebíjely. */
+export async function saveForBoth(key: string, value: SettingValue): Promise<void> {
+  await saveUserSetting(key, value, false);
+  const other = otherKind();
+  if (key in (await layersFor(other)).device) await delLayer(key, other);
+}
+
+/** Vrátí hodnotu pro telefon i počítač na výchozí (smaže společnou i zvláštní hodnoty). */
+export async function resetForBoth(key: string): Promise<void> {
+  if (key in state.device) await resetUserSetting(key, true);
+  await resetUserSetting(key, false);
+  const other = otherKind();
+  if (key in (await layersFor(other)).device) await delLayer(key, other);
+}
+
 /** Hodnota, která platí bez mých úprav (výchozí z registru nebo od správce). */
 function inherited(key: string): SettingValue | undefined {
   return resolveSettings(registry, [{ scope: 'global', values: state.global }]).values[key] as SettingValue | undefined;
