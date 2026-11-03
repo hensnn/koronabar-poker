@@ -115,7 +115,8 @@ function PollRow({ p }: { p: Row }) {
   );
 }
 
-export function PollsPage() {
+/** Seznam anket; `embedded` = jako záložka stránky Chat / Ankety, bez vlastního nadpisu. */
+export function PollsPage({ embedded = false }: { embedded?: boolean }) {
   const { me } = useSession();
   const [tab, setTab] = useState<'open' | 'mine' | 'closed'>('open');
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -132,9 +133,9 @@ export function PollsPage() {
     return onSocket('poll:changed', load);
   }, [load]);
   return (
-    <main className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-heading text-2xl font-bold">{t('polls.title.page')}</h1>
+        {embedded ? <span /> : <h1 className="font-heading text-2xl font-bold">{t('polls.title.page')}</h1>}
         {can(me, 'anketa.vytvorit') && (
           <Button variant="primary" onClick={() => setCreating(true)}>
             {t('polls.new')}
@@ -155,7 +156,7 @@ export function PollsPage() {
           }}
         />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -464,7 +465,7 @@ export function PollPage({ id }: { id: string }) {
   };
   return (
     <main className="flex flex-col gap-3">
-      <Link to="/ankety" className="underline">
+      <Link to="/chat?tab=ankety" className="underline">
         {t('polls.back')}
       </Link>
       <div className="flex flex-wrap items-center gap-2">

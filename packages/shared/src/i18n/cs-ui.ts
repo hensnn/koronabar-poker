@@ -8,7 +8,7 @@ export const csUi: Record<string, string> = {
   'nav.main': 'Hlavní nabídka',
   'nav.home': 'Domů',
   'nav.lobby': 'Lobby',
-  'nav.chat': 'Chat',
+  'nav.chat': 'Chat / Ankety',
   'nav.wallet': 'Peněženka',
   'nav.progress': 'Postup',
   'nav.admin': 'Správa',

@@ -601,3 +601,4 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - **Stoly / Večery**: večery jsou ve stránce Stoly, položka Večery z nabídky zmizela.
 - **Ankety** na hlavní stránce jsou ve výchozím stavu zabalené (v hlavičce počet k hlasování).
 - **Zvuky**: nahrazený vestavěný zvuk se počítá do využití úložiště (dřív ukazovalo 0).
+- **Chat / Ankety**: ankety jsou záložka stránky Chat / Ankety (`/chat?tab=ankety`), samostatná položka Ankety z nabídky zmizela, `/ankety` přesměruje; detail ankety `/ankety/:id` zůstává.

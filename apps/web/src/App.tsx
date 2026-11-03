@@ -37,14 +37,13 @@ import { SaveErrorToast } from './save-error-toast';
 // Méně časté stránky se načítají až při otevření.
 const ThemeEditorPage = lazyPage(() => import('./pages/theme-editor'), 'ThemeEditorPage');
 const ShopPage = lazyPage(() => import('./pages/shop'), 'ShopPage');
-const ChatPage = lazyPage(() => import('./pages/chat'), 'ChatPage');
+const CommunityPage = lazyPage(() => import('./pages/community'), 'CommunityPage');
 const ProfilePage = lazyPage(() => import('./pages/profile'), 'ProfilePage');
 const SettingsPage = lazyPage(() => import('./pages/profile'), 'SettingsPage');
 const GuidePage = lazyPage(() => import('./pages/guide'), 'GuidePage');
 const WalletPage = lazyPage(() => import('./pages/wallet'), 'WalletPage');
 const StatsPage = lazyPage(() => import('./pages/stats'), 'StatsPage');
 const PollPage = lazyPage(() => import('./pages/polls'), 'PollPage');
-const PollsPage = lazyPage(() => import('./pages/polls'), 'PollsPage');
 const LiveCashListPage = lazyPage(() => import('./pages/live'), 'LiveCashListPage');
 const LiveCashPage = lazyPage(() => import('./pages/live'), 'LiveCashPage');
 const TvPage = lazyPage(() => import('./pages/tv'), 'TvPage');
@@ -131,7 +130,7 @@ function Shell({ me }: { me: Me }) {
   const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
   const groups: MenuGroup[] = (
     [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/chat', 'nav.chat', features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))), item('/ankety', 'nav.polls', features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/obchod', 'nav.shop', shopOn)] },
+      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/chat', 'nav.chat', (features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))) || features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/obchod', 'nav.shop', shopOn)] },
       { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.personalSettings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
     ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
   )
@@ -147,7 +146,7 @@ function Shell({ me }: { me: Me }) {
   const zivyCash = matchPath('/zivy-cash/:id', path);
   const vecer = matchPath('/vecery/:id', path);
 
-  const isActive = (to: string) => (to === '/' ? path === '/' : to === '/stoly' ? path.startsWith('/stoly') || path.startsWith('/turnaj') || path.startsWith('/vecery') : to === '/statistiky' ? path.startsWith('/statistiky') || path.startsWith('/postup') : path.startsWith(to));
+  const isActive = (to: string) => (to === '/' ? path === '/' : to === '/stoly' ? path.startsWith('/stoly') || path.startsWith('/turnaj') || path.startsWith('/vecery') : to === '/chat' ? path.startsWith('/chat') || path.startsWith('/ankety') : to === '/statistiky' ? path.startsWith('/statistiky') || path.startsWith('/postup') : path.startsWith(to));
 
   let page;
   if (blocked) page = <BlockedPage me={me} />;
@@ -160,14 +159,14 @@ function Shell({ me }: { me: Me }) {
   else if (zivyCash) page = <LiveCashPage id={zivyCash.id!} />;
   else if (path === '/zivy-cash') page = <LiveCashListPage />;
   else if (path === '/') page = <DashboardPage />;
-  else if (path === '/chat') page = <ChatPage />;
+  else if (path === '/chat') page = <CommunityPage />;
   else if (path === '/penezenka') page = <WalletPage />;
   else if (path === '/statistiky') page = <StatsPage />;
   else if (path === '/postup') page = <Redirect to="/statistiky?tab=postup" />;
   else if (path === '/obchod') page = <ShopPage />;
   else if (path === '/vzhled') page = <ThemeEditorPage />;
   else if (anketa) page = <PollPage id={anketa.id!} />;
-  else if (path === '/ankety') page = <PollsPage />;
+  else if (path === '/ankety') page = <Redirect to="/chat?tab=ankety" />;
   else if (path === '/nastaveni') page = <SettingsPage />;
   else if (path === '/navod') page = <GuidePage />;
   else if (path === '/profil') page = <ProfilePage />;
@@ -176,7 +175,7 @@ function Shell({ me }: { me: Me }) {
   // Vypnutá funkce nemá mít přístupnou ani adresu.
   const compact = settings.values['ui.compactHeader'] !== false;
   const off = (prefix: string, on: boolean) => !on && (path === prefix || path.startsWith(prefix + '/'));
-  if (off('/ankety', features.polls) || off('/chat', features.chat) || off('/vecery', features.evenings) || off('/postup', features.xp || features.rating) || off('/obchod', features.shop)) page = <Redirect to="/" />;
+  if (off('/ankety', features.polls) || off('/chat', features.chat || features.polls) || off('/vecery', features.evenings) || off('/postup', features.xp || features.rating) || off('/obchod', features.shop)) page = <Redirect to="/" />;
 
   return (
     <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl"}`}>

@@ -137,7 +137,7 @@ export function DashboardPage() {
           </Link>
         )}
         {features.polls && (
-          <Link to="/ankety" className="rounded-md border border-line bg-surface px-3 py-1">
+          <Link to="/chat?tab=ankety" className="rounded-md border border-line bg-surface px-3 py-1">
             🗳️ {t('lobby.pollsLink')}
           </Link>
         )}
