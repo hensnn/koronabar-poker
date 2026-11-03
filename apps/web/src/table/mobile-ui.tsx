@@ -25,6 +25,7 @@ export function MobileBar({
   onHistory,
   onPause,
   paused,
+  tools,
 }: {
   backTo: string;
   title: string;
@@ -37,9 +38,12 @@ export function MobileBar({
   /** Pauza stolu (jen kdo smí); undefined = tlačítko se nezobrazí. */
   onPause?: () => void;
   paused?: boolean;
+  /** Další nástroje stolu jako ikony (volba „všechny ikony nahoře“); zalomí se do dalšího řádku. */
+  tools?: ReactNode;
 }) {
   const btn = 'tk-mbar-btn relative rounded-md border border-line bg-surface';
   return (
+    <div className="flex flex-col gap-1">
     <div className="tk-mbar flex items-center gap-1" role="toolbar" aria-label={t('table.m.bar')}>
       <Link to={backTo} className="tk-mbar-btn rounded-md border border-line bg-surface text-center" aria-label={t('table.backToLobby')} title={t('table.backToLobby')}>
         ←
@@ -65,6 +69,8 @@ export function MobileBar({
       <button className={btn} onClick={onMenu} aria-label={t('table.m.menu')} title={t('table.m.menu')}>
         ☰
       </button>
+    </div>
+    {tools && <div className="flex flex-wrap items-center gap-1">{tools}</div>}
     </div>
   );
 }
@@ -137,6 +143,8 @@ export function MobileOptions() {
     <fieldset className="flex flex-col gap-1 border-t border-line pt-2">
       <legend className="text-xs font-semibold text-muted">{t('table.m.options')}</legend>
       {['ui.mobileBest', 'ui.mobileEvents', 'ui.mobileTimerBar', 'ui.mobileTurnAlert'].map((k) => row(k))}
+      {row('ui.mobileAllIcons', false)}
+      {row('ui.mobileAutoFullscreen', false)}
       {row('ui.mobileSounds', false)}
       {row('ui.hideMyCards', false)}
     </fieldset>

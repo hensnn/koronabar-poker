@@ -822,6 +822,8 @@ const ui: SettingDef[] = [
   bool('ui.mobileSounds', { category: 'ui', mutability: A, scopes: USER }, false),
   bool('ui.mobileEvents', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.mobileTimerBar', { category: 'ui', mutability: A, scopes: USER }, true),
+  bool('ui.mobileAllIcons', { category: 'ui', mutability: A, scopes: USER }, false),
+  bool('ui.mobileAutoFullscreen', { category: 'ui', mutability: A, scopes: USER }, false),
   text('ui.mobileOrder', { category: 'ui', mutability: A, scopes: USER }, '', 800),
   bool('ui.mobileTurnAlert', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.tableWaitInfo', { category: 'ui', mutability: A, scopes: USER }, true),

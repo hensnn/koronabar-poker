@@ -85,6 +85,11 @@ export function TablePage({ tableId }: { tableId: string }) {
       root.removeAttribute('data-focus');
     };
   }, [focus]);
+  // Volba „u stolu automaticky celá obrazovka“ (jen mobilní rozložení): po vstupu ke stolu se zapne režim celé obrazovky.
+  const autoFocus = mobile && settings.values['ui.mobileAutoFullscreen'] === true;
+  useEffect(() => {
+    if (autoFocus) setFocus(true);
+  }, [autoFocus, tableId]);
   useEffect(() => {
     void loadChannels().catch(() => undefined);
   }, [tableId]);
@@ -243,6 +248,15 @@ export function TablePage({ tableId }: { tableId: string }) {
             onHistory={() => setHistory(true)}
             onPause={canPause && view ? () => void togglePause() : undefined}
             paused={!!view?.paused}
+            tools={
+              settings.values['ui.mobileAllIcons'] === true ? (
+                <>
+                  {renderTools(true)}
+                  <SoundMenu />
+                  {features.assistant && <AssistantToolButton iconOnly />}
+                </>
+              ) : undefined
+            }
           />
         ) : (
         <div className="flex flex-wrap items-center gap-2">

@@ -605,17 +605,41 @@ export function SoundLibrary() {
 export function SoundStrip({ target }: { target: { kind: 'table' | 'channel'; id: string } }) {
   const st = useSoundState();
   const settings = useSettings();
+  const [msg, setMsg] = useState('');
+  const [sent, setSent] = useState<string | null>(null);
   if (settings.values['sounds.enabled'] === false) return null;
   const usable = st.sounds.filter((s) => s.status === 'shared' || s.mine);
-  const quick = [...usable.filter((s) => s.favorite), ...usable.filter((s) => !s.favorite && s.lastUsedAt).sort(byRecent)].slice(0, 6);
+  const favorites = [...usable.filter((s) => s.favorite), ...usable.filter((s) => !s.favorite && s.lastUsedAt).sort(byRecent)];
+  // Bez oblíbených a naposledy použitých se nabídne pár prvních zvuků, ať řádek není prázdný.
+  const quick = (favorites.length > 0 ? favorites : usable).slice(0, 6);
+  const send = async (s: SoundItem) => {
+    setMsg('');
+    try {
+      const r = await playSound(s.id, target);
+      if (r.silent) setMsg(t('sounds.silent'));
+      else {
+        setSent(s.id);
+        window.setTimeout(() => setSent((x) => (x === s.id ? null : x)), 900);
+      }
+    } catch (e) {
+      setMsg(errorText(e));
+    }
+  };
   return (
-    <div className="flex items-center gap-1" role="group" aria-label={t('sounds.palette')}>
-      {quick.map((s) => (
-        <button key={s.id} className="rounded-md border border-line bg-surface px-2 py-1 text-lg" title={s.name} aria-label={s.name} onClick={() => void playSound(s.id, target).catch(() => undefined)}>
-          {s.emoji}
-        </button>
-      ))}
-      <SoundPalette target={target} />
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1" role="group" aria-label={t('sounds.palette')}>
+        {quick.map((s) => (
+          <button key={s.id} className={`rounded-md border px-2 py-1 text-lg ${sent === s.id ? 'border-success bg-raised' : 'border-line bg-surface'}`} title={s.name} aria-label={s.name} onClick={() => void send(s)}>
+            {sent === s.id ? '✓' : s.emoji}
+          </button>
+        ))}
+        <SoundPalette target={target} />
+      </div>
+      {msg && (
+        <p role="alert" className="text-xs text-danger">
+          {msg}
+        </p>
+      )}
     </div>
   );
 }
