@@ -180,19 +180,9 @@ export async function buildServer(opts: ServerOptions = {}) {
   if (opts.publicUrlDefault && settings.layer('global')['system.publicUrl'] === undefined && !opts.settingsOverride?.['system.publicUrl']) settings.preset('global', '', { 'system.publicUrl': opts.publicUrlDefault });
 
   const journal = new Journal(db, opts.onFatal);
-  const ledger = new Ledger(await openLedgerStore(db), { negativeBalanceLimit: 0 }, () => clock.now(), (tx) => journal.push('ledger', ledgerTxOp(tx)));
+  const ledger = new Ledger(await openLedgerStore(db), () => clock.now(), (tx) => journal.push('ledger', ledgerTxOp(tx)));
   const startSettings = settings.resolve();
   const cash = new CashService(ledger, Number(startSettings['cash.chipsPerCurrencyUnit']));
-  // Kontokorent a záporný limit se nesčítají: se zapnutým kontokorentem je dolní mez peněženky nula a chybějící částku kryje čerpání.
-  const ledgerPolicy = () => {
-    const s = settings.resolve();
-    return { negativeBalanceLimit: Number(s['economy.negativeBalanceLimit']), creditEnabled: !!s['economy.creditEnabled'] };
-  };
-  ledger.setPolicy(ledgerPolicy());
-  // Limit záporného zůstatku i kontokorent platí hned po změně v nastavení, ne až po restartu.
-  settings.onChange((_scope, _scopeId, key) => {
-    if (key === 'economy.negativeBalanceLimit' || key === 'economy.creditEnabled') ledger.setPolicy(ledgerPolicy());
-  });
 
   const publicOrigin = () => {
     try {
@@ -1168,7 +1158,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   publicBoardsRef.current = new PublicBoardService({ db, perms, audit, settings: () => settings.resolve(), stats: () => stats, rating: () => rating, ledger: () => ledger, now: () => clock.now() });
   const timeline = new TimelineService({ db, settings: () => settings.resolve() });
   const houseExpenses = new HouseExpenseService({ db, ledger, perms, audit, wallet, settings: () => settings.resolve(), now: () => clock.now() });
-  const consistency = new ConsistencyService({ db, ledger, perms, wallet, flush: () => journal.flush(), now: () => clock.now(), settings: () => settings.resolve(), recordResults: async (id) => {
+  const consistency = new ConsistencyService({ db, ledger, perms, wallet, flush: () => journal.flush(), now: () => clock.now(), recordResults: async (id) => {
     const x = await tournaments.finishedForStats(id);
     if (x) stats.recordTournament(id, x.info, x.st);
     await stats.idle();

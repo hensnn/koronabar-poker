@@ -16,7 +16,7 @@ async function setup() {
     throw e;
   });
   const store = await openLedgerStore(db);
-  const ledger = new Ledger(store, { negativeBalanceLimit: 0 }, Date.now, (tx) => journal.push('tx', ledgerTxOp(tx)));
+  const ledger = new Ledger(store, Date.now, (tx) => journal.push('tx', ledgerTxOp(tx)));
   return { db, journal, ledger, cash: new CashService(ledger) };
 }
 
@@ -46,7 +46,7 @@ describe('databáze: migrace a účetní kniha', () => {
 
     // „restart“: nová paměťová kniha ze stejné DB
     const j2 = new Journal(s.db);
-    const ledger2 = new Ledger(await openLedgerStore(s.db), { negativeBalanceLimit: 0 }, Date.now, (tx) => j2.push('tx', ledgerTxOp(tx)));
+    const ledger2 = new Ledger(await openLedgerStore(s.db), Date.now, (tx) => j2.push('tx', ledgerTxOp(tx)));
     expect(ledger2.balance(accounts.wallet('u1'))).toBe(750);
     // stejný klíč po restartu se znovu neprovede
     new CashService(ledger2).buyIn('u1', 't1', 400, 'b1');

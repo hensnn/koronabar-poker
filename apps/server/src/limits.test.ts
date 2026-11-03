@@ -268,17 +268,15 @@ describe('poznámky a štítky o hráčích', { timeout: 60_000 }, () => {
   });
 });
 
-describe('limit záporného zůstatku', { timeout: 90_000 }, () => {
-  it('změna v nastavení platí hned, bez restartu serveru', async () => {
-    // Záporný limit platí jen bez kontokorentu (s ním je dolní mez peněženky nula a chybějící částku kryje čerpání).
+describe('peněženka bez záporného zůstatku', { timeout: 90_000 }, () => {
+  it('pohyb, který by peněženku dostal pod nulu, se odmítne; vyřazený klíč economy.negativeBalanceLimit se tiše vypustí', async () => {
     const s = await start({ 'economy.creditEnabled': false });
     const p = await s.user();
     const spend = (key: string, amount: number) =>
       s.server.ledger.post({ kind: 'manual_adjustment', idempotencyKey: key, entries: [{ account: `wallet:${p}`, amount: -amount }, { account: 'mint', amount }] } as never);
-    expect(() => spend('neg-1', 10_500)).toThrow();
-    await s.server.settings.set(s.admin, 'global', '', 'economy.negativeBalanceLimit', 1000);
-    spend('neg-2', 10_500);
-    expect(s.server.ledger.balance(`wallet:${p}`)).toBe(-500);
-    expect(() => spend('neg-3', 600)).toThrow();
+    expect(() => spend('neg-1', 10_500)).toThrow(/INSUFFICIENT/);
+    await expect(s.server.settings.set(s.admin, 'global', '', 'economy.negativeBalanceLimit', 1000)).rejects.toThrow();
+    expect(() => spend('neg-2', 10_500)).toThrow(/INSUFFICIENT/);
+    expect(s.server.ledger.balance(`wallet:${p}`)).toBe(10_000);
   });
 });

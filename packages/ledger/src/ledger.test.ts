@@ -14,14 +14,14 @@ describe('účetní kniha', () => {
     expect(() => l.post({ kind: 'mint', idempotencyKey: 'c', entries: [{ account: 'x', amount: 0 }] })).toThrow(/EMPTY/);
   });
 
-  it('peněženka nesmí do mínusu (bez limitu), s limitem ano', () => {
+  it('peněženka nesmí do mínusu; neúspěšný pokus nic nezmění', () => {
     const { l, c } = mk();
     c.mint('u1', 100, 'm1');
     expect(() => c.buyIn('u1', 't1', 150, 'b1')).toThrow(/INSUFFICIENT/);
-    l.setPolicy({ negativeBalanceLimit: 100 });
-    c.buyIn('u1', 't1', 150, 'b2');
-    expect(l.balance(accounts.wallet('u1'))).toBe(-50);
-    expect(() => c.buyIn('u1', 't1', 100, 'b3')).toThrow(/INSUFFICIENT/);
+    expect(l.balance(accounts.wallet('u1'))).toBe(100);
+    c.buyIn('u1', 't1', 100, 'b2');
+    expect(l.balance(accounts.wallet('u1'))).toBe(0);
+    expect(() => c.buyIn('u1', 't1', 1, 'b3')).toThrow(/INSUFFICIENT/);
   });
 
   it('opakované volání se stejným klíčem se neprovede podruhé', () => {

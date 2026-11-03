@@ -26,7 +26,7 @@ async function setup() {
   const journal = new Journal(db, (e) => {
     throw e;
   });
-  const ledger = new Ledger(new MemoryLedgerStore(), { negativeBalanceLimit: 0 }, () => clock.getTime(), (tx) => journal.push('tx', ledgerTxOp(tx)));
+  const ledger = new Ledger(new MemoryLedgerStore(), () => clock.getTime(), (tx) => journal.push('tx', ledgerTxOp(tx)));
   const approvals = new ApprovalService(db, perms, audit, { now: () => clock });
   // Nastavení základní služby jde v testu změnit (jinak by její automatické splácení běželo vedle služby s jiným nastavením).
   let baseOver: Record<string, number | boolean | string> = {};
@@ -416,7 +416,7 @@ describe('kontokorent (předschválený polštář s automatickým splácením)'
     await s.wallet.creditRepay(hrac, 0 + 0 === 0 ? 1 : 1).catch(() => undefined); // nic: zůstatek je 0
     await s.wallet.setCreditLimit(pok, hrac, 900);
     await s.journal.flush();
-    const ledger = new Ledger(new MemoryLedgerStore(await loadLedger(s.db)), { negativeBalanceLimit: 0 }, () => Date.now(), (tx) => s.journal.push('tx', ledgerTxOp(tx)));
+    const ledger = new Ledger(new MemoryLedgerStore(await loadLedger(s.db)), () => Date.now(), (tx) => s.journal.push('tx', ledgerTxOp(tx)));
     const again = new WalletService({ db: s.db, ledger, perms: s.perms, audit: s.audit, approvals: s.approvals, settings: () => settingsWith({ 'economy.creditLimit': 300 }), flush: () => s.journal.flush() });
     await again.loadCredit();
     expect(again.creditInfo(hrac)).toMatchObject({ debt: 200, limit: 900 });

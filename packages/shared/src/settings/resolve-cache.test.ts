@@ -62,6 +62,8 @@ describe('herní parametry a globální vrstva', () => {
     expect(reg.get('table.variant')).toBeUndefined();
     expect(RETIRED_SETTING_KEYS.has('table.variant')).toBe(true);
     expect(validateValues(reg, { 'table.variant': 'nlhe' })).toEqual([]);
+    expect(reg.get('economy.negativeBalanceLimit')).toBeUndefined();
+    expect(validateValues(reg, { 'economy.negativeBalanceLimit': 100 })).toEqual([]);
   });
 
   it('podmínka osobní volby odkazuje na existující globální klíč', () => {

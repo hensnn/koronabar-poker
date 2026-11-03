@@ -212,7 +212,7 @@ Hloubková kontrola celé aplikace: automatické testy, simulace her na skutečn
 - **10** Výplaty turnaje běží v `try/catch`: při chybě turnaj zůstane běžící s `finishError`, událost `finishFailed` jde do chatu, `retryFinish()` dokončení zopakuje (klíče pohybů jsou pevné, nic se nevyplatí dvakrát). Ruční úprava knihy nesmí na účty běžících her ani na úschovy.
 - **11** Předěl po zrušení stolu turnajem nic nepřepíše (`phase === 'stopped'` se kontroluje po `onBoundary`).
 - **12** Hráči vyřazení v téže handě se stejným stackem dělí výplatu za svá místa rovným dílem (pořadí míst zůstává podle sedadel).
-- **13** Kontokorent a záporný limit se nesčítají: se zapnutým kontokorentem je dolní mez peněženky nula a čerpá se celý chybějící rozdíl. Když původní pohyb selže i po čerpání, čerpání se vrátí (`credit_repay`). Rozhodnutí majitele: záporný limit zůstává jako samostatná volba, při zapnutém kontokorentu se nepoužije.
+- **13** Kontokorent a záporný limit se nesčítají: se zapnutým kontokorentem je dolní mez peněženky nula a čerpá se celý chybějící rozdíl. Když původní pohyb selže i po čerpání, čerpání se vrátí (`credit_repay`). Rozhodnutí majitele (3. 11. 2026): nastavení `economy.negativeBalanceLimit` je odstraněno (vyřazený klíč, uložená hodnota se tiše vypustí); peněženka nikdy nejde pod nulu a chybějící Korony kryje jen kontokorent, který navíc platí jen pro platby za hru a má limit na hráče.
 - **14** Při zavření cash stolu připadne zbytek žetonů (kurz > 1) domu, účet stolu končí na nule.
 - **15 až 21** Web: ochrana proti dvojímu odeslání akce, částky přes `NumInput` s ořezem na rozsah, view jen s rostoucím `seq`, vyhlazený posun hodin, odhlášení odběru stolu, pruh „Obnovuji spojení“, plánovaný tah vázaný na stůl a handu (Call s částkou), tokeny písma bez CSS komentářů, kruh časovače podle nastavení, editor vzhledu bez ztráty fokusu, chat drží dole jen když byl dole, dialog ztlumení místo `prompt()`, Modal s focus trapem a `inert`, sedadla a karty z klávesnice, service worker čeká na potvrzení nové verze.
 - **22** `TRUST_PROXY` (výchozí jen vnitřní síť) a `BIND_ADDRESS` v `.env`; viz `docs/NASAZENI.md`.
@@ -238,7 +238,6 @@ Limit pokusů o změnu e-mailu, blokovaný účet bez platné relace, strop spoj
 - Evidence sázek, výdajů a žádostí se zapisuje mimo dávku knihy (nález 9): kontrola konzistence to odhalí, přesun do Journalu je větší zásah.
 - Uzavřená hlasování run-it se z paměti stolu nemažou (drobné, do zavření stolu).
 - Změna levelu uprostřed handy: UI ukazuje nové blindy, hraje se za staré (jen zobrazení).
-- Záporný limit peněženky lze podle majitele časem úplně odstranit (kontokorent ho nahrazuje); zatím zůstává jako volba.
 - Nové serverové hlášky a pruhy na webu nebyly prohlédnuty v prohlížeči (změny vzhledu jsou malé), doporučeno projít `scripts/screenshots.mjs`.
 - Závislosti: aktualizovány `nodemailer` (10.3.1), `@fastify/cookie`, `@fastify/static`, `fast-uri` (3.1.9); zbývají 2 střední nálezy v `glob`/`minimatch`, které přináší `@fastify/static` a nejdou opravit bez nové verze této knihovny (dopad: teoretické zpomalení při servírování statických souborů, ne únik dat).
 

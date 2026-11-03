@@ -5,7 +5,7 @@ import type { SettingValues } from './types.js';
  * Parametry, které už neexistují, ale mohou být uložené ve starších šablonách, stolech nebo turnajích.
  * Tiše se přeskakují (nejsou chybou), aby se kvůli nim nedala zablokovat práce se šablonou. Nový odstraněný klíč se přidá sem.
  */
-export const RETIRED_SETTING_KEYS: ReadonlySet<string> = new Set(['ui.soundEnabled', 'ui.soundVolumePercent', 'cash.waitingListEnabled', 'time.dealCardMs', 'table.variant']);
+export const RETIRED_SETTING_KEYS: ReadonlySet<string> = new Set(['ui.soundEnabled', 'ui.soundVolumePercent', 'cash.waitingListEnabled', 'time.dealCardMs', 'table.variant', 'economy.negativeBalanceLimit']);
 
 export interface ValidationIssue {
   keys: string[];

@@ -112,12 +112,6 @@ export class InsufficientFundsError extends LedgerError {
   }
 }
 
-export interface LedgerPolicy {
-  /** Povolený záporný zůstatek peněženky. Při zapnutém kontokorentu se nepoužije: chybějící částku kryje kontokorent až do nuly, nic se nesčítá. */
-  negativeBalanceLimit: number;
-  creditEnabled?: boolean;
-}
-
 export interface LedgerStore {
   /** Atomicky provede `fn` nad stavem; při výjimce se nic nezapíše. */
   atomic<T>(fn: (s: MutableState) => T): T;
@@ -216,7 +210,6 @@ const LOADED_TX: Tx = { id: 0, at: 0, kind: 'mint', idempotencyKey: '', entries:
 export class Ledger {
   constructor(
     private store: LedgerStore = new MemoryLedgerStore(),
-    private policy: LedgerPolicy = { negativeBalanceLimit: 0 },
     private now: () => number = Date.now,
     /** Zavolá se synchronně po každé nové (ne opakované) transakci; slouží k zápisu do DB. */
     private onCommit?: (tx: Tx) => void,
@@ -225,10 +218,6 @@ export class Ledger {
   private guardFn: ((req: TxRequest) => void) | null = null;
   private overdraftFn: ((account: string, shortfall: number, req: TxRequest) => TxRequest | null) | null = null;
   private listeners: ((tx: Tx) => void)[] = [];
-
-  setPolicy(p: LedgerPolicy) {
-    this.policy = p;
-  }
 
   /** Hlídač se volá před každou novou transakcí a smí ji zamítnout výjimkou. */
   setGuard(fn: ((req: TxRequest) => void) | null) {
@@ -319,8 +308,9 @@ export class Ledger {
       for (const e of req.entries) delta.set(e.account, (delta.get(e.account) ?? 0) + e.amount);
       for (const [account, d] of delta) {
         const next = s.balance(account) + d;
-        if (account !== accounts.mint() && next < this.floor(account)) {
-          throw new InsufficientFundsError(account, this.floor(account) - next, next);
+        // Žádný účet kromě `mint` nesmí pod nulu. Hráči bez Koron pomůže jen kontokorent (`setOverdraft`), záporný zůstatek peněženky neexistuje.
+        if (account !== accounts.mint() && next < 0) {
+          throw new InsufficientFundsError(account, -next, next);
         }
         s.setBalance(account, next);
       }
@@ -332,12 +322,6 @@ export class Ledger {
       for (const l of this.listeners) l(tx);
     }
     return tx;
-  }
-
-  private floor(account: AccountId): number {
-    if (!account.startsWith('wallet:')) return 0;
-    // Kontokorent a záporný limit se nesčítají: s kontokorentem je dolní mez peněženky nula a chybějící částku kryje čerpání.
-    return this.policy.creditEnabled ? 0 : -this.policy.negativeBalanceLimit;
   }
 
   /** Kontrola invariantu: součet všech účtů včetně `mint` je 0. */

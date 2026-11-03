@@ -33,8 +33,6 @@ interface Deps {
   wallet: WalletService;
   flush: () => Promise<void>;
   now: () => number;
-  /** Nastavení: o kolik smí peněženka klesnout pod nulu. */
-  settings: () => Record<string, unknown>;
   /** Zapíše výsledky skončeného turnaje do statistik (pro doplnění chybějících). */
   recordResults?: (tournamentId: string) => Promise<void>;
 }
@@ -90,9 +88,8 @@ export class ConsistencyService {
     const replayBad = replay.filter((r) => (stored.get(r.account) ?? 0) !== Number(r.sum)).map((r) => `účet ${r.account}: z pohybů ${r.sum}, uložený zůstatek ${stored.get(r.account) ?? 0}`);
     add('balancesFromMoves', replayBad);
 
-    // 4) záporné zůstatky: jen mint smí být záporný (peněženky do limitu povoleného nastavením)
-    const floor = Number(this.deps.settings()['economy.negativeBalanceLimit'] ?? 0);
-    const negative = acc.filter((a) => a.id !== accounts.mint() && Number(a.balance) < (a.id.startsWith('wallet:') ? -floor : 0)).map((a) => `účet ${a.id}: ${a.balance}`);
+    // 4) záporné zůstatky: jen mint smí být záporný (chybějící Korony hráče kryje kontokorent, peněženka pod nulu nejde)
+    const negative = acc.filter((a) => a.id !== accounts.mint() && Number(a.balance) < 0).map((a) => `účet ${a.id}: ${a.balance}`);
     add('noNegativeAccounts', negative);
 
     // 5) uzavřené hry nemají nic v poolu, bounty a úschově

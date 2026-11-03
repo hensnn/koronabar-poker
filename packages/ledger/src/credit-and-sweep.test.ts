@@ -1,12 +1,11 @@
-// Opravy z auditu 2. 11. 2026: kontokorent vs. záporný limit, vrácení čerpání při selhání, zbytek žetonů při zavření stolu, paměťové úložiště.
+// Opravy z auditu 2. 11. 2026: kontokorent kryje celý chybějící rozdíl, vrácení čerpání při selhání, zbytek žetonů při zavření stolu, paměťové úložiště.
 import { describe, expect, it } from 'vitest';
 import { accounts, CashService, Ledger } from './index.js';
 
-describe('kontokorent a záporný limit', () => {
-  const withCredit = (limit: number, negative: number) => {
+describe('kontokorent', () => {
+  const withCredit = (limit: number) => {
     const l = new Ledger();
     const c = new CashService(l);
-    l.setPolicy({ negativeBalanceLimit: negative, creditEnabled: true });
     l.setOverdraft((account, shortfall, req) =>
       shortfall > limit
         ? null
@@ -15,8 +14,8 @@ describe('kontokorent a záporný limit', () => {
     return { l, c };
   };
 
-  it('s kontokorentem je dolní mez peněženky nula: čerpá se celý chybějící rozdíl, záporný limit se nepřičítá', () => {
-    const { l, c } = withCredit(500, 100);
+  it('dolní mez peněženky je nula: čerpá se celý chybějící rozdíl', () => {
+    const { l, c } = withCredit(500);
     c.mint('u1', 100, 'm1');
     c.buyIn('u1', 't1', 300, 'b1');
     expect(l.balance(accounts.wallet('u1'))).toBe(0);
@@ -25,17 +24,8 @@ describe('kontokorent a záporný limit', () => {
     expect(drawn).toBe(200);
   });
 
-  it('bez kontokorentu platí záporný limit jako dřív', () => {
-    const l = new Ledger();
-    const c = new CashService(l);
-    l.setPolicy({ negativeBalanceLimit: 100, creditEnabled: false });
-    c.mint('u1', 100, 'm1');
-    c.buyIn('u1', 't1', 150, 'b1');
-    expect(l.balance(accounts.wallet('u1'))).toBe(-50);
-  });
-
   it('když původní pohyb selže i po čerpání, čerpání se vrátí a hráči nezůstane dluh', () => {
-    const { l } = withCredit(500, 0);
+    const { l } = withCredit(500);
     l.post({ kind: 'mint', idempotencyKey: 'm', entries: [{ account: accounts.mint(), amount: -100 }, { account: accounts.wallet('u1'), amount: 100 }] });
     // druhý účet (dům) nemá dost: peněžence se doplní 50, ale pohyb stejně selže
     expect(() =>

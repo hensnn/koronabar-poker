@@ -88,7 +88,7 @@ Boti pro zkoušení stolů: `pnpm --filter @kb/server exec tsx scripts/dev-bot.t
 
 - Účty (`accounts.*`): `wallet:<userId>`, `table:<id>`, `house`, `mint` (vydání měny, smí být záporný), `fund:<id>`, `escrow:<id>`, `tournament:<id>`, `bounty:<id>`, `external:<cíl>`. **Součet všech účtů je vždy 0.**
 - `EntryKind` (druhy pohybů): `mint`, `cash_*`, `turnaj_*`, `bounty`, `bet_*`, `head_bounty_*` (vč. `head_bounty_cancel` = storno), `rake`, `time_charge`, `jackpot_payout`, `credit_draw` / `credit_repay` (kontokorent), `manual_adjustment`, `shop_purchase`, `transfer_out`.
-- Peněženka nejde pod nulu (podle `economy.negativeBalanceLimit`). Kniha je v paměti autoritativní a do DB se zapisuje asynchronně přes `Journal`; **paměť po startu drží jen zůstatky, ne historii**. Cokoli, co potřebuje historii (dluhy, přehledy vydané měny), se čte z DB po `journal.flush()`.
+- Peněženka nikdy nejde pod nulu (záporný limit neexistuje; chybějící Korony kryje jen kontokorent, viz níže). Kniha je v paměti autoritativní a do DB se zapisuje asynchronně přes `Journal`; **paměť po startu drží jen zůstatky, ne historii**. Cokoli, co potřebuje historii (dluhy, přehledy vydané měny), se čte z DB po `journal.flush()`.
 - **Nic se z knihy nemaže.** Oprava = protipohyb (storno). Smazání historie hry nemění knihu.
 
 ### Kontokorent (dřív „úvěr“)

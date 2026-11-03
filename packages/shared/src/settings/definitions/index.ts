@@ -184,7 +184,6 @@ const economy: SettingDef[] = [
   text('economy.currencySymbol', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 'Ⓚ', 6),
   int('economy.decimals', { category: 'economy', mutability: ADM, scopes: GLOBAL }, 0, 0, 4),
   int('economy.startingBalance', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency' }, 10000, 0, 1_000_000_000),
-  int('economy.negativeBalanceLimit', { category: 'economy', mutability: ADM, scopes: GLOBAL, unit: 'currency', dependsOn: { key: 'economy.creditEnabled', equals: false } }, 0, 0, 1_000_000_000),
 ];
 
 /** Systém: limity. */
