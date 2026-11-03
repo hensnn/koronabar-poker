@@ -240,4 +240,8 @@ Limit pokusů o změnu e-mailu, blokovaný účet bez platné relace, strop spoj
 - Změna levelu uprostřed handy: UI ukazuje nové blindy, hraje se za staré (jen zobrazení).
 - Záporný limit peněženky lze podle majitele časem úplně odstranit (kontokorent ho nahrazuje); zatím zůstává jako volba.
 - Nové serverové hlášky a pruhy na webu nebyly prohlédnuty v prohlížeči (změny vzhledu jsou malé), doporučeno projít `scripts/screenshots.mjs`.
-- Závislosti: viz níže.
+- Závislosti: aktualizovány `nodemailer` (10.3.1), `@fastify/cookie`, `@fastify/static`, `fast-uri` (3.1.9); zbývají 2 střední nálezy v `glob`/`minimatch`, které přináší `@fastify/static` a nejdou opravit bez nové verze této knihovny (dopad: teoretické zpomalení při servírování statických souborů, ne únik dat).
+
+### Kontrola po opravách
+
+Typy a lint (včetně nových pravidel) bez chyb; testy: 1372 prošlo, 1 přeskočen (zátěžový). Prohlédnuto v prohlížeči: lobby, přehled stolů, stránka stolu, pruh o nové verzi aplikace s tlačítkem Obnovit; bez chyb v konzoli.

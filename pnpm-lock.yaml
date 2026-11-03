@@ -39,11 +39,11 @@ importers:
         specifier: ^0.5.10
         version: 0.5.10
       '@fastify/cookie':
-        specifier: ^11.1.3
-        version: 11.1.3
+        specifier: ^11.1.5
+        version: 11.1.5
       '@fastify/static':
-        specifier: ^10.1.6
-        version: 10.1.6
+        specifier: ^10.1.8
+        version: 10.1.8
       '@kb/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
@@ -66,8 +66,8 @@ importers:
         specifier: ^5.12.7
         version: 5.12.7
       nodemailer:
-        specifier: ^10.1.1
-        version: 10.1.1
+        specifier: ^10.3.1
+        version: 10.3.1
       pg:
         specifier: ^8.23.1
         version: 8.23.1
@@ -654,8 +654,8 @@ packages:
   '@fastify/ajv-compiler@4.0.7':
     resolution: {integrity: sha512-VP0yIfwlc1ohj733keYDqyHm1VWeP9VQxYomunhr90jkC4aNNibbkrRiaNgPgqj1ORxUenILR4qzA/ppYBNAtQ==}
 
-  '@fastify/cookie@11.1.3':
-    resolution: {integrity: sha512-RBhlMNsmSG6C5KGiTkhSXBF75xIrUMSytDDBcpnVewhJ8XVYnJTu+SV6FYKXClIRsBuRjOfKbBSULvnPD3X/mg==}
+  '@fastify/cookie@11.1.5':
+    resolution: {integrity: sha512-hs7e0otf7n/lJMpt63EFdQb5/u8kO6DeexEtLPVTybSdItC6SwJ1O0vtTyWvKNR70LZcHLlsUr/y3jFpqtyWRA==}
 
   '@fastify/deepmerge@3.2.2':
     resolution: {integrity: sha512-155eqA/WMQdN6gUD4RrhS2K0Pcz2Ou9pQ86L0sipOpP9ONbTA6oYw/hW4VdBjR4egcDHqmWUK9x80oUX7S1mDQ==}
@@ -675,11 +675,11 @@ packages:
   '@fastify/proxy-addr@5.1.2':
     resolution: {integrity: sha512-uqB4QsgVoro0XDC+DIftIMGXHdBPn+lK6Ek3xXAIxPMCJfqxnbtyEoMCm2KPUVOuIosd7Cyw9HawEqMFM/UA+g==}
 
-  '@fastify/send@4.1.2':
-    resolution: {integrity: sha512-PitRBXg/N4IrE5ToLuP7lITI5Mz8MmP13dv2aMtMNfaGfc5W5hNOwHqcsdQdqu0Lwm5cpDiYLkiOsZTgmhyt2Q==}
+  '@fastify/send@4.2.0':
+    resolution: {integrity: sha512-B5Hr+IFsPbqJJQu6FHE2MFpnHfbPlCOVQUPTdm6PxCcilYGrEQsulbO0z9blgbjndIyLJwa2NWFIIjXpPhbwUg==}
 
-  '@fastify/static@10.1.6':
-    resolution: {integrity: sha512-f3x9XisI+y6AIhIfA/+Q3SFsuXeqNNk5HQh5htgHsPxmMLb4pLFskV6eFaLSW3IbI4azrS5np+/tkzXNH99LyQ==}
+  '@fastify/static@10.1.8':
+    resolution: {integrity: sha512-3CbgWOXJX8f46xxsuOgQl9h0lyQQiABMG40kxRF5PWJk4LyBW5m3mLZoW5glnm2TUTC1gVFCBnqOt5S6zIIIrg==}
 
   '@fontsource/inter@5.3.0':
     resolution: {integrity: sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==}
@@ -2394,11 +2394,11 @@ packages:
   fast-querystring@1.1.2:
     resolution: {integrity: sha512-g6KuKWmFXc0fID8WWH0jit4g0AGBoJhCkJMb1RmbsSEUNvQ+ZC8D6CUZ+GtF8nMzSPXnhiePyyqqipzNNEnHjg==}
 
-  fast-uri@3.1.8:
-    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
+  fast-uri@3.1.9:
+    resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
 
-  fast-uri@4.2.2:
-    resolution: {integrity: sha512-EwVpUMzLVNOmcWW0zi5G3JJwkopB6XXjnVvNBGfqrMMsVew2hkQWl5e/pe/CfYUeS6jt4cIO2MnamEW7v/7wPw==}
+  fast-uri@4.2.3:
+    resolution: {integrity: sha512-I1PXwP5eAhlNlcdpjt9CgB59op2ZvZfxw+BkqGFVIUOgNpCVTcTqp3HhTX7brxj5vsip+nSY4nTvff+eIA76hg==}
 
   fastify-plugin@6.0.1:
     resolution: {integrity: sha512-4wW4RxSmvPXLrh5mgQEiu43qU3bw44N2ss4FTkTkQIbprUhE+/s43QX0j/ttcztdWK7PEkHqVthdc5GdEGDvjA==}
@@ -2686,8 +2686,8 @@ packages:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==}
     engines: {node: '>= 0.6'}
 
-  nodemailer@10.1.1:
-    resolution: {integrity: sha512-pbqZRoeYUO+1E8TJ/11WeY4D2EVujj1hsYjz3qff/vUFDtGnmi7p3iqzTFslYOfQ6PnjVcWxx/CIUSHCSrO/QA==}
+  nodemailer@10.3.1:
+    resolution: {integrity: sha512-uF0AFsJC07Y1vdW7p580DKAnh7rAO+4UPSSB3mDCPNDufoiaOebV6JmrzpxB14OjEEEiBsNdYoM2Y+fN8M7BBA==}
     engines: {node: '>=20.0.0'}
 
   object-assign@4.1.1:
@@ -3345,9 +3345,9 @@ snapshots:
     dependencies:
       ajv: 8.20.0
       ajv-formats: 3.0.1
-      fast-uri: 4.2.2
+      fast-uri: 4.2.3
 
-  '@fastify/cookie@11.1.3':
+  '@fastify/cookie@11.1.5':
     dependencies:
       cookie: 2.0.1
       fastify-plugin: 6.0.1
@@ -3371,7 +3371,7 @@ snapshots:
       '@fastify/forwarded': 3.1.1
       ipaddr.js: 2.5.0
 
-  '@fastify/send@4.1.2':
+  '@fastify/send@4.2.0':
     dependencies:
       '@lukeed/ms': 2.0.2
       escape-html: 1.0.3
@@ -3379,11 +3379,11 @@ snapshots:
       http-errors: 2.0.1
       mime: 3.0.0
 
-  '@fastify/static@10.1.6':
+  '@fastify/static@10.1.8':
     dependencies:
       '@fastify/accept-negotiator': 2.1.1
       '@fastify/error': 4.2.1
-      '@fastify/send': 4.1.2
+      '@fastify/send': 4.2.0
       content-disposition: 3.0.0
       fastify-plugin: 6.0.1
       fastq: 1.20.3
@@ -4703,7 +4703,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.8
+      fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -4920,7 +4920,7 @@ snapshots:
       '@fastify/merge-json-schemas': 0.2.2
       ajv: 8.20.0
       ajv-formats: 3.0.1
-      fast-uri: 4.2.2
+      fast-uri: 4.2.3
       json-schema-ref-resolver: 3.0.1
       rfdc: 1.4.1
 
@@ -4928,9 +4928,9 @@ snapshots:
     dependencies:
       fast-decode-uri-component: 1.0.1
 
-  fast-uri@3.1.8: {}
+  fast-uri@3.1.9: {}
 
-  fast-uri@4.2.2: {}
+  fast-uri@4.2.3: {}
 
   fastify-plugin@6.0.1: {}
 
@@ -5172,7 +5172,7 @@ snapshots:
 
   negotiator@0.6.3: {}
 
-  nodemailer@10.1.1: {}
+  nodemailer@10.3.1: {}
 
   object-assign@4.1.1: {}
 
