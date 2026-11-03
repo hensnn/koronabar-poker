@@ -51,7 +51,7 @@ export function keysOfSet(reg: SettingsRegistry, id: string): string[] {
 const PHONE_UNUSED = /^ui\.(tablePanel|tableSide|tableChatHeight|tableLayout|tableArea|tableFitWindow|tableHeightPercent|hotkey|sizePerDisplay|sizeProfiles)/;
 const DESKTOP_UNUSED = /^ui\.mobile/;
 /** Starší zaškrtávátka pásu pod stolem; dnes jen výchozí rozmístění (viz `ui.mobileOrder`), proto se nenabízejí. */
-const LEGACY = /^ui\.mobile(Best|Events|TimerBar|Sounds)$/;
+const LEGACY = /^ui\.mobile(Best|Events|TimerBar|Sounds|AllIcons)$/;
 
 /** Má parametr smysl nastavovat pro daný druh zařízení? */
 export function usefulOnKind(kind: DeviceKind, key: string): boolean {

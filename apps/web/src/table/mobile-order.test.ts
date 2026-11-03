@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOrder, effectiveOrder, MOBILE_WIDGETS, moveItem, moveToZone, parseMobileOrder, serializeOrder, ZONES, zoneOf } from './mobile-order';
+import { defaultOrder, effectiveOrder, MOBILE_WIDGETS, moveItem, moveToZone, parseMobileOrder, serializeOrder, toggleToolScreen, toolScreens, ZONES, zoneOf } from './mobile-order';
 
 const everywhereOnce = (o: ReturnType<typeof parseMobileOrder>) => {
   const all = ZONES.flatMap((z) => o[z]);
@@ -70,5 +70,27 @@ describe('rozmístění widgetů na telefonu', () => {
     const o = parseMobileOrder('');
     const next = { ...o, s1: moveItem(o.s1, 'events', -1) };
     expect(parseMobileOrder(serializeOrder(next)).s1).toEqual(['timer', 'events', 'best']);
+  });
+  it('ikony v liště: výchozí jsou historie, pauza, chat a info na všech obrazovkách, ostatní jen v nabídce', () => {
+    const o = parseMobileOrder('');
+    expect(toolScreens(o, 'history')).toEqual([1, 2, 3]);
+    expect(toolScreens(o, 'settlement')).toEqual([]);
+    expect(toolScreens(o, 'w:best')).toEqual([1, 2, 3]);
+    expect(toolScreens(parseMobileOrder('', { 'ui.mobileAllIcons': true }), 'settlement')).toEqual([1, 2, 3]);
+  });
+  it('ikona se zapíná po obrazovkách, volba se uloží a načte, při méně obrazovkách se čísla srovnají', () => {
+    let o = parseMobileOrder('');
+    o = toggleToolScreen(o, 'settlement', 2);
+    o = toggleToolScreen(o, 'history', 1);
+    const back = parseMobileOrder(serializeOrder(o));
+    expect(toolScreens(back, 'settlement')).toEqual([2]);
+    expect(toolScreens(back, 'history')).toEqual([2, 3]);
+    expect(toolScreens({ ...back, screens: 2 }, 'history')).toEqual([2]);
+    expect(toolScreens({ ...back, screens: 1 }, 'history')).toEqual([1]);
+  });
+  it('verze 3 se načte s výchozími ikonami', () => {
+    const o = parseMobileOrder(JSON.stringify({ v: 3, screens: 3, s1: ['timer'], s2: ['info'], s3: ['chat'], icon: [], hidden: [] }));
+    expect(toolScreens(o, 'chat')).toEqual([1, 2, 3]);
+    expect(o.s1[0]).toBe('timer');
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { TablePolls } from './polls';
 import { PollEditor } from './poll-editor';
 import { navigate } from '../router';
@@ -16,7 +16,7 @@ import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
 import { MobilePager, MobileScreen, MobileWidgetDrawer, useMobileOrder } from '../table/MobilePager';
 import { MobileOrderEditor, WIDGET_TITLE_KEY } from '../table/MobileOrderEditor';
-import { WIDGET_ICON, zoneOf, type MobileWidget } from '../table/mobile-order';
+import { TOOL_ICON, TOOL_IDS, toolScreens, WIDGET_ICON, zoneOf, type MobileWidget, type ToolId } from '../table/mobile-order';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
 import { MobileBar } from '../table/mobile-ui';
@@ -220,6 +220,40 @@ export function TablePage({ tableId }: { tableId: string }) {
     );
   };
   const drawerTitle = drawer === 'chat' ? t('table.chat') : drawer?.startsWith('w:') ? t(WIDGET_TITLE_KEY[drawer.slice(2) as MobileWidget]) : drawer === 'menu' ? t('table.m.menu') : t('table.panel');
+  // Ikony horní lišty na telefonu: každý nástroj má obrazovky, na kterých je vidět (Nastavení → Telefon → Ikony); všechny jsou vždy v nabídce ☰.
+  const mbtn = 'tk-mbar-btn relative rounded-md border border-line bg-surface';
+  const iconBtn = (key: string, icon: string, label: string, onClick: () => void, extra: { pressed?: boolean; badge?: number } = {}) => (
+    <button key={key} className={mbtn} onClick={onClick} aria-label={label} title={label} aria-pressed={extra.pressed}>
+      {icon}
+      {extra.badge ? <span className="absolute -right-1 -top-1 rounded-full bg-accent px-1 text-xs text-on-act">{extra.badge}</span> : null}
+    </button>
+  );
+  const toolNodes: Record<ToolId, ReactNode> = {
+    history: iconBtn('history', TOOL_ICON.history, t('table.history'), () => setHistory(true)),
+    pause: canPause && view ? iconBtn('pause', view.paused ? '▶' : '⏸', view.paused ? t('table.resume') : t('table.pause'), () => void togglePause(), { pressed: !!view.paused }) : null,
+    chat: channel && zoneOf(order, 'chat') !== 'hidden' ? iconBtn('chat', TOOL_ICON.chat, t('table.chatOpen'), () => goTo('chat'), { badge: channel.unread }) : null,
+    info: iconBtn('info', TOOL_ICON.info, t('table.m.info'), () => goTo('info')),
+    share: !isTournament && features.chat ? <ShareToChat key="share" kind="stul" id={tableId} iconOnly /> : null,
+    settlement: !isTournament ? iconBtn('settlement', TOOL_ICON.settlement, t('table.settlement'), () => setShowSettlement(true)) : null,
+    poll: features.polls && can(me, 'anketa.vytvorit') ? iconBtn('poll', TOOL_ICON.poll, t('polls.tableCreate'), () => setPollOpen(true)) : null,
+    layout: iconBtn('layout', TOOL_ICON.layout, t('table.mobileOff'), () => void saveUserSetting('ui.mobileLayout', 'off', true).catch(() => undefined)),
+    fullscreen: iconBtn('fullscreen', focus ? '⤡' : TOOL_ICON.fullscreen, focus ? t('table.fullscreenExit') : t('table.fullscreen'), () => setFocus((v) => !v), { pressed: focus }),
+    sound: <SoundMenu key="sound" />,
+    assistant: features.assistant ? <AssistantToolButton key="assistant" iconOnly /> : null,
+  };
+  const widgetIcons = order.icon.filter((id) => id !== 'info' && id !== 'chat');
+  const barItems: ReactNode[] = [
+    ...(meSitting ? [<Button key="sitin" onClick={() => void tableApi.sitIn(tableId).catch(() => undefined)} title={t('table.sitIn')} aria-label={t('table.sitIn')}>▶ {t('table.sitIn')}</Button>] : []),
+    ...(othersSitting.length > 0 ? [<span key="others" className="rounded-md border border-warning px-2 py-1 text-sm" title={t('table.sitOutOthers', { names: othersSitting.join(', ') })}>💤 {othersSitting.length}</span>] : []),
+    ...TOOL_IDS.filter((id) => toolNodes[id] && toolScreens(order, id).includes(page + 1)).map((id) => toolNodes[id]),
+    ...widgetIcons.filter((id) => toolScreens(order, `w:${id}`).includes(page + 1)).map((id) => iconBtn(`w:${id}`, WIDGET_ICON[id], t(WIDGET_TITLE_KEY[id]), () => setDrawer(`w:${id}`))),
+  ];
+  // Nabídka ☰: úplná sada nástrojů a widgetů-ikon (co je v liště na obrazovce, je tu také), ať je vždy všechno po ruce.
+  const menuItems: ReactNode[] = [
+    ...(meSitting ? [barItems[0]] : []),
+    ...TOOL_IDS.map((id) => toolNodes[id]).filter(Boolean),
+    ...widgetIcons.map((id) => iconBtn(`m-w:${id}`, WIDGET_ICON[id], t(WIDGET_TITLE_KEY[id]), () => setDrawer(`w:${id}`))),
+  ];
   return (
     <TableWidgetsProvider view={view} tableId={tableId} inBb={inBb} chat={chatWidget}>
     <div className={`tk-tablepage ${hiddenSides.left ? 'tk-no-panel' : ''}`} data-area={areaAlign} style={pageStyle}>
@@ -260,34 +294,8 @@ export function TablePage({ tableId }: { tableId: string }) {
           <MobileBar
             backTo={isTournament ? `/turnaj/${tournamentId}` : '/stoly'}
             title={`${isTournament ? '🏆 ' : ''}${tableInfo ? `${tableInfo.smallBlind}/${tableInfo.bigBlind}` : ''}`}
-            unread={channel?.unread ?? 0}
-            hasChat={!!channel && zoneOf(order, 'chat') !== 'hidden'}
-            onChat={() => goTo('chat')}
-            onInfo={() => goTo('info')}
+            items={barItems}
             onMenu={() => setDrawer('menu')}
-            onHistory={() => setHistory(true)}
-            onPause={canPause && view ? () => void togglePause() : undefined}
-            paused={!!view?.paused}
-            tools={
-              settings.values['ui.mobileAllIcons'] === true || order.icon.some((id) => id !== 'info' && id !== 'chat') ? (
-                <>
-                  {order.icon
-                    .filter((id) => id !== 'info' && id !== 'chat')
-                    .map((id) => (
-                      <button key={id} className="tk-mbar-btn rounded-md border border-line bg-surface" onClick={() => setDrawer(`w:${id}`)} aria-label={t(WIDGET_TITLE_KEY[id])} title={t(WIDGET_TITLE_KEY[id])}>
-                        {WIDGET_ICON[id]}
-                      </button>
-                    ))}
-                  {settings.values['ui.mobileAllIcons'] === true && (
-                    <>
-                      {renderTools(true)}
-                      <SoundMenu />
-                      {features.assistant && <AssistantToolButton iconOnly />}
-                    </>
-                  )}
-                </>
-              ) : undefined
-            }
           />
         ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -385,7 +393,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <MobileWidgetDrawer id={drawer.slice(2) as MobileWidget} channel={channel} />
             ) : drawer === 'menu' ? (
               <>
-                <div className="flex flex-wrap gap-2">{renderTools(true)}</div>
+                <div className="flex flex-wrap items-center gap-2">{menuItems}</div>
                 <Button
                   onClick={() => {
                     setDrawer(null);
@@ -395,7 +403,6 @@ export function TablePage({ tableId }: { tableId: string }) {
                   📱 {t('mobile.order.open')}
                 </Button>
                 <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface p-2">
-                  <SoundMenu />
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" role="switch" checked={settings.values['ui.vibrate'] !== false} onChange={(e) => void saveUserSetting('ui.vibrate', e.target.checked, true).catch(() => undefined)} />
                     {t('table.m.vibrate')}

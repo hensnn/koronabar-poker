@@ -11,66 +11,20 @@ import { useTableWidgets } from './widgets';
 import { effectiveOrder, parseMobileOrder, ORDER_KEY, type MobileWidget } from './mobile-order';
 
 /**
- * Horní lišta nového mobilního rozložení stolu: zpět, krátký název (blindy nebo turnaj) a tři ikony se zásuvkami
- * (chat s počtem nepřečtených, informace o hře, nabídka stolu). Panely počítače se na telefonu nevykreslují.
+ * Horní lišta mobilního rozložení stolu: zpět, krátký název (blindy nebo turnaj), ikony zvolené pro právě zobrazenou obrazovku
+ * (zalomí se do dalšího řádku, když se nevejdou) a pevná nabídka ☰, kde jsou všechny nástroje.
  */
-export function MobileBar({
-  backTo,
-  title,
-  unread,
-  hasChat,
-  onChat,
-  onInfo,
-  onMenu,
-  onHistory,
-  onPause,
-  paused,
-  tools,
-}: {
-  backTo: string;
-  title: string;
-  unread: number;
-  hasChat: boolean;
-  onChat: () => void;
-  onInfo: () => void;
-  onMenu: () => void;
-  onHistory: () => void;
-  /** Pauza stolu (jen kdo smí); undefined = tlačítko se nezobrazí. */
-  onPause?: () => void;
-  paused?: boolean;
-  /** Další nástroje stolu jako ikony (volba „všechny ikony nahoře“); zalomí se do dalšího řádku. */
-  tools?: ReactNode;
-}) {
-  const btn = 'tk-mbar-btn relative rounded-md border border-line bg-surface';
+export function MobileBar({ backTo, title, items, onMenu }: { backTo: string; title: string; items: ReactNode[]; onMenu: () => void }) {
   return (
-    <div className="flex flex-col gap-1">
-    <div className="tk-mbar flex items-center gap-1" role="toolbar" aria-label={t('table.m.bar')}>
+    <div className="tk-mbar flex flex-wrap items-center gap-1" role="toolbar" aria-label={t('table.m.bar')}>
       <Link to={backTo} className="tk-mbar-btn rounded-md border border-line bg-surface text-center" aria-label={t('table.backToLobby')} title={t('table.backToLobby')}>
         ←
       </Link>
       <strong className="min-w-0 flex-1 truncate px-1 text-sm">{title}</strong>
-      <button className={btn} onClick={onHistory} aria-label={t('table.history')} title={t('table.history')}>
-        📜
-      </button>
-      {onPause && (
-        <button className={btn} onClick={onPause} aria-pressed={!!paused} aria-label={paused ? t('table.resume') : t('table.pause')} title={paused ? t('table.resume') : t('table.pause')}>
-          {paused ? '▶' : '⏸'}
-        </button>
-      )}
-      {hasChat && (
-        <button className={btn} onClick={onChat} aria-label={t('table.chatOpen')} title={t('table.chatOpen')}>
-          💬
-          {unread > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-accent px-1 text-xs text-on-act">{unread}</span>}
-        </button>
-      )}
-      <button className={btn} onClick={onInfo} aria-label={t('table.m.info')} title={t('table.m.info')}>
-        ℹ️
-      </button>
-      <button className={btn} onClick={onMenu} aria-label={t('table.m.menu')} title={t('table.m.menu')}>
+      {items}
+      <button className="tk-mbar-btn relative rounded-md border border-line bg-surface" onClick={onMenu} aria-label={t('table.m.menu')} title={t('table.m.menu')}>
         ☰
       </button>
-    </div>
-    {tools && <div className="flex flex-wrap items-center gap-1">{tools}</div>}
     </div>
   );
 }
@@ -154,7 +108,6 @@ export function MobileOptions() {
     <fieldset className="flex flex-col gap-1 border-t border-line pt-2">
       <legend className="text-xs font-semibold text-muted">{t('table.m.options')}</legend>
       {row('ui.mobileTurnAlert')}
-      {row('ui.mobileAllIcons', false)}
       {row('ui.mobileAutoFullscreen', false)}
       {row('ui.hideMyCards', false)}
     </fieldset>

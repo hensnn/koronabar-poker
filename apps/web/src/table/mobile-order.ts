@@ -18,9 +18,20 @@ const LEGACY_FLAG: Partial<Record<MobileWidget, { key: string; def: boolean }>> 
   events: { key: 'ui.mobileEvents', def: true },
 };
 
+/** Nástroje stolu v horní liště na telefonu (kromě nich jsou v liště i widgety umístěné jako ikona, klíč `w:<widget>`). */
+export const TOOL_IDS = ['history', 'pause', 'chat', 'info', 'share', 'settlement', 'poll', 'layout', 'fullscreen', 'sound', 'assistant'] as const;
+export type ToolId = (typeof TOOL_IDS)[number];
+export const TOOL_ICON: Record<ToolId, string> = { history: '📜', pause: '⏸', chat: '💬', info: 'ℹ️', share: '🔗', settlement: '🧾', poll: '🗳️', layout: '🖥️', fullscreen: '⛶', sound: '🔊', assistant: '🤖' };
+export const TOOL_TITLE_KEY: Record<ToolId, string> = { history: 'table.history', pause: 'table.pause', chat: 'table.chatOpen', info: 'table.m.info', share: 'chat.share', settlement: 'table.settlement', poll: 'polls.tableCreate', layout: 'table.mobileOff', fullscreen: 'table.fullscreen', sound: 'sounds.palette', assistant: 'assistant.title' };
+
+/** Na kterých obrazovkách (1 až 3) je ikona v horní liště; nic = jen v nabídce ☰. */
+const DEFAULT_TOOLS: Record<ToolId, number[]> = { history: [1, 2, 3], pause: [1, 2, 3], chat: [1, 2, 3], info: [1, 2, 3], share: [], settlement: [], poll: [], layout: [], fullscreen: [], sound: [], assistant: [] };
+
 export interface MobileOrder {
   /** Kolik obrazovek se používá (1 až 3). */
   screens: 1 | 2 | 3;
+  /** Vlastní volba obrazovek pro ikony v liště (jen to, co hráč změnil). */
+  tools: Record<string, number[]>;
   s1: MobileWidget[];
   s2: MobileWidget[];
   s3: MobileWidget[];
@@ -44,7 +55,7 @@ export function defaultOrder(values: Record<string, unknown> = {}): MobileOrder 
   };
   const s1 = (['timer', 'best', 'sounds', 'events'] as const).filter(on) as MobileWidget[];
   const s2 = (['table', 'info', 'players', 'best', 'events', 'sounds', 'bounties'] as const).filter((id) => !s1.includes(id));
-  return { screens: 3, s1, s2, s3: ['chat'], icon: [], hidden: on('timer') ? [] : ['timer'] };
+  return { screens: 3, tools: values['ui.mobileAllIcons'] === true ? Object.fromEntries(TOOL_IDS.map((id) => [id, [1, 2, 3]])) : {}, s1, s2, s3: ['chat'], icon: [], hidden: on('timer') ? [] : ['timer'] };
 }
 
 /**
@@ -60,7 +71,7 @@ export function parseMobileOrder(raw: unknown, values: Record<string, unknown> =
   } catch {
     obj = null;
   }
-  if (!obj || (obj.v !== 2 && obj.v !== 3)) return def;
+  if (!obj || (obj.v !== 2 && obj.v !== 3 && obj.v !== 4)) return def;
   // verze 2: pod stolem → obrazovka 1, informace → obrazovka 2, chat na obrazovku 3
   const src: Record<string, unknown> = obj.v === 2 ? { s1: obj.mid, s2: obj.info, hidden: obj.hidden, screens: 3 } : obj;
   const seen = new Set<MobileWidget>();
@@ -76,13 +87,34 @@ export function parseMobileOrder(raw: unknown, values: Record<string, unknown> =
     return out;
   };
   const n = Number(src.screens);
-  const out: MobileOrder = { screens: n === 1 || n === 2 ? n : 3, s1: take('s1'), s2: take('s2'), s3: take('s3'), icon: take('icon'), hidden: take('hidden') };
+  const tools: Record<string, number[]> = {};
+  if (obj.v === 4 && src.tools && typeof src.tools === 'object') {
+    for (const [k, v] of Object.entries(src.tools as Record<string, unknown>)) {
+      const known = (TOOL_IDS as readonly string[]).includes(k) || (k.startsWith('w:') && MOBILE_WIDGETS.includes(k.slice(2) as MobileWidget));
+      if (known && Array.isArray(v)) tools[k] = [...new Set(v.filter((x): x is number => x === 1 || x === 2 || x === 3))].sort();
+    }
+  }
+  const out: MobileOrder = { screens: n === 1 || n === 2 ? n : 3, tools: obj.v === 4 ? tools : def.tools, s1: take('s1'), s2: take('s2'), s3: take('s3'), icon: take('icon'), hidden: take('hidden') };
   for (const zone of ZONES) for (const id of def[zone]) if (!seen.has(id)) { seen.add(id); out[zone].push(id); }
   for (const id of MOBILE_WIDGETS) if (!seen.has(id)) out[allowedZones(id)[0]!].push(id);
   return out;
 }
 
-export const serializeOrder = (o: MobileOrder): string => JSON.stringify({ v: 3, ...o });
+export const serializeOrder = (o: MobileOrder): string => JSON.stringify({ v: 4, ...o });
+
+/** Obrazovky, na kterých je ikona v horní liště (podle volby hráče nebo výchozí); čísla nad počtem používaných obrazovek se přesunou na poslední. */
+export function toolScreens(order: MobileOrder, key: string): number[] {
+  const stored = order.tools[key];
+  const base = stored ?? (key.startsWith('w:') ? [1, 2, 3] : (DEFAULT_TOOLS[key as ToolId] ?? []));
+  return [...new Set(base.map((n) => Math.min(n, order.screens)))].sort();
+}
+
+/** Zapne nebo vypne ikonu na dané obrazovce. */
+export function toggleToolScreen(order: MobileOrder, key: string, n: number): MobileOrder {
+  const cur = toolScreens(order, key);
+  const next = cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n].sort();
+  return { ...order, tools: { ...order.tools, [key]: next } };
+}
 
 /**
  * Skutečné rozmístění podle počtu používaných obrazovek: widgety z nepoužívaných obrazovek přejdou na poslední používanou,
