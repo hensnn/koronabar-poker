@@ -4,6 +4,7 @@ import { t } from '@kb/shared';
 import { Link, Redirect, useLocation } from '../../router';
 import { NavTabs } from '../../nav-tabs';
 import { can, useSession, type Me } from '../../session';
+import { saveUserSetting, useSettings } from '../../settings';
 
 // Stránky správy se načítají až při otevření.
 const CashierPanel = lazyPage(() => import('../wallet'), 'CashierPanel');
@@ -69,12 +70,12 @@ const SECTIONS: Section[] = [
 
 const GROUPS: AdminGroup[] = ['people', 'game', 'money', 'system'];
 
-const LAST_KEY = 'kb.admin.last';
+const LAST_KEY = 'ui.adminLast';
 
-/** Naposledy otevřené stránky správy: podle kategorie a celkově (`_`). */
-function loadLast(): Record<string, string> {
+/** Naposledy otevřené stránky správy: podle kategorie a celkově (`_`); pamatují se v osobním nastavení. */
+function parseLast(raw: unknown): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(LAST_KEY) ?? '{}') as Record<string, string>;
+    return JSON.parse(typeof raw === 'string' && raw ? raw : '{}') as Record<string, string>;
   } catch {
     return {};
   }
@@ -91,22 +92,22 @@ export const isAdmin = (me: Me): boolean => SECTIONS.some((s) => s.show(me));
 export function AdminRouter() {
   const { me } = useSession();
   const { path } = useLocation();
+  const raw = useSettings().values[LAST_KEY];
   const visible = me ? SECTIONS.filter((s) => s.show(me)) : [];
   const current = visible.find((s) => path === s.path);
   // Zapamatuje poslední použitou stránku (celkově i v kategorii), ať se příště otevře tam, kde jsem skončil.
   useEffect(() => {
     if (!current) return;
-    try {
-      localStorage.setItem(LAST_KEY, JSON.stringify({ ...loadLast(), _: current.path, [current.group]: current.path }));
-    } catch {
-      /* bez úložiště se jen nezapamatuje */
-    }
+    const last = parseLast(raw);
+    if (last._ === current.path && last[current.group] === current.path) return;
+    void saveUserSetting(LAST_KEY, JSON.stringify({ ...last, _: current.path, [current.group]: current.path }), true).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
   if (!me) return null;
   if (visible.length === 0) return <Redirect to="/" />;
-  if (!current) return <Redirect to={lastInGroup(visible.map((s) => s.path), loadLast()._)} />;
+  if (!current) return <Redirect to={lastInGroup(visible.map((s) => s.path), parseLast(raw)._)} />;
   // Kategorie bez oprávněných položek zmizí; kategorie vede na poslední použitou stránku v ní.
-  const last = loadLast();
+  const last = parseLast(raw);
   const groups = GROUPS.map((g) => ({ id: g, items: visible.filter((s) => s.group === g) })).filter((g) => g.items.length > 0);
   const tabs = groups.map((g) => ({ to: lastInGroup(g.items.map((s) => s.path), last[g.id]), label: t(`admin.group.${g.id}`) }));
   const groupOf = new Map(tabs.map((tab, i) => [tab.to, groups[i]!.id]));

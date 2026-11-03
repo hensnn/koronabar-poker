@@ -9,7 +9,7 @@ import { ShareHandButton } from './hand-share';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Tabs, Td, TextInput } from '../ui';
 import { CategoriesView } from './stats-categories';
 import { YearView } from './stats-year';
-import { useSettings } from '../settings';
+import { saveUserSetting, useSettings } from '../settings';
 import { useLocation } from '../router';
 import { ProgressPage } from './progress';
 import { useFeatures } from '../features';
@@ -274,16 +274,16 @@ interface OverviewRow {
   lastSeenAt: number | null;
 }
 
-const PREF_KEY = 'kb.overview.compare';
+const PREF_KEY = 'ui.statsCompare';
 interface ComparePref {
   picked?: string[];
   metric?: 'profit' | 'balance' | 'xp';
   range?: '30' | '90' | '365' | 'all';
 }
-/** Poslední výběr srovnání se pamatuje v tomto prohlížeči (jen pohodlí; bez úložiště se použije výchozí). */
-function loadPref(): ComparePref {
+/** Poslední výběr srovnání se pamatuje v osobním nastavení (neplatná hodnota = výchozí výběr). */
+function loadPref(raw: unknown): ComparePref {
   try {
-    return JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') as ComparePref;
+    return JSON.parse(typeof raw === 'string' && raw ? raw : '{}') as ComparePref;
   } catch {
     return {};
   }
@@ -296,7 +296,9 @@ function PlayersOverview({ meId }: { meId: string }) {
   const [rows, setRows] = useState<OverviewRow[] | null>(null);
   const [error, setError] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'total', dir: -1 });
-  const pref = useMemo(loadPref, []);
+  const settings = useSettings();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pref = useMemo(() => loadPref(settings.values[PREF_KEY]), []);
   const features = useFeatures();
   const tournamentRating = features.ratingTournament;
   const cashRating = features.ratingCash;
@@ -305,11 +307,9 @@ function PlayersOverview({ meId }: { meId: string }) {
   const [series, setSeries] = useState<Series[]>([]);
   const [range, setRange] = useState<'30' | '90' | '365' | 'all'>(pref.range ?? 'all');
   useEffect(() => {
-    try {
-      localStorage.setItem(PREF_KEY, JSON.stringify({ picked: picked ?? undefined, metric, range }));
-    } catch {
-      /* úložiště nemusí být dostupné */
-    }
+    const next = JSON.stringify({ picked: picked ?? undefined, metric, range });
+    if (next !== String(settings.values[PREF_KEY] ?? '') && next.length <= 2000) void saveUserSetting(PREF_KEY, next, true).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picked, metric, range]);
   useEffect(() => {
     get<{ rows: OverviewRow[] }>('/api/stats/overview')
@@ -573,32 +573,15 @@ function SeasonsAdmin({ seasons, reload }: { seasons: Season[]; reload: () => vo
   );
 }
 
-const SEASON_PREF = 'kb.stats.season';
-
-/** Naposledy zvolené období; bez volby platí právě běžící sezóna. */
-function loadSeason(): string {
-  try {
-    return localStorage.getItem(SEASON_PREF) || 'current';
-  } catch {
-    return 'current';
-  }
-}
-
 export function StatsPage() {
   const { me } = useSession();
   const settings = useSettings();
   const features = useFeatures();
   const wantProgress = new URLSearchParams(useLocation().search).get('tab') === 'postup';
   const [tab, setTab] = useState<'mine' | 'year' | 'players' | 'board' | 'hands' | 'seasons' | 'progress'>(wantProgress ? 'progress' : 'mine');
-  const [season, setSeasonState] = useState(loadSeason);
-  const setSeason = (v: string) => {
-    setSeasonState(v);
-    try {
-      localStorage.setItem(SEASON_PREF, v);
-    } catch {
-      /* bez úložiště se volba jen nezapamatuje */
-    }
-  };
+  // Zvolené období se pamatuje v osobním nastavení (prázdné = právě běžící sezóna).
+  const season = String(settings.values['ui.statsSeason'] || 'current');
+  const setSeason = (v: string) => void saveUserSetting('ui.statsSeason', v, true).catch(() => undefined);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const manage = can(me, 'statistiky.sezony');
   const reload = useCallback(() => {

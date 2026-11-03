@@ -20,7 +20,7 @@ describe('sdílení nastavení telefonu', () => {
     }
   });
   it('paměť zabalených karet se sdílí v sadě vzhled', () => {
-    expect(keysOfSet(reg, 'look')).toContain('ui.foldState');
+    for (const k of ['ui.foldState', 'ui.statsSeason', 'ui.statsCompare', 'ui.adminLast']) expect(keysOfSet(reg, 'look'), k).toContain(k);
   });
   it('každé osobní nastavení patří do některé sady', () => {
     const all = new Set(SETTING_SETS.flatMap((s) => keysOfSet(reg, s.id)));

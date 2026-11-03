@@ -4,6 +4,7 @@ import { errorText, get, post } from '../api';
 import { onSocket } from '../net';
 import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
+import { useFold } from '../fold-state';
 import { Badge, Button, Card, DataTable, Fold, Notice, Spinner, Tabs, Td } from '../ui';
 import { DealPanel } from './deal';
 import { SummaryTable, type TournamentSummary } from './tournament-result';
@@ -114,8 +115,6 @@ const levelText = (l: LevelDto | null): string => (l ? `${l.smallBlind}/${l.bigB
 
 // ---------- přehled turnajů ----------
 
-const FILTER_KEY = 'kb.tournaments.showFinished';
-
 export function TournamentsPage() {
   const { me } = useSession();
   const [data, setData] = useState<{ tournaments: Summary[]; templates: Template[] } | null>(null);
@@ -123,22 +122,10 @@ export function TournamentsPage() {
   const [creating, setCreating] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [tab, setTab] = useState<'list' | 'calendar' | 'series'>('list');
-  // Volba „Ukázat i skončené“ se pamatuje v prohlížeči, aby se nemusela zapínat pokaždé.
-  const [filter, setFilterState] = useState<'open' | 'all'>(() => {
-    try {
-      return localStorage.getItem(FILTER_KEY) === 'all' ? 'all' : 'open';
-    } catch {
-      return 'open';
-    }
-  });
-  const setFilter = (v: 'open' | 'all') => {
-    setFilterState(v);
-    try {
-      localStorage.setItem(FILTER_KEY, v);
-    } catch {
-      /* bez uložení */
-    }
-  };
+  // Volba „Ukázat i skončené“ se pamatuje v osobním nastavení (sdílí se spolu s ostatními volbami).
+  const [showAll, setShowAll] = useFold('turnaje|ukazat-skoncene', false);
+  const filter: 'open' | 'all' = showAll ? 'all' : 'open';
+  const setFilter = (v: 'open' | 'all') => setShowAll(v === 'all');
   const reload = useCallback(() => {
     get<{ tournaments: Summary[]; templates: Template[] }>('/api/tournaments')
       .then((d) => {

@@ -268,15 +268,6 @@ export function SettingsForm(p: Props) {
   );
 }
 
-const HELP_STORE = 'kb.settings.helpOpen';
-function helpOpenKeys(): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(HELP_STORE) ?? '[]') as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
 function Row({ def, values, origins, editScope, onChange, onReset, issues, pendingKeys, rowClass = '' }: Props & { def: SettingDef; rowClass?: string }) {
   const value = values[def.key] as SettingValue;
   const unsaved = pendingKeys?.includes(def.key) ?? false;
@@ -289,18 +280,7 @@ function Row({ def, values, origins, editScope, onChange, onReset, issues, pendi
   const when = WHEN[def.mutability] ?? WHEN.anytime!;
   const isBool = def.type === 'bool';
   // Popis a upozornění jsou sbalené na konci položky; rozbalí se klepnutím na „?“ a zapamatuje se to pro každý parametr zvlášť.
-  const [helpOpen, setHelpOpenState] = useState(() => helpOpenKeys().has(def.key));
-  const setHelpOpen = (v: boolean) => {
-    setHelpOpenState(v);
-    const keys = helpOpenKeys();
-    if (v) keys.add(def.key);
-    else keys.delete(def.key);
-    try {
-      localStorage.setItem(HELP_STORE, JSON.stringify([...keys]));
-    } catch {
-      /* úložiště nemusí být dostupné */
-    }
-  };
+  const [helpOpen, setHelpOpen] = useFold(`napoveda|${def.key}`, false);
   const badge = (
     <span className={`ml-2 inline-flex items-center gap-1 rounded-full border px-2 text-xs ${when.cls}`}>
       <span aria-hidden="true">{when.icon}</span>
