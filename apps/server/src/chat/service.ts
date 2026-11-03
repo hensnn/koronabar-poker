@@ -154,6 +154,8 @@ export class ChatService {
       }
       case 'dm':
       case 'group': {
+        // Vypnuté skupinové chaty zůstávají v databázi, ale nikdo je nečte ani nepíše do nich.
+        if (ch.kind === 'group' && !this.s['chat.groupsEnabled']) return { read: false, write: false };
         const member = await this.isMember(ch.id, userId);
         return { read: member, write: member && canWrite };
       }
@@ -243,6 +245,7 @@ export class ChatService {
   }
 
   async createGroup(userId: string, name: string, memberIds: string[]): Promise<string> {
+    if (!this.s['chat.groupsEnabled']) throw new ChatError('FORBIDDEN');
     if (!this.deps.perms.can(userId, 'chat.vytvorit_kanal').allowed || !this.deps.perms.can(userId, 'chat.psat').allowed) throw new ChatError('FORBIDDEN');
     const members = [...new Set([userId, ...memberIds])];
     if (!name.trim() || name.length > 60 || members.length < 2 || members.length > 20) throw new ChatError('INVALID');

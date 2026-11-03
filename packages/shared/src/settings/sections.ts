@@ -36,6 +36,7 @@ type Rule = [id: string, re: RegExp];
 export const SUBGROUP_RULES: Record<string, Rule[]> = {
   ui: [
     ['ui.look', /^ui\.(colorMode|density|themeId|fontScalePercent|reducedMotion)$/],
+    ['ui.chat', /^ui.chat(List|TablesWithChannels|HideEmpty)$/],
     ['ui.layout', /^ui\.(tablePanel|sizePerDisplay|sizeProfiles|tableLayout|foldState|statsSeason|statsCompare|adminLast|tableSide|noteWindow|tableArea|tableFitWindow|tableHeightPercent|tableChat|compactHeader)/],
     ['ui.show', /^(ui\.(showPlayerNotes|showSymbol|showChipLabel|rotateToMe|hideMyCards|chipLeaderCrown|winImpact|betChips|tableWaitInfo|tournamentWaitBanner|tableNotices|timeoutNotice|showSystem|showPlayers|showInBb)|chat\.show)/],
     ['ui.showdown', /^ui\.(showdown|runItResponse)/],
@@ -105,7 +106,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
     ['poll.pause', /^poll\.pauseVote/],
   ],
   chat: [
-    ['chat.general', /^chat\.(enabled|mainChannelName|maxLength|messagesPerMinute|historyDays|editWindowMinutes|playerChannels|spectatorChat|wordFilter|autoTournamentMessages|emojiList)$/],
+    ['chat.general', /^chat\.(enabled|mainChannelName|maxLength|messagesPerMinute|historyDays|editWindowMinutes|playerChannels|groupsEnabled|spectatorChat|wordFilter|autoTournamentMessages|emojiList)$/],
     ['chat.images', /^chat\.image/],
     ['chat.notify', /^(chat\.digest|push\.chat)/],
   ],

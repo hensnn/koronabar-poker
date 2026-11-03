@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get } from '../api';
 import {
@@ -22,6 +22,7 @@ import {
   type Channel,
   type Message,
 } from '../chat-store';
+import { useFold } from '../fold-state';
 import { useNetSelector } from '../net';
 import { can, useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
@@ -56,55 +57,105 @@ export function ChatPage() {
     void loadChannels().catch(() => undefined);
     return () => setActive(null);
   }, []);
+  // Nevybraná nebo zmizelá místnost (např. po vypnutí skupin) se nahradí hlavním kanálem.
   useEffect(() => {
-    if (!activeId && store.channels[0]) setActiveId(store.channels.find((c) => c.kind === 'public')?.id ?? store.channels[0].id);
+    if ((!activeId || !store.channels.some((c) => c.id === activeId)) && store.channels[0]) setActiveId(store.channels.find((c) => c.kind === 'public')?.id ?? store.channels[0].id);
   }, [store.channels, activeId]);
   const channel = store.channels.find((c) => c.id === activeId) ?? null;
 
-  const groups: { title: string; list: Channel[] }[] = [
-    { title: t('chat.group.public'), list: store.channels.filter((c) => c.kind === 'public') },
-    { title: t('chat.group.tables'), list: store.channels.filter((c) => c.kind === 'table') },
-    { title: t('chat.group.groups'), list: store.channels.filter((c) => c.kind === 'group') },
-    { title: t('chat.group.dm'), list: store.channels.filter((c) => c.kind === 'dm') },
+  // Vzhled seznamu místností je osobní nastavení (kompaktní seznam nebo karty, stoly mezi kanály, skrytí prázdných oddílů); skupiny může vypnout správce.
+  const values = useSettings().values;
+  const cards = values['ui.chatList'] === 'cards';
+  const tablesWithChannels = values['ui.chatTablesWithChannels'] !== false;
+  const hideEmpty = values['ui.chatHideEmpty'] !== false;
+  const groupsOn = values['chat.groupsEnabled'] !== false;
+  const [onlineOpen, setOnlineOpen] = useFold('chat|online', false);
+  const of = (...kinds: Channel['kind'][]) => store.channels.filter((c) => kinds.includes(c.kind));
+  const groups: { key: string; title: string; list: Channel[] }[] = [
+    { key: 'public', title: t('chat.group.public'), list: of('public', ...(tablesWithChannels ? (['table'] as const) : [])) },
+    ...(tablesWithChannels ? [] : [{ key: 'tables', title: t('chat.group.tables'), list: of('table') }]),
+    ...(groupsOn ? [{ key: 'groups', title: t('chat.group.groups'), list: of('group') }] : []),
+    { key: 'dm', title: t('chat.group.dm'), list: of('dm') },
+  ].filter((g) => !hideEmpty || g.list.length > 0);
+  const canCreateChannel = can(me, 'chat.spravovat_kanaly') || can(me, 'chat.vytvorit_kanal');
+  const actions: { id: 'dm' | 'group' | 'channel' | 'search'; icon: string; label: string }[] = [
+    { id: 'dm', icon: '✉️', label: t('chat.newDm') },
+    ...(groupsOn ? [{ id: 'group' as const, icon: '👥', label: t('chat.newGroup') }] : []),
+    ...(canCreateChannel ? [{ id: 'channel' as const, icon: '＃', label: t('chat.newChannel') }] : []),
+    { id: 'search', icon: '🔍', label: t('chat.search') },
   ];
+  const onlineList = (
+    <ul className="flex flex-col gap-1 text-sm">
+      {presence.map((p) => (
+        <li key={p.userId} className="flex items-center justify-between">
+          <button className="underline" onClick={() => p.userId !== me?.user.id && void startDm(p.userId).then(setActiveId)}>
+            {p.nickname}
+          </button>
+          {p.status === 'table' && <Badge tone="success">{t('chat.atTable')}</Badge>}
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="flex flex-col gap-3">
-        {groups.map((g) => (
-          <Card key={g.title} title={g.title}>
-            <ul className="flex flex-col gap-1">
-              {g.list.map((c) => (
-                <li key={c.id}>
-                  <button className={`flex w-full items-center justify-between rounded-sm px-2 py-1 text-left ${c.id === activeId ? 'bg-primary text-on-primary' : 'bg-surface'}`} onClick={() => setActiveId(c.id)}>
-                    <span className="truncate">{c.name}</span>
+      {cards ? (
+        <aside className="flex flex-col gap-3">
+          {groups.map((g) => (
+            <Card key={g.key} title={g.title}>
+              <ul className="flex flex-col gap-1">
+                {g.list.map((c) => (
+                  <li key={c.id}>
+                    <button className={`flex w-full items-center justify-between rounded-sm px-2 py-1 text-left ${c.id === activeId ? 'bg-primary text-on-primary' : 'bg-surface'}`} onClick={() => setActiveId(c.id)}>
+                      <span className="truncate">{c.kind === 'table' && tablesWithChannels ? '🪑 ' : ''}{c.name}</span>
+                      {c.unread > 0 && <Badge tone="danger">{c.unread}</Badge>}
+                    </button>
+                  </li>
+                ))}
+                {g.list.length === 0 && <li className="text-sm text-muted">{t('chat.none')}</li>}
+              </ul>
+            </Card>
+          ))}
+          <div className="flex flex-wrap gap-2">
+            {actions.map((a) => (
+              <Button key={a.id} onClick={() => setDialog(a.id)}>
+                {a.label}
+              </Button>
+            ))}
+          </div>
+          <Card title={t('chat.online', { n: presence.length })}>{onlineList}</Card>
+        </aside>
+      ) : (
+        <aside className="flex min-w-0 flex-col gap-2">
+          {/* Jeden úsporný seznam; na telefonu jeden řádek s posouváním do stran, aby zprávy nebyly až pod ním. */}
+          <nav aria-label={t('chat.channels')} className="flex items-center gap-1 overflow-x-auto md:flex-col md:items-stretch md:overflow-visible">
+            {groups.map((g, i) => (
+              <Fragment key={g.key}>
+                {i > 0 && <span aria-hidden="true" className="mx-1 self-stretch border-l border-line md:hidden" />}
+                <span className="hidden px-2 pt-1 text-xs uppercase text-muted md:block">{g.title}</span>
+                {g.list.map((c) => (
+                  <button key={c.id} className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md px-2 py-1 text-left md:w-full md:whitespace-normal ${c.id === activeId ? 'bg-primary text-on-primary' : 'bg-surface'}`} onClick={() => setActiveId(c.id)}>
+                    <span className="truncate">{c.kind === 'table' && tablesWithChannels ? '🪑 ' : ''}{c.name}</span>
                     {c.unread > 0 && <Badge tone="danger">{c.unread}</Badge>}
                   </button>
-                </li>
-              ))}
-              {g.list.length === 0 && <li className="text-sm text-muted">{t('chat.none')}</li>}
-            </ul>
-          </Card>
-        ))}
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setDialog('dm')}>{t('chat.newDm')}</Button>
-          <Button onClick={() => setDialog('group')}>{t('chat.newGroup')}</Button>
-          {(can(me, 'chat.spravovat_kanaly') || can(me, 'chat.vytvorit_kanal')) && <Button onClick={() => setDialog('channel')}>{t('chat.newChannel')}</Button>}
-          <Button onClick={() => setDialog('search')}>{t('chat.search')}</Button>
-        </div>
-        <Card title={t('chat.online', { n: presence.length })}>
-          <ul className="flex flex-col gap-1 text-sm">
-            {presence.map((p) => (
-              <li key={p.userId} className="flex items-center justify-between">
-                <button className="underline" onClick={() => p.userId !== me?.user.id && void startDm(p.userId).then(setActiveId)}>
-                  {p.nickname}
-                </button>
-                {p.status === 'table' && <Badge tone="success">{t('chat.atTable')}</Badge>}
-              </li>
+                ))}
+                {g.list.length === 0 && <span className="hidden px-2 text-sm text-muted md:block">{t('chat.none')}</span>}
+              </Fragment>
             ))}
-          </ul>
-        </Card>
-      </aside>
+          </nav>
+          <div className="flex flex-wrap items-center gap-1">
+            {actions.map((a) => (
+              <button key={a.id} type="button" title={a.label} aria-label={a.label} className="rounded-md border border-line bg-surface px-2 py-1" onClick={() => setDialog(a.id)}>
+                {a.icon}
+              </button>
+            ))}
+            <button type="button" aria-expanded={onlineOpen} onClick={() => setOnlineOpen(!onlineOpen)} className="ml-auto text-sm text-muted">
+              {onlineOpen ? '▾' : '▸'} {t('chat.online', { n: presence.length })}
+            </button>
+          </div>
+          {onlineOpen && onlineList}
+        </aside>
+      )}
       <section>{channel ? <ChatPanel key={channel.id} channel={channel} /> : <Notice>{t('chat.select')}</Notice>}</section>
       {dialog === 'dm' && <PickUserDialog title={t('chat.newDm')} multiple={false} onClose={() => setDialog(null)} onPick={async (ids) => { const id = await startDm(ids[0]!); setActiveId(id); setDialog(null); }} />}
       {dialog === 'group' && <PickUserDialog title={t('chat.newGroup')} multiple named onClose={() => setDialog(null)} onPick={async (ids, name) => { const id = await startGroup(name ?? '', ids); setActiveId(id); setDialog(null); }} />}

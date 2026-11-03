@@ -119,6 +119,23 @@ describe('kanály a oprávnění', () => {
     expect(await code(open.chat.createPublicChannel(p, 'Hráčský'))).toBe('OK');
   });
 
+  it('vypnuté skupinové chaty: nelze založit, existující se nikomu neukážou ani nedoručí a po zapnutí se vrátí', async () => {
+    const over: Record<string, number | boolean | string> = {};
+    const s = await setup(over);
+    const [a, b] = [await s.user('A'), await s.user('B')];
+    const g = await s.chat.createGroup(a, 'Pátek', [b]);
+    expect((await s.chat.listChannels(b)).some((x) => x.kind === 'group')).toBe(true);
+    over['chat.groupsEnabled'] = false;
+    expect(await code(s.chat.createGroup(a, 'Sobota', [b]))).toBe('FORBIDDEN');
+    expect((await s.chat.listChannels(b)).some((x) => x.kind === 'group')).toBe(false);
+    expect(await code(s.chat.send(b, g, 'jedu'))).toBe('FORBIDDEN');
+    expect(await code(s.chat.history(b, g))).toBe('FORBIDDEN');
+    // soukromé zprávy 1:1 vypnutím skupin dotčeny nejsou
+    expect(await code(s.chat.openDm(a, b))).toBe('OK');
+    over['chat.groupsEnabled'] = true;
+    expect((await s.chat.listChannels(b)).some((x) => x.kind === 'group')).toBe(true);
+  });
+
   it('chat stolu: čte a píše jen ten, kdo má ke stolu přístup; přihlížející podle nastavení', async () => {
     const s = await setup();
     const [hrac, divak, cizi] = [await s.user('Hrac'), await s.user('Divak'), await s.user('Cizi')];

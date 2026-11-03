@@ -459,6 +459,7 @@ export const csUi: Record<string, string> = {
   'cashier.entries': 'Záznamy',
 
   // Chat
+  'chat.channels': 'Místnosti chatu',
   'chat.group.public': 'Kanály',
   'chat.group.tables': 'Stoly',
   'chat.group.groups': 'Skupiny',

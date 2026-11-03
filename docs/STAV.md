@@ -627,3 +627,8 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 
 ### Nabídky ve spodním panelu telefonu se rozbalují nahoru
 - Zvonek s upozorněními a nabídka zvuku v „Více“ se otevíraly dolů mimo obrazovku (volba posílání upozornění mimo aplikaci nebyla vidět). Teď se nabídka u tlačítka ve spodní polovině okna rozbalí nad ním a nejvýš do výšky, která zbývá; seznam upozornění se v ní posouvá a volba „Posílat upozornění i mimo aplikaci“ zůstává vždy vidět dole.
+
+### Chat kompaktněji (nastavitelné)
+- Seznam místností v chatu je teď ve výchozím stavu kompaktní: jeden úsporný seznam bez rámečků, stoly jsou spolu s kanály (značka 🪑), prázdné oddíly (Skupiny, Soukromé zprávy) se nezobrazují, akce jsou ikonky pod seznamem a seznam „Online“ je sbalený. Na telefonu je seznam jedním řádkem s posouváním do stran, takže zprávy začínají hned pod ním.
+- Osobní nastavení (sada „vzhled“, dá se nastavit zvlášť pro telefon a počítač): `ui.chatList` (Kompaktní / Karty), `ui.chatTablesWithChannels`, `ui.chatHideEmpty`. Staré zobrazení v kartách se vrátí volbou „Karty“.
+- Správce: `chat.groupsEnabled` (Skupinové chaty, ve výchozím stavu zapnuto). Po vypnutí nejde založit skupinu, skupiny se nikomu neukážou ani nedoručí; data zůstanou a po zapnutí se vrátí. Soukromé zprávy 1:1 se nemění. Hlídá to server (test v `chat.test.ts`).
