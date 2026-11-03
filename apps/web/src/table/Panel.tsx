@@ -1,11 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { t } from '@kb/shared';
 import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { Button, Modal } from '../ui';
-import { positionText, useTournamentInfo, wantedList } from './InfoCard';
 import { moveToSide, reorder, sideOf, toggleCollapsed, toggleHidden, toggleSide, WIDGET_IDS, type Layout, type Side, type WidgetId } from './layout';
 import { useMobileLayout } from './mobile';
-import { useSession } from '../session';
 import { useTableWidgets, type WidgetDef } from './widgets';
 
 /** Rámeček jednoho widgetu: sbalitelná hlavička s volitelnými doplňky. */
@@ -137,14 +135,10 @@ function LayoutSettings({ onClose }: { onClose: () => void }) {
  * dají přesouvat mezi nimi. Na telefonu je pravý panel sbalený do jednoho řádku (moje pozice, počet hráčů, odměny).
  */
 export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se v tomto výskytu panelu nezobrazí (chat v zásuvce na telefonu má vlastní tlačítko). */ hide?: WidgetId[] }) {
-  const { layout, setLayout, defs, view } = useTableWidgets();
+  const { layout, setLayout, defs } = useTableWidgets();
   const stored = layout;
   const mobile = useMobileLayout();
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const { me } = useSession();
-  const tournamentId = view?.info.tournament ? (view.info.tournamentId ?? null) : null;
-  const tour = useTournamentInfo(tournamentId);
   const shown = (id: WidgetId) => defs[id].show && !layout.hidden.includes(id) && !hide.includes(id);
   const visible = layout[side].filter(shown);
   const gear = (
@@ -152,7 +146,6 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
       ⚙
     </button>
   );
-  const wanted = useMemo(() => (view ? wantedList(view) : []), [view]);
 
   const settingsModal = open ? (
     <Modal title={t('table.panelSettings')} wide onClose={() => setOpen(false)}>

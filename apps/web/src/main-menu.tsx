@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { t } from '@kb/shared';
 import { useKeepInView } from './keep-in-view';
 import { Link } from './router';
 

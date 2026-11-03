@@ -22,7 +22,7 @@ import { EmailService } from './email/service.js';
 import { loadMasterKey, SecretStore, type MasterKey } from './secrets/store.js';
 import { openPglite, openPostgres, type Database } from './db/index.js';
 import { BET_KINDS, sideNets } from './side-results.js';
-import { ConsistencyError, ConsistencyService } from './consistency.js';
+import { ConsistencyService } from './consistency.js';
 import { Journal, ledgerTxOp, loadLedger, openLedgerStore } from './db/journal.js';
 import { setupGateway } from './gateway.js';
 import { parseCookies, SESSION_COOKIE } from './http/cookies.js';

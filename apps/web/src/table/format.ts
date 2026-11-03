@@ -1,5 +1,4 @@
 import type { TableInfo } from '@kb/game-core';
-import { t } from '@kb/shared';
 
 let showSymbol = false;
 let showChipLabel = true;

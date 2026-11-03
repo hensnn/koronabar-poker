@@ -2110,7 +2110,6 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const row = m.row(tid(req));
     const tour = m.get(tid(req));
     if (!row || !tour) return reply.status(404).send({ code: 'TOURNAMENT_NOT_FOUND' });
-    const actor = svc.tables().actors.get(row.id);
     const owner = row.ownerId === u.id && svc.perms.can(u.id, 'turnaj.upravit_vlastni').allowed;
     return reply.send({
       id: row.id,

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
-import { eq } from 'drizzle-orm';
 import { bestFive } from '@kb/game-core';
 import { buildServer } from './app.js';
 import { PassthroughProcessor } from './audio.js';

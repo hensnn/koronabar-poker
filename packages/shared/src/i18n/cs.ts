@@ -330,7 +330,7 @@ export const cs: Record<string, string> = {
   'settings.economy.debitTarget.option.mint': 'Zaniknou (opak dobití)',
   'settings.economy.debitTarget.option.house': 'Připíšou se domu',
   'settings.economy.negativeBalanceLimit.label': 'Limit záporného zůstatku',
-  'settings.economy.negativeBalanceLimit.help': 'Do jaké výše smí být zůstatek v mínusu (hra na dluh). 0 = nesmí.',
+  'settings.economy.negativeBalanceLimit.help': 'Do jaké výše smí být zůstatek v mínusu (hra na dluh). 0 = nesmí. Platí jen při vypnutém kontokorentu; s kontokorentem je dolní mez peněženky nula a chybějící částku kryje čerpání.',
 
   // Speciální
   'settings.special.runItTwice.label': 'Run it twice',

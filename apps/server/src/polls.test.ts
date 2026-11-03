@@ -36,7 +36,6 @@ async function start(settings: Record<string, unknown> = {}) {
   };
   return { server, clock, admin: admin!, user, polls: server.polls };
 }
-type Ctx = Awaited<ReturnType<typeof start>>;
 
 const code = async (p: Promise<unknown>) => {
   try {

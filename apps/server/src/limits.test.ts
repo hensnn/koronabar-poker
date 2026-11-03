@@ -170,7 +170,7 @@ describe('osobní limity v účetní knize', { timeout: 90_000 }, () => {
     const dir = mkdtempSync(join(tmpdir(), 'kb-lim-'));
     dirs.push(dir);
     const first = await start({}, dir);
-    const org = await first.user('organizator');
+    await first.user('organizator');
     const p = await first.user();
     await first.server.limits.set(p, { buyInsDay: 1 });
     await first.server.limits.setBreak(p, 1);
@@ -270,7 +270,8 @@ describe('poznámky a štítky o hráčích', { timeout: 60_000 }, () => {
 
 describe('limit záporného zůstatku', { timeout: 90_000 }, () => {
   it('změna v nastavení platí hned, bez restartu serveru', async () => {
-    const s = await start();
+    // Záporný limit platí jen bez kontokorentu (s ním je dolní mez peněženky nula a chybějící částku kryje čerpání).
+    const s = await start({ 'economy.creditEnabled': false });
     const p = await s.user();
     const spend = (key: string, amount: number) =>
       s.server.ledger.post({ kind: 'manual_adjustment', idempotencyKey: key, entries: [{ account: `wallet:${p}`, amount: -amount }, { account: 'mint', amount }] } as never);

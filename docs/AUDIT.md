@@ -84,7 +84,7 @@ Nový nástroj: **Kontrola konzistence dat** (Pokladna), viz `docs/NAVOD-HRA.md`
 
 # Závěrečný audit 2. 11. 2026 (celý kód, testy, simulace)
 
-Hloubková kontrola celé aplikace: automatické testy, simulace her na skutečném serveru a ruční průchod kódu v pěti oblastech (peníze, herní engine, bezpečnost serveru, webový klient, nastavení a datová vrstva). Nic z nalezeného **nebylo v tomto auditu opraveno**; zpráva slouží jako seznam práce. Nálezy označené „ověřeno testem“ byly reprodukovány dočasným testem, ostatní byly ověřeny čtením kódu.
+Hloubková kontrola celé aplikace: automatické testy, simulace her na skutečném serveru a ruční průchod kódu v pěti oblastech (peníze, herní engine, bezpečnost serveru, webový klient, nastavení a datová vrstva). Nálezy byly následně opraveny, viz sekce „Opravy po auditu (3. 11. 2026)“ na konci. Nálezy označené „ověřeno testem“ byly reprodukovány dočasným testem, ostatní byly ověřeny čtením kódu.
 
 ## Souhrn kontrol
 
@@ -190,3 +190,54 @@ Hloubková kontrola celé aplikace: automatické testy, simulace her na skutečn
 - **Turnaj:** přesazování jen mezi handami, hand-for-hand, přestávky s pojistným časovačem, pozdní registrace kontroluje `FULL` před platbou (až na nález 3), dohoda zablokovaná při otevřených oknech.
 - **Nastavení:** 616 parametrů, výchozí hodnoty v rozsahu, výčty platné, závislosti existují, `scopeAllowed` brání hráči přepsat stolní parametr, mutabilita „mezi handami“ vynucena na serveru.
 - **Nasazení:** obraz běží pod uživatelem `node`, healthcheck, DB jen v interní síti, hlavní klíč mimo DB.
+
+## Opravy po auditu (3. 11. 2026)
+
+Čísla odkazují na nálezy výše. Každá oprava má test; nové parametry jsou v registru nastavení s výchozí hodnotou.
+
+### Vysoké nálezy
+
+1. **Rake při odchodu:** doba od konce handy do zaúčtování (animace showdownu) se bere jako „uprostřed handy“ (`settling` v `table-actor.ts`). Odchod, maximální sit out i odstranění hráče turnajem se v ní odloží na předěl, rake, 7-2 bonus i jackpoty se vždy zaúčtují. Test `settling-and-disconnect.test.ts`.
+2. **Dvojí dobití:** vyřízení žádosti si žádost nejdřív zabere podmíněnou změnou stavu (`pending` → `deciding`), dobití má pevný klíč `request:<id>`, při chybě se žádost vrátí do `pending`. Test `audit-money.test.ts`.
+3. **Pozdní registrace a re-entry:** místo se ověří před platbou (`canSeat` u sady stolů podle fyzicky volných míst); když usazení přesto selže, platba se vrátí a stav hráče obnoví. Test v `tournament.test.ts`.
+4. **Snímky migrací:** dogenerované `0043` a `0044`, nový test `db-migrations.test.ts` hlídá drift (`drizzle-kit generate` nesmí vyrobit nový soubor).
+5. **ErrorBoundary:** kolem celé aplikace i líně načítaných stránek, jedno automatické obnovení při selhání importu po nasazení nové verze, bezpečné dekódování adresy.
+
+### Střední nálezy
+
+- **6** Odpojení hráče na tahu čas jen zkracuje na toleranci odpojení, nikdy neprodlužuje; běžící rezerva se o spotřebovaný čas zkrátí, zavolaný čas zůstává.
+- **7** Zpráva `table:act` nese `handId`; server starou nebo zdvojenou akci odmítne kódem `STALE_ACTION`, klient ji tiše zahodí.
+- **8** Operace jedné živé cash hry běží za sebou (zámek na hru).
+- **9** Kontrola konzistence má nové kontroly: úschova otevřených sázek = držené vklady, výdaje domu odkazují na existující pohyb, žádosti zaseklé ve stavu „vyřizuje se“. (Evidence se dál zapisuje mimo dávku knihy; kontrola ji odhalí.)
+- **10** Výplaty turnaje běží v `try/catch`: při chybě turnaj zůstane běžící s `finishError`, událost `finishFailed` jde do chatu, `retryFinish()` dokončení zopakuje (klíče pohybů jsou pevné, nic se nevyplatí dvakrát). Ruční úprava knihy nesmí na účty běžících her ani na úschovy.
+- **11** Předěl po zrušení stolu turnajem nic nepřepíše (`phase === 'stopped'` se kontroluje po `onBoundary`).
+- **12** Hráči vyřazení v téže handě se stejným stackem dělí výplatu za svá místa rovným dílem (pořadí míst zůstává podle sedadel).
+- **13** Kontokorent a záporný limit se nesčítají: se zapnutým kontokorentem je dolní mez peněženky nula a čerpá se celý chybějící rozdíl. Když původní pohyb selže i po čerpání, čerpání se vrátí (`credit_repay`). Rozhodnutí majitele: záporný limit zůstává jako samostatná volba, při zapnutém kontokorentu se nepoužije.
+- **14** Při zavření cash stolu připadne zbytek žetonů (kurz > 1) domu, účet stolu končí na nule.
+- **15 až 21** Web: ochrana proti dvojímu odeslání akce, částky přes `NumInput` s ořezem na rozsah, view jen s rostoucím `seq`, vyhlazený posun hodin, odhlášení odběru stolu, pruh „Obnovuji spojení“, plánovaný tah vázaný na stůl a handu (Call s částkou), tokeny písma bez CSS komentářů, kruh časovače podle nastavení, editor vzhledu bez ztráty fokusu, chat drží dole jen když byl dole, dialog ztlumení místo `prompt()`, Modal s focus trapem a `inert`, sedadla a karty z klávesnice, service worker čeká na potvrzení nové verze.
+- **22** `TRUST_PROXY` (výchozí jen vnitřní síť) a `BIND_ADDRESS` v `.env`; viz `docs/NASAZENI.md`.
+- **23** `GET /api/settings/global` vrací hráčům vrstvu bez provozních klíčů (`omitInternalSettings`), asistent je nevidí ani neposílá poskytovateli AI.
+- **24** Globální obsluha chyb Fastify (`UNKNOWN` bez textu výjimky), `unhandledRejection` a `uncaughtException` v `index.ts`, `.catch` u všech oznámení.
+- **25** Limit těla a souběhu nahrávání z nastavení (`system.uploadMaxConcurrentPerUser`), ffmpeg s časovým limitem (`sounds.ffmpegTimeoutSeconds`).
+- **26** Zámek jediné instance (`pg_try_advisory_lock`) při startu na PostgreSQL; druhá instance skončí s českou hláškou.
+- **27** Smazání hráče v Údržbě ho anonymizuje („Smazaný hráč 1a2b3c4d“): kniha, handy, výsledky, rating a XP zůstávají; relace, tokeny, role a osobní nastavení se smažou; cizí klíče statistik mají `restrict` místo `cascade` (migrace `0045`).
+- **28** Herní klíče nejdou uložit do globální vrstvy (`globalHidden`, `SCOPE_NOT_ALLOWED`); vyhodnocení vrstev se nemění. Konzistence nastavení se kontroluje proti efektivním hodnotám, hodnoty mimo rozsah se při načtení oříznou (s varováním v logu).
+- **29** `system.timezone` (výchozí Europe/Prague) používají roční statistika, výdaje, rating, ankety, kalendář, plánovač, asistent i XP.
+- **30** `liveCash.enabled` server vynucuje; osobní volba hlasu respektuje zákaz správce (`userChoiceDependsOn`).
+
+### Nízké nálezy (opravené)
+
+Limit pokusů o změnu e-mailu, blokovaný účet bez platné relace, strop spojení na hráče (`system.maxSocketsPerUser`) a místností announce (`system.announceRoomsPerSocket`), zod pro ankety, opětovná kontrola práv při schválení, pozvánkový kód bez zkreslení, `nosniff` u zvuků, webhooky bez vnitřních adres (`integrations.allowPrivateUrls`), varování u `assistant.autoKeys`, cookie `secure` při každém nastavení, šance na výhru s kryptografickou náhodou, `readyTimer` se ruší při zastavení stolu, vyřazené klíče nastavení se tiše vypouštějí, `table.variant` odstraněn, `table.straddleMultiplier` jen pro cash, lint zapíná další pravidla (`exhaustive-deps`, `no-unused-vars`, `no-fallthrough`, …).
+
+### Výkon
+
+`defaults()` a `resolveSettings` s cache (95 µs → 0,1 µs, resolve tří vrstev 227 µs → 22 µs), `useSettings()` memoizované, selektor nad síťovým storem, `ResizeObserver` místo intervalu, mezipaměť žebříčku (`stats.cacheSeconds`), indexy `hands(tournament_id)`, `hand_players(kind, played_at)`, `game_results(kind, finished_at)`, plánovač čte jen plány, paměťová kniha nekopíruje historii při zápisu.
+
+### Co zůstává (vědomě)
+
+- Evidence sázek, výdajů a žádostí se zapisuje mimo dávku knihy (nález 9): kontrola konzistence to odhalí, přesun do Journalu je větší zásah.
+- Uzavřená hlasování run-it se z paměti stolu nemažou (drobné, do zavření stolu).
+- Změna levelu uprostřed handy: UI ukazuje nové blindy, hraje se za staré (jen zobrazení).
+- Záporný limit peněženky lze podle majitele časem úplně odstranit (kontokorent ho nahrazuje); zatím zůstává jako volba.
+- Nové serverové hlášky a pruhy na webu nebyly prohlédnuty v prohlížeči (změny vzhledu jsou malé), doporučeno projít `scripts/screenshots.mjs`.
+- Závislosti: viz níže.

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
 import { gameEvents, gameNets } from './side-results.js';

@@ -6,7 +6,7 @@ import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
 import { registry } from '../settings';
 import { blockingIssues, SettingsForm, UnsavedBar } from '../settings/SettingsForm';
-import { Badge, Button, Card, Modal, Notice, Spinner, TextInput } from '../ui';
+import { Badge, Button, Modal, Notice, Spinner, TextInput } from '../ui';
 
 interface LobbyTable {
   id: string;

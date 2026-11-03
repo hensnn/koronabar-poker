@@ -19,7 +19,7 @@ async function start(settings: Record<string, unknown> = {}) {
     scheduler: false,
     emailWorker: false,
     masterKey: { key: Buffer.alloc(32, 19), version: 1 },
-    settingsOverride: { 'system.emailVerificationRequired': false, 'system.publicUrl': 'http://localhost', 'economy.startingBalance': 10_000, ...settings },
+    settingsOverride: { 'system.emailVerificationRequired': false, 'system.publicUrl': 'http://localhost', 'economy.startingBalance': 10_000, 'liveCash.enabled': true, ...settings },
     bootstrapAdmin: { nickname: 'Admin', password: 'admin-heslo-123' },
     defaultTable: false,
   });

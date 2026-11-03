@@ -5,7 +5,7 @@ import { t } from '@kb/shared';
 import { errorText, get, post } from '../api';
 import { Link, navigate, queryParam, useLocation } from '../router';
 import { login } from '../session';
-import { Button, Card, Notice, TextInput } from '../ui';
+import { Button, Notice, TextInput } from '../ui';
 
 function Page({ title, children }: { title: string; children: React.ReactNode }) {
   const brand = useBrand();

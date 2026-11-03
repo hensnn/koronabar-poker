@@ -8,7 +8,7 @@ import { errorText, post } from '../api';
 import { logout, useSession } from '../session';
 import { deviceId, deviceKindOverride, setDeviceKindOverride, registry, resetUserSetting, saveUserSetting, useSettings } from '../settings';
 import { SettingsForm } from '../settings/SettingsForm';
-import { Button, Card, Notice, Tabs, TextArea, TextInput } from '../ui';
+import { Button, Card, Notice, Tabs, TextInput } from '../ui';
 import { Guide } from './guide';
 import { LimitsSection } from './limits';
 import { useFeatures } from '../features';
@@ -111,15 +111,8 @@ export function SettingsPage() {
   const settings = useSettings();
   const [target, setTarget] = useState<'user' | 'device'>('user');
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
-  const [json, setJson] = useState('');
   const editScope = target === 'user' ? 'user' : 'userDevice';
-  const layer = target === 'user' ? settings.user : settings.device;
   const userKeys = useMemo(() => registry.all().filter((d) => d.scopes?.includes('user')), []);
-
-  const resetAll = async () => {
-    if (!confirm(t('settings.resetAllConfirm'))) return;
-    for (const k of Object.keys(layer)) await resetUserSetting(k, target === 'device').catch(() => undefined);
-  };
 
   return (
     <div className="flex flex-col gap-3">

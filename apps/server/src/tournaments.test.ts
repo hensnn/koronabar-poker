@@ -640,7 +640,8 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
     await playOut(s, id, 21);
     const view = await s.server.tournaments.view(id, ps[0]!);
     expect(view.status).toBe('finished');
-    expect(view.results!.map((r) => r.payout)).toEqual([150, 90, 60]);
+    // 2. a 3. místo vypadlo v téže handě se stejným stackem: výplaty za obě místa (90 + 60) se dělí rovným dílem
+    expect(view.results!.map((r) => r.payout)).toEqual([150, 75, 75]);
     expect(view.fees.overlay).toBe(300);
     expect(s.server.ledger.balance(accounts.tournament(id))).toBe(0);
     expect(ps.reduce((n, pl) => n + s.server.ledger.balance(accounts.wallet(pl)), 0)).toBe(3 * 10_000 + 300);

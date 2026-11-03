@@ -23,7 +23,7 @@ import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
 import { SoundMenu } from '../sound-menu';
 import { AssistantToolButton } from './assistant';
-import { Button, Card, DataTable, ErrorToast, Modal, Notice, Td } from '../ui';
+import { Button, DataTable, ErrorToast, Modal, Notice, Td } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
 import { useFeatures } from '../features';

@@ -10,7 +10,7 @@ import { ThemeProvider, type ColorMode } from './theme/ThemeProvider';
 import { loadThemes, resetThemes, useThemeStore } from './theme/themes-client';
 import { loadNotes, resetNotes } from './notes-client';
 import { useThemePreview } from './theme/preview';
-import { Button, Notice, Spinner } from './ui';
+import { Notice, Spinner } from './ui';
 import { ForgotPage, LoginPage, RegisterPage, ResetPage, TokenPage } from './pages/auth';
 import { AdminRouter, isAdmin } from './pages/admin/index';
 import { TablesPage } from './pages/tables';

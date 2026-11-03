@@ -80,7 +80,6 @@ export function LogoAdminPage() {
   const showName = settings.values['branding.showName'] !== false;
   const darkMode = String(settings.values['branding.darkLogoMode'] ?? 'invert');
   const headerMode = String(settings.values['branding.headerMode'] ?? 'logo');
-  const bgMode = String(settings.values['branding.loginBackground'] ?? 'felt');
   const run = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);
     setMsg(null);

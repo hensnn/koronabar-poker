@@ -5,7 +5,6 @@ import { useFeatures } from '../features';
 import { SoundPalette } from '../pages/sounds';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
-import { CardView } from './CardView';
 import { type TournamentInfo, AddonOfferDialog, RebuyDecisionDialog, BountiesBody, InfoBody, useTournamentInfo } from './InfoCard';
 import { defaultLayout, parseLayout, WIDGET_IDS, type Layout, type WidgetId } from './layout';
 import { formatAmount } from './format';
@@ -106,7 +105,6 @@ export function TableWidgetsProvider({ view, tableId, inBb, chat, children }: { 
   const tournamentId = info?.tournament ? (info.tournamentId ?? tableId) : null;
   const tour = useTournamentInfo(tournamentId);
   const actionLog = useActionLog(view, inBb, 80, tournamentId);
-  const myWin = view?.winners?.find((w) => w.seat === mine?.seat);
 
   const defs: Record<WidgetId, WidgetDef> = {
     table: {

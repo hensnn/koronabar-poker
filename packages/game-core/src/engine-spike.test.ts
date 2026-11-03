@@ -7,11 +7,6 @@ function table(stacks: number[]) {
   e.deal();
   return e;
 }
-function total(e: PokerEngine) {
-  const s: any = e.state;
-  return s.players.reduce((a: number, p: any) => a + (p ? p.stack + (p.betThisRound ?? 0) : 0), 0)
-    + s.pots.reduce((a: number, p: any) => a + p.amount, 0);
-}
 
 describe('spike: @pokertools/engine', () => {
   it('maskuje cizí karty a deck není ve view', () => {

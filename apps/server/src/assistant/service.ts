@@ -22,7 +22,6 @@ import {
   isInternalSetting,
   searchGuide,
   type AssistantContext,
-  type PermissionChecker,
   type ProposalAction,
   type ProposalDiffRow,
   type ProposalStatus,
@@ -136,7 +135,6 @@ interface ToolEnv {
   patient?: boolean;
 }
 
-type Plan = { actions: ProposalAction[]; diff: ProposalDiffRow[]; denied: string[] };
 
 const SECRET_PREFIX = /^(assistant\.)/;
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s);

@@ -79,9 +79,13 @@ describe('ruční úprava knihy', { timeout: 60_000 }, () => {
   it('nesmí sáhnout na účty běžících her', async () => {
     const s = await start();
     const hrac = await s.user();
+    // úschova sázky je zamčená vždy, účet turnaje jen dokud turnaj běží (neznámý/skončený turnaj jde opravit)
+    await expect(
+      s.server.wallet.adjust(s.admin, [{ account: accounts.escrow('bet:neco'), amount: -10 }, { account: accounts.wallet(hrac), amount: 10 }], 'oprava'),
+    ).rejects.toMatchObject({ code: 'INVALID', params: { reason: 'running_game' } });
     await expect(
       s.server.wallet.adjust(s.admin, [{ account: accounts.tournament('t-neco'), amount: -10 }, { account: accounts.wallet(hrac), amount: 10 }], 'oprava'),
-    ).rejects.toMatchObject({ code: 'INVALID' });
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' });
     // převod mezi peněženkou a mintem (opak dobití) projde
     const r = await s.server.wallet.adjust(s.admin, [{ account: accounts.wallet(hrac), amount: -10 }, { account: accounts.mint(), amount: 10 }], 'oprava');
     expect(r.done).toBe(true);

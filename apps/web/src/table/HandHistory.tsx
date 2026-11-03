@@ -20,7 +20,6 @@ interface Row {
 
 const SUIT: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
 const card = (c: string) => `${c[0] === 'T' ? '10' : c[0]}${SUIT[c[1] ?? ''] ?? ''}`;
-const cards = (cs: string[]) => cs.map(card).join(' ');
 const suitClass = (c: string) => (c[1] === 'h' || c[1] === 'd' ? 'text-suit-red' : '');
 const unit = (n: number, per: number) => (per > 1 ? Math.round((n / per) * 100) / 100 : n);
 const time = (ts: number) => new Date(ts).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });

@@ -3,7 +3,7 @@ import { COSMETIC_COLORS, COSMETIC_KINDS, COSMETIC_STYLES, t, type CosmeticKind 
 import { del, errorText, get, patch, post } from '../api';
 import { avatarClasses, BG, TEXT, type PublicLook } from '../cosmetics-client';
 import { onSocket } from '../net';
-import { Badge, Button, Card, Modal, Notice, Select, Spinner, Tabs, TextInput } from '../ui';
+import { Badge, Button, Modal, Notice, Select, Spinner, Tabs, TextInput } from '../ui';
 
 interface Item {
   key: string;

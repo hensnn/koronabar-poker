@@ -244,7 +244,7 @@ describe('zrušení turnaje a omezení', { timeout: 90_000 }, () => {
   it('kdo nemá peníze, nevsadí a nic se nezapíše', async () => {
     const s = await start();
     const g = await setup(s);
-    const bet = await s.server.bets.create(g.a, { tournamentId: g.id, subject: 'winner', params: { userId: g.b } });
+    await s.server.bets.create(g.a, { tournamentId: g.id, subject: 'winner', params: { userId: g.b } });
     const poor = await start({ 'bets.maxStake': 100_000 });
     const h = await setup(poor);
     const b2 = await poor.server.bets.create(h.a, { tournamentId: h.id, subject: 'winner', params: { userId: h.b } });

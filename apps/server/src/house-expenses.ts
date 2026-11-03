@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import { startOfMonth, timezoneOf, yearBounds, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';

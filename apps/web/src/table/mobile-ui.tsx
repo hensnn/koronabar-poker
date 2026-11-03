@@ -83,7 +83,7 @@ export function InfoSlot() {
  * Prostor mezi stolem a tlačítky na telefonu: moje kombinace, poslední události a pruh času.
  * Každá část se zapíná v kartě „O hře“ (osobní nastavení), aby si každý nechal jen to, co potřebuje.
  */
-export function MobileMid({ view, mine, inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
+export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { view: TableView; mine: SeatView | undefined; inBb: boolean; offset: number; log: { key: number; text: string }[]; tableId: string }) {
   const v = useSettings().values;
   const events = v['ui.mobileEvents'] !== false;
   const timer = v['ui.mobileTimerBar'] !== false;

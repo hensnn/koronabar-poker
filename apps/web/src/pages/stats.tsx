@@ -118,7 +118,6 @@ function Progress() {
   if (!tl) return <Spinner label={t('app.loading')} />;
   const within = <T,>(rows: T[], at: (r: T) => number): T[] => rows.filter((r) => at(r) >= since);
   const balance = within(tl.balance, (p) => p[0]);
-  const bStart = balance[0]?.[1] ?? 0;
   const bEnd = balance[balance.length - 1]?.[1] ?? tl.balance[tl.balance.length - 1]?.[1] ?? 0;
   const tours = within(tl.tournaments, (x) => x.at);
   const earn = within(tl.earnings, (p) => p[0]);

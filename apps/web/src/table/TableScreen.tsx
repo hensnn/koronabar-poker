@@ -33,7 +33,7 @@ import { ChipStack } from './Chips';
 import { ChipSweeps, useChipSweeps } from './chip-fx';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
-import { actionOff, actionOffSm, actionTone, actionToneSm } from './buttons';
+import { actionOffSm, actionToneSm } from './buttons';
 import { PlayerCard } from './PlayerCard';
 import { TableFx, useTableNotices, useTournamentFx } from './fx';
 import { useTableFit, useTableSize } from './size';

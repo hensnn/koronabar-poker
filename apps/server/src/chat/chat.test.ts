@@ -39,11 +39,9 @@ async function setup(over: Record<string, number | boolean | string> = {}) {
     mention: (u, m) => void log.push({ kind: 'mention', payload: { u, id: m.id } }),
     joined: (u, c) => void log.push({ kind: 'joined', payload: { u, c } }),
   });
-  let n = 0;
   const user = async (nick: string, role = 'hrac') => {
     const [u] = await db.insert(schema.users).values({ nickname: nick, nicknameLower: nick.toLowerCase(), passwordHash: 'x' }).returning({ id: schema.users.id });
     await perms.grantUnchecked(u!.id, perms.roleByKey(role)!.id);
-    n++;
     return u!.id;
   };
   const main = await chat.ensureMainChannel();
