@@ -46,3 +46,12 @@ export function keysOfSet(reg: SettingsRegistry, id: string): string[] {
   };
   return reg.all().filter((d) => !d.secret && scopeAllowed(d.scopes, 'user') && match(d.key)).map((d) => d.key);
 }
+
+/** Parametry, které se na daném druhu zařízení nikdy neprojeví (panely a zkratky u stolu telefon nemá; mobilní rozložení čte vždy profil telefonu). */
+const PHONE_UNUSED = /^ui\.(tablePanel|tableSide|tableChatHeight|tableLayout|tableArea|tableFitWindow|tableHeightPercent|hotkey|sizePerDisplay|sizeProfiles)/;
+const DESKTOP_UNUSED = /^ui\.mobile/;
+
+/** Má parametr smysl nastavovat pro daný druh zařízení? */
+export function usefulOnKind(kind: DeviceKind, key: string): boolean {
+  return !(kind === 'phone' ? PHONE_UNUSED : DESKTOP_UNUSED).test(key);
+}

@@ -73,6 +73,13 @@ function readCache(): State {
 }
 
 let state: State = readCache();
+
+/**
+ * Profil telefonu v mobilním rozložení: když je u stolu zapnuté mobilní rozložení na zařízení jiného druhu (úzké okno počítače, vynucené tlačítkem 📱),
+ * platí místo hodnot počítače hodnoty telefonu, aby se nastavení z karty Telefon projevilo. Zápisy do vrstvy zařízení pak jdou do profilu telefonu.
+ */
+let profile: { kind: 'phone' | 'desktop'; layer: Partial<SettingValues> } | null = null;
+let profileWanted: 'phone' | 'desktop' | null = null;
 const listeners = new Set<() => void>();
 
 /** Neúspěšné uložení osobního nastavení (rozbalení widgetu, velikost panelu…): ukáže se uživateli, ať změna nevypadá, že „nic neudělala“. */
@@ -140,6 +147,8 @@ async function adoptLegacyDevice(mine: { device: Partial<SettingValues> }): Prom
 }
 
 export function clearSettings() {
+  profile = null;
+  profileWanted = null;
   state = { global: {}, user: {}, device: {}, loaded: false };
   try {
     localStorage.removeItem(CACHE);
@@ -159,16 +168,27 @@ let resolvedCache: { state: State; display: string; out: Resolved } | null = nul
 export function resolveFor(s: State = state): Resolved {
   const display = displayId();
   if (resolvedCache && resolvedCache.state === s && resolvedCache.display === display) return resolvedCache.out;
-  const out = computeResolved(s, display);
+  const out = withRealLayout(s, computeResolved(s, display));
   resolvedCache = { state: s, display, out };
   return out;
+}
+
+/** Volba mobilního rozložení se vždy čte z vrstvy skutečného zařízení, ne z profilu telefonu (jinak by se rozložení přepínalo sem a tam). */
+function withRealLayout(s: State, r: Resolved): Resolved {
+  if (!profile) return r;
+  const real = resolveSettings(registry, [
+    { scope: 'global', values: s.global },
+    { scope: 'user', values: s.user },
+    { scope: 'userDevice', values: s.device },
+  ]);
+  return { ...r, values: { ...r.values, 'ui.mobileLayout': real.values['ui.mobileLayout'] }, origins: { ...r.origins, 'ui.mobileLayout': real.origins['ui.mobileLayout'] } } as Resolved;
 }
 
 function computeResolved(s: State, display: string): Resolved {
   const resolved = resolveSettings(registry, [
     { scope: 'global', values: s.global },
     { scope: 'user', values: s.user },
-    { scope: 'userDevice', values: s.device },
+    { scope: 'userDevice', values: profile ? profile.layer : s.device },
   ]);
   // Velikosti panelů platné pro toto zobrazení (rozlišení a zvětšení) přebijí obecné hodnoty.
   const profiles = String(resolved.values['ui.sizeProfiles'] ?? '');
@@ -200,6 +220,7 @@ export async function saveUserSetting(key: string, value: SettingValue, deviceOn
   if (SIZE_KEYS.has(key) && typeof value === 'number' && resolveFor().values['ui.sizePerDisplay'] !== false) {
     return saveUserSetting('ui.sizeProfiles', setProfileValue(String(resolveFor().values['ui.sizeProfiles'] ?? ''), displayId(), key, value), true);
   }
+  if (deviceOnly && profile && key !== 'ui.mobileLayout') return saveProfileValue(key, value);
   const layer = deviceOnly ? 'device' : 'user';
   const before = state[layer];
   const deviceBefore = state.device;
@@ -250,7 +271,60 @@ export async function resetGlobalSetting(key: string): Promise<void> {
   }
 }
 
+/** Uloží hodnotu do profilu telefonu (viz `profile`): rovnou na server pod druhem zařízení, s vrácením při chybě. */
+async function saveProfileValue(key: string, value: SettingValue): Promise<void> {
+  const p = profile!;
+  const before = p.layer;
+  p.layer = { ...before, [key]: value };
+  set({});
+  try {
+    await put('/api/me/settings', { key, value, device: p.kind });
+  } catch (e) {
+    p.layer = before;
+    set({});
+    reportSaveError(e);
+    throw e;
+  }
+}
+
+/** Zapne nebo vypne profil telefonu pro mobilní rozložení (viz `profile`); na zařízení téhož druhu nedělá nic. */
+export function setProfileKind(kind: 'phone' | 'desktop' | null): void {
+  profileWanted = kind && kind !== deviceId() ? kind : null;
+  const want = profileWanted;
+  if (!want) {
+    if (profile) {
+      profile = null;
+      set({});
+    }
+    return;
+  }
+  if (profile?.kind === want) return;
+  void layersFor(want)
+    .then((l) => {
+      if (profileWanted !== want) return;
+      profile = { kind: want, layer: { ...l.device } };
+      set({});
+    })
+    .catch(() => undefined);
+}
+
 export async function resetUserSetting(key: string, deviceOnly = false): Promise<void> {
+  if (deviceOnly && profile && key !== 'ui.mobileLayout') {
+    const p = profile;
+    const before = p.layer;
+    const { [key]: _drop, ...rest } = before;
+    p.layer = rest;
+    set({});
+    try {
+      await del(`/api/me/settings/${encodeURIComponent(key)}?device=${p.kind}`);
+    } catch (e) {
+      p.layer = before;
+      set({});
+      reportSaveError(e);
+      throw e;
+    }
+    return;
+  }
   if (SIZE_KEYS.has(key) && resolveFor().values['ui.sizePerDisplay'] !== false && key in profileOverrides(String(resolveFor().values['ui.sizeProfiles'] ?? ''), displayId())) {
     return saveUserSetting('ui.sizeProfiles', clearProfileValue(String(resolveFor().values['ui.sizeProfiles'] ?? ''), displayId(), key), true);
   }
@@ -409,6 +483,10 @@ onSocket<{ scope: string; device: string | null; key: string; value: SettingValu
   if (m.scope === 'user') {
     const { [m.key]: _d, ...rest } = state.user;
     set({ user: m.value === null ? rest : { ...state.user, [m.key]: m.value } });
+  } else if (m.scope === 'userDevice' && profile && m.device === profile.kind) {
+    const { [m.key]: _d, ...rest } = profile.layer;
+    profile.layer = m.value === null ? rest : { ...profile.layer, [m.key]: m.value };
+    set({});
   } else if (m.scope === 'userDevice' && m.device === deviceId()) {
     const { [m.key]: _d, ...rest } = state.device;
     set({ device: m.value === null ? rest : { ...state.device, [m.key]: m.value } });

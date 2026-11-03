@@ -15,6 +15,11 @@ describe('pořadí widgetů na telefonu', () => {
     expect(new Set(o.info).size).toBe(o.info.length);
     expect(o.mid).toEqual(['events', 'timer', 'best', 'sounds']);
   });
+  it('skryté widgety: O hře se skrýt nedá a neznámé se zahodí', () => {
+    const o = parseMobileOrder(JSON.stringify({ hidden: ['players', 'info', 'nic', 'players'] }));
+    expect(o.hidden).toEqual(['players']);
+    expect(parseMobileOrder('').hidden).toEqual([]);
+  });
   it('rozbitá hodnota vrátí výchozí pořadí', () => {
     expect(parseMobileOrder('{rozbité').mid).toEqual(['timer', 'best', 'sounds', 'events']);
   });

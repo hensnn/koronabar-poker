@@ -1256,7 +1256,7 @@ export const cs: Record<string, string> = {
   'table.plan.none': 'Zrušit',
   'table.panelSettings': 'Nastavení panelů',
   'mobile.order.title': 'Pořadí widgetů na telefonu',
-  'mobile.order.help': 'Pořadí platí jen na telefonu a tabletu. Zaškrtávátkem zapneš nebo vypneš část pod stolem, šipkami ji posuneš. Panely počítače se nastavují u stolu na počítači.',
+  'mobile.order.help': 'Pořadí platí jen na telefonu a tabletu. Zaškrtávátkem zapneš nebo vypneš část pod stolem nebo widget v informacích (O hře se skrýt nedá), šipkami je posuneš. Panely počítače se nastavují u stolu na počítači.',
   'mobile.order.mid': 'Pod stolem',
   'mobile.order.info': 'V informacích (ℹ️)',
   'mobile.order.reset': 'Vrátit výchozí pořadí',

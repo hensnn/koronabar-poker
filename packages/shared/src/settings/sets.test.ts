@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultRegistry } from './definitions/index.js';
-import { keysOfSet, SETTING_SETS } from './sets.js';
+import { keysOfSet, SETTING_SETS, usefulOnKind } from './sets.js';
 
 const reg = createDefaultRegistry();
 
@@ -18,5 +18,13 @@ describe('sady osobního nastavení', () => {
     const others = ['sounds', 'look', 'notify'].flatMap((id) => keysOfSet(reg, id));
     expect(new Set(others).size).toBe(others.length);
     expect(others.some((k) => phone.includes(k))).toBe(false);
+  });
+  it('panely a zkratky u stolu se na telefonu nenabízejí, mobilní volby se nenabízejí na počítači', () => {
+    expect(usefulOnKind('phone', 'ui.tablePanelWidth')).toBe(false);
+    expect(usefulOnKind('phone', 'ui.hotkeyFold')).toBe(false);
+    expect(usefulOnKind('phone', 'ui.mobileBest')).toBe(true);
+    expect(usefulOnKind('phone', 'ui.hideMyCards')).toBe(true);
+    expect(usefulOnKind('desktop', 'ui.mobileBest')).toBe(false);
+    expect(usefulOnKind('desktop', 'ui.tablePanelWidth')).toBe(true);
   });
 });

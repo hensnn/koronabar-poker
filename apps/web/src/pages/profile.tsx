@@ -3,7 +3,7 @@ import { Link } from '../router';
 import { SoundLibrary } from './sounds';
 import { checkContrast, resolveTokens } from '@kb/tokens';
 import { useThemes } from '../theme/ThemeProvider';
-import { resolveSettings, t, type SettingValue } from '@kb/shared';
+import { resolveSettings, t, usefulOnKind, type SettingValue } from '@kb/shared';
 import { errorText, post } from '../api';
 import { logout, useSession } from '../session';
 import { deviceId, deviceKindOverride, loadKindLayers, resetForBoth, resetKindSetting, saveForBoth, saveKindSetting, setDeviceKindOverride, registry, useSettings } from '../settings';
@@ -200,7 +200,7 @@ export function SettingsPage() {
             </Card>
           )}
           <ThemeChooser onPick={(id) => change('ui.themeId', id)} current={String(values['ui.themeId'])} />
-          <SettingsForm registry={registry} values={values} origins={origins} editScope={editScope} onChange={change} onReset={reset} issues={[]} allowedKeys={(d) => userKeys.some((x) => x.key === d.key)} categoryOrder={PERSONAL_ORDER} />
+          <SettingsForm registry={registry} values={values} origins={origins} editScope={editScope} onChange={change} onReset={reset} issues={[]} allowedKeys={(d) => userKeys.some((x) => x.key === d.key) && (target === 'both' || usefulOnKind(target, d.key))} categoryOrder={PERSONAL_ORDER} />
         </>
       )}
       <SettingsShare />

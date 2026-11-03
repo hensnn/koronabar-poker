@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { useSettings } from '../settings';
+import { setProfileKind, useSettings } from '../settings';
 
 function useMedia(query: string): boolean {
   const mq = typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(query) : null;
@@ -61,4 +61,12 @@ export function useMobileAttribute(active: boolean, modern = false): void {
       root.removeAttribute('data-landscape');
     };
   }, [active, modern, landscape, aspect, turnAlert]);
+}
+
+/** Mobilní rozložení u stolu na počítači používá nastavení telefonu (karta Telefon), jinak by se jeho volby neprojevily. */
+export function useFollowPhoneProfile(mobile: boolean): void {
+  useEffect(() => {
+    setProfileKind(mobile ? 'phone' : null);
+    return () => setProfileKind(null);
+  }, [mobile]);
 }

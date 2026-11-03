@@ -183,8 +183,9 @@ export function MobileInfoPanel() {
   const { layout, setLayout, defs } = useTableWidgets();
   const settings = useSettings();
   const [editing, setEditing] = useState(false);
-  const shown = (id: WidgetId) => defs[id].show && !layout.hidden.includes(id) && id !== 'chat';
-  const order = parseMobileOrder(settings.values[ORDER_KEY]).info.filter(shown);
+  const mobileOrder = parseMobileOrder(settings.values[ORDER_KEY]);
+  const shown = (id: WidgetId) => defs[id].show && !mobileOrder.hidden.includes(id) && id !== 'chat';
+  const order = mobileOrder.info.filter(shown);
   return (
     <>
       <div className="flex justify-end">

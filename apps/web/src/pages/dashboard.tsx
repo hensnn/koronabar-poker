@@ -4,7 +4,7 @@ import { get } from '../api';
 import { Link, navigate } from '../router';
 import { useSession } from '../session';
 import { PlayerDotById } from '../player-color';
-import { useSettings } from '../settings';
+import { deviceId, useSettings } from '../settings';
 import { useMySeats } from '../my-seat';
 import { Badge, Button, Card, Notice } from '../ui';
 import { PollsPanel } from './polls';
@@ -158,22 +158,25 @@ export function DashboardPage() {
             </div>
           </div>
         </Card>
-        <Card title={t('dashboard.playingNow')}>
-          {seats.length > 0 ? (
-            <ul className="flex flex-col gap-2">
-              {seats.map((seat) => (
-                <li key={seat.tableId} className="flex items-center justify-between gap-2">
-                  <span className="truncate">{seat.name}</span>
-                  <Button variant="primary" onClick={() => navigate(`/stul/${seat.tableId}`)}>
-                    {t('nav.myTable')}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-muted">{t('dashboard.notSeated')}</p>
-          )}
-        </Card>
+        {/* Na telefonu je „Kde hraju“ nad kontem, když u nějakého stolu sedím: nejdřív se chci vrátit ke hře. */}
+        <div className={seats.length > 0 ? 'order-first sm:order-none' : ''}>
+          <Card title={t('dashboard.playingNow')}>
+            {seats.length > 0 ? (
+              <ul className="flex flex-col gap-2">
+                {seats.map((seat) => (
+                  <li key={seat.tableId} className="flex items-center justify-between gap-2">
+                    <span className="truncate">{seat.name}</span>
+                    <Button variant="primary" onClick={() => navigate(`/stul/${seat.tableId}`)}>
+                      {t('nav.myTable')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted">{t('dashboard.notSeated')}</p>
+            )}
+          </Card>
+        </div>
       </div>
 
       <Card title={t('dashboard.tables')}>
@@ -261,6 +264,7 @@ export function DashboardPage() {
 
       <Card
         title={t('dashboard.leaderboard')}
+        defaultOpen={deviceId() !== 'phone'}
         actions={
           <Link to="/statistiky" className="underline">
             {t('dashboard.fullStats')}

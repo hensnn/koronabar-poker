@@ -10,7 +10,7 @@ import { loadChannels, useChatStore } from '../chat-store';
 import { onSocket, table as tableApi, useNetSelector } from '../net';
 import { Link } from '../router';
 import { defaultOf, saveUserSetting, useSettings } from '../settings';
-import { useMobileAttribute, useMobileLayout } from '../table/mobile';
+import { useFollowPhoneProfile, useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton, MobileInfoPanel } from '../table/Panel';
@@ -63,6 +63,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const moreRef = useKeepInView<HTMLDivElement>(more);
   const mobile = useMobileLayout();
   const modern = mobile;
+  useFollowPhoneProfile(mobile);
   useMobileAttribute(mobile, modern);
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true, chipLabel: settings.values['ui.showChipLabelAtTable'] !== false });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.

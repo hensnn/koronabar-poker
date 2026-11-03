@@ -21,9 +21,10 @@ const INFO_TITLE: Record<WidgetId, string> = {
 export function MobileOrderEditor({ values, onChange }: { values: Record<string, unknown>; onChange: (key: string, value: SettingValue) => void }) {
   const order = parseMobileOrder(values[ORDER_KEY]);
   const save = (next: MobileOrder) => onChange(ORDER_KEY, serializeOrder(next));
-  const row = <T extends string>(id: T, label: string, i: number, list: T[], move: (dir: -1 | 1) => void, flag?: { key: string; def: boolean }) => (
+  const row = <T extends string>(id: T, label: string, i: number, list: T[], move: (dir: -1 | 1) => void, flag?: { key: string; def: boolean }, visible?: { on: boolean; set: (on: boolean) => void }) => (
     <li key={id} className="flex flex-wrap items-center gap-1 rounded-sm bg-surface px-2 py-1">
       <label className="flex min-w-0 flex-1 items-center gap-2">
+        {visible && <input type="checkbox" checked={visible.on} onChange={(e) => visible.set(e.target.checked)} aria-label={label} />}
         {flag && <input type="checkbox" checked={flag.def ? values[flag.key] !== false : values[flag.key] === true} onChange={(e) => onChange(flag.key, e.target.checked)} />}
         <span className="truncate">{label}</span>
       </label>
@@ -44,7 +45,7 @@ export function MobileOrderEditor({ values, onChange }: { values: Record<string,
       </section>
       <section className="rounded-md border-2 border-warning bg-warning/10 p-3" aria-label={t('mobile.order.info')}>
         <h3 className="mb-2 font-bold text-warning">{t('mobile.order.info')}</h3>
-        <ul className="flex flex-col gap-1">{order.info.map((id, i) => row(id, t(INFO_TITLE[id]), i, order.info, (d) => save({ ...order, info: moveItem(order.info, id, d) })))}</ul>
+        <ul className="flex flex-col gap-1">{order.info.map((id, i) => row(id, t(INFO_TITLE[id]), i, order.info, (d) => save({ ...order, info: moveItem(order.info, id, d) }), undefined, id === 'info' ? undefined : { on: !order.hidden.includes(id), set: (on) => save({ ...order, hidden: on ? order.hidden.filter((x) => x !== id) : [...order.hidden, id] }) }))}</ul>
       </section>
       <div>
         <Button onClick={() => onChange(ORDER_KEY, '')}>{t('mobile.order.reset')}</Button>

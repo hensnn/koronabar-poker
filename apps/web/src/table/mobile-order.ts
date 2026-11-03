@@ -21,6 +21,8 @@ export const ORDER_KEY = 'ui.mobileOrder';
 export interface MobileOrder {
   info: WidgetId[];
   mid: MidPart[];
+  /** Widgety, které si hráč v informacích na telefonu skryl (O hře se skrýt nedá, jsou v něm akce). */
+  hidden: WidgetId[];
 }
 
 /** Uložené pořadí z osobního nastavení; neznámé položky se zahodí a chybějící (např. z novější verze) se doplní na konec ve výchozím pořadí. */
@@ -36,7 +38,8 @@ export function parseMobileOrder(raw: unknown): MobileOrder {
     const have = Array.isArray(x) ? [...new Set(x.filter((v): v is T => all.includes(v as T)))] : [];
     return [...have, ...all.filter((a) => !have.includes(a))];
   };
-  return { info: pick(obj.info, INFO_DEFAULT), mid: pick(obj.mid, MID_PARTS) };
+  const hidden = Array.isArray(obj.hidden) ? [...new Set(obj.hidden.filter((v): v is WidgetId => INFO_DEFAULT.includes(v as WidgetId) && v !== 'info'))] : [];
+  return { info: pick(obj.info, INFO_DEFAULT), mid: pick(obj.mid, MID_PARTS), hidden };
 }
 
 /** Posune položku v seznamu o jedno místo (`-1` nahoru, `1` dolů). */
