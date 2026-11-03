@@ -8,7 +8,7 @@ import { TimeStrip } from './TimerRing';
 import { mmss } from './TablePanel';
 import { SoundStrip } from '../pages/sounds';
 import { useTableWidgets } from './widgets';
-import { parseMobileOrder, ORDER_KEY, type MobileWidget } from './mobile-order';
+import { effectiveOrder, parseMobileOrder, ORDER_KEY, type MobileWidget } from './mobile-order';
 
 /**
  * Horní lišta nového mobilního rozložení stolu: zpět, krátký název (blindy nebo turnaj) a tři ikony se zásuvkami
@@ -126,6 +126,7 @@ export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { v
     table: null,
     bounties: null,
     info: null,
+    chat: null,
   };
   // Ostatní widgety (hráči, můj stůl, odměny) se vykreslí stejně jako v zásuvce, jen v kompaktní kartě.
   for (const id of ['players', 'table', 'bounties'] as const) {
@@ -137,7 +138,7 @@ export function MobileMid({ view, mine, inBb: _inBb, offset, log, tableId }: { v
       </section>
     );
   }
-  return <div className="tk-mid flex flex-col gap-1.5">{parseMobileOrder(v[ORDER_KEY], v).mid.map((id) => parts[id])}</div>;
+  return <div className="tk-mid flex flex-col gap-1.5">{effectiveOrder(parseMobileOrder(v[ORDER_KEY], v)).s1.map((id) => parts[id])}</div>;
 }
 
 /** Zaškrtávátka v kartě „O hře“: co se na telefonu ukazuje mezi stolem a tlačítky a zda se upozorní na můj tah. */

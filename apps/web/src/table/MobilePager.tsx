@@ -1,0 +1,118 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { t } from '@kb/shared';
+import { saveUserSetting, useSettings } from '../settings';
+import { Button, Modal } from '../ui';
+import type { Channel } from '../chat-store';
+import { ChatPanel } from '../pages/chat';
+import { Frame } from './Panel';
+import { MobileOrderEditor } from './MobileOrderEditor';
+import { effectiveOrder, ORDER_KEY, parseMobileOrder, type MobileWidget } from './mobile-order';
+import { useTableWidgets } from './widgets';
+import type { WidgetId } from './layout';
+
+/** Rozmístění widgetů na telefonu podle osobního nastavení, už s ohledem na počet používaných obrazovek. */
+export function useMobileOrder() {
+  const values = useSettings().values;
+  return effectiveOrder(parseMobileOrder(values[ORDER_KEY], values));
+}
+
+/**
+ * Obrazovky u stolu na telefonu: první je stůl s pevným ovládacím panelem, další se listují prstem doleva a doprava (nebo klepnutím na tečky).
+ * `page` řídí rodič (tlačítka v horní liště, návrat na stůl při mém tahu); listování prstem ho aktualizuje.
+ */
+export function MobilePager({ first, pages, page, onPage }: { first: ReactNode; pages: ReactNode[]; page: number; onPage: (p: number) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const moving = useRef(false);
+  const timer = useRef(0);
+  const total = pages.length + 1;
+  const current = Math.min(page, total - 1);
+  // Programové přepnutí obrazovky (tlačítka, tečky): plynule se doroluje; průběžné polohy při tom nepřepisují volbu.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || el.clientWidth === 0) return;
+    if (Math.round(el.scrollLeft / el.clientWidth) === current) return;
+    moving.current = true;
+    el.scrollTo({ left: current * el.clientWidth, behavior: 'smooth' });
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => (moving.current = false), 500);
+  }, [current]);
+  const onScroll = () => {
+    if (moving.current) return;
+    const el = ref.current;
+    if (!el || el.clientWidth === 0) return;
+    const p = Math.round(el.scrollLeft / el.clientWidth);
+    if (p !== current) onPage(p);
+  };
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {total > 1 && (
+        <div className="flex items-center justify-center gap-2 py-1" role="tablist" aria-label={t('mobile.screens')}>
+          {Array.from({ length: total }, (_, i) => (
+            <button key={i} role="tab" aria-selected={i === current} aria-label={t('mobile.screenN', { n: i + 1 })} onClick={() => onPage(i)} className={`h-2 rounded-full ${i === current ? 'w-6 bg-primary' : 'w-2 bg-line'}`} />
+          ))}
+        </div>
+      )}
+      <div ref={ref} onScroll={onScroll} className="tk-pager flex min-h-0 flex-1">
+        <div className="tk-pager-page tk-pager-first">{first}</div>
+        {pages.map((p, i) => (
+          <div key={i} className="tk-pager-page">
+            {p}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Tělo jednoho widgetu v zásuvce nebo na obrazovce; chat se vykreslí jen na viditelné obrazovce (jinak by se zprávy označovaly za přečtené). */
+function WidgetBody({ id, channel, visible }: { id: MobileWidget; channel: Channel | undefined; visible: boolean }) {
+  const { defs } = useTableWidgets();
+  if (id === 'chat') return channel && visible ? <ChatPanel channel={channel} compact fill /> : <p className="text-muted">{t('table.chat')}</p>;
+  if (id === 'timer') return null;
+  return <>{defs[id].body}</>;
+}
+
+/** Jedna další obrazovka s widgety (2 nebo 3). */
+export function MobileScreen({ ids, channel, visible }: { ids: MobileWidget[]; channel: Channel | undefined; visible: boolean }) {
+  const { layout, setLayout, defs } = useTableWidgets();
+  const [editing, setEditing] = useState(false);
+  const settings = useSettings();
+  const shown = ids.filter((id) => id === 'chat' || (id !== 'timer' && defs[id].show));
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-1">
+      <div className="flex justify-end">
+        <Button onClick={() => setEditing(true)} aria-label={t('mobile.order.open')} title={t('mobile.order.open')}>
+          📱 ⇅
+        </Button>
+      </div>
+      {editing && (
+        <Modal title={`📱 ${t('mobile.order.title')}`} onClose={() => setEditing(false)}>
+          <MobileOrderEditor values={settings.values} onChange={(k, v) => void saveUserSetting(k, v, true).catch(() => undefined)} />
+          <div className="mt-3">
+            <Button variant="primary" onClick={() => setEditing(false)}>
+              {t('table.close')}
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {shown.length === 0 && <p className="text-muted">{t('mobile.screenEmpty')}</p>}
+      {shown.map((id) =>
+        id === 'chat' ? (
+          <section key={id} className="tk-widget flex min-h-64 flex-1 flex-col">
+            <div className="tk-widget-head font-semibold">{t('table.chat')}</div>
+            <div className="tk-widget-body flex min-h-0 flex-1 flex-col">
+              <WidgetBody id={id} channel={channel} visible={visible} />
+            </div>
+          </section>
+        ) : (
+          <Frame key={id} id={id as WidgetId} def={defs[id as WidgetId]} layout={layout} setLayout={setLayout} />
+        ),
+      )}
+    </div>
+  );
+}
+
+/** Obsah zásuvky s jedním widgetem (widget v „ikonách“ nahoře). */
+export function MobileWidgetDrawer({ id, channel }: { id: MobileWidget; channel: Channel | undefined }) {
+  return <WidgetBody id={id} channel={channel} visible />;
+}

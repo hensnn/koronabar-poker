@@ -1349,3 +1349,11 @@ html[data-mobile-modern] body { overflow: hidden; }
 /* Při pauze s tlačítkem „Jsem ready“ se stavový řádek nezkracuje na dva řádky: tlačítko se musí vejít celé. */
 [data-mobile-modern] .tk-turn-ready { height: auto; min-height: 2.6rem; overflow: visible; }
 [data-mobile-modern] .tk-turn-ready > p { display: block; -webkit-line-clamp: unset; overflow: visible; }
+
+/* Obrazovky u stolu na telefonu: listuje se prstem doleva a doprava, první je stůl s pevným ovládacím panelem. */
+.tk-pager { overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.tk-pager::-webkit-scrollbar { display: none; }
+.tk-pager-page { flex: 0 0 100%; min-width: 0; min-height: 0; scroll-snap-align: start; scroll-snap-stop: always; display: flex; flex-direction: column; }
+.tk-pager-first { overflow: hidden; }
+/* Posuvník sázky se při tažení nesmí chytat jako listování obrazovek. */
+.tk-slider-row input[type='range'] { touch-action: none; }

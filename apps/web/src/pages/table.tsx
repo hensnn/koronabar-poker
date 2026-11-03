@@ -13,7 +13,10 @@ import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { useFollowPhoneProfile, useMobileAttribute, useMobileLayout } from '../table/mobile';
 import { TableScreen } from '../table/TableScreen';
 import { setTableFormat } from '../table/format';
-import { Panel, PanelSettingsButton, MobileInfoPanel } from '../table/Panel';
+import { Panel, PanelSettingsButton } from '../table/Panel';
+import { MobilePager, MobileScreen, MobileWidgetDrawer, useMobileOrder } from '../table/MobilePager';
+import { MobileOrderEditor, WIDGET_TITLE_KEY } from '../table/MobileOrderEditor';
+import { WIDGET_ICON, zoneOf, type MobileWidget } from '../table/mobile-order';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
 import { MobileBar } from '../table/mobile-ui';
@@ -55,13 +58,23 @@ export function TablePage({ tableId }: { tableId: string }) {
   const store = useChatStore();
   const features = useFeatures();
   const [showSettlement, setShowSettlement] = useState(false);
-  const [drawer, setDrawer] = useState<'chat' | 'panel' | 'info' | 'menu' | null>(null);
+  const [drawer, setDrawer] = useState<string | null>(null);
   const [focus, setFocus] = useState(false);
   const [history, setHistory] = useState(false);
   const hiddenSides = useHiddenSides();
   const [more, setMore] = useState(false);
   const moreRef = useKeepInView<HTMLDivElement>(more);
   const mobile = useMobileLayout();
+  // Obrazovky na telefonu: 0 = stůl s ovládacím panelem, další se listují prstem; rozmístění widgetů si volí hráč.
+  const order = useMobileOrder();
+  const [page, setPage] = useState(0);
+  const [layoutEditor, setLayoutEditor] = useState(false);
+  const goTo = (id: MobileWidget) => {
+    const z = zoneOf(order, id);
+    if (z === 's2') setPage(1);
+    else if (z === 's3') setPage(2);
+    else if (z === 'icon') setDrawer(`w:${id}`);
+  };
   const modern = mobile;
   useFollowPhoneProfile(mobile);
   useMobileAttribute(mobile, modern);
@@ -118,6 +131,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   useFollowMyTable(tournamentId, tableId, isTournament);
   useTournamentResultFallback(isTournament ? tournamentId : '');
   const { me } = useSession();
+  const mySeat = view?.seats.find((x) => x.playerId === me?.user.id);
+  const myTurn = !!mySeat && view?.actingSeat === mySeat.seat;
+  // Když jsem na tahu, vrátí se obrazovka na stůl (ovládací panel je jen tam).
+  useEffect(() => {
+    if (myTurn) setPage(0);
+  }, [myTurn]);
   const [pollOpen, setPollOpen] = useState(false);
   const inBb = Boolean(settings.values['ui.showInBb']);
   const seated = !!view?.seats.some((s) => s.playerId === me?.user.id);
@@ -200,6 +219,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       </>
     );
   };
+  const drawerTitle = drawer === 'chat' ? t('table.chat') : drawer?.startsWith('w:') ? t(WIDGET_TITLE_KEY[drawer.slice(2) as MobileWidget]) : drawer === 'menu' ? t('table.m.menu') : t('table.panel');
   return (
     <TableWidgetsProvider view={view} tableId={tableId} inBb={inBb} chat={chatWidget}>
     <div className={`tk-tablepage ${hiddenSides.left ? 'tk-no-panel' : ''}`} data-area={areaAlign} style={pageStyle}>
@@ -241,19 +261,30 @@ export function TablePage({ tableId }: { tableId: string }) {
             backTo={isTournament ? `/turnaj/${tournamentId}` : '/stoly'}
             title={`${isTournament ? '🏆 ' : ''}${tableInfo ? `${tableInfo.smallBlind}/${tableInfo.bigBlind}` : ''}`}
             unread={channel?.unread ?? 0}
-            hasChat={!!channel}
-            onChat={() => setDrawer('chat')}
-            onInfo={() => setDrawer('info')}
+            hasChat={!!channel && zoneOf(order, 'chat') !== 'hidden'}
+            onChat={() => goTo('chat')}
+            onInfo={() => goTo('info')}
             onMenu={() => setDrawer('menu')}
             onHistory={() => setHistory(true)}
             onPause={canPause && view ? () => void togglePause() : undefined}
             paused={!!view?.paused}
             tools={
-              settings.values['ui.mobileAllIcons'] === true ? (
+              settings.values['ui.mobileAllIcons'] === true || order.icon.some((id) => id !== 'info' && id !== 'chat') ? (
                 <>
-                  {renderTools(true)}
-                  <SoundMenu />
-                  {features.assistant && <AssistantToolButton iconOnly />}
+                  {order.icon
+                    .filter((id) => id !== 'info' && id !== 'chat')
+                    .map((id) => (
+                      <button key={id} className="tk-mbar-btn rounded-md border border-line bg-surface" onClick={() => setDrawer(`w:${id}`)} aria-label={t(WIDGET_TITLE_KEY[id])} title={t(WIDGET_TITLE_KEY[id])}>
+                        {WIDGET_ICON[id]}
+                      </button>
+                    ))}
+                  {settings.values['ui.mobileAllIcons'] === true && (
+                    <>
+                      {renderTools(true)}
+                      <SoundMenu />
+                      {features.assistant && <AssistantToolButton iconOnly />}
+                    </>
+                  )}
                 </>
               ) : undefined
             }
@@ -302,35 +333,67 @@ export function TablePage({ tableId }: { tableId: string }) {
         {isTournament && <TournamentBanner tournamentId={tournamentId} handRunning={!!(view?.handId && view.winners === null && view.street !== null)} />}
         {isTournament && <DealPanel id={tournamentId} onlyOpen />}
         {isTournament && <BustSummaryButton tournamentId={tournamentId} />}
-        <TableScreen
-          tableId={tableId}
-          inBb={inBb}
-          quickPost={String(settings.values['ui.quickBetsPostflop'])}
-          quickPre={String(settings.values['ui.quickBetsPreflop'])}
-          modern={modern}
-          extra={
-            seated && !modern ? (
-              <span className="tk-tp-mobile">
-                <SoundPalette target={{ kind: 'table', id: tableId }} />
-              </span>
-            ) : undefined
-          }
-        />
+        {(() => {
+          const screen = (
+          <TableScreen
+            tableId={tableId}
+            inBb={inBb}
+            quickPost={String(settings.values['ui.quickBetsPostflop'])}
+            quickPre={String(settings.values['ui.quickBetsPreflop'])}
+            modern={modern}
+            extra={
+              seated && !modern ? (
+                <span className="tk-tp-mobile">
+                  <SoundPalette target={{ kind: 'table', id: tableId }} />
+                </span>
+              ) : undefined
+            }
+          />
+          );
+          return modern ? (
+            <MobilePager
+              first={screen}
+              page={page}
+              onPage={setPage}
+              pages={[...(order.screens >= 2 ? [<MobileScreen key="s2" ids={order.s2} channel={channel} visible={page === 1} />] : []), ...(order.screens >= 3 ? [<MobileScreen key="s3" ids={order.s3} channel={channel} visible={page === 2} />] : [])]}
+            />
+          ) : (
+            screen
+          );
+        })()}
       </div>
+      {layoutEditor && (
+        <Modal title={`📱 ${t('mobile.order.title')}`} onClose={() => setLayoutEditor(false)}>
+          <MobileOrderEditor values={settings.values} onChange={(k, v) => void saveUserSetting(k, v, true).catch(() => undefined)} />
+          <div className="mt-3">
+            <Button variant="primary" onClick={() => setLayoutEditor(false)}>
+              {t('table.close')}
+            </Button>
+          </div>
+        </Modal>
+      )}
       {drawer && (
-        <div className="tk-drawer" role="dialog" aria-label={drawer === 'chat' ? t('table.chat') : drawer === 'info' ? t('table.m.info') : drawer === 'menu' ? t('table.m.menu') : t('table.panel')}>
+        <div className="tk-drawer" role="dialog" aria-label={drawerTitle}>
           <div className="tk-drawer-head">
-            <strong>{drawer === 'chat' ? t('table.chat') : drawer === 'info' ? t('table.m.info') : drawer === 'menu' ? t('table.m.menu') : t('table.panel')}</strong>
+            <strong>{drawerTitle}</strong>
             <Button onClick={() => setDrawer(null)}>{t('table.close')}</Button>
           </div>
           <div className="tk-drawer-body flex flex-col gap-2">
             {drawer === 'chat' ? (
               channel && <ChatPanel channel={channel} compact fill />
-            ) : drawer === 'info' ? (
-              <MobileInfoPanel />
+            ) : drawer.startsWith('w:') ? (
+              <MobileWidgetDrawer id={drawer.slice(2) as MobileWidget} channel={channel} />
             ) : drawer === 'menu' ? (
               <>
                 <div className="flex flex-wrap gap-2">{renderTools(true)}</div>
+                <Button
+                  onClick={() => {
+                    setDrawer(null);
+                    setLayoutEditor(true);
+                  }}
+                >
+                  📱 {t('mobile.order.open')}
+                </Button>
                 <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface p-2">
                   <SoundMenu />
                   <label className="flex items-center gap-2 text-sm">

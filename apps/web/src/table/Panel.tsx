@@ -4,12 +4,10 @@ import { defaultOf, saveUserSetting, useSettings } from '../settings';
 import { Button, Modal } from '../ui';
 import { moveToSide, reorder, sideOf, toggleCollapsed, toggleHidden, toggleSide, WIDGET_IDS, type Layout, type Side, type WidgetId } from './layout';
 import { useMobileLayout } from './mobile';
-import { MobileOrderEditor } from './MobileOrderEditor';
-import { ORDER_KEY, parseMobileOrder, type MobileWidget } from './mobile-order';
 import { useTableWidgets, type WidgetDef } from './widgets';
 
 /** Rámeček jednoho widgetu: sbalitelná hlavička s volitelnými doplňky. */
-function Frame({ id, def, layout, setLayout, extra }: { id: WidgetId; def: WidgetDef; layout: Layout; setLayout: (l: Layout) => void; extra?: ReactNode }) {
+export function Frame({ id, def, layout, setLayout, extra }: { id: WidgetId; def: WidgetDef; layout: Layout; setLayout: (l: Layout) => void; extra?: ReactNode }) {
   // Na telefonu je „O hře“ (a v něm akce, dokoupení a odchod od stolu) vždy rozbalené.
   const mobile = useMobileLayout();
   const collapsed = layout.collapsed.includes(id) && !(mobile && id === 'info');
@@ -170,39 +168,6 @@ export function Panel({ side, hide = [] }: { side: Side; /** Widgety, které se 
       )}
       {visible.map((id) => (
         <Frame key={id} id={id} def={defs[id]} layout={stored} setLayout={setLayout} extra={id === visible[0] && !mobile ? gear : null} />
-      ))}
-    </>
-  );
-}
-
-/**
- * Panel s informacemi na telefonu (zásuvka ℹ️): hodiny turnaje (Můj stůl), pak O hře (s akcemi) a potom ostatní widgety.
- * Co je zapnuté pod stolem (kombinace, události, zvukové emotikony), se tady neopakuje; po vypnutí se objeví tady.
- */
-export function MobileInfoPanel() {
-  const { layout, setLayout, defs } = useTableWidgets();
-  const settings = useSettings();
-  const [editing, setEditing] = useState(false);
-  const order = parseMobileOrder(settings.values[ORDER_KEY], settings.values).info.filter((id): id is Exclude<MobileWidget, 'timer'> => id !== 'timer').filter((id) => defs[id].show);
-  return (
-    <>
-      <div className="flex justify-end">
-        <Button onClick={() => setEditing(true)} aria-label={t('mobile.order.open')} title={t('mobile.order.open')}>
-          📱 ⇅
-        </Button>
-      </div>
-      {editing && (
-        <Modal title={`📱 ${t('mobile.order.title')}`} onClose={() => setEditing(false)}>
-          <MobileOrderEditor values={settings.values} onChange={(k, v) => void saveUserSetting(k, v, true).catch(() => undefined)} />
-          <div className="mt-3">
-            <Button variant="primary" onClick={() => setEditing(false)}>
-              {t('table.close')}
-            </Button>
-          </div>
-        </Modal>
-      )}
-      {order.map((id) => (
-        <Frame key={id} id={id} def={defs[id]} layout={layout} setLayout={setLayout} />
       ))}
     </>
   );
