@@ -116,7 +116,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
   ],
   system: [
     ['system.access', /^system\.(passwordMin|session|emailVerification|verifyLink|resetLink|login|mailRequests|inviteDefault|terms)/],
-    ['system.server', /^(system\.(rateLimit|publicUrl|profiles)|templates\.|liveCash\.|pwa\.)/],
+    ['system.server', /^(system\.(rateLimit|publicUrl|timezone|profiles|maxSockets|announceRooms|uploadMax)|templates\.|liveCash\.|pwa\.)/],
   ],
   economy: [
     ['economy.currency', /^economy\.(currency|decimals)/],

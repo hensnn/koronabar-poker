@@ -14,6 +14,7 @@ import {
   rateCashSession,
   rateTournament,
   softReset,
+  timezoneOf,
   type PermissionChecker,
   type RatingChange,
   type RatingParams,
@@ -122,6 +123,11 @@ export class RatingService {
     return this.deps.settings();
   }
 
+  /** Časové pásmo aplikace (`system.timezone`): hranice dne pro cash rating a týdne pro podezření. */
+  private tz(): string {
+    return timezoneOf(this.s);
+  }
+
   params(): RatingParams {
     const s = this.s;
     return { mu0: num(s, 'rating.mu0'), sigma0: num(s, 'rating.sigma0Hundredths') / 100, k: num(s, 'rating.k'), scale: num(s, 'rating.scale'), base: num(s, 'rating.base') };
@@ -195,7 +201,7 @@ export class RatingService {
       const elim = await this.db.select().from(schema.tournamentEliminations).where(eq(schema.tournamentEliminations.tournamentId, tournamentId));
       const pairInfo = results.length === 2 ? await this.pairFactor(results[0]!.userId, results[1]!.userId, tournamentId, at) : { factor: 1, prior: 0 };
       const pair = pairInfo.factor;
-      if (results.length === 2 && pairInfo.prior + 1 >= num(s, 'rating.pairFlagCount')) await this.flag('heads_up_pair', results[0]!.userId, results[1]!.userId, weekKey(at), { count: pairInfo.prior + 1 });
+      if (results.length === 2 && pairInfo.prior + 1 >= num(s, 'rating.pairFlagCount')) await this.flag('heads_up_pair', results[0]!.userId, results[1]!.userId, weekKey(at, this.tz()), { count: pairInfo.prior + 1 });
       const weight = fieldFactor(results.length, num(s, 'rating.fullFieldPlayers')) * lengthFactor(t.targetMinutes, num(s, 'rating.lengthRefMinutes'), num(s, 'rating.lengthMinFactorPercent') / 100) * pair * liveFactor;
       const changes = rateTournament(
         results.map((r) => ({ userId: r.userId, place: r.place, skill: states.get(r.userId)!.skill, rebuys: t.rebuys[r.userId] ?? 0 })),
@@ -274,7 +280,7 @@ export class RatingService {
           }
         }
       }
-      const key = weekKey(now);
+      const key = weekKey(now, this.tz());
       for (const [k, f] of flow) {
         const [a, b] = k.split('|') as [string, string];
         const net = f.ab - f.ba;
@@ -329,13 +335,13 @@ export class RatingService {
     return this.enqueue(async () => {
       const s = this.s;
       if (!s['rating.enabled'] || !s['rating.cashEnabled']) return;
-      const today = dayKey(this.deps.now());
+      const today = dayKey(this.deps.now(), this.tz());
       const [meta] = await this.db.select().from(schema.systemMeta).where(eq(schema.systemMeta.key, 'rating:cashDay'));
       let from: string | null = meta ? String(meta.value) : null;
       if (!from) {
         const [first] = await this.db.select({ at: schema.hands.playedAt }).from(schema.hands).where(eq(schema.hands.kind, 'cash')).orderBy(schema.hands.playedAt).limit(1);
         if (!first) return;
-        from = dayKey(first.at.getTime());
+        from = dayKey(first.at.getTime(), this.tz());
       }
       let day = from;
       for (let i = 0; i < 90 && day < today; i++) {
@@ -349,8 +355,8 @@ export class RatingService {
   private async rateCashDay(day: string): Promise<number> {
     const s = this.s;
     const [y, m, d] = day.split('-').map(Number) as [number, number, number];
-    const start = new Date(fromLocal(y, m, d, 0, 0));
-    const end = new Date(fromLocal(y, m, d + 1, 0, 0));
+    const start = new Date(fromLocal(y, m, d, 0, 0, this.tz()));
+    const end = new Date(fromLocal(y, m, d + 1, 0, 0, this.tz()));
     const rows = await this.db
       .select({ tableId: schema.hands.tableId, userId: schema.handPlayers.userId, won: schema.handPlayers.won, invested: schema.handPlayers.invested, blinds: schema.hands.blinds, equity: schema.handPlayers.allInEquity, pot: schema.hands.pot })
       .from(schema.handPlayers)
@@ -476,13 +482,14 @@ export class RatingService {
       });
     }
     const [first] = await this.db.select({ at: schema.hands.playedAt }).from(schema.hands).where(eq(schema.hands.kind, 'cash')).orderBy(schema.hands.playedAt).limit(1);
-    const today = dayKey(this.deps.now());
+    const tz = this.tz();
+    const today = dayKey(this.deps.now(), tz);
     let cashDays = 0;
     // vypnutý rating nebo cash rating se při přepočtu nepočítá (stejně jako v rateCash)
     if (first && this.s['rating.enabled'] && this.s['rating.cashEnabled']) {
-      for (let day = dayKey(first.at.getTime()); day < today; day = nextDay(day)) {
+      for (let day = dayKey(first.at.getTime(), tz); day < today; day = nextDay(day)) {
         const [y, m, d] = day.split('-').map(Number) as [number, number, number];
-        items.push({ at: fromLocal(y, m, d + 1, 0, 0) - 1, order: 1, run: async () => void (await this.rateCashDay(day)) });
+        items.push({ at: fromLocal(y, m, d + 1, 0, 0, tz) - 1, order: 1, run: async () => void (await this.rateCashDay(day)) });
         cashDays++;
       }
     }

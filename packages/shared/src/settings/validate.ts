@@ -5,7 +5,7 @@ import type { SettingValues } from './types.js';
  * Parametry, které už neexistují, ale mohou být uložené ve starších šablonách, stolech nebo turnajích.
  * Tiše se přeskakují (nejsou chybou), aby se kvůli nim nedala zablokovat práce se šablonou. Nový odstraněný klíč se přidá sem.
  */
-export const RETIRED_SETTING_KEYS: ReadonlySet<string> = new Set(['ui.soundEnabled', 'ui.soundVolumePercent', 'cash.waitingListEnabled', 'time.dealCardMs']);
+export const RETIRED_SETTING_KEYS: ReadonlySet<string> = new Set(['ui.soundEnabled', 'ui.soundVolumePercent', 'cash.waitingListEnabled', 'time.dealCardMs', 'table.variant']);
 
 export interface ValidationIssue {
   keys: string[];
@@ -35,7 +35,12 @@ export function validateValues(
     }
   }
   if (issues.length) return issues;
-  const full = { ...reg.defaults(), ...values } as SettingValues;
+  return crossIssues(reg, { ...reg.defaults(), ...values } as SettingValues);
+}
+
+/** Jen pravidla vzájemné konzistence nad úplnou sadou hodnot (např. efektivními hodnotami vrstvy). */
+export function crossIssues(reg: SettingsRegistry, full: SettingValues): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
   for (const rule of reg.crossRules()) {
     if (!rule.check(full)) issues.push({ keys: rule.keys, messageKey: rule.messageKey });
   }

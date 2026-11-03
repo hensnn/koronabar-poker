@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, isNotNull } from 'drizzle-orm';
 import type { Clock } from '@kb/game-core';
 import { DEFAULT_TZ, nextOccurrences, validateRule, ScheduleError, type ScheduleRule } from '@kb/shared';
 import type { PermissionChecker } from '@kb/shared';
@@ -35,6 +35,8 @@ export interface SchedulerDeps {
   onError?: (e: unknown) => void;
   /** Pravidelná úloha mimo turnaje (např. roční souhrny); volá se při každém tiku, sama si hlídá frekvenci. */
   periodic?: () => Promise<void>;
+  /** Časové pásmo aplikace (`system.timezone`) pro nové plány bez vlastního pásma. */
+  timezone?: () => string;
 }
 
 const MIN = 60_000;
@@ -107,7 +109,7 @@ export class Scheduler {
       throw e;
     }
     const id = `plan-${randomBytes(4).toString('hex')}`;
-    await this.deps.db.insert(schema.schedules).values({ id, name, ownerId: actorId, templateId: input.templateId, settings: input.settings ?? {}, rule: input.rule, timezone: input.timezone ?? DEFAULT_TZ, seriesId: input.seriesId ?? null });
+    await this.deps.db.insert(schema.schedules).values({ id, name, ownerId: actorId, templateId: input.templateId, settings: input.settings ?? {}, rule: input.rule, timezone: input.timezone ?? this.deps.timezone?.() ?? DEFAULT_TZ, seriesId: input.seriesId ?? null });
     await this.deps.audit?.log({ actorId, action: 'plan.vytvorit', targetType: 'schedule', targetId: id, after: { name, rule: input.rule } });
     // Nejbližší výskyty vzniknou hned, ne až při příštím tiku.
     await this.tick();
@@ -175,7 +177,8 @@ export class Scheduler {
     const horizon = now + (this.deps.horizonDays ?? 7) * DAY;
     const plans = (await this.list()).filter((p) => p.enabled);
     if (plans.length === 0) return;
-    const rows = await this.deps.db.select({ sched: schema.tournaments.sched }).from(schema.tournaments);
+    // Jen turnaje z plánu (částečný index `tournaments_sched_idx`); tabulka turnajů roste navždy, plný průchod každých pár sekund by zbytečně zatěžoval DB.
+    const rows = await this.deps.db.select({ sched: schema.tournaments.sched }).from(schema.tournaments).where(isNotNull(schema.tournaments.sched));
     const done = new Set(rows.flatMap((r) => ((r.sched as SchedMeta | null)?.scheduleId ? [`${(r.sched as SchedMeta).scheduleId}:${(r.sched as SchedMeta).occurrence}`] : [])));
     for (const plan of plans) {
       let occurrences: number[] = [];

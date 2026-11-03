@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { DEFAULT_TZ } from '@kb/shared';
 
 export interface CalendarEvent {
   id: string;
@@ -27,9 +28,9 @@ function fold(line: string): string {
   return out.join('\r\n');
 }
 
-/** Kalendář turnajů ve formátu iCalendar (jde přidat do Google Kalendáře přes odkaz). */
-export function buildIcs(events: CalendarEvent[], calendarName: string): string {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//KoronaBar Poker//Turnaje//CS', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${esc(calendarName)}`, 'X-WR-TIMEZONE:Europe/Prague'];
+/** Kalendář turnajů ve formátu iCalendar (jde přidat do Google Kalendáře přes odkaz). Pásmo = `system.timezone` z nastavení. */
+export function buildIcs(events: CalendarEvent[], calendarName: string, timezone: string = DEFAULT_TZ): string {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//KoronaBar Poker//Turnaje//CS', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${esc(calendarName)}`, `X-WR-TIMEZONE:${esc(timezone)}`];
   for (const e of events) {
     lines.push(
       'BEGIN:VEVENT',

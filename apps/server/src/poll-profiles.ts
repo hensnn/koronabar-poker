@@ -1,6 +1,6 @@
 import { and, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
-import { dayKey, type PermissionChecker, type PlayerProfile, type PollCondition, type SettingValues } from '@kb/shared';
+import { dayKey, timezoneOf, type PermissionChecker, type PlayerProfile, type PollCondition, type SettingValues } from '@kb/shared';
 import type { Tournament } from '@kb/game-core';
 import { schema, type Db } from './db/index.js';
 
@@ -48,6 +48,7 @@ export class ProfileBuilder {
   async build(userIds: string[], days: number[] = []): Promise<PlayerProfile[]> {
     if (userIds.length === 0) return [];
     const now = this.d.now();
+    const tz = timezoneOf(this.d.settings());
     const users = await this.d.db.select().from(schema.users).where(inArray(schema.users.id, userIds));
     const hp = schema.handPlayers;
 
@@ -75,7 +76,7 @@ export class ProfileBuilder {
       .from(hp)
       .innerJoin(schema.hands, eq(schema.hands.id, hp.handId))
       .where(and(inArray(hp.userId, userIds), eq(hp.kind, 'cash')))
-      .groupBy(hp.userId, schema.hands.tableId, sql`date(${hp.playedAt} at time zone 'Europe/Prague')`);
+      .groupBy(hp.userId, schema.hands.tableId, sql`date(${hp.playedAt} at time zone ${tz})`);
     const games = new Map<string, number[]>();
     const wins = new Map<string, number>();
     for (const r of tourRows) {

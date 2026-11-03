@@ -110,6 +110,8 @@ Panely se na telefonu nepoužívají, proto tam není ani nastavení panelů. St
 
 **Správa → Údržba** (jen hlavní správce). Zaškrtni, co se má smazat všem hráčům: zavřít stoly a zrušit turnaje (žetony se vrátí), XP a úrovně, úspěchy, rating, statistiky a historie hand, peněženky na startovní zůstatek. Potvrzuje se slovem VYNULOVAT a je to nevratné (zápis v audit logu). Doporučený postup po zkušebním provozu: 1) zavřít hry, 2) vynulovat XP, úspěchy, rating a statistiky, 3) peněženky na startovní zůstatek. Zvlášť je **Nový start účetní knihy**: smaže historii všech transakcí a každému připíše počáteční zůstatek (jde jen bez otevřených stolů a běžících turnajů). Jednotlivému hráči vynuluješ XP, úspěchy a rating ve **Správa → Uživatelé** tlačítkem *Vynulovat XP a rating*. Rating navíc umí „měkký reset sezóny“ a přepočet z historie ve Statistiky → Rating (pro běžné sezóny bez mazání).
 
+**Smazání hráče** (**Správa → Uživatelé → Smazat**) účet neodstraní z databáze, ale anonymizuje: přezdívka se změní na „Smazaný hráč 1a2b3c4d“, e-mail, heslo, avatar, barva a osobní nastavení se vymažou, přihlášení přestane fungovat (relace, přístupové tokeny, push odběry i jeho pozvánky se zruší) a zůstatek peněženky se vrátí bance. Odehrané handy, výsledky turnajů, rating a XP zůstávají, aby seděly součty v historii ostatních hráčů; v žebříčku se smazaný hráč už neukazuje. Hranice dne a roku ve statistikách se počítají podle nastavení *Časové pásmo aplikace* (Správa → Nastavení → Systém).
+
 ## 6. Kde co najdeš
 
 | Chci | Kde |

@@ -2,7 +2,7 @@
 export type Mutability = 'anytime' | 'betweenHands' | 'beforeStart' | 'adminOnly';
 
 /** Vrstvy nastavení, pozdější v seznamu přepisuje dřívější. */
-export const SCOPES = ['global', 'template', 'game', 'table', 'user', 'userDevice'] as const;
+export const SCOPES = ['global', 'template', 'table', 'user', 'userDevice'] as const;
 export type Scope = (typeof SCOPES)[number];
 
 /** Na jaký druh hry se parametr vztahuje (pro skrývání nesmyslných polí). */
@@ -20,8 +20,19 @@ interface BaseDef {
   mutability: Mutability;
   appliesTo?: AppliesTo;
   dependsOn?: Dependency;
-  /** Které vrstvy smějí parametr přepsat. Výchozí: global, template, game, table. */
+  /** Které vrstvy smějí parametr přepsat. Výchozí: global, template, table. */
   scopes?: readonly Scope[];
+  /**
+   * Herní parametr (odvozeno v registru z `appliesTo` cash/tournament/live): globální formulář ho nenabízí a
+   * `PUT /api/settings/global` ho odmítne, protože šablony jsou úplné a globální hodnota by se u her neprojevila.
+   * Při vyhodnocování vrstev se globální hodnota dál respektuje (testy a skripty ji používají jako základ).
+   */
+  globalHidden?: boolean;
+  /**
+   * Osobní vrstva (user, userDevice) smí hodnotu přepsat jen, když efektivní globální hodnota uvedeného
+   * klíče splňuje podmínku (např. hráč si smí vybrat hlas jen pokud to správce povolil).
+   */
+  userChoiceDependsOn?: Dependency;
   /** Hodnota pro „Retro“ šablony, pokud je parametr novou funkcí. */
   retroDefault?: unknown;
   /** Tajný údaj: nikdy se nevrací klientovi, neexportuje se a nelogguje. */

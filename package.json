@@ -12,7 +12,7 @@
     "build": "pnpm -r build",
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",
-    "lint": "oxlint --react-plugin -A all -D react-hooks/rules-of-hooks -D no-debugger -D no-dupe-keys -D no-unreachable apps/web/src apps/server/src packages/*/src"
+    "lint": "oxlint --react-plugin -A all -D react-hooks/rules-of-hooks -D react-hooks/exhaustive-deps -D no-debugger -D no-dupe-keys -D no-unreachable -D no-fallthrough -D no-self-compare -D no-constant-binary-expression -D no-unsafe-finally -D no-async-promise-executor -D no-cond-assign apps/web/src apps/server/src packages/*/src"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

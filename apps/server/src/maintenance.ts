@@ -1,8 +1,9 @@
-import { randomUUID } from 'node:crypto';
-import { and, eq, getTableName, gte, inArray, is, or, sql } from 'drizzle-orm';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { hash } from '@node-rs/argon2';
+import { and, eq, getTableName, gte, inArray, is, like, or, sql } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
 import { accounts as ledgerAccounts, type CashService, type Ledger } from '@kb/ledger';
-import type { PermissionChecker, SettingValues } from '@kb/shared';
+import { t, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import type { ChatImages } from './chat/images.js';
 import type { HistoryService } from './history.js';
@@ -43,6 +44,8 @@ interface Deps {
   isMainAdmin: (userId: string) => boolean;
   /** Po smazání účtů znovu načte role a přiřazení v paměti. */
   reloadPerms: () => Promise<void>;
+  /** Po anonymizaci účtu zahodí jeho osobní vrstvy nastavení z paměti (řádky v DB maže údržba sama). */
+  dropUserSettings?: (userId: string) => Promise<unknown>;
   /** Soubory mimo databázi (zvuky, obrázky motivů), které se při úplném resetu smažou. */
   purgeFiles: () => Promise<void>;
   /** Po úplném resetu se aplikace musí restartovat (v provozu ji znovu spustí Docker). */
@@ -459,9 +462,12 @@ export class MaintenanceService {
   }
 
   /**
-   * Smaže uživatelské účty. Přeskočí hlavní administrátory, sebe, hráče sedící u stolu nebo zapsané v otevřeném turnaji
-   * a hráče s otevřenou sázkou nebo odměnou na hlavu (jinak by zůstaly peníze v úschově). Zůstatek peněženky se vrací do
-   * „mint“ (virtuální měna bez hodnoty), takže kniha zůstane vyrovnaná. Ostatní data hráče se smažou kaskádou.
+   * „Smaže“ uživatelské účty anonymizací: řádek v `users` zůstává (odehrané handy, výsledky her, rating, XP i účetní
+   * kniha se na něj odkazují a součty v historii ostatních hráčů musí dál sedět), ale přezdívka se nahradí zástupným
+   * jménem, e-mail, heslo, avatar a osobní údaje se vyprázdní, stav je `deleted` a přihlášení není možné (relace,
+   * tokeny, push odběry, pozvánky, role a osobní nastavení se odstraní). Přeskočí hlavní administrátory, sebe, hráče
+   * sedící u stolu nebo zapsané v otevřeném turnaji a hráče s otevřenou sázkou nebo odměnou na hlavu (jinak by zůstaly
+   * peníze v úschově). Zůstatek peněženky se vrací do „mint“ (virtuální měna bez hodnoty), takže kniha zůstane vyrovnaná.
    */
   async deleteUsers(actorId: string, userIds: string[], meta: Meta = {}): Promise<DeleteUsersResult> {
     this.can(actorId);
@@ -476,9 +482,9 @@ export class MaintenanceService {
       if (st && ACTIVE.has(st.status)) for (const p of st.players) if (p.status !== 'out') playing.add(p.userId);
     }
     for (const id of [...new Set(userIds)]) {
-      const [u] = await db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users).where(eq(schema.users.id, id));
+      const [u] = await db.select({ id: schema.users.id, nickname: schema.users.nickname, status: schema.users.status }).from(schema.users).where(eq(schema.users.id, id));
       const skip = (reason: DeleteUsersResult['skipped'][number]['reason']) => void result.skipped.push({ id, nickname: u?.nickname ?? '', reason });
-      if (!u) {
+      if (!u || u.status === 'deleted') {
         skip('notFound');
         continue;
       }
@@ -519,12 +525,36 @@ export class MaintenanceService {
       const balance = this.deps.ledger.balance(wallet);
       if (balance !== 0) this.deps.ledger.post({ kind: 'manual_adjustment', idempotencyKey: `delete-user:${id}:${randomUUID()}`, entries: [{ account: wallet, amount: -balance }, { account: ledgerAccounts.mint(), amount: balance }], createdBy: actorId, note: 'udrzba.smazani_uzivatele' });
       await this.deps.flush();
-      await db.delete(schema.users).where(eq(schema.users.id, id));
+      await this.anonymize(id);
       await this.deps.audit.log({ actorId, action: 'udrzba.smazat_uzivatele', targetType: 'user', targetId: id, before: { nickname: u.nickname, balance }, ...meta });
       result.deleted.push(id);
     }
     if (result.deleted.length > 0) await this.deps.reloadPerms();
     return result;
+  }
+
+  /** Anonymizace účtu: zástupná přezdívka, prázdné osobní údaje, nepoužitelné heslo, odvolané přístupy. Historie her zůstává. */
+  private async anonymize(id: string): Promise<void> {
+    const db = this.deps.db;
+    const now = new Date();
+    // Zástupné jméno musí být jedinečné (přezdívky jsou unikátní bez ohledu na velikost písmen): „Smazaný hráč 1a2b3c4d“.
+    const nickname = t('maintenance.deletedPlayer', { id: id.replace(/-/g, '').slice(0, 8) });
+    // Náhodný hash: přihlášení skončí vždy jako špatné heslo (ověření hashe nesmí spadnout na neplatném formátu).
+    const passwordHash = await hash(randomBytes(32).toString('base64url'));
+    await db
+      .update(schema.users)
+      .set({ nickname, nicknameLower: nickname.toLowerCase(), email: null, emailLower: null, emailVerifiedAt: null, passwordHash, avatar: null, chartColor: null, status: 'deleted', blockedReason: null, blockedUntil: null, lastSeenAt: null, deletedAt: now })
+      .where(eq(schema.users.id, id));
+    await db.delete(schema.sessions).where(eq(schema.sessions.userId, id));
+    await db.delete(schema.emailTokens).where(eq(schema.emailTokens.userId, id));
+    await db.delete(schema.pushSubscriptions).where(eq(schema.pushSubscriptions.userId, id));
+    await db.update(schema.apiTokens).set({ revokedAt: now }).where(and(eq(schema.apiTokens.userId, id), sql`${schema.apiTokens.revokedAt} is null`));
+    await db.update(schema.invites).set({ revokedAt: now }).where(and(eq(schema.invites.createdBy, id), sql`${schema.invites.revokedAt} is null`));
+    await db.delete(schema.roleAssignments).where(eq(schema.roleAssignments.userId, id));
+    await db.delete(schema.notifications).where(eq(schema.notifications.userId, id));
+    await db.delete(schema.creditLines).where(eq(schema.creditLines.userId, id));
+    await db.delete(schema.settingsValues).where(or(and(eq(schema.settingsValues.scopeType, 'user'), eq(schema.settingsValues.scopeId, id)), and(eq(schema.settingsValues.scopeType, 'userDevice'), like(schema.settingsValues.scopeId, `${id}:%`))));
+    await this.deps.dropUserSettings?.(id);
   }
 
   /**

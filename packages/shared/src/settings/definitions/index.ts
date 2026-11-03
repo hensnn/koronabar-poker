@@ -1,8 +1,11 @@
 import { SettingsRegistry } from '../registry.js';
 import type { BoolDef, EnumDef, IntDef, SettingDef, StringDef } from '../types.js';
+import { isValidTimeZone } from '../../schedule.js';
+
+export * from './internal.js';
 
 type Common = Pick<IntDef, 'category' | 'mutability'> &
-  Partial<Pick<IntDef, 'unit' | 'appliesTo' | 'dependsOn' | 'scopes' | 'retroDefault'>>;
+  Partial<Pick<IntDef, 'unit' | 'appliesTo' | 'dependsOn' | 'scopes' | 'retroDefault' | 'userChoiceDependsOn'>>;
 
 const int = (
   key: string,
@@ -47,7 +50,6 @@ const table: SettingDef[] = [
   int('table.seats', { category: 'table', mutability: S }, 9, 2, 10),
   int('table.winImpactMediumBb', { category: 'table', mutability: A, unit: 'BB' }, 20, 1, 100_000),
   int('table.winImpactBigBb', { category: 'table', mutability: A, unit: 'BB' }, 100, 1, 100_000),
-  choice('table.variant', { category: 'table', mutability: S }, 'nlhe', ['nlhe']),
   choice('table.bettingLimit', { category: 'table', mutability: S }, 'noLimit', [
     'noLimit',
     'potLimit',
@@ -75,6 +77,7 @@ const table: SettingDef[] = [
     'table.straddleMultiplier',
     {
       category: 'table',
+      appliesTo: 'cash',
       mutability: H,
       unit: 'BB',
       dependsOn: { key: 'table.straddleEnabled', truthy: true },
@@ -189,6 +192,8 @@ const system: SettingDef[] = [
   int('system.rateLimitPerSecond', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 10, 1, 1000),
   int('system.rateLimitBurst', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 20, 1, 10000),
   text('system.publicUrl', { category: 'system', mutability: ADM, scopes: GLOBAL }, 'https://poker.example.cz', 200),
+  // Časové pásmo aplikace (hranice dne, měsíce a roku ve statistikách, plánování turnajů). Platnost hlídá pravidlo `timezone`.
+  text('system.timezone', { category: 'system', mutability: ADM, scopes: GLOBAL }, 'Europe/Prague', 64),
   text('templates.order', { category: 'system', mutability: ADM, scopes: GLOBAL }, '', 4000),
   int('system.passwordMinLength', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 8, 6, 128),
   int('system.sessionDays', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'dní' }, 30, 1, 365),
@@ -199,6 +204,10 @@ const system: SettingDef[] = [
   int('system.loginLockMinutes', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'min' }, 15, 1, 1440),
   int('system.mailRequestsPerHour', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 100),
   int('system.inviteDefaultHours', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'h' }, 168, 1, 8760),
+  // Stropy spojení a nahrávání (ochrana serveru před jedním příliš aktivním klientem).
+  int('system.maxSocketsPerUser', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 8, 1, 100),
+  int('system.announceRoomsPerSocket', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 10, 1, 100),
+  int('system.uploadMaxConcurrentPerUser', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 2, 1, 20),
   text(
     'system.termsText',
     { category: 'system', mutability: ADM, scopes: GLOBAL },
@@ -235,6 +244,7 @@ const stats: SettingDef[] = [
   bool('stats.publicOverview', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
   bool('stats.publicEnabled', { category: 'stats', mutability: ADM, scopes: GLOBAL }, false),
   int('stats.leaderboardMinHands', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 30, 0, 100000),
+  int('stats.cacheSeconds', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 's' }, 30, 0, 3600),
   int('stats.categoryMinGames', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 3, 1, 1000),
   bool('stats.yearEnabled', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
   text('stats.yearFieldsWeb', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'net,tournamentNet,cashNet,liveNet,won,lost,topUps,withdrawals,balanceStart,balanceEnd,hands,tournaments,monthly', 300),
@@ -312,6 +322,7 @@ const themeSettings: SettingDef[] = [
   int('api.maxExpiryDays', { category: 'api', mutability: ADM, scopes: GLOBAL, unit: 'd' }, 365, 1, 3650),
   bool('integrations.enabled', { category: 'integrations', mutability: ADM, scopes: GLOBAL }, false),
   bool('integrations.webhooksEnabled', { category: 'integrations', mutability: ADM, scopes: GLOBAL }, true),
+  bool('integrations.allowPrivateUrls', { category: 'integrations', mutability: ADM, scopes: GLOBAL }, false),
   int('integrations.webhookMaxAttempts', { category: 'integrations', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 5, 1, 20),
   int('integrations.webhookRetrySeconds', { category: 'integrations', mutability: ADM, scopes: GLOBAL, unit: 's' }, 30, 1, 3600),
   int('integrations.logDays', { category: 'integrations', mutability: ADM, scopes: GLOBAL, unit: 'd' }, 14, 1, 365),
@@ -412,7 +423,7 @@ const themeSettings: SettingDef[] = [
   bool('announcer.mute', { category: 'announcer', mutability: A, scopes: USER }, false),
   int('announcer.userVolumePercent', { category: 'announcer', mutability: A, scopes: USER, unit: '%' }, 100, 0, 100),
   bool('announcer.userBrowserOnly', { category: 'announcer', mutability: A, scopes: USER }, false),
-  text('announcer.userVoice', { category: 'announcer', mutability: A, scopes: USER }, '', 200),
+  text('announcer.userVoice', { category: 'announcer', mutability: A, scopes: USER, userChoiceDependsOn: { key: 'announcer.allowUserChoice', truthy: true } }, '', 200),
   bool('tv.enabled', { category: 'tv', mutability: ADM, scopes: GLOBAL }, true),
   int('tv.tableDelaySeconds', { category: 'tv', mutability: ADM, scopes: GLOBAL, unit: 's' }, 30, 0, 600),
   choice('tv.cardsMode', { category: 'tv', mutability: ADM, scopes: GLOBAL }, 'afterHand', ['never', 'afterHand', 'spectator']),
@@ -531,6 +542,7 @@ const sounds: SettingDef[] = [
   text('sounds.formats', { category: 'sounds', mutability: ADM, scopes: GLOBAL }, 'mp3,ogg,wav,m4a', 60),
   int('sounds.maxFileKb', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 'KB' }, 2048, 64, 20480),
   int('sounds.maxSeconds', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 's' }, 5, 1, 30),
+  int('sounds.ffmpegTimeoutSeconds', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 's' }, 60, 5, 600),
   int('system.profilesMaxPerUser', { category: 'system', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 10, 1, 100),
   int('sounds.maxPerUser', { category: 'sounds', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 20, 1, 500),
   bool('sounds.requireApproval', { category: 'sounds', mutability: ADM, scopes: GLOBAL }, true),
@@ -912,6 +924,12 @@ export function createDefaultRegistry(): SettingsRegistry {
       keys: ['economy.transferMin', 'economy.transferMax'],
       check: (v) => (v['economy.transferMin'] as number) <= (v['economy.transferMax'] as number),
       messageKey: 'rule.transferMinAboveMax',
+    },
+    {
+      id: 'timezone',
+      keys: ['system.timezone'],
+      check: (v) => isValidTimeZone(String(v['system.timezone'] ?? '')),
+      messageKey: 'rule.invalidTimezone',
     },
   );
   return reg;

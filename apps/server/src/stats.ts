@@ -71,6 +71,8 @@ export class StatsService {
   private pending = new Map<string, Pending>();
   private lastHand = new Map<string, string>();
   private writes: Promise<unknown> = Promise.resolve();
+  /** Spočítané žebříčky podle rozsahu; platí `stats.cacheSeconds` a zahodí se při každé nové handě nebo výsledku. */
+  private boards = new Map<string, { at: number; rows: LeaderRow[] }>();
 
   constructor(
     private deps: {
@@ -94,6 +96,11 @@ export class StatsService {
   /** Vypnutí serveru: čekající zápisy se zahodí. */
   stop(): void {
     this.stopped = true;
+  }
+
+  /** Zahodí uložené žebříčky (nová handa, výsledek hry, sázka, mazání historie). */
+  invalidateLeaderboard(): void {
+    this.boards.clear();
   }
 
   private queue(fn: () => Promise<unknown>): void {
@@ -184,6 +191,7 @@ export class StatsService {
         )
         .onConflictDoNothing();
     });
+    this.invalidateLeaderboard();
     this.deps.onHand?.({ handId: p.handId, playedAt: playedAt.getTime(), kind: src.kind, tableId: src.tableId, players: players.map((x) => ({ userId: x.userId, wonShowdown: flags.get(x.userId)?.wonShowdown ?? false })) });
   }
 
@@ -201,6 +209,7 @@ export class StatsService {
           return { kind: 'tournament', ref: tournamentId, userId: r.userId, finishedAt, place: r.place, field: results.length, spent: own.reduce((n, p) => n + p.cost + p.fee, 0), payout: r.payout, bounty: r.bounty ?? 0, rebuys: own.filter((p) => p.kind === 'turnaj_rebuy').length, targetMinutes: info.targetMinutes, rated: info.rated, live: !!info.live };
         });
       if (rows.length > 0) await this.deps.db.insert(schema.gameResults).values(rows).onConflictDoNothing();
+      this.invalidateLeaderboard();
     });
   }
 
@@ -341,8 +350,18 @@ export class StatsService {
     };
   }
 
-  /** Žebříček: čistý zisk v měně, cash a turnaje zvlášť i dohromady. */
+  /** Žebříček: čistý zisk v měně, cash a turnaje zvlášť i dohromady. Výsledek se krátce drží v paměti (`stats.cacheSeconds`). */
   async leaderboard(range: StatsRange): Promise<LeaderRow[]> {
+    const ttl = Number(this.deps.settings()['stats.cacheSeconds'] ?? 0) * 1000;
+    const key = `${range.from?.getTime() ?? ''}:${range.to?.getTime() ?? ''}`;
+    const hit = this.boards.get(key);
+    if (hit && ttl > 0 && this.deps.now() - hit.at < ttl) return hit.rows.map((r) => ({ ...r }));
+    const rows = await this.computeLeaderboard(range);
+    if (ttl > 0) this.boards.set(key, { at: this.deps.now(), rows });
+    return rows.map((r) => ({ ...r }));
+  }
+
+  private async computeLeaderboard(range: StatsRange): Promise<LeaderRow[]> {
     const hp = schema.handPlayers;
     const cash = await this.deps.db
       .select({
@@ -379,9 +398,13 @@ export class StatsService {
     const minHands = Number(this.deps.settings()['stats.leaderboardMinHands'] ?? 0);
     const ids = [...new Set([...cash.map((c) => c.userId), ...tour.map((t) => t.userId), ...liveNet.keys(), ...sideNet.keys()])];
     if (ids.length === 0) return [];
-    const nicks = new Map((await this.deps.db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, ids))).map((u) => [u.id, u.nickname]));
+    // Smazané (anonymizované) účty v žebříčku nefigurují; jejich handy a výsledky zůstávají kvůli statistikám ostatních.
+    const nicks = new Map(
+      (await this.deps.db.select({ id: schema.users.id, nickname: schema.users.nickname, status: schema.users.status }).from(schema.users).where(inArray(schema.users.id, ids))).filter((u) => u.status !== 'deleted').map((u) => [u.id, u.nickname]),
+    );
     const rows: LeaderRow[] = [];
     for (const id of ids) {
+      if (!nicks.has(id)) continue;
       const c = cash.find((x) => x.userId === id);
       const t = tour.find((x) => x.userId === id);
       const cashHands = Number(c?.hands ?? 0);

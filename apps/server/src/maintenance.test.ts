@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { accounts } from '@kb/ledger';
 import { FakeClock } from '@kb/game-core';
 import { buildServer } from './app.js';
@@ -180,7 +181,7 @@ describe('údržba: příprava na ostrý provoz', () => {
 });
 
 describe('údržba: mazání uživatelů a úplný reset', () => {
-  it('smaže vybrané uživatele, zůstatek vrátí do mint, správce a sedící přeskočí', async () => {
+  it('smaže (anonymizuje) vybrané uživatele, zůstatek vrátí do mint, správce a sedící přeskočí; historie her zůstane', async () => {
     const s = await start();
     const mk = async (nick: string) => {
       const inv = await s.server.accounts.createInvite(s.admin, {});
@@ -189,6 +190,16 @@ describe('údržba: mazání uživatelů a úplný reset', () => {
     const b = await mk('Smazat1');
     const c = await mk('Sedi');
     await s.server.wallet.topUp(s.admin, b, 500, 'test');
+    await s.server.accounts.login('Smazat1', 'heslo-hrace-123');
+    await s.server.settings.set(b, 'user', b, 'ui.showInBb', true);
+    // odehraná handa a výsledek turnaje smazaného hráče (statistiky ostatních se o ně opírají)
+    const at = new Date();
+    await s.server.db.insert(schema.hands).values({ id: 'h-anon', tableId: 'tx', kind: 'cash', handNumber: 1, playedAt: at, pot: 200, blinds: { sb: 5, bb: 10, ante: 0 }, chipsPerUnit: 1 });
+    await s.server.db.insert(schema.handPlayers).values([
+      { handId: 'h-anon', userId: b, seat: 0, kind: 'cash', playedAt: at, startStack: 1000, invested: 100, won: 200 },
+      { handId: 'h-anon', userId: c, seat: 1, kind: 'cash', playedAt: at, startStack: 1000, invested: 100, won: 0 },
+    ]);
+    await s.server.db.insert(schema.gameResults).values({ kind: 'tournament', ref: 't-anon', userId: b, finishedAt: at, place: 1, field: 3, spent: 100, payout: 300, bounty: 0, rebuys: 0 });
     const { id } = await s.server.tables.createTable(s.admin, { name: 'Obsazený', templateId: 'cash-klasika' });
     const actor = s.server.tables.actors.get(id)!;
     const info = actor.viewFor(null).info;
@@ -203,9 +214,30 @@ describe('údržba: mazání uživatelů a úplný reset', () => {
     // zůstatek smazaného se vrátil do mint, kniha je vyrovnaná
     expect(s.server.ledger.balance(accounts.mint())).toBe(mintBefore + 500 + 10_000);
     expect(total()).toBeLessThan(0);
-    const users = await s.server.db.select({ id: schema.users.id }).from(schema.users);
-    expect(users.map((u) => u.id)).not.toContain(b);
-    expect(users.map((u) => u.id)).toContain(c);
+    // účet zůstává, ale anonymizovaný: zástupné jméno, bez e-mailu, stav deleted
+    const [gone] = await s.server.db.select().from(schema.users).where(eq(schema.users.id, b));
+    expect(gone!.status).toBe('deleted');
+    expect(gone!.nickname).toMatch(/^Smazaný hráč [0-9a-f]{8}$/);
+    expect(gone!.email).toBeNull();
+    expect(gone!.avatar).toBeNull();
+    expect(gone!.deletedAt).not.toBeNull();
+    const [kept] = await s.server.db.select().from(schema.users).where(eq(schema.users.id, c));
+    expect(kept!.nickname).toBe('Sedi');
+    // přihlásit se nejde (starým jménem, e-mailem ani zástupným jménem), relace a osobní nastavení jsou pryč
+    await expect(s.server.accounts.login('Smazat1', 'heslo-hrace-123')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(s.server.accounts.login('smazat1@example.cz', 'heslo-hrace-123')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(s.server.accounts.login(gone!.nickname, 'heslo-hrace-123')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    expect(await s.server.db.select().from(schema.sessions).where(eq(schema.sessions.userId, b))).toHaveLength(0);
+    expect(await s.server.db.select().from(schema.settingsValues).where(eq(schema.settingsValues.scopeId, b))).toHaveLength(0);
+    // handy, výsledky a účetní kniha zůstávají
+    expect(await s.server.db.select().from(schema.handPlayers).where(eq(schema.handPlayers.userId, b))).toHaveLength(1);
+    expect(await s.server.db.select().from(schema.gameResults).where(eq(schema.gameResults.userId, b))).toHaveLength(1);
+    expect((await s.server.db.select().from(schema.ledgerEntries).where(eq(schema.ledgerEntries.account, accounts.wallet(b)))).length).toBeGreaterThan(0);
+    // v žebříčku smazaný hráč nefiguruje, ostatní ano
+    const board = await s.server.stats.leaderboard({ from: null, to: null });
+    expect(board.map((r) => r.userId)).not.toContain(b);
+    // druhé „smazání“ už jen hlásí, že účet neexistuje
+    expect((await s.server.maintenance.deleteUsers(s.admin, [b])).skipped.map((x) => x.reason)).toEqual(['notFound']);
   });
 
   it('úplný reset: všechny tabulky prázdné, požádá o restart; smí jen hlavní správce', async () => {

@@ -6,6 +6,28 @@
 
 export const DEFAULT_TZ = 'Europe/Prague';
 
+const tzValid = new Map<string, boolean>();
+/** Zda je text platný název pásma IANA (např. `Europe/Prague`); ověřuje se přes Intl. */
+export function isValidTimeZone(tz: string): boolean {
+  let ok = tzValid.get(tz);
+  if (ok === undefined) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: tz });
+      ok = tz.trim().length > 0;
+    } catch {
+      ok = false;
+    }
+    tzValid.set(tz, ok);
+  }
+  return ok;
+}
+
+/** Časové pásmo aplikace z nastavení (`system.timezone`); neplatná nebo chybějící hodnota = výchozí. */
+export function timezoneOf(settings: Readonly<Record<string, unknown>>): string {
+  const tz = String(settings['system.timezone'] ?? DEFAULT_TZ);
+  return isValidTimeZone(tz) ? tz : DEFAULT_TZ;
+}
+
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export type ScheduleRule =

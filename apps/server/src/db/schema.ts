@@ -33,10 +33,12 @@ export const users = pgTable(
     avatar: text('avatar'),
     /** Barva hráče ve statistikách a grafech (1 až 12, design tokeny `color.seriesN`); null = přidělí se automaticky. */
     chartColor: integer('chart_color'),
-    /** active | pending (čeká na ověření/schválení) | blocked */
+    /** active | pending (čeká na ověření/schválení) | blocked | deleted (anonymizovaný účet, viz MaintenanceService.deleteUsers) */
     status: text('status').notNull().default('active'),
     blockedReason: text('blocked_reason'),
     blockedUntil: timestamp('blocked_until', { withTimezone: true }),
+    /** Kdy byl účet smazán (anonymizován); osobní údaje jsou pak prázdné, historie her zůstává. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     locale: text('locale').notNull().default('cs'),
     termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
@@ -426,21 +428,26 @@ export const chatIgnores = pgTable(
 // ---------- turnaje ----------
 
 /** Turnaj: nastavení (přepsání šablony), stav (hráči, hodiny, výsledky) a vlastník. Stůl turnaje má stav v `table_state`. */
-export const tournaments = pgTable('tournaments', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
-  templateId: text('template_id'),
-  /** Snímek hodnot vlastní šablony při založení (viz game_tables). */
-  templateValues: jsonb('template_values').$type<Record<string, unknown>>(),
-  settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
-  /** registering | running | finished | cancelled (zrcadlo stavu pro rychlé výpisy) */
-  status: text('status').notNull().default('registering'),
-  state: jsonb('state'),
-  /** Plánování: čas startu, otevření registrace, odložení a odeslaná upozornění (viz TournamentManager). */
-  sched: jsonb('sched'),
-  createdAt: createdAt(),
-});
+export const tournaments = pgTable(
+  'tournaments',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
+    templateId: text('template_id'),
+    /** Snímek hodnot vlastní šablony při založení (viz game_tables). */
+    templateValues: jsonb('template_values').$type<Record<string, unknown>>(),
+    settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    /** registering | running | finished | cancelled (zrcadlo stavu pro rychlé výpisy) */
+    status: text('status').notNull().default('registering'),
+    state: jsonb('state'),
+    /** Plánování: čas startu, otevření registrace, odložení a odeslaná upozornění (viz TournamentManager). */
+    sched: jsonb('sched'),
+    createdAt: createdAt(),
+  },
+  // Plánovač čte každých pár sekund jen turnaje z plánu; částečný index drží jen ty.
+  (t) => [index('tournaments_sched_idx').on(t.id).where(sql`${t.sched} is not null`)],
+);
 
 /** Drobné systémové údaje (např. které položky katalogu oprávnění už byly rozdány předpřipraveným rolím). */
 export const systemMeta = pgTable('system_meta', {
@@ -533,14 +540,15 @@ export const hands = pgTable(
     blinds: jsonb('blinds').$type<{ sb: number; bb: number; ante: number }>().notNull(),
     actions: jsonb('actions').$type<{ userId: string; street: string; action: string; amount: number; facing: number }[]>().notNull().default(sql`'[]'::jsonb`),
   },
-  (t) => [index('hands_played_idx').on(t.playedAt), index('hands_table_idx').on(t.tableId, t.playedAt)],
+  (t) => [index('hands_played_idx').on(t.playedAt), index('hands_table_idx').on(t.tableId, t.playedAt), index('hands_tournament_idx').on(t.tournamentId)],
 );
 
+/** Hráč v handě. Účet se nikdy nemaže (jen anonymizuje), `restrict` je pojistka: součty v detailu handy musí sedět i po smazání hráče. */
 export const handPlayers = pgTable(
   'hand_players',
   {
     handId: text('hand_id').notNull().references(() => hands.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     seat: integer('seat').notNull(),
     kind: text('kind').notNull(),
     playedAt: timestamp('played_at', { withTimezone: true }).notNull(),
@@ -565,7 +573,7 @@ export const handPlayers = pgTable(
     allInEquity: doublePrecision('all_in_equity'),
     handKey: text('hand_key'),
   },
-  (t) => [primaryKey({ columns: [t.handId, t.userId] }), index('hand_players_user_idx').on(t.userId, t.playedAt)],
+  (t) => [primaryKey({ columns: [t.handId, t.userId] }), index('hand_players_user_idx').on(t.userId, t.playedAt), index('hand_players_kind_idx').on(t.kind, t.playedAt)],
 );
 
 /** Výsledek hráče v ukončené hře (zatím turnaj); cash se počítá z hand. Částky v měně. */
@@ -575,7 +583,7 @@ export const gameResults = pgTable(
     id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
     kind: text('kind').notNull(),
     ref: text('ref').notNull(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     finishedAt: timestamp('finished_at', { withTimezone: true }).notNull(),
     place: integer('place').notNull(),
     field: integer('field').notNull(),
@@ -589,7 +597,7 @@ export const gameResults = pgTable(
     /** Živá hra (skutečné karty): samostatný typ hry, do ratingu jde s váhou z nastavení. */
     live: boolean('live').notNull().default(false),
   },
-  (t) => [uniqueIndex('game_results_uq').on(t.kind, t.ref, t.userId), index('game_results_user_idx').on(t.userId, t.finishedAt)],
+  (t) => [uniqueIndex('game_results_uq').on(t.kind, t.ref, t.userId), index('game_results_user_idx').on(t.userId, t.finishedAt), index('game_results_kind_idx').on(t.kind, t.finishedAt)],
 );
 
 /** Sezóna žebříčku: časové okno; žebříček za sezónu sčítá jen hry v něm. */
@@ -666,7 +674,7 @@ export const xpEvents = pgTable(
   'xp_events',
   {
     id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     source: text('source').notNull(),
     ref: text('ref').notNull(),
     day: text('day').notNull(),
@@ -690,7 +698,7 @@ export const tournamentEliminations = pgTable(
   {
     id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
     tournamentId: text('tournament_id').notNull(),
-    victimId: uuid('victim_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    victimId: uuid('victim_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     place: integer('place').notNull(),
     killers: jsonb('killers').$type<{ userId: string; weight: number; equity?: number | null }[]>().notNull().default(sql`'[]'::jsonb`),
     at: timestamp('at', { withTimezone: true }).notNull(),
@@ -727,7 +735,7 @@ export const playerAchievements = pgTable(
 export const ratingState = pgTable(
   'rating_state',
   {
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     scope: text('scope').notNull(),
     mu: doublePrecision('mu').notNull(),
     sigma: doublePrecision('sigma').notNull(),
@@ -744,7 +752,7 @@ export const ratingEvents = pgTable(
   'rating_events',
   {
     id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     scope: text('scope').notNull(),
     /** Turnaj: id turnaje; cash: stůl:den; reset: reset:časová značka. */
     ref: text('ref').notNull(),

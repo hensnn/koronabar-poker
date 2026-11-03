@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
-import { DEFAULT_TZ, startOfMonth, yearBounds, type PermissionChecker, type SettingValues } from '@kb/shared';
+import { startOfMonth, timezoneOf, yearBounds, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import type { WalletService } from './wallet/service.js';
@@ -101,11 +101,13 @@ export class HouseExpenseService {
     this.can(actorId, 'mena.zobrazit_dum');
     const db = this.deps.db;
     const now = this.deps.now();
-    const year = Number(new Intl.DateTimeFormat('en-US', { timeZone: DEFAULT_TZ, year: 'numeric' }).format(new Date(now)));
-    const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: DEFAULT_TZ, month: 'numeric' }).format(new Date(now))) - 1;
-    const yb = yearBounds(year, DEFAULT_TZ);
-    const monthStart = new Date(startOfMonth(year, month, DEFAULT_TZ));
-    const monthEnd = new Date(month >= 11 ? yb.to : startOfMonth(year, month + 1, DEFAULT_TZ));
+    // Hranice měsíce a roku v časovém pásmu aplikace (`system.timezone`).
+    const tz = timezoneOf(this.deps.settings());
+    const year = Number(new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric' }).format(new Date(now)));
+    const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'numeric' }).format(new Date(now))) - 1;
+    const yb = yearBounds(year, tz);
+    const monthStart = new Date(startOfMonth(year, month, tz));
+    const monthEnd = new Date(month >= 11 ? yb.to : startOfMonth(year, month + 1, tz));
     const houseNow = this.deps.ledger.balance(accounts.house());
     const he = schema.houseExpenses;
     const sums = async (from: Date, to: Date) => {

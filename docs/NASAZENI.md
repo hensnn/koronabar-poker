@@ -72,11 +72,13 @@ Aktualizace a základní nástroje:
 apt update && apt -y upgrade && apt -y install curl git ca-certificates nano
 ```
 
-Časové pásmo (časy v logu a e-mailech):
+Časové pásmo serveru (jen časy v logu):
 
 ```bash
 timedatectl set-timezone Europe/Prague
 ```
+
+Proměnná `TZ` v `.env` a v Docker Compose ovlivňuje jen časové značky v logu kontejneru. Hranice dne, měsíce a roku ve statistikách (roční statistika, cash rating po dnech, výdaje domu, profily hráčů pro ankety), místní čas v plánování turnajů a pásmo v exportu kalendáře řídí nastavení aplikace **Správa → Nastavení → Systém → Časové pásmo aplikace** (`system.timezone`, výchozí `Europe/Prague`, název podle IANA).
 
 Docker oficiálním instalačním skriptem:
 
@@ -157,6 +159,11 @@ V NPM **Hosts → Proxy Hosts → Add Proxy Host**:
 
 Pak otevři `https://poker.example.cz` a přihlas se přezdívkou a heslem z `.env`.
 
+Dvě věci k síti v `.env`:
+
+- **`TRUST_PROXY`** nech prázdné: aplikace věří hlavičce s adresou klienta jen od proxy z vnitřní sítě (NPM na stejném stroji nebo v Dockeru). Díky tomu platí limity přihlášení a zámek proti hádání hesla na skutečnou adresu hráče. Hodnotu `true` nikdy nepoužívej, kdokoli by si pak mohl adresu podvrhnout. Když NPM běží na jiném stroji s veřejnou adresou, zadej jeho IP; při více proxy za sebou (třeba Cloudflare a NPM) zadej jejich počet.
+- **`BIND_ADDRESS`**: když NPM běží na stejném stroji jako aplikace (v síti hostitele), nastav `127.0.0.1`. Port aplikace pak není z internetu vidět napřímo, takže nejde obejít HTTPS ani limity. Když NPM běží jinde (v jiném kontejneru nebo na jiném stroji), nech `0.0.0.0` a port chraň firewallem.
+
 ## 6. Po přihlášení
 
 1. **Správa → Nastavení → Systém:** zkontroluj veřejnou adresu.
@@ -186,6 +193,8 @@ Restart aplikace:
 ```bash
 cd /opt/koronabar && docker compose restart app
 ```
+
+**Aplikace musí běžet v jediné replice.** Stav rozehraných her, účetní kniha i plánovač turnajů žijí v paměti jedné instance; dvě instance nad stejnou databází by rozjely knihu a zdvojily turnaje. Server si proto při startu bere zámek v PostgreSQL a druhou instanci odmítne s hláškou „Nad touto databází už běží jiná instance aplikace“ (kontejner se pak ukončí). Nikdy tedy nespouštěj `docker compose up --scale app=2` ani nepouštěj aplikaci z více míst nad jednou databází. Pokud hlášku vidíš a žádnou druhou instanci nemáš, zkontroluj `docker ps`, zda nedobíhá starý kontejner, a počkej, až skončí.
 
 Zapomenuté heslo hlavního administrátora:
 

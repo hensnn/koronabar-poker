@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, like, lt, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
-import { DEFAULT_TZ, t, currencyFormsOf, currencyWord, monthIndex, parseYearFields, pickYearFields, yearBounds, type SettingValues, type YearChannel, type YearField, type YearStats } from '@kb/shared';
+import { t, currencyFormsOf, currencyWord, monthIndex, parseYearFields, pickYearFields, timezoneOf, yearBounds, type SettingValues, type YearChannel, type YearField, type YearStats } from '@kb/shared';
 import { schema, type Db } from './db/index.js';
 import { sideNets } from './side-results.js';
 
@@ -31,9 +31,14 @@ export class YearStatsService {
 
   constructor(private deps: Deps) {}
 
+  /** Časové pásmo aplikace (`system.timezone`): hranice roku a měsíce. */
+  private tz(): string {
+    return timezoneOf(this.deps.settings());
+  }
+
   /** Aktuální rok v časové zóně aplikace. */
   currentYear(): number {
-    return Number(new Intl.DateTimeFormat('en-US', { timeZone: DEFAULT_TZ, year: 'numeric' }).format(new Date(this.deps.now())));
+    return Number(new Intl.DateTimeFormat('en-US', { timeZone: this.tz(), year: 'numeric' }).format(new Date(this.deps.now())));
   }
 
   private enabled(): void {
@@ -51,7 +56,7 @@ export class YearStatsService {
     const rows = await this.deps.db.select({ at: gr.finishedAt }).from(gr).where(eq(gr.userId, userId));
     const hands = await this.deps.db.select({ at: sql<Date>`min(${schema.handPlayers.playedAt})` }).from(schema.handPlayers).where(eq(schema.handPlayers.userId, userId));
     const ys = new Set<number>([this.currentYear()]);
-    const yearOf = (d: Date) => Number(new Intl.DateTimeFormat('en-US', { timeZone: DEFAULT_TZ, year: 'numeric' }).format(d));
+    const yearOf = (d: Date) => Number(new Intl.DateTimeFormat('en-US', { timeZone: this.tz(), year: 'numeric' }).format(d));
     for (const r of rows) ys.add(yearOf(r.at));
     const first = hands[0]?.at;
     if (first) for (let y = yearOf(new Date(first)); y <= this.currentYear(); y++) ys.add(y);
@@ -62,7 +67,8 @@ export class YearStatsService {
   async compute(userId: string, year: number): Promise<YearStats> {
     this.enabled();
     if (!Number.isInteger(year) || year < 2000 || year > 2200) throw new YearStatsError('INVALID');
-    const { from, to } = yearBounds(year, DEFAULT_TZ);
+    const tz = this.tz();
+    const { from, to } = yearBounds(year, tz);
     const fromD = new Date(from);
     const toD = new Date(to);
     const db = this.deps.db;
@@ -87,18 +93,19 @@ export class YearStatsService {
         tournaments++;
       } else liveNet += net;
       add(net);
-      monthly[monthIndex(g.finishedAt.getTime(), DEFAULT_TZ)]! += net;
+      monthly[monthIndex(g.finishedAt.getTime(), tz)]! += net;
     }
 
     // Sázky a odměny na hlavu patří k turnaji, ke kterému se vztahují.
     for (const r of await sideNets(db, { userIds: [userId], from: fromD, to: toD })) {
       tournamentNet += r.net;
       add(r.net);
-      monthly[monthIndex(r.at, DEFAULT_TZ)]! += r.net;
+      monthly[monthIndex(r.at, tz)]! += r.net;
     }
 
     const hp = schema.handPlayers;
-    const day = sql<string>`date_trunc('day', ${hp.playedAt} at time zone ${sql.raw(`'${DEFAULT_TZ}'`)})`;
+    // Pásmo je ověřený název IANA (timezoneOf); jako parametr nejde, protože výraz musí být v SELECT i GROUP BY stejný.
+    const day = sql<string>`date_trunc('day', ${hp.playedAt} at time zone ${sql.raw(`'${tz.replace(/'/g, "''")}'`)})`;
     const cashDays = await db
       .select({ day, at: sql<Date>`min(${hp.playedAt})`, n: sql<number>`count(*)::int`, net: sql<string>`coalesce(round(sum((${hp.won} - ${hp.invested})::numeric / ${schema.hands.chipsPerUnit})), 0)` })
       .from(hp)
@@ -111,7 +118,7 @@ export class YearStatsService {
       cashNet += net;
       hands += Number(c.n);
       add(net);
-      monthly[monthIndex(new Date(c.at).getTime(), DEFAULT_TZ)]! += net;
+      monthly[monthIndex(new Date(c.at).getTime(), tz)]! += net;
     }
 
     // Pohyby peněženky: nabití a strhnutí správcem, zůstatek na začátku a na konci roku.
