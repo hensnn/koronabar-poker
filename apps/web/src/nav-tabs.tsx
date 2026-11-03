@@ -52,9 +52,9 @@ export function useNavCounts(chatOn: boolean, pollsOn: boolean): { tables: numbe
 }
 
 /** Řádek hlavních tlačítek pod hlavičkou (na všech stránkách mimo stůl): Stoly / Večery, Chat / Ankety, Peněženka, Statistiky… */
-export function NavTabs({ tabs, isActive }: { tabs: NavTab[]; isActive: (to: string) => boolean }) {
+export function NavTabs({ tabs, isActive, label }: { tabs: NavTab[]; isActive: (to: string) => boolean; label?: string }) {
   return (
-    <nav aria-label={t('nav.main')} className="my-2 flex flex-wrap gap-2">
+    <nav aria-label={label ?? t('nav.main')} className="my-2 flex flex-wrap gap-2">
       {tabs.map((tab) => (
         <Link key={tab.to} to={tab.to} aria-current={isActive(tab.to) ? 'page' : undefined} className={`flex items-center gap-2 rounded-md border px-3 py-1 ${isActive(tab.to) ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
           {tab.label}

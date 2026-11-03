@@ -6,9 +6,9 @@ describe('skupiny pohybů v peněžence', () => {
     expect(walletGroupOf('cash_buyin')).toBe('cash');
     expect(walletGroupOf('jackpot_payout')).toBe('cash');
     expect(walletGroupOf('turnaj_vyplata')).toBe('tournament');
-    expect(walletGroupOf('bounty')).toBe('tournament');
+    expect(walletGroupOf('bounty')).toBe('bounty');
     expect(walletGroupOf('bet_stake')).toBe('bets');
-    expect(walletGroupOf('head_bounty_payout')).toBe('bets');
+    expect(walletGroupOf('head_bounty_payout')).toBe('bounty');
     expect(walletGroupOf('mint')).toBe('topup');
     expect(walletGroupOf('credit_draw')).toBe('credit');
     expect(walletGroupOf('transfer_out')).toBe('transfer');

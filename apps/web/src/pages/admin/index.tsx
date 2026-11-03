@@ -1,8 +1,8 @@
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { lazyPage } from '../../lazy';
 import { t } from '@kb/shared';
-import { Redirect, useLocation } from '../../router';
-import { MainMenu, type MenuGroup, type MenuTone } from '../../main-menu';
+import { Link, Redirect, useLocation } from '../../router';
+import { NavTabs } from '../../nav-tabs';
 import { can, useSession, type Me } from '../../session';
 
 // Stránky správy se načítají až při otevření.
@@ -67,12 +67,23 @@ const SECTIONS: Section[] = [
   { group: 'system', path: '/admin/udrzba', label: 'admin.maintenance', show: (m) => can(m, 'nastaveni.globalni'), render: () => <MaintenancePage /> },
 ];
 
-const GROUPS: { id: AdminGroup; tone: MenuTone }[] = [
-  { id: 'people', tone: 'success' },
-  { id: 'game', tone: 'info' },
-  { id: 'money', tone: 'warning' },
-  { id: 'system', tone: 'accent' },
-];
+const GROUPS: AdminGroup[] = ['people', 'game', 'money', 'system'];
+
+const LAST_KEY = 'kb.admin.last';
+
+/** Naposledy otevřené stránky správy: podle kategorie a celkově (`_`). */
+function loadLast(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_KEY) ?? '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+/** Kam vede kategorie: na poslední použitou stránku v ní, pokud je ještě dostupná, jinak na první. */
+export function lastInGroup(paths: string[], last: string | undefined): string {
+  return last && paths.includes(last) ? last : paths[0]!;
+}
 
 /** Zda má uživatel přístup aspoň k jedné části správy (UI jen skrývá, server kontroluje vždy). */
 export const isAdmin = (me: Me): boolean => SECTIONS.some((s) => s.show(me));
@@ -80,17 +91,35 @@ export const isAdmin = (me: Me): boolean => SECTIONS.some((s) => s.show(me));
 export function AdminRouter() {
   const { me } = useSession();
   const { path } = useLocation();
-  if (!me) return null;
-  const visible = SECTIONS.filter((s) => s.show(me));
-  if (visible.length === 0) return <Redirect to="/" />;
+  const visible = me ? SECTIONS.filter((s) => s.show(me)) : [];
   const current = visible.find((s) => path === s.path);
-  if (!current) return <Redirect to={visible[0]!.path} />;
-  // Skupina bez oprávněných položek zmizí.
-  const menu: MenuGroup[] = GROUPS.map((g) => ({ id: g.id, tone: g.tone, label: t(`admin.group.${g.id}`), items: visible.filter((s) => s.group === g.id).map((s) => ({ to: s.path, label: t(s.label) })) })).filter((g) => g.items.length > 0);
+  // Zapamatuje poslední použitou stránku (celkově i v kategorii), ať se příště otevře tam, kde jsem skončil.
+  useEffect(() => {
+    if (!current) return;
+    try {
+      localStorage.setItem(LAST_KEY, JSON.stringify({ ...loadLast(), _: current.path, [current.group]: current.path }));
+    } catch {
+      /* bez úložiště se jen nezapamatuje */
+    }
+  }, [current]);
+  if (!me) return null;
+  if (visible.length === 0) return <Redirect to="/" />;
+  if (!current) return <Redirect to={lastInGroup(visible.map((s) => s.path), loadLast()._)} />;
+  // Kategorie bez oprávněných položek zmizí; kategorie vede na poslední použitou stránku v ní.
+  const last = loadLast();
+  const groups = GROUPS.map((g) => ({ id: g, items: visible.filter((s) => s.group === g) })).filter((g) => g.items.length > 0);
+  const tabs = groups.map((g) => ({ to: lastInGroup(g.items.map((s) => s.path), last[g.id]), label: t(`admin.group.${g.id}`) }));
+  const groupOf = new Map(tabs.map((tab, i) => [tab.to, groups[i]!.id]));
+  const active = groups.find((g) => g.id === current.group)!;
   return (
     <div className="flex flex-col gap-3">
-      <nav aria-label={t('admin.nav')}>
-        <MainMenu groups={menu} isActive={(to) => to === path} path={path} subBar />
+      <NavTabs label={t('admin.nav')} tabs={tabs} isActive={(to) => groupOf.get(to) === current.group} />
+      <nav aria-label={t(`admin.group.${active.id}`)} className="flex flex-wrap gap-1 rounded-md border border-line bg-surface p-1">
+        {active.items.map((i) => (
+          <Link key={i.path} to={i.path} aria-current={i.path === path ? 'page' : undefined} className={`rounded-md px-3 py-1 ${i.path === path ? 'bg-primary font-semibold text-on-primary' : 'hover:bg-raised'}`}>
+            {t(i.label)}
+          </Link>
+        ))}
       </nav>
       <h1 className="sr-only">{t(current.label)}</h1>
       {current.render()}

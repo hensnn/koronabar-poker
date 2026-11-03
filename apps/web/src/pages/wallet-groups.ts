@@ -1,11 +1,12 @@
 /** Skupiny pohybů v historii peněženky (filtr): každý druh pohybu patří do právě jedné skupiny. */
-export const WALLET_GROUPS = ['cash', 'tournament', 'bets', 'topup', 'credit', 'transfer', 'shop', 'other'] as const;
+export const WALLET_GROUPS = ['cash', 'tournament', 'bounty', 'bets', 'topup', 'credit', 'transfer', 'shop', 'other'] as const;
 export type WalletGroup = (typeof WALLET_GROUPS)[number];
 
 const BY_PREFIX: [RegExp, WalletGroup][] = [
   [/^(cash_|rake$|rakeback$|jackpot_|time_charge$)/, 'cash'],
-  [/^(turnaj_|bounty$)/, 'tournament'],
-  [/^(bet_|head_bounty_)/, 'bets'],
+  [/^turnaj_/, 'tournament'],
+  [/^(bounty$|head_bounty_)/, 'bounty'],
+  [/^bet_/, 'bets'],
   [/^(mint$|manual_adjustment$)/, 'topup'],
   [/^credit_/, 'credit'],
   [/^transfer_/, 'transfer'],

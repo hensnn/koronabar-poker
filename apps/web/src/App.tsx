@@ -218,7 +218,7 @@ function Shell({ me }: { me: Me }) {
           <AnnouncerHost />
         </nav>
       </header>
-      {!stul && <NavTabs tabs={tabs} isActive={isActive} />}
+      {!stul && !path.startsWith('/admin') && <NavTabs tabs={tabs} isActive={isActive} />}
       {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}
       <TournamentResultHost />
       <HeadBountyClaimedHost />
