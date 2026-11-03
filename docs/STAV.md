@@ -602,3 +602,4 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - **Ankety** na hlavní stránce jsou ve výchozím stavu zabalené (v hlavičce počet k hlasování).
 - **Zvuky**: nahrazený vestavěný zvuk se počítá do využití úložiště (dřív ukazovalo 0).
 - **Chat / Ankety**: ankety jsou záložka stránky Chat / Ankety (`/chat?tab=ankety`), samostatná položka Ankety z nabídky zmizela, `/ankety` přesměruje; detail ankety `/ankety/:id` zůstává.
+- **Hlavní navigace**: rozbalovací nabídky Hra a Nastavení zrušeny. Pod hlavičkou je na všech stránkách (mimo stůl) řádek tlačítek Stoly / Večery, Živý cash, Chat / Ankety, Peněženka, Statistiky, Obchod, Osobní nastavení, Profil (`nav-tabs.tsx`). Počítadla: stoly a turnaje k dispozici, nepřečtený chat, ankety k hlasování. V hlavičce vedle Ke stolu a Lobby je jen tlačítko Správa (pro správce).

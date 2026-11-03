@@ -29,7 +29,7 @@ import { PublicBoardPage } from './pages/public-board';
 import { NotificationBell } from './notifications';
 import { SoundMenu } from './sound-menu';
 import { DashboardPage } from './pages/dashboard';
-import { MainMenu, type MenuGroup, type MenuItem, type MenuTone } from './main-menu';
+import { NavTabs, useNavCounts, type NavTab } from './nav-tabs';
 import { useTournamentAutoJoin } from './tournament-autojoin';
 import { MyTableButton } from './my-table-button';
 import { SaveErrorToast } from './save-error-toast';
@@ -127,15 +127,19 @@ function Shell({ me }: { me: Me }) {
   const shopOn = features.shop;
   // Živý cash je ve výchozím stavu schovaný (liveCash.enabled); stránka zůstává dostupná, jen není v nabídce.
   const liveOn = features.liveCash;
-  const item = (to: string, key: string, show = true) => ({ to, label: t(key), show });
-  const groups: MenuGroup[] = (
-    [
-      { id: 'play', label: t('nav.group.play'), tone: 'success', items: [item('/stoly', 'nav.tables'), item('/zivy-cash', 'nav.live', liveOn), item('/chat', 'nav.chat', (features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'))) || features.polls), item('/penezenka', 'nav.wallet'), item('/statistiky', 'nav.stats'), item('/obchod', 'nav.shop', shopOn)] },
-      { id: 'account', label: t('nav.group.account'), tone: 'accent', items: [item('/nastaveni', 'nav.personalSettings'), item('/profil', 'nav.profile'), item('/admin', 'nav.admin', isAdmin(me))] },
-    ] as { id: string; label: string; tone: MenuTone; items: (MenuItem & { show: boolean })[] }[]
-  )
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.show).map(({ to, label }) => ({ to, label })) }))
-    .filter((g) => g.items.length > 0);
+  const chatOn = features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit'));
+  const pollsOn = features.polls;
+  const counts = useNavCounts(chatOn, pollsOn);
+  const tabs: NavTab[] = [
+    { to: '/stoly', label: t('nav.tables'), badges: [{ n: counts.tables, tone: 'primary', title: t('nav.badge.tables') }] },
+    ...(liveOn ? [{ to: '/zivy-cash', label: t('nav.live') }] : []),
+    ...(chatOn || pollsOn ? [{ to: '/chat', label: t('nav.chat'), badges: [{ n: counts.chat, tone: 'danger' as const, title: t('nav.badge.chat') }, { n: counts.polls, tone: 'primary' as const, title: t('nav.badge.polls') }] }] : []),
+    { to: '/penezenka', label: t('nav.wallet') },
+    { to: '/statistiky', label: t('nav.stats') },
+    ...(shopOn ? [{ to: '/obchod', label: t('nav.shop') }] : []),
+    { to: '/nastaveni', label: t('nav.personalSettings') },
+    { to: '/profil', label: t('nav.profile') },
+  ];
   // Na telefonu je hlavní nabídka sbalená pod tlačítkem; po přechodu na jinou stránku se zavře.
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [path]);
@@ -188,7 +192,6 @@ function Shell({ me }: { me: Me }) {
             ☰ {t('nav.menu')}
           </button>
           <div id="hlavni-nabidka" className={`${menuOpen ? 'flex' : 'hidden'} flex-wrap gap-2 md:order-[-5000] md:flex md:w-auto ${compact ? 'absolute inset-x-0 top-full z-40 mt-1 rounded-lg border border-line bg-surface p-2 shadow-lg md:static md:mt-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'w-full'}`}>
-            <MainMenu groups={groups} isActive={isActive} path={path} />
             {!blocked && features.assistant && <AssistantMenuItem onPick={() => setMenuOpen(false)} />}
             {compact && (
               <div className="flex w-full flex-wrap items-center gap-2 md:hidden">
@@ -202,6 +205,11 @@ function Shell({ me }: { me: Me }) {
           <Link to="/" aria-current={path === '/' ? 'page' : undefined} className={`order-[-9000] flex items-center rounded-md border px-3 py-1 ${path === '/' ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
             {t('nav.lobby')}
           </Link>
+          {isAdmin(me) && (
+            <Link to="/admin" aria-current={path.startsWith('/admin') ? 'page' : undefined} className={`order-[-8000] flex items-center rounded-md border px-3 py-1 ${path.startsWith('/admin') ? 'border-primary bg-raised font-semibold' : 'border-line bg-surface'}`}>
+              {t('nav.admin')}
+            </Link>
+          )}
           <NotificationBell />
           <span className={compact ? 'hidden md:inline-flex' : 'inline-flex'}>
             <SoundMenu />
@@ -210,6 +218,7 @@ function Shell({ me }: { me: Me }) {
           <AnnouncerHost />
         </nav>
       </header>
+      {!stul && <NavTabs tabs={tabs} isActive={isActive} />}
       {/* Okna a hlášky mimo hlavičku: na celé obrazovce u stolu je hlavička schovaná, ale souhrn turnaje a oznámení musí být vidět. */}
       <TournamentResultHost />
       <HeadBountyClaimedHost />

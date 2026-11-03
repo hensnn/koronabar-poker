@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { get } from '../api';
 import { Link, navigate } from '../router';
-import { can, useSession } from '../session';
+import { useSession } from '../session';
 import { PlayerDotById } from '../player-color';
 import { useSettings } from '../settings';
 import { useMySeats } from '../my-seat';
@@ -131,16 +131,6 @@ export function DashboardPage() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-bold">{t('nav.lobby')}</h1>
-        {features.chat && (can(me, 'chat.psat') || can(me, 'prihlizet.zobrazit')) && (
-          <Link to="/chat" className="rounded-md border border-line bg-surface px-3 py-1">
-            💬 {t('lobby.chatLink')}
-          </Link>
-        )}
-        {features.polls && (
-          <Link to="/chat?tab=ankety" className="rounded-md border border-line bg-surface px-3 py-1">
-            🗳️ {t('lobby.pollsLink')}
-          </Link>
-        )}
       </div>
       {features.polls && <PollsPanel />}
       <div className="grid gap-3 sm:grid-cols-2">
