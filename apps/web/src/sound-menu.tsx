@@ -54,7 +54,7 @@ export function SoundMenu() {
         {anyOn ? '🔊' : '🔇'}
       </button>
       {open && (
-        <div ref={popRef} role="dialog" aria-label={t('sound.menu')} style={top === null ? undefined : { top }} className="fixed inset-x-2 z-20 flex flex-col gap-2 rounded-md border border-line bg-surface p-2 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:w-72">
+        <div ref={popRef} role="dialog" aria-label={t('sound.menu')} style={top === null ? undefined : { top }} className="fixed inset-x-2 z-50 flex flex-col gap-2 rounded-md border border-line bg-surface p-2 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:w-72">
           <strong>{t('sound.menu')}</strong>
           {rows.map((r) => (
             <label key={r.key} className="flex items-center gap-2 text-sm">

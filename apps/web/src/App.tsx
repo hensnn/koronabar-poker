@@ -184,7 +184,7 @@ function Shell({ me }: { me: Me }) {
   return (
     <div className={`mx-auto kd-page flex min-h-screen flex-col p-3 ${stul ? "max-w-none" : "max-w-5xl pb-20 md:pb-3"}`}>
       <SaveErrorToast />
-      <header className={`flex items-center justify-between gap-2 ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
+      <header className={`hidden items-center justify-between gap-2 md:flex ${compact ? 'tk-compact-header relative flex-wrap' : 'flex-wrap'}`}>
         <BrandMark header />
         <BrandFavicon />
         <nav aria-label={t('nav.main')} className={`flex items-center gap-2 ${compact ? 'min-w-0 flex-wrap' : 'flex-wrap'}`}>
@@ -236,7 +236,18 @@ function Shell({ me }: { me: Me }) {
         </ErrorBoundary>
       </main>
       {!blocked && features.assistant && <AssistantLauncher floating={!stul} />}
-      {!stul && <BottomNav tabs={[...tabs, ...(isAdmin(me) ? [{ to: '/admin', label: t('nav.admin') }] : [])]} isActive={isActive} path={path} />}
+      {!stul && <BottomNav
+          tabs={[...tabs, ...(isAdmin(me) ? [{ to: '/admin', label: t('nav.admin') }] : [])]}
+          isActive={isActive}
+          path={path}
+          extra={
+            <>
+              <NotificationBell />
+              <SoundMenu />
+              {!blocked && features.assistant && <AssistantMenuItem />}
+            </>
+          }
+        />}
     </div>
   );
 }

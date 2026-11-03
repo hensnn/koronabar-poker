@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useMySeats } from './my-seat';
 import { t } from '@kb/shared';
 import { get } from './api';
 import { loadChannels, totalUnread, useChatStore } from './chat-store';
@@ -70,32 +71,76 @@ export function NavTabs({ tabs, isActive, label }: { tabs: NavTab[]; isActive: (
 }
 
 const ICON: Record<string, string> = { '/': '🏠', '/stoly': '🃏', '/chat': '💬', '/penezenka': '👛', '/zivy-cash': '💵', '/statistiky': '📊', '/obchod': '🛒', '/nastaveni': '⚙️', '/profil': '👤', '/admin': '🛡️' };
-/** Co je na telefonu ve spodní liště; zbytek je pod „Více“. */
-const PRIMARY = ['/', '/stoly', '/chat', '/penezenka'];
 
-/** Spodní lišta na telefonu (od šířky tabletu se místo ní ukazuje řádek tlačítek pod hlavičkou). */
-export function BottomNav({ tabs, isActive, path }: { tabs: NavTab[]; isActive: (to: string) => boolean; path: string }) {
-  const [more, setMore] = useState(false);
-  useEffect(() => setMore(false), [path]);
-  // Klepnutí mimo nabídku „Více“ ji zavře.
+/**
+ * Spodní lišta na telefonu mimo stůl (od šířky tabletu je místo ní řádek tlačítek pod hlavičkou): Ke stolu, Lobby, Stoly, Chat a Více.
+ * Horní hlavička na telefonu není; všechno ostatní (peněženka, statistiky…, upozornění, zvuk, asistent) je pod „Více“ (`extra` jsou upozornění, zvuk a asistent).
+ */
+export function BottomNav({ tabs, isActive, path, extra }: { tabs: NavTab[]; isActive: (to: string) => boolean; path: string; extra?: ReactNode }) {
+  const [sheet, setSheet] = useState<'more' | 'tables' | null>(null);
+  const seats = useMySeats();
+  useEffect(() => setSheet(null), [path]);
+  // Klepnutí mimo nabídku ji zavře.
   useEffect(() => {
-    if (!more) return;
+    if (!sheet) return;
     const close = (e: Event) => {
-      if (!(e.target as HTMLElement).closest('[data-more]')) setMore(false);
+      if (!(e.target as HTMLElement).closest('[data-more]')) setSheet(null);
     };
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
-  }, [more]);
+  }, [sheet]);
   const all: NavTab[] = [{ to: '/', label: t('nav.lobby') }, ...tabs];
-  const main = PRIMARY.map((to) => all.find((x) => x.to === to)).filter((x): x is NavTab => !!x);
-  const rest = all.filter((x) => !PRIMARY.includes(x.to));
+  const find = (to: string) => all.find((x) => x.to === to);
+  const main = ['/', '/stoly', '/chat'].map(find).filter((x): x is NavTab => !!x);
+  const rest = all.filter((x) => !['/', '/stoly', '/chat'].includes(x.to));
   const moreActive = rest.some((x) => isActive(x.to));
-  const badgeSum = (tab: NavTab) => (tab.badges ?? []).reduce((n, b) => n + b.n, 0);
+  const badgeSum = (tab: NavTab) => (tab.badges ?? []).reduce((s, b) => s + b.n, 0);
   const item = 'relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1 text-xs';
+  const label = (x: NavTab) => (x.to === '/stoly' ? t('nav.tables.short') : x.to === '/chat' ? t('nav.chat.short') : x.label);
+  const link = (x: NavTab) => (
+    <Link key={x.to} to={x.to} aria-current={isActive(x.to) ? 'page' : undefined} className={`${item} ${isActive(x.to) ? 'font-semibold text-primary' : 'text-muted'}`}>
+      <span aria-hidden="true" className="text-xl">{ICON[x.to]}</span>
+      <span className="max-w-full truncate">{label(x)}</span>
+      {badgeSum(x) > 0 && <span className={`absolute right-1/4 top-0 rounded-full px-1 text-xs text-on-primary ${(x.badges ?? []).some((b) => b.tone === 'danger' && b.n > 0) ? 'bg-danger' : 'bg-primary'}`}>{badgeSum(x)}</span>}
+    </Link>
+  );
+  // Ke stolu: jediný stůl vede rovnou k němu, víc stolů otevře výběr, bez stolu je tlačítko šedé.
+  const myTables = seats.filter((s) => path !== `/stul/${s.tableId}`);
+  const toTable =
+    myTables.length === 0 ? (
+      <span key="table" className={`${item} text-muted opacity-60`} title={t('nav.myTableNone')}>
+        <span aria-hidden="true" className="text-xl">🪑</span>
+        <span>{t('nav.myTable')}</span>
+      </span>
+    ) : myTables.length === 1 ? (
+      <Link key="table" to={`/stul/${myTables[0]!.tableId}`} className={`${item} font-semibold text-primary`} title={myTables[0]!.name}>
+        <span aria-hidden="true" className="text-xl">🪑</span>
+        <span>{t('nav.myTable')}</span>
+      </Link>
+    ) : (
+      <button key="table" type="button" data-more aria-expanded={sheet === 'tables'} aria-haspopup="menu" onClick={() => setSheet((s) => (s === 'tables' ? null : 'tables'))} className={`${item} font-semibold text-primary`}>
+        <span aria-hidden="true" className="text-xl">🪑</span>
+        <span>
+          {t('nav.myTable')} ({myTables.length})
+        </span>
+      </button>
+    );
   return (
     <>
-      {more && (
+      {sheet === 'tables' && (
         <div data-more className="fixed inset-x-2 bottom-16 z-40 flex flex-col gap-1 rounded-lg border border-line bg-surface p-2 shadow-lg md:hidden" role="menu">
+          {myTables.map((s) => (
+            <Link key={s.tableId} to={`/stul/${s.tableId}`} role="menuitem" className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-raised">
+              <span aria-hidden="true">🪑</span>
+              {s.name}
+              {s.tournamentId ? ` · ${t('nav.myTableTournament')}` : ''}
+            </Link>
+          ))}
+        </div>
+      )}
+      {sheet === 'more' && (
+        <div data-more className="fixed inset-x-2 bottom-16 z-40 flex max-h-[75dvh] flex-col gap-1 overflow-y-auto rounded-lg border border-line bg-surface p-2 shadow-lg md:hidden" role="menu">
+          {extra && <div className="flex flex-wrap items-center gap-2 border-b border-line pb-2">{extra}</div>}
           {rest.map((x) => (
             <Link key={x.to} to={x.to} role="menuitem" aria-current={isActive(x.to) ? 'page' : undefined} className={`flex items-center gap-2 rounded-md px-3 py-2 ${isActive(x.to) ? 'bg-primary font-semibold text-on-primary' : 'hover:bg-raised'}`}>
               <span aria-hidden="true">{ICON[x.to] ?? '•'}</span>
@@ -105,16 +150,9 @@ export function BottomNav({ tabs, isActive, path }: { tabs: NavTab[]; isActive: 
         </div>
       )}
       <nav aria-label={t('nav.main')} className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
-        {main.map((x) => (
-          <Link key={x.to} to={x.to} aria-current={isActive(x.to) ? 'page' : undefined} className={`${item} ${isActive(x.to) ? 'font-semibold text-primary' : 'text-muted'}`}>
-            <span aria-hidden="true" className="text-xl">{ICON[x.to]}</span>
-            <span className="max-w-full truncate">{x.to === '/stoly' ? t('nav.tables.short') : x.to === '/chat' ? t('nav.chat.short') : x.label}</span>
-            {badgeSum(x) > 0 && (
-              <span className={`absolute right-1/4 top-0 rounded-full px-1 text-xs text-on-primary ${(x.badges ?? []).some((b) => b.tone === 'danger' && b.n > 0) ? 'bg-danger' : 'bg-primary'}`}>{badgeSum(x)}</span>
-            )}
-          </Link>
-        ))}
-        <button type="button" data-more aria-expanded={more} aria-haspopup="menu" onClick={() => setMore((v) => !v)} className={`${item} ${moreActive || more ? 'font-semibold text-primary' : 'text-muted'}`}>
+        {toTable}
+        {main.map(link)}
+        <button type="button" data-more aria-expanded={sheet === 'more'} aria-haspopup="menu" onClick={() => setSheet((s) => (s === 'more' ? null : 'more'))} className={`${item} ${moreActive || sheet === 'more' ? 'font-semibold text-primary' : 'text-muted'}`}>
           <span aria-hidden="true" className="text-xl">⋯</span>
           <span>{t('nav.more')}</span>
         </button>
