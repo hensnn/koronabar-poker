@@ -5,6 +5,8 @@ import { get } from '../api';
 import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
+import { Fold } from '../ui';
+import { useMobileLayout } from './mobile';
 import { PLAN_OPTIONS, currentCallAmount, planFor, planTarget, setPlan, usePlan, type Plan } from './plan';
 import { tournamentWaitLines, type TournamentInfo } from './InfoCard';
 
@@ -202,9 +204,34 @@ const AUTO_ROWS = [
   { key: 'ui.autoAddon', label: 'table.plan.addon', tip: 'table.plan.autoAddonTip' },
 ] as const;
 
+/**
+ * Jeden sbalitelný oddíl předvoleb. Na počítači zůstává prostý rozbalovací prvek; na telefonu je to stejná sbalitelná karta jako
+ * „Zobrazení na telefonu“ (pamatuje si, jak sis ji nechal) a s většími ovládacími prvky.
+ */
+function PrefSection({ id, title, help, mobile, children }: { id: string; title: string; help: string; mobile: boolean; children: React.ReactNode }) {
+  if (mobile)
+    return (
+      <Fold small title={title} foldId={`stul|predvolby-${id}`} className="w-full basis-full text-sm">
+        <div title={help}>{children}</div>
+      </Fold>
+    );
+  return (
+    <details className="text-xs">
+      <summary className="cursor-pointer text-muted" title={help}>
+        {title}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 /** Co dělat s kartami: Win = výherní bez showdownu, Lose = poražené na showdownu. Osobní nastavení, platí u všech stolů. */
 export function ShowdownPrefs() {
   const settings = useSettings();
+  const mobile = useMobileLayout();
+  // Na telefonu větší výběry a řádky pod sebou; na počítači beze změny.
+  const sel = mobile ? 'rounded-md border border-line bg-surface px-1 py-1 text-sm' : 'rounded-md border border-line bg-surface px-0.5 py-0 text-xs';
+  const rowCls = mobile ? 'flex items-center justify-between gap-2 text-sm' : 'flex items-center gap-1 text-xs';
   const rows: { key: string; label: string; title: string; options: [string, string][]; def: string }[] = [
     { key: 'ui.showdownWinning', label: t('table.plan.win'), title: t('table.plan.showWinning'), options: [['never', 'muck'], ['ask', 'ask'], ['always', 'show']], def: 'never' },
     { key: 'ui.runItResponse', label: t('table.plan.runIt'), title: t('table.plan.showRunIt'), options: [['ask', 'ask'], ['never', 'never'], ['always', 'always']], def: 'ask' },
@@ -212,24 +239,22 @@ export function ShowdownPrefs() {
   ];
   return (
     <>
-      <details className="text-xs">
-        <summary className="cursor-pointer text-muted" title={t('table.plan.showHelp')}>{t('table.plan.show')}</summary>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+      <PrefSection id="plan" title={t('table.plan.show')} help={t('table.plan.showHelp')} mobile={mobile}>
+        <div className={mobile ? 'flex flex-col gap-2 pt-1' : 'mt-1 flex flex-wrap gap-x-3 gap-y-1'}>
           {PLAN_OPTIONS.map((o) => (
-            <label key={o.setting} className="flex items-center gap-1" title={t(`settings.${o.setting}.help`)}>
+            <label key={o.setting} className={mobile ? 'flex items-center gap-2' : 'flex items-center gap-1'} title={t(`settings.${o.setting}.help`)}>
               <input type="checkbox" role="switch" checked={settings.values[o.setting] !== false} onChange={(e) => void saveUserSetting(o.setting, e.target.checked, true).catch(() => undefined)} />
               {t(`table.plan.${o.plan}`)}
             </label>
           ))}
         </div>
-      </details>
-      <details className="text-xs">
-        <summary className="cursor-pointer text-muted" title={t('table.plan.autoHelp')}>{t('table.plan.auto')}</summary>
-        <div className="mt-1 flex flex-col gap-1">
+      </PrefSection>
+      <PrefSection id="auto" title={t('table.plan.auto')} help={t('table.plan.autoHelp')} mobile={mobile}>
+        <div className={mobile ? 'flex flex-col gap-2 pt-1' : 'mt-1 flex flex-col gap-1'}>
           {AUTO_ROWS.map((r) => (
-            <label key={r.key} className="flex items-center gap-1 text-xs" title={t(r.tip)}>
+            <label key={r.key} className={rowCls} title={t(r.tip)}>
               <span className="text-muted">{t(r.label)}</span>
-              <select className="rounded-md border border-line bg-surface px-0.5 py-0 text-xs" value={String(settings.values[r.key] ?? 'ask')} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
+              <select className={sel} value={String(settings.values[r.key] ?? 'ask')} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
                 {['ask', 'never', 'always'].map((value) => (
                   <option key={value} value={value}>
                     {t(`table.plan.opt.${value}`)}
@@ -239,24 +264,23 @@ export function ShowdownPrefs() {
             </label>
           ))}
         </div>
-      </details>
-      <details className="text-xs">
-        <summary className="cursor-pointer text-muted" title={t('table.plan.cardsHelp')}>{t('table.plan.cards')}</summary>
-        <div className="mt-1 flex flex-col gap-1">
-              {rows.map((r) => (
-                <label key={r.key} className="flex items-center gap-1 text-xs" title={r.title}>
-                  <span className="text-muted">{r.label}</span>
-                  <select className="rounded-md border border-line bg-surface px-0.5 py-0 text-xs" value={String(settings.values[r.key] ?? r.def)} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
-                    {r.options.map(([value, word]) => (
-                      <option key={value} value={value}>
-                        {t(`table.plan.opt.${word}`)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
+      </PrefSection>
+      <PrefSection id="cards" title={t('table.plan.cards')} help={t('table.plan.cardsHelp')} mobile={mobile}>
+        <div className={mobile ? 'flex flex-col gap-2 pt-1' : 'mt-1 flex flex-col gap-1'}>
+          {rows.map((r) => (
+            <label key={r.key} className={rowCls} title={r.title}>
+              <span className="text-muted">{r.label}</span>
+              <select className={sel} value={String(settings.values[r.key] ?? r.def)} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
+                {r.options.map(([value, word]) => (
+                  <option key={value} value={value}>
+                    {t(`table.plan.opt.${word}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
         </div>
-      </details>
+      </PrefSection>
     </>
   );
 }
