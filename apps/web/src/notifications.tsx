@@ -5,7 +5,7 @@ import { errorText, get, post } from './api';
 import { onSocket } from './net';
 import { disablePush, currentSubscription, enablePush, pushSupported } from './push';
 import { Link } from './router';
-import { popoverTop } from './sound-menu';
+import { popoverClass, popoverPlace, type PopoverPlace } from './sound-menu';
 
 interface Item {
   id: number;
@@ -83,7 +83,7 @@ export function NotificationBell() {
   const popRef = useKeepInView<HTMLDivElement>(open);
   const [error, setError] = useState('');
   const box = useRef<HTMLDivElement>(null);
-  const [top, setTop] = useState<number | null>(null);
+  const [place, setPlace] = useState<PopoverPlace>({ up: false });
   const load = useCallback(() => {
     get<{ items: Item[]; unread: number }>('/api/notifications')
       .then((d) => {
@@ -112,7 +112,7 @@ export function NotificationBell() {
     <div className="relative" ref={box}>
       <button className="rounded-md border border-line bg-surface px-3 py-1" aria-label={unread > 0 ? t('notifications.unread', { n: unread }) : t('notifications.title')} aria-expanded={open}
         onClick={() => {
-          setTop(popoverTop(box.current));
+          setPlace(popoverPlace(box.current));
           setOpen(!open);
         }}
       >
@@ -120,7 +120,7 @@ export function NotificationBell() {
         {unread > 0 && <span className="ml-1 rounded-full bg-danger px-1 text-xs text-on-primary">{unread}</span>}
       </button>
       {open && (
-        <div ref={popRef} role="dialog" aria-label={t('notifications.title')} style={top === null ? undefined : { top }} className="fixed inset-x-2 z-50 flex max-h-[70vh] flex-col gap-2 overflow-auto rounded-md border border-line bg-surface p-2 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:max-h-96 sm:w-80">
+        <div ref={popRef} role="dialog" aria-label={t('notifications.title')} style={place.style} className={`${popoverClass(place.up)} z-50 flex max-h-[70vh] flex-col gap-2 overflow-hidden rounded-md border border-line bg-surface p-2 shadow-lg sm:max-h-96 sm:w-80`}>
           <div className="flex items-center justify-between">
             <strong>{t('notifications.title')}</strong>
             {unread > 0 && (
@@ -138,7 +138,7 @@ export function NotificationBell() {
           </div>
           {error && <p className="text-danger">{error}</p>}
           {items.length === 0 && <p className="text-muted">{t('notifications.empty')}</p>}
-          <ul className="flex flex-col gap-2">
+          <ul className="flex min-h-0 flex-col gap-2 overflow-y-auto">
             {items.map((i) => (
               <li key={i.id} className={`rounded-sm p-1 text-sm ${i.read ? 'opacity-70' : 'bg-raised'}`}>
                 {i.link ? (

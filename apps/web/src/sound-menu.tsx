@@ -1,5 +1,5 @@
 import { useKeepInView } from './keep-in-view';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { labelKey, t } from '@kb/shared';
 import { saveUserSetting, useSettings } from './settings';
 import { playSfx, SFX_THEMES } from './table/sfx';
@@ -14,11 +14,23 @@ const ROWS: { key: string; def: boolean; invert?: boolean; label?: string }[] = 
   { key: 'announcer.mute', def: false, invert: true, label: 'announcer.mute' },
 ];
 
-/** Na úzkém displeji se nabídka roztáhne přes šířku okna pod tlačítkem (vrací její horní okraj); jinak null = běžné ukotvení u tlačítka. */
-export function popoverTop(anchor: HTMLElement | null): number | null {
-  if (window.innerWidth >= 640 || !anchor) return null;
-  return anchor.getBoundingClientRect().bottom + 4;
+/** Kam se rozbalí nabídka u tlačítka: dolů, nebo nahoru, když je tlačítko ve spodní polovině okna (např. ve spodní nabídce „Více“ na telefonu). */
+export type PopoverPlace = { up: boolean; style?: CSSProperties };
+
+/**
+ * Na úzkém displeji se nabídka roztáhne přes šířku okna pod tlačítkem; ve spodní polovině okna se místo toho rozbalí nad ním
+ * (a nejvýš do výšky, která nad tlačítkem zbývá). Bez stylu a bez `up` platí běžné ukotvení u tlačítka.
+ */
+export function popoverPlace(anchor: HTMLElement | null): PopoverPlace {
+  if (!anchor) return { up: false };
+  const r = anchor.getBoundingClientRect();
+  const wide = window.innerWidth >= 640;
+  if (r.top <= window.innerHeight / 2) return wide ? { up: false } : { up: false, style: { top: r.bottom + 4 } };
+  return { up: true, style: { bottom: window.innerHeight - r.top + 4, maxHeight: r.top - 12, ...(wide ? { right: window.innerWidth - r.right } : {}) } };
 }
+
+/** Třídy ukotvení nabídky podle `popoverPlace` (nahoru: pevně nad tlačítkem; dolů: u tlačítka, na telefonu přes šířku okna). */
+export const popoverClass = (up: boolean): string => (up ? 'fixed inset-x-2 sm:inset-x-auto' : 'fixed inset-x-2 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1');
 
 /** Popover se zvukovými přepínači (ikona v záhlaví). Na telefonu se nabídka přilepí k okraji okna, aby nevyjela ven. */
 export function SoundMenu() {
@@ -26,9 +38,9 @@ export function SoundMenu() {
   const [open, setOpen] = useState(false);
   const popRef = useKeepInView<HTMLDivElement>(open);
   const box = useRef<HTMLDivElement>(null);
-  const [top, setTop] = useState<number | null>(null);
+  const [place, setPlace] = useState<PopoverPlace>({ up: false });
   const toggle = () => {
-    setTop(popoverTop(box.current));
+    setPlace(popoverPlace(box.current));
     setOpen(!open);
   };
   useEffect(() => {
@@ -54,7 +66,7 @@ export function SoundMenu() {
         {anyOn ? '🔊' : '🔇'}
       </button>
       {open && (
-        <div ref={popRef} role="dialog" aria-label={t('sound.menu')} style={top === null ? undefined : { top }} className="fixed inset-x-2 z-50 flex flex-col gap-2 rounded-md border border-line bg-surface p-2 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:w-72">
+        <div ref={popRef} role="dialog" aria-label={t('sound.menu')} style={place.style} className={`${popoverClass(place.up)} z-50 flex flex-col gap-2 overflow-y-auto rounded-md border border-line bg-surface p-2 shadow-lg sm:w-72`}>
           <strong>{t('sound.menu')}</strong>
           {rows.map((r) => (
             <label key={r.key} className="flex items-center gap-2 text-sm">
