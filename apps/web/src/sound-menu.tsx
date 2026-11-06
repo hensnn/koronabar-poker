@@ -1,6 +1,7 @@
 import { useKeepInView } from './keep-in-view';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { labelKey, t } from '@kb/shared';
+import { scaleLockFactor } from './scale-lock';
 import { saveUserSetting, useSettings } from './settings';
 import { playSfx, SFX_THEMES } from './table/sfx';
 
@@ -24,7 +25,7 @@ export type PopoverPlace = { up: boolean; style?: CSSProperties };
 export function popoverPlace(anchor: HTMLElement | null): PopoverPlace {
   if (!anchor) return { up: false };
   const r = anchor.getBoundingClientRect();
-  const wide = window.innerWidth >= 640;
+  const wide = window.innerWidth >= 640 * scaleLockFactor();
   if (r.top <= window.innerHeight / 2) return wide ? { up: false } : { up: false, style: { top: r.bottom + 4 } };
   return { up: true, style: { bottom: window.innerHeight - r.top + 4, maxHeight: r.top - 12, ...(wide ? { right: window.innerWidth - r.right } : {}) } };
 }

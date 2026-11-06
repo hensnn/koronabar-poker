@@ -24,6 +24,7 @@ export function Resizable({
   resizeW = true,
   resizeH = true,
   scale = 1,
+  zoom = 1,
   onChange,
   onReset,
   className,
@@ -40,6 +41,8 @@ export function Resizable({
   resizeH?: boolean;
   /** Zobrazená šířka je uložená šířka krát toto číslo (panel se s plochou hry zmenšuje); tažení se přepočítá zpět. */
   scale?: number;
+  /** Měřítko okna: uložená šířka i výška se zobrazují krát toto číslo. */
+  zoom?: number;
   onChange: (w: number, h: number, commit: boolean) => void;
   onReset: () => void;
   className?: string;
@@ -57,14 +60,15 @@ export function Resizable({
     target.setPointerCapture(e.pointerId);
     const sx = e.clientX;
     const sy = e.clientY;
-    const sw = w ? w * scale : el.offsetWidth;
-    const sh = h || el.offsetHeight;
+    const kw = scale * zoom;
+    const sw = w ? w * kw : el.offsetWidth;
+    const sh = h ? h * zoom : el.offsetHeight;
     const sign = side === 'left' ? -1 : 1;
     let cw = sw;
     let ch = sh;
     const move = (ev: PointerEvent) => {
-      if (mode !== 'h') cw = clamp(Math.round((sw + (ev.clientX - sx) * sign) / scale), limits.minW, limits.maxW);
-      if (mode !== 'w') ch = clamp(Math.round(sh + (ev.clientY - sy)), limits.minH, limits.maxH);
+      if (mode !== 'h') cw = clamp(Math.round((sw + (ev.clientX - sx) * sign) / kw), limits.minW, limits.maxW);
+      if (mode !== 'w') ch = clamp(Math.round((sh + (ev.clientY - sy)) / zoom), limits.minH, limits.maxH);
       onChange(cw, ch, false);
     };
     const up = () => {

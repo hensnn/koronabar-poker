@@ -27,6 +27,8 @@ import { LevelUpToast } from './progress-client';
 import { TournamentPage } from './pages/tournaments';
 import { PublicBoardPage } from './pages/public-board';
 import { NotificationBell } from './notifications';
+import { ScaleLockButton } from './scale-lock-button';
+import { ScaleLockTokens } from './scale-lock-tokens';
 import { SoundMenu } from './sound-menu';
 import { DashboardPage } from './pages/dashboard';
 import { BottomNav, NavTabs, useNavCounts, type NavTab } from './nav-tabs';
@@ -80,6 +82,7 @@ export default function App() {
   useApplyDensity();
   return (
     <ThemeProvider themeId={themeId} fallbackId={defaultId} colorMode={colorMode} custom={custom} locked={store.locked} preview={preview.draft} previewMode={preview.mode}>
+      <ScaleLockTokens />
       <Router />
     </ThemeProvider>
   );
@@ -217,6 +220,7 @@ function Shell({ me }: { me: Me }) {
           <span className={compact ? 'hidden md:inline-flex' : 'inline-flex'}>
             <SoundMenu />
           </span>
+          <ScaleLockButton />
           <SoundHost />
           <AnnouncerHost />
         </nav>

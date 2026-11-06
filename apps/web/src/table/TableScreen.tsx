@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { createPortal } from 'react-dom';
 import { onSocket } from '../net';
 import { RankBadge } from '../progress-client';
+import { scaledPx, useScaleFactor } from '../scale-lock';
 import { useSettings } from '../settings';
 import { useRollingNumber } from './rolling';
 import { chipLeaderOf } from './chip-leader';
@@ -896,14 +897,15 @@ function ActionsPortal({ node }: { node: ReactNode | null }) {
 /** Rozměry pravého sloupce se přenášejí do CSS proměnných (mimo JSX, styl nemá obsahovat pevné hodnoty). */
 function sideStyle(w: number, h: number): CSSProperties {
   const style: Record<string, string> = {};
-  if (w > 0) style['--tk-side-w'] = w + 'px';
-  if (h > 0) style['--tk-side-h'] = h + 'px';
+  if (w > 0) style['--tk-side-w'] = scaledPx(w);
+  if (h > 0) style['--tk-side-h'] = scaledPx(h);
   return style as CSSProperties;
 }
 
 /** Pravý sloupec vedle stolu se stejně nastavitelnou velikostí jako levý panel (tažení za okraj, dvojklik = výchozí). */
 function RightColumn() {
   const values = useSettings().values;
+  const lock = useScaleFactor();
   const stored = { w: Number(values['ui.tableSideWidth'] ?? 0), h: Number(values['ui.tableSideHeight'] ?? 0) };
   const [size, setSize] = useState(stored);
   const [dragging, setDragging] = useState(false);
@@ -919,6 +921,7 @@ function RightColumn() {
       className="tk-extra tk-side relative flex flex-col gap-2"
       style={sideStyle(size.w, size.h)}
       side="left"
+      zoom={lock}
       w={size.w}
       h={size.h}
       limits={{ minW: 120, maxW: 560, minH: 120, maxH: 3000 }}

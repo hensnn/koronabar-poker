@@ -73,7 +73,7 @@ export function Diagnostics() {
     out.push({
       name: t('diag.env'),
       ok: true,
-      detail: `okno ${window.innerWidth}x${window.innerHeight}, zvětšení ${window.devicePixelRatio}, zařízení ${deviceId()}, adresa ${location.origin}, mobilní rozložení ${document.documentElement.hasAttribute('data-mobile') ? 'ano' : 'ne'}`,
+      detail: `okno ${window.innerWidth}x${window.innerHeight}, zvětšení ${window.devicePixelRatio}, zařízení ${deviceId()}, adresa ${location.origin}, mobilní rozložení ${document.documentElement.hasAttribute('data-mobile') ? 'ano' : 'ne'}, měřítko okna ${document.documentElement.dataset.scaleLock ?? 'vypnuto'}`,
     });
     setRows(out);
     setBusy(false);

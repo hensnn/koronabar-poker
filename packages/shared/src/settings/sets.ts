@@ -19,7 +19,7 @@ export type DeviceKind = 'phone' | 'desktop';
 const TABLE = /^(ui\.(table|size|betChips|compactHeader|show|rotateToMe|hideMyCards|winImpact|chipLeaderCrown|quickBets|dealAnimation|eventAnimations|dealCardMs|warnSeconds|noteWindow|hotkey|plan|runItResponse|autoJoin|autoRebuy|autoReenter|autoAddon|timeoutNotice|tournamentWait|mobile)|chat\.show)/;
 const MOBILE = /^ui\.mobile/;
 const SOUNDS = /^(ui\.(sfx|sound|vibrate)|sounds\.|announcer\.)/;
-const LOOK = /^ui\.(colorMode|density|themeId|fontScalePercent|reducedMotion|foldState|statsSeason|statsCompare|adminLast|chatList|chatTablesWithChannels|chatHideEmpty)$/;
+const LOOK = /^ui\.(colorMode|density|themeId|fontScalePercent|reducedMotion|foldState|statsSeason|statsCompare|adminLast|chatList|chatTablesWithChannels|chatHideEmpty|scaleLock|scaleLockMode|scaleLockRefWidth|scaleLockRefHeight|scaleLockMinPercent|scaleLockMaxPercent)$/;
 const NOTIFY = /^(email\.notify|push\.|chat\.digest)/;
 
 export function setById(id: string): (typeof SETTING_SETS)[number] | undefined {
@@ -48,7 +48,7 @@ export function keysOfSet(reg: SettingsRegistry, id: string): string[] {
 }
 
 /** Parametry, které se na daném druhu zařízení nikdy neprojeví (panely a zkratky u stolu telefon nemá; mobilní rozložení čte vždy profil telefonu). */
-const PHONE_UNUSED = /^ui\.(tablePanel|tableSide|tableChatHeight|tableLayout|tableArea|tableFitWindow|tableHeightPercent|hotkey|sizePerDisplay|sizeProfiles)/;
+const PHONE_UNUSED = /^ui\.(tablePanel|tableSide|tableChatHeight|tableLayout|tableArea|tableFitWindow|tableHeightPercent|hotkey|sizePerDisplay|sizeProfiles|scaleLock)/;
 const DESKTOP_UNUSED = /^ui\.mobile/;
 /** Starší zaškrtávátka pásu pod stolem; dnes jen výchozí rozmístění (viz `ui.mobileOrder`), proto se nenabízejí. */
 const LEGACY = /^ui\.mobile(Best|Events|TimerBar|Sounds|AllIcons)$/;

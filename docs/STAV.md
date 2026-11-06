@@ -639,3 +639,11 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Opraveno: karty s počtem v názvu (Online v chatu, Úspěchy, Zděděné hodnoty ve Správě) mají pevný identifikátor, takže se stav zabalení neztrácí při změně počtu.
 - Ověřeno bez nálezu: zprávy v kanálu a v chatu stolu, usednutí, all-in, rebuy a odchod se třemi boty (kniha po každém kroku v pořádku, 12 kontrol), nastavení zvlášť pro telefon a počítač, sdílení sady tam a zpět.
 - Poznámka: sdílený export sady obsahuje výsledné hodnoty (i ty zděděné z „Oboje“), takže po převzetí jsou na zařízení „přibité“; je to záměr, ale změna v „Oboje“ se pak na tomto zařízení neprojeví.
+
+### Měřítko okna (volitelné, ve výchozím stavu vypnuté)
+- Cíl: aby hra v menším okně (třeba vedle Discordu) vypadala jako na celé obrazovce a nemuselo se rolovat. Celé rozhraní se zmenšuje podle okna: písmo (kořen stránky), odsazení, karty, avatary a zaoblení z motivu (`scaledTokenCss`), šířky a výšky panelů u stolu (`scaledPx`, `--kb-scale`) i body zlomu v CSS (podmínky šířky a výšky v `@media` se přepočítají, ať se rozložení rozhoduje podle „virtuálního“ okna, stejně i `useMedia` ve skriptu).
+- Zapíná se v osobním nastavení „Měřítko okna“ (`ui.scaleLock`: Vypnuto / Tlačítko / Zapnuto), zvlášť pro počítač a telefon. „Tlačítko“ ukáže 🔓 v záhlaví a v liště stolu; do nabídky 📐 Velikost stolu přibyla tlačítka 🔒 Podle výšky, 🔒 Celé rozložení a 🔓 Odemknout.
+- Způsob (`ui.scaleLockMode`): Podle výšky (výchozí; spodek je vždy vidět, užší okno přeskládá rozložení) nebo Celé rozložení (řídí se užším rozměrem, vždy přesně rozložení z celé obrazovky). Vzorová velikost je velikost obrazovky (`ui.scaleLockRefWidth/Height` = 0), meze 40 až 150 % (`ui.scaleLockMinPercent/MaxPercent`).
+- Při zapnutém měřítku se u stolu na počítači schová záhlaví jako na celé obrazovce (`data-focus`), ale bez přepnutí prohlížeče do fullscreenu.
+- Vypnuto = nic se nemění (žádný styl, žádné tlačítko, původní podmínky v CSS). Ověřeno v prohlížeči: okno 1500×870 → 81 %, 1100×700 → 65 %, bez posuvníků, po odemknutí se vše vrátí. Testy: `scale-lock.test.ts`.
+- Neověřeno / omezení: okna s pevnou velikostí v pixelech (poznámky k hráči) a tenké dekorace v CSS se nezmenšují; na skutečném monitoru s Discordem je potřeba vyzkoušet, jak vzorová velikost (celá obrazovka) sedí.

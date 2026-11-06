@@ -24,7 +24,8 @@ Rozdělení: co hlídají automatické testy (běží při každé změně) a co
 3. Chat: vzhled seznamu (Kompaktní / Karty), stoly spolu s kanály, skrytí prázdných oddílů; zvlášť pro telefon a počítač.
 4. Sdílení: Sdílet sadu (Stůl na telefonu), obnovit výchozí, převzít z kódu; po převzetí vypadá všechno stejně.
 5. Správa: vypnout „Skupinové chaty“ a ověřit, že zmizí tlačítko i seznam skupin hned u všech přihlášených (bez obnovení stránky); zapnout zpět.
-6. Zabalené karty: zabalit kartu, obnovit stránku, přepnout zařízení; stav se pamatuje pro daný typ zařízení.
+6. Měřítko okna: v Osobním nastavení zvolit Tlačítko, u stolu v 📐 Velikost stolu zvolit 🔒 Podle výšky; zmenšit okno (třeba vedle Discordu): stůl, panely i písmo se zmenší úměrně, nemusí se rolovat, tlačítka akcí jsou vidět; 🔓 vrátí původní vzhled; Vypnuto = žádná změna proti dřívějšku.
+7. Zabalené karty: zabalit kartu, obnovit stránku, přepnout zařízení; stav se pamatuje pro daný typ zařízení.
 
 ## 4. Souběh a odolnost
 - Dvě zařízení téhož hráče: změna nastavení na jednom se hned ukáže na druhém.

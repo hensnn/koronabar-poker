@@ -24,6 +24,8 @@ import { TableWidgetsProvider, useHiddenSides } from '../table/widgets';
 import { Resizable } from '../table/resizable';
 import { HandHistory } from '../table/HandHistory';
 import { SoundPalette } from './sounds';
+import { scaledPx, useScaleFactor } from '../scale-lock';
+import { ScaleLockButton } from '../scale-lock-button';
 import { SoundMenu } from '../sound-menu';
 import { AssistantToolButton } from './assistant';
 import { Button, DataTable, ErrorToast, Modal, Notice, Td } from '../ui';
@@ -86,15 +88,15 @@ export function TablePage({ tableId }: { tableId: string }) {
   useMobileAttribute(mobile, modern, mobileScale(settings.values, seatCountForScale, landscape));
   setTableFormat({ symbol: settings.values['ui.showSymbolAtTable'] === true, chipLabel: settings.values['ui.showChipLabelAtTable'] !== false });
   // Celá obrazovka: schová nabídku a patičku, volitelně i prohlížeč přepne do fullscreen.
+  // Zapnuté měřítko okna (jen počítač) dá stolu stejné rozložení bez záhlaví jako celá obrazovka, ale bez přepnutí prohlížeče do fullscreenu.
+  const lockFocus = !mobile && settings.values['ui.scaleLock'] === 'on';
   useEffect(() => {
     const root = document.documentElement;
+    if (focus || lockFocus) root.setAttribute('data-focus', '1');
+    else root.removeAttribute('data-focus');
     if (focus) {
-      root.setAttribute('data-focus', '1');
       void root.requestFullscreen?.().catch(() => undefined);
-    } else {
-      root.removeAttribute('data-focus');
-      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
-    }
+    } else if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
     const onChange = () => {
       if (!document.fullscreenElement) setFocus(false);
     };
@@ -103,7 +105,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       document.removeEventListener('fullscreenchange', onChange);
       root.removeAttribute('data-focus');
     };
-  }, [focus]);
+  }, [focus, lockFocus]);
   // Volba „u stolu automaticky celá obrazovka“ (jen mobilní rozložení): po vstupu ke stolu se zapne režim celé obrazovky.
   const autoFocus = mobile && settings.values['ui.mobileAutoFullscreen'] === true;
   useEffect(() => {
@@ -123,10 +125,11 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [stored, dragging]);
   const keep = (key: string, value: number | boolean) => void saveUserSetting(key, value).catch(() => undefined);
   const area = useTableSize();
+  const lock = useScaleFactor();
   const areaAlign = String(useSettings().values['ui.tableAreaAlign'] ?? 'center');
-  const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: size.pw + 'px', ['--area-w' as string]: String(area.a) };
+  const pageStyle: CSSProperties = { ['--tk-panel-w' as string]: scaledPx(size.pw), ['--area-w' as string]: String(area.a) };
   // Výška panelu je výchozí podle herní oblasti; ruční výška (tažení za spodní okraj) ji přepíše.
-  const panelStyle: CSSProperties | undefined = size.ph > 0 ? { height: size.ph, alignSelf: 'start' } : undefined;
+  const panelStyle: CSSProperties | undefined = size.ph > 0 ? { height: scaledPx(size.ph), alignSelf: 'start' } : undefined;
   // Jen pohled na tento stůl: změna přítomnosti nebo jiného stolu stránku nepřekresluje.
   const view = useNetSelector((n) => n.views[tableId]);
   const tableInfo = view?.info;
@@ -176,6 +179,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               w={0}
               h={size.ch}
               resizeW={false}
+              zoom={lock}
               limits={{ minW: 0, maxW: 0, minH: 64, maxH: 1200 }}
               onChange={(_w, ch, commit) => {
                 setDragging(!commit);
@@ -187,7 +191,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 keep('ui.tableChatHeight', defaultOf('ui.tableChatHeight'));
               }}
             >
-              <ChatPanel channel={channel} compact listHeight={size.ch} />
+              <ChatPanel channel={channel} compact listHeight={Math.round(size.ch * lock)} />
             </Resizable>
           ),
         }
@@ -272,6 +276,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         w={size.pw}
         h={size.ph}
         scale={area.a / 100}
+        zoom={lock}
         limits={{ minW: 160, maxW: 640, minH: 120, maxH: 3000 }}
         onChange={(pw, ph, commit) => {
           setDragging(!commit);
@@ -329,6 +334,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <span className="tk-tp-desktop flex flex-wrap items-center gap-2">
             {renderTools(true)}
             <SoundMenu />
+            <ScaleLockButton />
             {features.assistant && <AssistantToolButton iconOnly />}
           </span>
         </div>

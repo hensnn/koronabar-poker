@@ -460,6 +460,13 @@ export const csUi: Record<string, string> = {
 
   // Chat
   'chat.channels': 'Místnosti chatu',
+  'scaleLock.lock': 'Zapnout měřítko okna (vypadá jako na celé obrazovce)',
+  'scaleLock.unlock': 'Vypnout měřítko okna',
+  'scaleLock.title': 'Měřítko okna',
+  'scaleLock.help': 'Zámek zmenšuje a zvětšuje celé rozhraní podle okna, jako by byla celá obrazovka, takže se nemusí rolovat (hodí se vedle Discordu). Podle výšky: spodek je vždy vidět a užší okno přeskládá rozložení. Celé rozložení: vždy přesně rozložení z celé obrazovky, jen menší.',
+  'scaleLock.byHeight': 'Podle výšky',
+  'scaleLock.whole': 'Celé rozložení',
+  'scaleLock.unlockShort': 'Odemknout',
   'chat.group.public': 'Kanály',
   'chat.group.tables': 'Stoly',
   'chat.group.groups': 'Skupiny',

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useApplyScaleLock } from './scale-lock';
 import { deviceId, useSettings } from './settings';
 
 export type Density = 'compact' | 'normal' | 'comfortable';
@@ -17,15 +18,18 @@ export function useDensity(): Density {
 export function useApplyDensity(): void {
   const density = useDensity();
   const scale = Number(useSettings().values['ui.fontScalePercent'] ?? 100);
+  // Měřítko okna (volitelné, osobní nastavení): násobí velikost písma, 1 = vypnuto.
+  const lock = useApplyScaleLock();
   // Velikost písma: všechny rozměry jsou v rem, takže stačí změnit základ na kořeni stránky.
+  const percent = Math.round(scale * lock * 100) / 100;
   useEffect(() => {
     const root = document.documentElement;
-    if (scale === 100) root.style.removeProperty('font-size');
-    else root.style.setProperty('font-size', `${scale}%`);
+    if (percent === 100) root.style.removeProperty('font-size');
+    else root.style.setProperty('font-size', `${percent}%`);
     return () => {
       root.style.removeProperty('font-size');
     };
-  }, [scale]);
+  }, [percent]);
   // Omezení pohybu (osobní volba): CSS pak vypne všechny animace a přechody.
   const reduced = useSettings().values['ui.reducedMotion'] === true;
   useEffect(() => {

@@ -20,7 +20,7 @@ describe('sdílení nastavení telefonu', () => {
     }
   });
   it('paměť zabalených karet se sdílí v sadě vzhled', () => {
-    for (const k of ['ui.foldState', 'ui.statsSeason', 'ui.statsCompare', 'ui.adminLast', 'ui.chatList', 'ui.chatTablesWithChannels', 'ui.chatHideEmpty']) expect(keysOfSet(reg, 'look'), k).toContain(k);
+    for (const k of ['ui.foldState', 'ui.statsSeason', 'ui.statsCompare', 'ui.adminLast', 'ui.chatList', 'ui.chatTablesWithChannels', 'ui.chatHideEmpty', 'ui.scaleLock', 'ui.scaleLockMode']) expect(keysOfSet(reg, 'look'), k).toContain(k);
   });
   it('každé osobní nastavení patří do některé sady', () => {
     const all = new Set(SETTING_SETS.flatMap((s) => keysOfSet(reg, s.id)));

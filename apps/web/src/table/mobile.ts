@@ -1,9 +1,12 @@
 import { useEffect, useSyncExternalStore } from 'react';
+import { scaleMediaText, useScaleFactor } from '../scale-lock';
 import { setProfileKind, useSettings } from '../settings';
 import { effectiveOrder, forLandscape, orderKeyFor, parseMobileOrder } from './mobile-order';
 
 function useMedia(query: string): boolean {
-  const mq = typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(query) : null;
+  // S měřítkem okna se rozměry v podmínce přepočítají stejně jako ve stylech, ať se skript a CSS rozhodují shodně.
+  const scale = useScaleFactor();
+  const mq = typeof window !== 'undefined' && 'matchMedia' in window ? window.matchMedia(scaleMediaText(query, scale)) : null;
   return useSyncExternalStore(
     (l) => {
       mq?.addEventListener('change', l);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from '@kb/shared';
+import { ScaleLockButtons } from '../scale-lock-button';
 import { saveUserSetting, useSettings } from '../settings';
 import { Button } from '../ui';
 
@@ -130,6 +131,7 @@ export function TableSizeButton({ iconOnly }: { iconOnly: boolean }) {
           >
             {t('table.size.reset')}
           </Button>
+          <ScaleLockButtons />
         </div>
       )}
     </span>

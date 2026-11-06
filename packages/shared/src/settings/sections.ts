@@ -37,6 +37,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
   ui: [
     ['ui.look', /^ui\.(colorMode|density|themeId|fontScalePercent|reducedMotion)$/],
     ['ui.chat', /^ui.chat(List|TablesWithChannels|HideEmpty)$/],
+    ['ui.scale', /^ui\.scaleLock/],
     ['ui.layout', /^ui\.(tablePanel|sizePerDisplay|sizeProfiles|tableLayout|foldState|statsSeason|statsCompare|adminLast|tableSide|noteWindow|tableArea|tableFitWindow|tableHeightPercent|tableChat|compactHeader)/],
     ['ui.show', /^(ui\.(showPlayerNotes|showSymbol|showChipLabel|rotateToMe|hideMyCards|chipLeaderCrown|winImpact|betChips|tableWaitInfo|tournamentWaitBanner|tableNotices|timeoutNotice|showSystem|showPlayers|showInBb)|chat\.show)/],
     ['ui.showdown', /^ui\.(showdown|runItResponse)/],
