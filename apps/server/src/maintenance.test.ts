@@ -105,6 +105,9 @@ describe('údržba: vynulování po testování', () => {
     expect((await s.server.progress.progressOf(s.player)).xp).toBe(300);
     await s.server.maintenance.resetUser(statistik, s.player, { xp: true });
     expect((await s.server.progress.progressOf(s.player)).xp).toBe(0);
+    // správce (vyšší síla) a sám sebe nesmí vynulovat
+    await expect(s.server.maintenance.resetUser(statistik, s.admin, { xp: true })).rejects.toThrow('HIERARCHY');
+    await expect(s.server.maintenance.resetUser(statistik, statistik, { xp: true })).rejects.toThrow('HIERARCHY');
   });
 
   it('ukončený turnaj jde smazat z historie; běžící ne; hráč bez oprávnění ne', async () => {

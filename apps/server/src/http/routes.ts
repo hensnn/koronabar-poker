@@ -659,7 +659,11 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
 
   // ---------- e-mail ----------
 
-  app.get('/api/admin/email/presets', guard(async (_req, reply) => reply.send({ presets: SMTP_PRESETS, templates: EMAIL_TEMPLATES.map((t) => ({ key: t.key, variables: t.variables, security: t.security })) })));
+  app.get('/api/admin/email/presets', guard(async (req, reply) => {
+    const u = need(req);
+    if (!svc.perms.can(u.id, 'email.spravovat_smtp').allowed && !svc.perms.can(u.id, 'email.sablony').allowed) throw new AccountError('FORBIDDEN');
+    return reply.send({ presets: SMTP_PRESETS, templates: EMAIL_TEMPLATES.map((t) => ({ key: t.key, variables: t.variables, security: t.security })) });
+  }));
   app.get('/api/admin/email/queue', guard(async (req, reply) => reply.send({ items: await svc.email.list(need(req).id), stats: await svc.email.stats() })));
   app.post('/api/admin/email/test', guard(async (req, reply) => {
     const b = z.object({ to: z.string().email() }).parse(req.body);

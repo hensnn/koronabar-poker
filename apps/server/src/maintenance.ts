@@ -29,7 +29,7 @@ interface Deps {
   reloadLedger: () => Promise<void>;
   progress: () => ProgressService;
   rating: () => RatingService;
-  perms: PermissionChecker;
+  perms: PermissionChecker & { assertCanManageUser(actorId: string, targetUserId: string): void };
   audit: AuditService;
   settings: () => SettingValues;
   tables: () => TableManager;
@@ -580,6 +580,8 @@ export class MaintenanceService {
   /** Vynulování jednoho hráče: XP (a úroveň), úspěchy, rating. */
   async resetUser(actorId: string, userId: string, areas: { xp?: boolean; achievements?: boolean; rating?: boolean }, meta: Meta = {}): Promise<void> {
     if (!this.deps.perms.can(actorId, 'statistiky.reset_postupu').allowed) throw new MaintenanceError('FORBIDDEN');
+    // Postup smí vynulovat jen hráči s nižší silou role (jako blokaci či smazání), ne správcům a ne sám sobě.
+    this.deps.perms.assertCanManageUser(actorId, userId);
     if (!Object.values(areas).some(Boolean)) throw new MaintenanceError('INVALID');
     await this.deps.idle();
     const db = this.deps.db;
