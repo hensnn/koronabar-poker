@@ -168,15 +168,43 @@ export function InfoBody({ view, tour, tournamentId, inBb }: { view: TableView; 
 }
 
 /** Odměny na hlavu: kdo je „hledaný“ a kolik za něj někdo vypsal. */
-export function wantedList(view: TableView): { seat: number; name: string; amount: number }[] {
+export function wantedList(view: TableView): { seat: number; userId: string; name: string; amount: number }[] {
   return view.seats
     .filter((s) => (s.wanted ?? 0) > 0)
-    .map((s) => ({ seat: s.seat, name: s.name, amount: s.wanted ?? 0 }))
+    .map((s) => ({ seat: s.seat, userId: s.playerId, name: s.name, amount: s.wanted ?? 0 }))
     .sort((a, b) => b.amount - a.amount);
+}
+
+/** Kdo vypsal odměny na hlavu: hráč (cíl) → jména zadavatelů (bez opakování, v pořadí vypsání). */
+export function postersByTarget(rows: { targetId: string; poster: string }[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const r of rows) {
+    const names = out.get(r.targetId) ?? [];
+    if (!names.includes(r.poster)) names.push(r.poster);
+    out.set(r.targetId, names);
+  }
+  return out;
+}
+
+/** Zadavatelé otevřených odměn v turnaji; obnoví se při změně sázek a odměn a při změně součtů u stolu. */
+function usePosters(tournamentId: string | null | undefined, refreshKey: string): Map<string, string[]> {
+  const [posters, setPosters] = useState<Map<string, string[]>>(new Map());
+  const load = useCallback(() => {
+    if (!tournamentId) return;
+    void get<{ bounties: { targetId: string; poster: string }[] }>(`/api/tournaments/${tournamentId}/bounties`)
+      .then((r) => setPosters(postersByTarget(r.bounties)))
+      .catch(() => undefined);
+  }, [tournamentId]);
+  useEffect(() => {
+    load();
+    return tournamentId ? onSocket<{ tournamentId: string }>('bets:changed', (m) => m.tournamentId === tournamentId && load()) : undefined;
+  }, [load, tournamentId, refreshKey]);
+  return posters;
 }
 
 export function BountiesBody({ view, tour, tournamentId }: { view: TableView; tour?: TournamentInfo | null; tournamentId?: string | null }) {
   const list = wantedList(view);
+  const posters = usePosters(tournamentId, list.map((w) => `${w.userId}:${w.amount}`).join(','));
   const { me } = useSession();
   const [posting, setPosting] = useState(false);
   const mineId = view.seats.find((s) => s.playerId === me?.user.id)?.seat;
@@ -200,15 +228,19 @@ export function BountiesBody({ view, tour, tournamentId }: { view: TableView; to
   return (
     <div className="flex flex-col gap-2">
     <ul className="flex flex-col gap-1 text-sm">
-      {list.map((w) => (
+      {list.map((w) => {
+        const by = posters.get(w.userId)?.join(', ');
+        return (
         <li key={w.seat} className="flex items-center justify-between gap-2">
-          <span className="truncate" title={t('tournament.wanted')}>
+          <span className="truncate" title={by ? t('table.info.rewardByTitle', { names: by }) : t('tournament.wanted')}>
             ⚑ {w.name}
             {w.seat === mineId ? ` (${t('table.info.you')})` : ''}
+            {by && <span className="text-muted"> {t('table.info.rewardBy', { names: by })}</span>}
           </span>
           <span className="font-mono font-semibold">{w.amount}</span>
         </li>
-      ))}
+        );
+      })}
     </ul>
     {button}
     </div>

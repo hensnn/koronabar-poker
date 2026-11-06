@@ -1472,6 +1472,12 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const u = viewer(req);
     reply.send({ ...(await svc.bets().list(u.id, tid(req))), headBounties: await svc.headBounties().list(tid(req), u.id) });
   }));
+  // Otevřené odměny na hlavu pro widget u stolu: na koho, kolik a kdo je vypsal (částky i zadavatelé jsou v turnaji veřejní).
+  app.get('/api/tournaments/:id/bounties', betGuard(async (req, reply) => {
+    const u = viewer(req);
+    const l = await svc.headBounties().list(tid(req), u.id);
+    reply.send({ bounties: l.bounties.filter((b) => b.status === 'open' || b.status === 'pendingWinner').map((b) => ({ targetId: b.target.userId, poster: b.poster.nickname, amount: b.amount })) });
+  }));
   app.post('/api/tournaments/:id/bets', betGuard(async (req, reply) => {
     const b = z
       .object({ subject: z.string().max(20), params: z.object({ userId: z.string().max(80).optional(), a: z.string().max(80).optional(), b: z.string().max(80).optional(), place: z.number().int().optional(), text: z.string().max(300).optional() }).default({}), title: z.string().max(120).optional(), direct: z.boolean().optional(), close: z.string().max(20).optional(), side: z.string().max(5).optional(), amount: z.number().int().optional() })

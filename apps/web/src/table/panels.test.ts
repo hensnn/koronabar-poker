@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TableView } from '@kb/game-core';
-import { entryActions, positionText, wantedList, type TournamentInfo } from './InfoCard';
+import { entryActions, positionText, postersByTarget, wantedList, type TournamentInfo } from './InfoCard';
 
 
 const tour = (over: Partial<TournamentInfo> = {}): TournamentInfo => ({
@@ -51,9 +51,20 @@ describe('odměny na hlavu', () => {
   it('seřadí hledané hráče podle odměny a ostatní vynechá', () => {
     const view = { seats: [seat(0, 'A', 50), seat(1, 'B'), seat(2, 'C', 200), seat(3, 'D', 0)] } as unknown as TableView;
     expect(wantedList(view)).toEqual([
-      { seat: 2, name: 'C', amount: 200 },
-      { seat: 0, name: 'A', amount: 50 },
+      { seat: 2, userId: 'p2', name: 'C', amount: 200 },
+      { seat: 0, userId: 'p0', name: 'A', amount: 50 },
     ]);
+  });
+  it('zadavatelé odměn se seskupí podle hráče, stejné jméno se neopakuje', () => {
+    const m = postersByTarget([
+      { targetId: 'p1', poster: 'Eva' },
+      { targetId: 'p2', poster: 'Petr' },
+      { targetId: 'p1', poster: 'Eva' },
+      { targetId: 'p1', poster: 'Karel' },
+    ]);
+    expect(m.get('p1')).toEqual(['Eva', 'Karel']);
+    expect(m.get('p2')).toEqual(['Petr']);
+    expect(m.get('p3')).toBeUndefined();
   });
 });
 
