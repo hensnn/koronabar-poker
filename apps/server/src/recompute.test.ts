@@ -112,4 +112,17 @@ describe('zpětný přepočet z historie', { timeout: 120_000 }, () => {
     const game = capped.filter((r) => r.source !== 'achievement').reduce((n, r) => n + r.amount, 0);
     expect(game).toBeLessThanOrEqual(30);
   });
+
+  it('přepočet a měkký reset ratingu mají vlastní oprávnění: Statistik smí, Ředitel ne', async () => {
+    const c = await start();
+    const reditel = await c.user('reditel');
+    const statistik = await c.user('statistik');
+    expect(() => c.server.rating.recompute(reditel, true)).toThrow(RatingError);
+    expect(() => c.server.rating.softResetAll(reditel)).toThrow(RatingError);
+    await expect(c.server.rating.recompute(statistik, true)).resolves.toBeDefined();
+    await expect(c.server.rating.softResetAll(statistik)).resolves.toBeGreaterThanOrEqual(0);
+    // oprávnění jde zvlášť odebrat: role se starým „Spravovat sezóny“ bez nového už přepočítávat nesmí
+    expect(c.server.perms.can(statistik, 'statistiky.prepocitat').allowed).toBe(true);
+    expect(c.server.perms.can(reditel, 'statistiky.sezony').allowed).toBe(false);
+  });
 });

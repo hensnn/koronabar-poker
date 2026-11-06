@@ -1760,7 +1760,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   // ---------- zpětný přepočet XP a ratingu ----------
   app.post('/api/recompute', guard(async (req, reply) => {
     const u = need(req);
-    if (!svc.perms.can(u.id, 'statistiky.sezony').allowed) return reply.code(403).send({ error: 'FORBIDDEN' });
+    if (!svc.perms.can(u.id, 'statistiky.prepocitat').allowed) return reply.code(403).send({ error: 'FORBIDDEN' });
     const b = (req.body ?? {}) as { what?: string; preview?: boolean };
     const preview = b.preview !== false;
     const out: { xp?: unknown; rating?: unknown; preview: boolean } = { preview };

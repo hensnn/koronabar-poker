@@ -79,7 +79,7 @@ export const PRESET_ROLES: PresetRole[] = [
     permissions: [...PLAYER, { key: 'chat.ztlumit', limits: { maxDurationHours: 24 } }, ...keys('chat.mazat_zpravy', 'chat.pripinat', 'chat.spravovat_kanaly', 'chat.vytvorit_kanal', 'anketa.vytvorit', 'anketa.spravovat')],
   },
   { key: 'kurator', power: 35, color: 'info', icon: 'palette', permissions: [...PLAYER, ...keys('emotikon.schvalit', 'emotikon.spravovat', 'motiv.schvalit', 'motiv.zamknout_prvky', 'motiv.vytvorit', 'emotikon.nahrat', 'obchod.spravovat')] },
-  { key: 'statistik', power: 30, color: 'success', icon: 'bar-chart', permissions: [...PLAYER, ...keys('statistiky.sezony', 'statistiky.exportovat', 'statistiky.uspechy')] },
+  { key: 'statistik', power: 30, color: 'success', icon: 'bar-chart', permissions: [...PLAYER, ...keys('statistiky.sezony', 'statistiky.exportovat', 'statistiky.uspechy', 'statistiky.reset_postupu', 'statistiky.prepocitat')] },
   { key: 'hrac', power: 10, color: 'primary', icon: 'user', permissions: [...PLAYER, ...keys('emotikon.nahrat', 'motiv.vytvorit', 'chat.vytvorit_kanal', 'anketa.vytvorit')] },
   { key: 'novacek', power: 5, color: 'muted', icon: 'user-plus', permissions: keys('stul.zobrazit', 'prihlizet.zobrazit', 'chat.psat', 'zadost.vytvorit') },
   { key: 'host', power: 1, color: 'muted', icon: 'eye', permissions: keys('stul.zobrazit', 'prihlizet.zobrazit') },

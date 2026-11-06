@@ -401,7 +401,7 @@ export class RatingService {
 
   /** Měkký reset sezóny: síla se přiblíží k průměru a nejistota vzroste. Historie zůstává v `rating_events`. */
   softResetAll(actorId: string): Promise<number> {
-    if (!this.deps.perms.can(actorId, 'statistiky.sezony').allowed) throw new RatingError('FORBIDDEN');
+    if (!this.deps.perms.can(actorId, 'statistiky.reset_postupu').allowed) throw new RatingError('FORBIDDEN');
     let n = 0;
     return this.enqueue(async () => {
       n = await this.applyReset(this.deps.now());
@@ -434,7 +434,7 @@ export class RatingService {
    * aktuálního nastavení. Celé běží v jedné transakci: pro náhled se na konci vrátí zpět, jinak se potvrdí.
    */
   recompute(actorId: string, preview: boolean): Promise<RatingRecomputeReport> {
-    if (!this.deps.perms.can(actorId, 'statistiky.sezony').allowed) throw new RatingError('FORBIDDEN');
+    if (!this.deps.perms.can(actorId, 'statistiky.prepocitat').allowed) throw new RatingError('FORBIDDEN');
     let report: RatingRecomputeReport = { tournaments: 0, cashDays: 0, resets: 0, changed: 0, rows: [] };
     return this.enqueue(async () => {
       try {

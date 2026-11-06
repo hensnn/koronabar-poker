@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { PERMISSIONS, PRESET_ROLES, t } from '@kb/shared';
 import { schema, type Db } from '../db/index.js';
 import type { PermissionService } from './permissions.js';
@@ -33,6 +33,15 @@ export async function seedRoles(db: Db, permissions: PermissionService): Promise
 const ADDED_AFTER_FIRST_RELEASES = ['turnaj.hrat'];
 
 /**
+ * Nová oprávnění, která dřív nahrazovalo jiné: role, které mělo starší oprávnění, dostanou nové jednorázově také,
+ * aby aktualizace nikomu nic nevzala (správce pak může obojí zvlášť upravit v GUI).
+ */
+const HEIRS: Record<string, string[]> = {
+  'statistiky.reset_postupu': ['statistiky.sezony', 'nastaveni.globalni'],
+  'statistiky.prepocitat': ['statistiky.sezony'],
+};
+
+/**
  * Nová položka katalogu oprávnění se při aktualizaci jednorázově přidá předpřipraveným rolím, které ji
  * v předvolbě mají. Co správce ručně odebral dřív, se nevrací (každá položka se rozdává jen jednou).
  */
@@ -51,6 +60,17 @@ async function grantNewPermissions(db: Db): Promise<void> {
           .insert(schema.rolePermissions)
           .values({ roleId: role.id, permission: p.key, effect: 'allow', limits: p.limits ?? null, needsApproval: p.needsApproval ?? false })
           .onConflictDoNothing();
+      }
+    }
+    for (const key of added) {
+      const from = HEIRS[key];
+      if (!from) continue;
+      const holders = await db
+        .select({ roleId: schema.rolePermissions.roleId })
+        .from(schema.rolePermissions)
+        .where(and(inArray(schema.rolePermissions.permission, from), eq(schema.rolePermissions.effect, 'allow')));
+      for (const roleId of new Set(holders.map((h) => h.roleId))) {
+        await db.insert(schema.rolePermissions).values({ roleId, permission: key, effect: 'allow', limits: null, needsApproval: false }).onConflictDoNothing();
       }
     }
   }

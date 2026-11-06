@@ -176,11 +176,13 @@ function FlagsPanel() {
 
 export function RatingAdmin() {
   const { me } = useSession();
-  if (!can(me, 'statistiky.sezony')) return null;
+  const flags = can(me, 'statistiky.sezony');
+  const recompute = can(me, 'statistiky.prepocitat');
+  if (!flags && !recompute) return null;
   return (
     <>
-      <FlagsPanel />
-      <RecomputePanel />
+      {flags && <FlagsPanel />}
+      {recompute && <RecomputePanel />}
     </>
   );
 }

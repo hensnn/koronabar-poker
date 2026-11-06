@@ -579,7 +579,7 @@ export class MaintenanceService {
 
   /** Vynulování jednoho hráče: XP (a úroveň), úspěchy, rating. */
   async resetUser(actorId: string, userId: string, areas: { xp?: boolean; achievements?: boolean; rating?: boolean }, meta: Meta = {}): Promise<void> {
-    this.can(actorId);
+    if (!this.deps.perms.can(actorId, 'statistiky.reset_postupu').allowed) throw new MaintenanceError('FORBIDDEN');
     if (!Object.values(areas).some(Boolean)) throw new MaintenanceError('INVALID');
     await this.deps.idle();
     const db = this.deps.db;

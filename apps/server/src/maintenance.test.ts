@@ -88,6 +88,25 @@ describe('údržba: vynulování po testování', () => {
     expect((await s.server.progress.progressOf(s.admin)).xp).toBe(700);
   });
 
+  it('reset postupu hráče má vlastní oprávnění (bez globálního nastavení): Statistik smí, Ředitel ne', async () => {
+    const s = await start();
+    s.server.progress.grant(s.player, 'a', 300);
+    await s.server.progress.idle();
+    const grant = async (roleKey: string) => {
+      const inv = await s.server.accounts.createInvite(s.admin, {});
+      const { userId } = await s.server.accounts.register({ inviteCode: inv, nickname: `R${roleKey}`, email: `${roleKey}@example.cz`, password: 'heslo-hrace-123', acceptTerms: true });
+      await s.server.perms.assignRole(s.admin, userId, s.server.perms.roleByKey(roleKey)!.id);
+      return userId;
+    };
+    const reditel = await grant('reditel');
+    const statistik = await grant('statistik');
+    expect(s.server.perms.can(statistik, 'nastaveni.globalni').allowed).toBe(false);
+    await expect(s.server.maintenance.resetUser(reditel, s.player, { xp: true })).rejects.toThrow('FORBIDDEN');
+    expect((await s.server.progress.progressOf(s.player)).xp).toBe(300);
+    await s.server.maintenance.resetUser(statistik, s.player, { xp: true });
+    expect((await s.server.progress.progressOf(s.player)).xp).toBe(0);
+  });
+
   it('ukončený turnaj jde smazat z historie; běžící ne; hráč bez oprávnění ne', async () => {
     const s = await start();
     const t = await s.server.tournaments.create(s.admin, { name: 'Historie', templateId: 'tour-turbo' });

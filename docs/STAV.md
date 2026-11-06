@@ -647,3 +647,9 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Při zapnutém měřítku se u stolu na počítači schová záhlaví jako na celé obrazovce (`data-focus`), ale bez přepnutí prohlížeče do fullscreenu.
 - Vypnuto = nic se nemění (žádný styl, žádné tlačítko, původní podmínky v CSS). Ověřeno v prohlížeči: okno 1500×870 → 81 %, 1100×700 → 65 %, bez posuvníků, po odemknutí se vše vrátí. Testy: `scale-lock.test.ts`.
 - Neověřeno / omezení: okna s pevnou velikostí v pixelech (poznámky k hráči) a tenké dekorace v CSS se nezmenšují; na skutečném monitoru s Discordem je potřeba vyzkoušet, jak vzorová velikost (celá obrazovka) sedí.
+
+### Oprávnění pro reset postupu a přepočet historie (6. 11. 2026)
+- V rolích (Správa → Role, matice oprávnění, skupina Statistiky) přibyla dvě samostatná oprávnění: **Resetovat postup** (`statistiky.reset_postupu`, citlivé: vynulování XP, úspěchů a ratingu jednoho hráče a měkký reset ratingu všech) a **Přepočítat historii** (`statistiky.prepocitat`: zpětný přepočet XP a ratingu z uložené historie).
+- Dřív to hlídalo „Spravovat sezóny“ (přepočet, reset ratingu) a „Globální nastavení“ (reset postupu hráče v seznamu uživatelů), takže šlo oprávnění dát jen společně s něčím mnohem širším. Teď tlačítka vidí a server povolí jen ten, kdo má nové oprávnění; sekci „Podezření“ v ratingu dál řídí „Spravovat sezóny“.
+- Aktualizace nikomu nic nevezme: role, které měly „Spravovat sezóny“ nebo „Globální nastavení“, dostanou nová oprávnění jednorázově také (pak je jde v GUI zvlášť odebrat). Předvolené role Administrátor a Statistik je mají; hlavní správce má vše.
+- Beze změny zůstává hromadné vynulování v Správě → Údržba (dál „Globální nastavení“, protože maže i hry a peněženky). Testy: `recompute.test.ts`, `maintenance.test.ts`, `auth/permissions.test.ts`.

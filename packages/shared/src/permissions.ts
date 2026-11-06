@@ -114,6 +114,8 @@ export const PERMISSIONS: PermissionDef[] = [
   p('statistiky.sezony', 'statistiky'),
   p('statistiky.exportovat', 'statistiky'),
   p('statistiky.uspechy', 'statistiky'),
+  p('statistiky.reset_postupu', 'statistiky', { sensitive: true }),
+  p('statistiky.prepocitat', 'statistiky'),
   // nastavení a šablony
   p('nastaveni.hra.upravit', 'nastaveni'),
   p('nastaveni.sablony.sprava', 'nastaveni'),

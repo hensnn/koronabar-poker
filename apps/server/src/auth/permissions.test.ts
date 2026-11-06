@@ -56,6 +56,25 @@ describe('katalog a předpřipravené role', () => {
     expect(s.perms.listRoles()).toHaveLength(PRESET_ROLES.length);
   });
 
+  it('nové oprávnění dostanou jednorázově role, které měly starší (reset postupu a přepočet historie), a jde je pak odebrat', async () => {
+    const s = await setup();
+    // jako po aktualizaci ze starší verze: vlastní role se „Spravovat sezóny“ a katalog bez nových oprávnění
+    const roleId = await s.perms.insertRole({ key: 'moje_sezony', name: 'Moje sezóny', description: '', power: 10, color: 'info', icon: 'star', permissions: [{ key: 'statistiky.sezony' }] }, false, false);
+    const old = permissionKeys().filter((k) => k !== 'statistiky.reset_postupu' && k !== 'statistiky.prepocitat');
+    await s.db.update(schema.systemMeta).set({ value: old }).where(eq(schema.systemMeta.key, 'permissionCatalog'));
+    await s.db.delete(schema.rolePermissions).where(eq(schema.rolePermissions.permission, 'statistiky.prepocitat'));
+    await seedRoles(s.db, s.perms);
+    const u = await s.user('Sezony', 'moje_sezony');
+    expect(s.perms.can(u, 'statistiky.prepocitat').allowed).toBe(true);
+    expect(s.perms.can(u, 'statistiky.reset_postupu').allowed).toBe(true);
+    // správce je zvlášť odebere; další seed je nevrátí
+    await s.db.delete(schema.rolePermissions).where(eq(schema.rolePermissions.roleId, roleId));
+    await s.db.insert(schema.rolePermissions).values({ roleId, permission: 'statistiky.sezony', effect: 'allow', limits: null, needsApproval: false });
+    await seedRoles(s.db, s.perms);
+    expect(s.perms.can(u, 'statistiky.prepocitat').allowed).toBe(false);
+    expect(s.perms.can(u, 'statistiky.sezony').allowed).toBe(true);
+  });
+
   it('hráč smí hrát a psát, ale ne spravovat; host jen sleduje; zablokovaný nic', async () => {
     const s = await setup();
     const hrac = await s.user('Hrac', 'hrac');

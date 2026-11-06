@@ -210,7 +210,7 @@ export function RatingSection() {
             </DataTable>
           )}
         </section>
-        {can(me, 'statistiky.sezony') && (
+        {can(me, 'statistiky.reset_postupu') && (
           <div className="flex flex-col gap-2">
             <Button
               onClick={async () => {
