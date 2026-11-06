@@ -8,6 +8,9 @@ import { resolveFor, useSettings } from '../settings';
  */
 export type Sfx = 'newHand' | 'dealCard' | 'flip' | 'chip' | 'check' | 'fold' | 'allIn' | 'turn' | 'timeBank' | 'win' | 'winMe' | 'rebuy' | 'addon' | 'knockout' | 'level' | 'bubble';
 
+/** Zvuky u stolu včetně upozornění na čas (první a poslední vteřiny tahu). */
+export type SfxName = Sfx | 'warning' | 'finalWarning';
+
 /** Které zvuky vzniknou přechodem mezi dvěma pohledy na stůl (čistá funkce, jde testovat). */
 export function detectSfx(prev: TableView | null, next: TableView): Sfx[] {
   if (!prev) return [];
@@ -37,11 +40,23 @@ export function warningMarks(warnSeconds: number): number[] {
   return [...new Set([Math.max(1, Math.round(warnSeconds)), Math.max(1, Math.round(warnSeconds / 2))])].sort((a, b) => b - a);
 }
 
+/**
+ * Upozornění na čas: sekundy do konce tahu a zvuk. Běžné upozornění je na zadané hranici a v její polovině;
+ * poslední upozornění (výraznější zvuk) zazní na hranici `finalSeconds` (0 = vypnuto) a nahradí běžné, když padnou na stejné místo.
+ */
+export function warningPlan(warnSeconds: number, finalSeconds: number): { mark: number; sound: 'warning' | 'finalWarning' }[] {
+  const final = Math.round(finalSeconds);
+  const marks = warningMarks(warnSeconds);
+  const plan = marks.map((mark) => ({ mark, sound: final > 0 && mark === final ? ('finalWarning' as const) : ('warning' as const) }));
+  if (final > 0 && !marks.includes(final)) plan.push({ mark: final, sound: 'finalWarning' });
+  return plan.sort((a, b) => b.mark - a.mark);
+}
+
 type Tone = { f: number; to?: number; at: number; len: number; gain: number; type?: OscillatorType };
 
 /** Popis zvuků: tóny (frekvence, začátek a délka v sekundách) a šum (kliknutí, šustění). */
 type Noise = { at: number; len: number; gain: number; freq: number };
-const DEF: Record<Sfx | 'warning', { tones?: Tone[]; noise?: Noise; noises?: Noise[] }> = {
+const DEF: Record<SfxName, { tones?: Tone[]; noise?: Noise; noises?: Noise[] }> = {
   // Zamíchání balíčku: rychlé šustění, které se zvedá (riffle), před rozdáním.
   newHand: { noises: Array.from({ length: 9 }, (_, i) => ({ at: i * 0.06, len: 0.07, gain: 0.22 + i * 0.01, freq: 1500 + i * 220 })) },
   // Jedna rozdaná karta: krátké sklouznutí po plátně.
@@ -56,6 +71,8 @@ const DEF: Record<Sfx | 'warning', { tones?: Tone[]; noise?: Noise; noises?: Noi
   win: { tones: [{ f: 523, at: 0, len: 0.12, gain: 0.3, type: 'triangle' }, { f: 659, at: 0.1, len: 0.12, gain: 0.3, type: 'triangle' }, { f: 784, at: 0.2, len: 0.2, gain: 0.3, type: 'triangle' }] },
   winMe: { tones: [{ f: 523, at: 0, len: 0.12, gain: 0.35, type: 'triangle' }, { f: 659, at: 0.1, len: 0.12, gain: 0.35, type: 'triangle' }, { f: 784, at: 0.2, len: 0.12, gain: 0.35, type: 'triangle' }, { f: 1047, at: 0.3, len: 0.4, gain: 0.35, type: 'triangle' }] },
   warning: { tones: [{ f: 1000, at: 0, len: 0.06, gain: 0.4, type: 'square' }] },
+  // Poslední upozornění: dvojité vyšší pípnutí, aby se odlišilo od běžného tikání.
+  finalWarning: { tones: [{ f: 1500, at: 0, len: 0.1, gain: 0.5, type: 'square' }, { f: 1500, at: 0.16, len: 0.1, gain: 0.5, type: 'square' }] },
   // Události turnaje: rebuy cinknutí mincí, add-on vyšší trojtón, vyřazení hluboký úder, level zvonek, bublina gong.
   rebuy: { tones: [{ f: 1568, at: 0, len: 0.08, gain: 0.3, type: 'triangle' }, { f: 2093, at: 0.07, len: 0.22, gain: 0.3, type: 'triangle' }] },
   addon: { tones: [{ f: 1319, at: 0, len: 0.1, gain: 0.3, type: 'triangle' }, { f: 1760, at: 0.09, len: 0.1, gain: 0.3, type: 'triangle' }, { f: 2349, at: 0.18, len: 0.3, gain: 0.3, type: 'triangle' }] },
@@ -91,13 +108,13 @@ const scale = (d: Def, o: { type?: OscillatorType; tone: number; noise: number; 
   noise: d.noise && { ...d.noise, gain: d.noise.gain * o.noise, freq: d.noise.freq * (o.freq ?? 1) },
   noises: d.noises?.map((x) => ({ ...x, gain: x.gain * o.noise, freq: x.freq * (o.freq ?? 1) })),
 });
-const CASINO: Partial<Record<Sfx | 'warning', Def>> = {
+const CASINO: Partial<Record<SfxName, Def>> = {
   chip: { tones: [2637, 3136, 3951, 3136, 4186].map((f, i) => ({ f, at: i * 0.035, len: 0.06, gain: 0.2, type: 'triangle' as const })), noise: { at: 0, len: 0.03, gain: 0.15, freq: 5000 } },
   win: { tones: [784, 988, 1175, 1568, 1976].map((f, i) => ({ f, at: i * 0.07, len: 0.18, gain: 0.25, type: 'triangle' as const })) },
   winMe: { tones: [784, 988, 1175, 1568, 1976, 2349].map((f, i) => ({ f, at: i * 0.08, len: i === 5 ? 0.5 : 0.2, gain: 0.3, type: 'triangle' as const })) },
   check: { tones: [{ f: 1200, at: 0, len: 0.04, gain: 0.3, type: 'square' }] },
 };
-const WOOD: Partial<Record<Sfx | 'warning', Def>> = {
+const WOOD: Partial<Record<SfxName, Def>> = {
   check: { tones: [{ f: 240, to: 150, at: 0, len: 0.06, gain: 0.5, type: 'triangle' }], noise: { at: 0, len: 0.025, gain: 0.3, freq: 700 } },
   chip: { tones: [{ f: 900, to: 700, at: 0, len: 0.03, gain: 0.3, type: 'sine' }, { f: 1100, to: 800, at: 0.05, len: 0.03, gain: 0.25, type: 'sine' }], noise: { at: 0, len: 0.02, gain: 0.25, freq: 1500 } },
   fold: { noise: { at: 0, len: 0.12, gain: 0.2, freq: 500 } },
@@ -105,7 +122,7 @@ const WOOD: Partial<Record<Sfx | 'warning', Def>> = {
 };
 
 /** Zvuk podle zvolené sady. */
-function defFor(name: Sfx | 'warning'): Def {
+function defFor(name: SfxName): Def {
   const theme = String((resolveFor().values as Record<string, unknown>)['ui.sfxTheme'] ?? 'classic');
   const base = DEF[name];
   if (theme === 'soft') return scale(base, { type: 'sine', tone: 0.7, noise: 0.8, freq: 0.6 });
@@ -115,7 +132,7 @@ function defFor(name: Sfx | 'warning'): Def {
   return base;
 }
 
-export function playSfx(name: Sfx | 'warning', volume: number): void {
+export function playSfx(name: SfxName, volume: number): void {
   const c = context();
   if (!c || volume <= 0) return;
   if (c.state === 'suspended') void c.resume().catch(() => undefined);
@@ -151,7 +168,7 @@ export function playSfx(name: Sfx | 'warning', volume: number): void {
   }
 }
 
-const SETTING: Record<Sfx | 'warning', string> = {
+const SETTING: Record<SfxName, string> = {
   newHand: 'ui.sfxDeal',
   dealCard: 'ui.sfxDeal',
   flip: 'ui.sfxDeal',
@@ -162,6 +179,7 @@ const SETTING: Record<Sfx | 'warning', string> = {
   turn: 'ui.sfxTurn',
   timeBank: 'ui.sfxWarning',
   warning: 'ui.sfxWarning',
+  finalWarning: 'ui.sfxWarning',
   win: 'ui.sfxWin',
   winMe: 'ui.sfxWin',
   rebuy: 'ui.sfxEvents',
@@ -171,7 +189,7 @@ const SETTING: Record<Sfx | 'warning', string> = {
   bubble: 'ui.sfxEvents',
 };
 
-const VIBRATE: Partial<Record<Sfx | 'warning', number[]>> = { turn: [120], warning: [80], timeBank: [80, 60, 80] };
+const VIBRATE: Partial<Record<SfxName, number[]>> = { turn: [120], warning: [80], finalWarning: [100, 60, 100], timeBank: [80, 60, 80] };
 
 /** Zvuky a vibrace u stolu podle změn pohledu a podle času zbývajícího na tahu. */
 export function useTableSfx(view: TableView | undefined, clockOffset: number): void {
@@ -182,7 +200,7 @@ export function useTableSfx(view: TableView | undefined, clockOffset: number): v
   const cfg = useRef(values);
   cfg.current = values;
 
-  const fire = (name: Sfx | 'warning') => {
+  const fire = (name: SfxName) => {
     const v = cfg.current;
     // Vibrace je nezávislá na zvucích: platí jen vlastní volba „Vibrace“.
     const pattern = VIBRATE[name];
@@ -204,10 +222,10 @@ export function useTableSfx(view: TableView | undefined, clockOffset: number): v
     if (warned.current.deadline !== deadline) warned.current = { deadline, marks: new Set() };
     const id = window.setInterval(() => {
       const left = Math.ceil((deadline - (Date.now() + clockOffset)) / 1000);
-      for (const mark of warningMarks(Number(cfg.current['ui.warnSeconds'] ?? 10))) {
+      for (const { mark, sound } of warningPlan(Number(cfg.current['ui.warnSeconds'] ?? 10), Number(cfg.current['ui.warnFinalSeconds'] ?? 5))) {
         if (left <= mark && left > 0 && !warned.current.marks.has(mark)) {
           warned.current.marks.add(mark);
-          fire('warning');
+          fire(sound);
         }
       }
     }, 250);

@@ -673,3 +673,8 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 ### Widget odměn na hlavu: kdo odměnu vypsal (7. 11. 2026)
 - Ve widgetu Odměny u stolu (a v jeho podobě v telefonu) je za jménem hledaného hráče šedě v závorce, kdo odměnu vypsal, např. „⚑ Honza (Eva, Karel) 80“. Víc zadavatelů je za sebou, stejné jméno se neopakuje; po najetí myší je celý text „Odměnu vypsal: …“. Jen vzhled, žádné oznámení se nepřidávalo.
 - Server: nová trasa `GET /api/tournaments/:id/bounties` (jen přihlášení s právem zobrazit stůl) vrací otevřené odměny (na koho, kolik, kdo vypsal). Zadavatelé jsou v turnaji veřejní už dřív (stránka Sázky a odměny). Widget se obnoví při změně odměn. Test: `panels.test.ts`; trasu kryje `security-audit.test.ts`.
+
+### Poslední upozornění na čas tahu (7. 11. 2026)
+- Dřív bylo jen krátké pípnutí na hranici `ui.warnSeconds` a v její polovině; časovač se nijak vizuálně neměnil. Nově je v osobním nastavení **Poslední upozornění na čas** (`ui.warnFinalSeconds`, výchozí 5 s, 0 = vypnuto): na hranici zazní výrazné dvojité pípnutí (jen když jsem na tahu, vypíná se spolu s „Upozornění na konec času“ a má vlastní vibraci) a nahradí běžné pípnutí, které by padlo na stejné místo.
+- V posledních vteřinách zčervená a (při zapnutých animacích) bliká časovač u avatara (kruh i proužek), pruh času na telefonu, odpočet „čeká se na…“ a stavový řádek „Jsi na tahu“ u mého tahu. Barva je nový token `color.timerWarn` (výchozí shodná s `color.danger`, jde upravit v motivu), text je v barvě `onPrimary`.
+- Testy: `sfx.test.ts` (plán upozornění, hranice posledních vteřin). Vzhled ověřen vykreslením.

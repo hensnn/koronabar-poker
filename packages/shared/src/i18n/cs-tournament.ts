@@ -1684,6 +1684,8 @@ export const csTournament: Record<string, string> = {
   'settings.ui.sfxAllIn.help': 'Stoupající tóny, když někdo jde all-in.',
   'settings.ui.warnSeconds.label': 'Upozornit na čas',
   'settings.ui.warnSeconds.help': 'Kolik vteřin před koncem tahu zazní první upozornění (druhé zazní v polovině).',
+  'settings.ui.warnFinalSeconds.label': 'Poslední upozornění na čas',
+  'settings.ui.warnFinalSeconds.help': 'Kolik vteřin před koncem tahu zazní výrazné dvojité pípnutí a zčervená časovač. 0 = vypnuto. Zvuk se vypíná u „Upozornění na konec času“.',
   'settings.ui.vibrate.label': 'Vibrace',
   'settings.ui.vibrate.help': 'Na telefonu zavibruje, když jsi na tahu nebo ti dochází čas.',
   'settings.category.theme': 'Vzhled a motivy',

@@ -42,7 +42,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
     ['ui.show', /^(ui\.(showPlayerNotes|showSymbol|showChipLabel|rotateToMe|hideMyCards|chipLeaderCrown|winImpact|betChips|tableWaitInfo|tournamentWaitBanner|tableNotices|timeoutNotice|showSystem|showPlayers|showInBb)|chat\.show)/],
     ['ui.showdown', /^ui\.(showdown|runItResponse)/],
     ['ui.actions', /^ui\.(auto|quickBets|plan)/],
-    ['ui.animations', /^ui\.(dealAnimation|dealCardMs|eventAnimations|warnSeconds)$/],
+    ['ui.animations', /^ui\.(dealAnimation|dealCardMs|eventAnimations|warnSeconds|warnFinalSeconds)$/],
     ['ui.hotkeys', /^ui\.hotkey/],
     ['ui.sfx', /^ui\.(sfx|vibrate)/],
     ['ui.mobile', /^ui\.mobile/],

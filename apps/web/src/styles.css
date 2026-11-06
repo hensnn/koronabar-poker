@@ -34,6 +34,7 @@
   --color-turn-glow: var(--tk-color-turnGlow);
   --color-timer-ok: var(--tk-color-timerOk);
   --color-timer-bank: var(--tk-color-timerBank);
+  --color-timer-warn: var(--tk-color-timerWarn);
   --color-dealer: var(--tk-color-dealerButton);
   --color-chip-white: var(--tk-color-chipWhite);
   --color-chip-red: var(--tk-color-chipRed);
@@ -294,6 +295,31 @@ h3,
 }
 .tk-timer-bar[data-bank='true'] > span {
   background: var(--tk-color-timerBank);
+}
+/* Poslední vteřiny tahu: časovač zčervená (a při zapnutých animacích bliká); stavový řádek a odpočet se zvýrazní. */
+.tk-timer-bar[data-urgent='true'] > span {
+  background: var(--tk-color-timerWarn);
+}
+@keyframes tk-urgent-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+[data-tk-anim-pulse='on'] .tk-timer-bar[data-urgent='true'] > span,
+[data-tk-anim-pulse='on'] .tk-timer-urgent {
+  animation: tk-urgent-blink calc(0.5s / var(--tk-anim-speed)) ease-in-out infinite;
+}
+.tk-countdown-urgent {
+  color: var(--tk-color-timerWarn);
+  font-weight: 800;
+}
+.tk-your-turn[data-urgent='true'] {
+  background: var(--tk-color-timerWarn);
+  color: var(--tk-color-onPrimary);
+  box-shadow: 0 0 calc(var(--spacing) * 4) var(--tk-color-timerWarn);
+}
+.tk-your-turn[data-urgent='true'] .tk-countdown-urgent {
+  color: inherit;
 }
 .tk-chip {
   display: inline-block;

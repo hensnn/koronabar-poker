@@ -23,7 +23,7 @@ import { defaultOf, saveUserSetting } from '../settings';
 import { flyOffset, useDealAnimation, type DealState } from './deal';
 import { Amount } from './Chips';
 import { amountInRange } from './amount';
-import { Countdown, TimerBar } from './TimerRing';
+import { Countdown, TimerBar, useUrgent } from './TimerRing';
 import { useThemeToken } from '../theme/ThemeProvider';
 import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
@@ -85,6 +85,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const { me } = useSession();
   const userId = me?.user.id;
   useTableSfx(view, clockOffset);
+  const urgent = useUrgent(view?.deadline ?? null, clockOffset);
   const myLook = useMyTableLook();
   const deal = useDealAnimation(view);
   const actionBubbles = useActionBubbles(view, inBb);
@@ -491,9 +492,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       {/* stav tahu: výrazně pro mě, decentně pro ostatní */}
       <div className={`tk-turn-row ${view.ready ? 'tk-turn-ready' : ''}`}>
       {myTurn ? (
-        <div role="status" className="tk-your-turn tk-pop">
+        <div role="status" className="tk-your-turn tk-pop" data-urgent={urgent}>
           <span className="inline-flex items-center justify-center gap-3">
-            <Countdown deadline={view.deadline} offset={clockOffset} />
+            <Countdown deadline={view.deadline} offset={clockOffset} warn />
             <span className="font-bold">{turnText}</span>
             {toCall > 0 && <span className="rounded-md bg-surface px-2 font-mono text-lg font-bold text-text">{formatAmount(toCall, info, inBb)}</span>}
           </span>
@@ -503,7 +504,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       ) : (
         acting && (
           <p className="text-center text-sm text-muted">
-            {t('table.waitingFor', { nick: acting.name })} · <Countdown deadline={view.deadline} offset={clockOffset} />
+            {t('table.waitingFor', { nick: acting.name })} · <Countdown deadline={view.deadline} offset={clockOffset} warn />
             {view.bankActive && ` (${t('table.timeBank')})`}
           </p>
         )

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TableView } from '@kb/game-core';
-import { detectSfx, warningMarks } from './sfx';
+import { detectSfx, warningMarks, warningPlan } from './sfx';
+import { isUrgent } from './TimerRing';
 
 
 const view = (over: Record<string, unknown> = {}): TableView =>
@@ -63,5 +64,20 @@ describe('zvuky hry: co se stane mezi dvěma pohledy', () => {
     expect(warningMarks(10)).toEqual([10, 5]);
     expect(warningMarks(2)).toEqual([2, 1]);
     expect(warningMarks(1)).toEqual([1]);
+  });
+
+  it('poslední upozornění (výchozí 5 s) nahradí běžné na stejném místě, jinak se přidá; 0 ho vypne', () => {
+    expect(warningPlan(10, 5)).toEqual([{ mark: 10, sound: 'warning' }, { mark: 5, sound: 'finalWarning' }]);
+    expect(warningPlan(20, 5)).toEqual([{ mark: 20, sound: 'warning' }, { mark: 10, sound: 'warning' }, { mark: 5, sound: 'finalWarning' }]);
+    expect(warningPlan(10, 0)).toEqual([{ mark: 10, sound: 'warning' }, { mark: 5, sound: 'warning' }]);
+    expect(warningPlan(4, 5).filter((x) => x.sound === 'finalWarning')).toEqual([{ mark: 5, sound: 'finalWarning' }]);
+  });
+
+  it('poslední vteřiny tahu: zbývá nejvýš zadaný počet vteřin a ještě nic nevypršelo', () => {
+    expect(isUrgent(5000, 5)).toBe(true);
+    expect(isUrgent(5001, 5)).toBe(false);
+    expect(isUrgent(1, 5)).toBe(true);
+    expect(isUrgent(0, 5)).toBe(false);
+    expect(isUrgent(3000, 0)).toBe(false);
   });
 });

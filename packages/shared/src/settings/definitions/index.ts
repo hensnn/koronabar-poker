@@ -858,6 +858,7 @@ const ui: SettingDef[] = [
   bool('ui.sfxEvents', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.sfxAllIn', { category: 'ui', mutability: A, scopes: USER }, true),
   int('ui.warnSeconds', { category: 'ui', mutability: A, unit: 's', scopes: USER }, 10, 2, 60),
+  int('ui.warnFinalSeconds', { category: 'ui', mutability: A, unit: 's', scopes: USER }, 5, 0, 30),
   bool('ui.vibrate', { category: 'ui', mutability: A, scopes: USER }, true),
   bool('ui.reducedMotion', { category: 'ui', mutability: A, scopes: USER }, false),
   int('ui.fontScalePercent', { category: 'ui', mutability: A, unit: '%', scopes: USER }, 100, 75, 200),

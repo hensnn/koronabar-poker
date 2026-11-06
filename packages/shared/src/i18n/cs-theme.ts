@@ -235,6 +235,7 @@ export const csTheme: Record<string, string> = {
   'token.color.turnGlow': 'Záře hráče na tahu',
   'token.color.timerOk': 'Časovač (v pořádku)',
   'token.color.timerBank': 'Časovač (time bank)',
+  'token.color.timerWarn': 'Časovač (poslední vteřiny)',
   'token.color.dealerButton': 'Dealer button',
   'token.shape.avatarRadius': 'Tvar avataru (zaoblení)',
   'token.size.avatar': 'Velikost avataru',
