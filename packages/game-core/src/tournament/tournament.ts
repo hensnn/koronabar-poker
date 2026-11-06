@@ -244,6 +244,8 @@ export class Tournament {
   private clockStartedAt = 0;
   /** Právě rozehrané handy (na všech stolech turnaje): nabídka add-onu čeká na jejich konec. */
   private liveHands = new Set<string>();
+  /** Level, ve kterém hráč naposledy dostal kartu. Vypadnutí se zpracuje až na předělu po handě, kdy už level mohl skočit dál. */
+  private playedLevel = new Map<string, number>();
   private decideTimers = new Map<string, () => void>();
   private previewCache: { key: string; levels: Level[] } | null = null;
   private voting: Voting;
@@ -364,9 +366,24 @@ export class Tournament {
     return this.st.players.find((p) => p.userId === userId);
   }
 
-  lateRegOpen(): boolean {
+  lateRegOpen(level: number = this.levelNumber()): boolean {
     const s = this.deps.settings();
-    return this.st.status === 'running' && num(s, 'tournament.lateRegLevels') >= this.levelNumber();
+    return this.st.status === 'running' && num(s, 'tournament.lateRegLevels') >= level;
+  }
+
+  /**
+   * Level, podle kterého se hráči posuzuje rebuy a re-entry. Kdo vypadl v handě rozehrané ještě v předchozím levelu
+   * (level mezitím skončil), rozhoduje se podle toho levelu, ve kterém vypadl, ne podle dalšího.
+   */
+  private decisionLevel(p: PlayerRecord, busted: boolean): number {
+    const now = this.levelNumber();
+    if (!busted && p.status !== 'deciding') return now;
+    return Math.min(now, this.playedLevel.get(p.userId) ?? now);
+  }
+
+  /** Hráč má u stolu nula žetonů, ale jeho vypadnutí se zpracuje až na předělu po handě (do té doby je pořád „hraje“). */
+  private pendingBust(p: PlayerRecord): boolean {
+    return p.status === 'playing' && this.table?.chipsOf(p.userId) === 0;
   }
 
   private maxPlayers(): number {
@@ -819,7 +836,10 @@ export class Tournament {
       }
       return;
     }
-    if (e.type === 'handStart') this.liveHands.add(e.handId);
+    if (e.type === 'handStart') {
+      this.liveHands.add(e.handId);
+      for (const pl of e.players) this.playedLevel.set(pl.userId, this.levelNumber());
+    }
     if (e.type === 'handFinished') {
       // Handa je úplně dohraná (i dokládání boardu a čas na ukázání karet): až teď smí začít přestávka a nabídka add-onu.
       this.liveHands.delete(e.handId);
@@ -882,6 +902,8 @@ export class Tournament {
     if (!p || p.status !== 'playing') return;
     if (this.canRebuyNow(p, true) || this.canReenterNow(p, true)) {
       p.status = 'deciding';
+      // Nabídka add-onu už mohla začít dřív, než se vypadnutí zpracovalo: add-on se hráči nabídne až po rozhodnutí o rebuy.
+      this.queueAddonAfterDecision(p);
       this.armDecision(p);
     } else {
       this.eliminate(p);
@@ -1018,7 +1040,7 @@ export class Tournament {
   private canRebuyNow(p: PlayerRecord, busted: boolean): boolean {
     const s = this.deps.settings();
     if (this.st.status !== 'running' || !s['tournament.rebuyEnabled']) return false;
-    if (this.levelNumber() > num(s, 'tournament.rebuyUntilLevel')) return false;
+    if (this.decisionLevel(p, busted) > num(s, 'tournament.rebuyUntilLevel')) return false;
     if (p.rebuys >= num(s, 'tournament.rebuyMax')) return false;
     if (p.status !== 'playing' && p.status !== 'deciding') return false;
     if (busted || p.status === 'deciding') return true;
@@ -1057,12 +1079,7 @@ export class Tournament {
       p.decideUntil = null;
       delete p.decideLeftMs;
       delete p.decideOffline;
-      // Rebuy měl přednost: add-on se teď nabídne s vlastním plným časem.
-      const o = this.st.addonOffer;
-      if (o?.waiting?.includes(userId)) {
-        o.waiting = o.waiting.filter((x) => x !== userId);
-        o.late = { ...(o.late ?? {}), [userId]: this.deps.clock.now() + num(s, 'tournament.addonOfferSeconds') * 1000 };
-      }
+      this.openAddonAfterDecision(userId);
       this.releaseAfterDecision();
     }
     this.save();
@@ -1079,9 +1096,25 @@ export class Tournament {
   private openAddonOffer(due = false): void {
     const s = this.deps.settings();
     if (!due && !this.addonOfferDue()) return;
-    // Kdo právě rozhoduje o rebuy, dostane add-on až po rozhodnutí (rebuy má přednost) a s vlastním plným časem.
-    const waiting = this.st.players.filter((p) => p.status === 'deciding').map((p) => p.userId);
+    // Kdo právě rozhoduje o rebuy (nebo mu vypadnutí server za okamžik zpracuje), dostane add-on až po rozhodnutí (rebuy má přednost) a s vlastním plným časem.
+    const waiting = this.st.players.filter((p) => p.status === 'deciding' || this.pendingBust(p)).map((p) => p.userId);
     this.st.addonOffer = { until: this.deps.clock.now() + num(s, 'tournament.addonOfferSeconds') * 1000, declined: [], ...(waiting.length > 0 ? { waiting, late: {} } : {}) };
+  }
+
+  /** Hráč vypadl, když už add-on nabídka běžela: add-on dostane až po rozhodnutí o rebuy. */
+  private queueAddonAfterDecision(p: PlayerRecord): void {
+    const o = this.st.addonOffer;
+    if (!o || p.addon || o.declined.includes(p.userId) || this.deps.clock.now() >= o.until || o.waiting?.includes(p.userId)) return;
+    o.waiting = [...(o.waiting ?? []), p.userId];
+    o.late = o.late ?? {};
+  }
+
+  /** Hráč se rozhodl (rebuy nebo re-entry): čekající add-on se mu nabídne s vlastním plným časem. */
+  private openAddonAfterDecision(userId: string): void {
+    const o = this.st.addonOffer;
+    if (!o?.waiting?.includes(userId)) return;
+    o.waiting = o.waiting.filter((x) => x !== userId);
+    o.late = { ...(o.late ?? {}), [userId]: this.deps.clock.now() + num(this.deps.settings(), 'tournament.addonOfferSeconds') * 1000 };
   }
 
   /** Do kdy platí jednorázová nabídka add-onu (ms hodin), nebo null, když neběží. */
@@ -1095,7 +1128,7 @@ export class Tournament {
   /** Hráči se právě nabízí add-on dialogem (nabídka běží, ještě ji neodmítl ani nekoupil). */
   addonOffered(userId: string): boolean {
     const p = this.rec(userId);
-    return this.addonOfferUntil(userId) !== null && !!p && p.status === 'playing' && !p.addon && !this.st.addonOffer!.declined.includes(userId);
+    return this.addonOfferUntil(userId) !== null && !!p && p.status === 'playing' && !p.addon && !this.pendingBust(p) && !this.st.addonOffer!.declined.includes(userId);
   }
 
   /** Hráč jednorázovou nabídku odmítl. */
@@ -1109,6 +1142,7 @@ export class Tournament {
     const p = this.rec(userId);
     const s = this.deps.settings();
     if (!p || this.st.status !== 'running' || !s['tournament.addonEnabled'] || p.addon || p.status !== 'playing') return false;
+    if (this.pendingBust(p)) return false; // nejdřív rozhodnutí o rebuy, add-on až po něm
     if (this.addonOffered(userId)) return true;
     if (String(s['tournament.addonMode'] ?? 'both') === 'offer') return false;
     const lv = this.levelNumber();
@@ -1134,7 +1168,7 @@ export class Tournament {
 
   private canReenterNow(p: PlayerRecord, busted: boolean): boolean {
     const s = this.deps.settings();
-    if (!s['tournament.reentryEnabled'] || !this.lateRegOpen()) return false;
+    if (!s['tournament.reentryEnabled'] || !this.lateRegOpen(this.decisionLevel(p, busted))) return false;
     if (p.entries - 1 >= num(s, 'tournament.reentryMax')) return false;
     if (!busted && p.status !== 'out') return false;
     return true;
@@ -1190,6 +1224,7 @@ export class Tournament {
       p.decideUntil = null;
       delete p.decideLeftMs;
       delete p.decideOffline;
+      this.openAddonAfterDecision(userId);
       this.releaseAfterDecision();
     }
     this.deps.onEvent?.({ type: 'reentry', userId, name: p.name, chips: num(s, 'tournament.startingStack'), cost: num(s, 'tournament.buyIn') });

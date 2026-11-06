@@ -298,6 +298,103 @@ describe('turnaj: registrace a peníze', () => {
       expect(h.tour.addonOffered('u1')).toBe(false);
     });
 
+    describe('poslední level s rebuy i add-onem: vypadnutí se zpracuje až po konci handy', () => {
+      const last = { ...cfg, 'tournament.rebuyUntilLevel': 2 };
+      const handEvents = (h: Harness, ev: 'handStart' | 'handEnd' | 'handFinished') =>
+        h.tour.onTableEvent(
+          (ev === 'handStart'
+            ? { type: 'handStart', handId: 'h1', handNumber: 1, buttonSeat: 0, players: [{ seat: 0, userId: 'u1', stack: 1500 }, { seat: 1, userId: 'u2', stack: 1500 }] }
+            : ev === 'handEnd'
+              ? { type: 'handEnd', handId: 'h1', board: [], winners: [], showdown: false, record: {} }
+              : { type: 'handFinished', handId: 'h1' }) as never,
+        );
+      /** Stůl je zastavený (události posíláme ručně), žetony přidávat nemá kam. */
+      const manualTable = (h: Harness) => {
+        h.table.stop();
+        (h.table as unknown as { addTournamentChips: () => void }).addTournamentChips = () => undefined;
+      };
+      /** Level 2 je rozehrán, skončí uprostřed handy; po ní se otevře nabídka add-onu a teprve potom se zpracuje vypadnutí. */
+      const lastHand = (h: Harness) => {
+        registerAll(h);
+        h.tour.start();
+        manualTable(h);
+        for (let i = 0; i < 400 && h.tour.levelNumber() < 2; i++) h.clock.advance(1000);
+        handEvents(h, 'handStart');
+        for (let i = 0; i < 400 && h.tour.levelNumber() <= 2; i++) h.clock.advance(1000);
+        expect(h.tour.levelNumber()).toBe(3); // level skončil, hráč vypadne až po jeho konci
+        handEvents(h, 'handEnd');
+        handEvents(h, 'handFinished');
+      };
+
+      it('hráč, který vypadl v handě posledního levelu s rebuy, dostane výběr rebuy a add-on až po něm', () => {
+        const h = harness(last);
+        lastHand(h);
+        expect(h.tour.addonOffered('u2')).toBe(true);
+        bust(h, 'u1');
+        expect(status(h, 'u1')).toBe('deciding'); // ne vyřazen jen proto, že level mezitím skočil
+        expect(h.tour.addonOffered('u1')).toBe(false);
+        h.clock.advance(35_000); // společné okno add-onu uplyne, hráč se pořád rozhoduje o rebuy
+        expect(status(h, 'u1')).toBe('deciding');
+        h.tour.rebuy('u1');
+        expect(status(h, 'u1')).toBe('playing');
+        expect(h.tour.addonOffered('u1')).toBe(true);
+        h.tour.addon('u1');
+        expect(h.tour.state().players.find((p) => p.userId === 'u1')!.addon).toBe(true);
+      });
+
+      it('rebuy po posledním levelu s rebuy nejde pro ostatní, kteří nevypadli v handě z toho levelu', () => {
+        const h = harness(last);
+        lastHand(h);
+        expect(h.tour.canRebuy('u2')).toBe(false); // level 3 je mimo okno rebuy
+        expect(h.tour.canRebuy('u3')).toBe(false);
+      });
+
+      it('hráč s nulou žetonů, jehož vypadnutí se ještě nezpracovalo, add-on nevidí a dostane ho po rebuy', () => {
+        const h = harness(last);
+        const chips = (u: string) => (u === 'u1' ? 0 : 1500);
+        (h.table as unknown as { chipsOf: (u: string) => number }).chipsOf = chips;
+        lastHand(h);
+        expect(h.tour.addonOffered('u1')).toBe(false);
+        expect(h.tour.canAddon('u1')).toBe(false);
+        expect(h.tour.addonOffered('u2')).toBe(true);
+        bust(h, 'u1');
+        h.clock.advance(35_000);
+        expect(status(h, 'u1')).toBe('deciding');
+        (h.table as unknown as { chipsOf: (u: string) => number }).chipsOf = () => 1500;
+        h.tour.rebuy('u1');
+        expect(h.tour.addonOffered('u1')).toBe(true);
+      });
+
+      it('kdo vypadne, když add-on nabídka už běží, dostane ji až po rozhodnutí o rebuy s vlastním časem', () => {
+        const h = harness(last);
+        lastHand(h);
+        h.clock.advance(5_000);
+        bust(h, 'u1');
+        expect(status(h, 'u1')).toBe('deciding');
+        h.clock.advance(60_000);
+        expect(h.tour.addonOfferUntil('u1')).toBeNull();
+        h.tour.rebuy('u1');
+        expect(h.tour.addonOffered('u1')).toBe(true);
+        h.clock.advance(31_000);
+        expect(h.tour.addonOffered('u1')).toBe(false);
+      });
+
+      it('level po handách: vypadnutí po handě, která level ukončila, rebuy neruší', () => {
+        const h = harness({ ...last, 'tournament.levelMode': 'hands', 'tournament.levelHands': 1, 'tournament.addonUntilLevel': 1, 'tournament.rebuyUntilLevel': 1 });
+        registerAll(h);
+        h.tour.start();
+        manualTable(h);
+        handEvents(h, 'handStart');
+        handEvents(h, 'handEnd');
+        expect(h.tour.levelNumber()).toBe(2);
+        handEvents(h, 'handFinished');
+        bust(h, 'u1');
+        expect(status(h, 'u1')).toBe('deciding');
+        h.tour.rebuy('u1');
+        expect(h.tour.addonOffered('u1')).toBe(true);
+      });
+    });
+
     it('hráč, který rebuy odmítne a vypadne, add-on nedostane; ostatní kupují normálně', () => {
       const h = harness(cfg);
       registerAll(h);
