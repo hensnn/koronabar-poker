@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useDialogTop } from './dialog-place';
 import { createPortal } from 'react-dom';
 import { onSocket } from '../net';
 import { RankBadge } from '../progress-client';
@@ -217,6 +218,10 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   // Hlasování o run it twice a volba ukázat/zahodit karty: výběr jde přepínat kurzorovými šipkami (Tab funguje sám).
   const choiceRef = useRef<HTMLDivElement>(null);
   useArrowChoices(choiceRef, true, '[role=dialog] button:not(:disabled)');
+  // Okna se umisťují podle skutečné polohy středu stolu, aby nezakrývala karty na boardu ani pot.
+  const roomRef = useRef<HTMLDivElement>(null);
+  const centerRef = useRef<HTMLDivElement>(null);
+  const choiceTop = useDialogTop(roomRef, centerRef, choiceRef);
   const [pinnedSeat, setPinnedSeat] = useState<number | null>(null);
   useEffect(() => {
     if (pinnedSeat === null) return;
@@ -285,7 +290,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
 
   return (
     <div className={`tk-screen flex flex-col gap-2 ${layout.hiddenSides.includes('right') ? 'tk-no-extra' : ''}`}>
-      <div className="tk-room relative" style={{ '--room-h': String(roomSize.h) } as CSSProperties} {...myLook}>
+      <div ref={roomRef} className="tk-room relative" style={{ '--room-h': String(roomSize.h) } as CSSProperties} {...myLook}>
         {mine && canRabbit && (
           <div role="group" aria-label={t('table.widget.reveal')} className="tk-pop absolute bottom-1 right-1 z-20 flex flex-wrap items-center gap-1.5 rounded-md border border-info bg-surface p-1.5 shadow-lg">
             {canRabbit && (
@@ -308,7 +313,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
         {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
         <div ref={tableEl} className="tk-table relative mx-auto" data-impact={bigWin ? 'big' : undefined}>
           {/* střed: board, pot, hlášky */}
-          <div className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
+          <div ref={centerRef} className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
             {(logoTextToken || logoImageToken !== 'none') && <div className="tk-table-logo flex items-center justify-center font-heading text-sm text-felt-text">{logoTextToken}</div>}
             {multiRun && potEl}
             {view.runs && view.runs.length >= 1 ? (
@@ -430,8 +435,8 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
             );
           })}
         </div>
-        {/* Hlasování a rozhodnutí o ukázání karet leží přes stůl, aby byly vidět i na celé obrazovce a na telefonu. */}
-        <div ref={choiceRef} className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 p-2">
+        {/* Hlasování a rozhodnutí o ukázání karet leží u stolu, aby byly vidět i na celé obrazovce a na telefonu; stojí mimo karty a pot (viz dialog-place.ts). */}
+        <div ref={choiceRef} className="pointer-events-none absolute inset-x-0 z-20 flex flex-col items-center gap-2 p-2" style={{ top: choiceTop }}>
       {view.vote && view.vote.kind === 'runit' && view.vote.status !== 'open' && (() => {
         const v = view.vote!;
         const times = String((v.payload as { times: number }).times);

@@ -355,7 +355,7 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
     }
   };
   return (
-    <Modal title={t('tournament.addon')} onClose={() => setHidden(until)}>
+    <Modal aside title={t('tournament.addon')} onClose={() => setHidden(until)}>
       <div className="flex flex-col gap-3">
         <p>{t('tournament.addonOfferText', { cost: tour.addon.cost, chips: tour.addon.chips, seconds: Math.ceil(left / 1000) })}</p>
         <AutoHint auto={tour.me.autoAnswer} until={until} leftMs={left} />
@@ -439,7 +439,7 @@ export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentIn
     }
   };
   return (
-    <Modal title={decideTitle(tour.me)} onClose={() => setHidden(until)}>
+    <Modal aside title={decideTitle(tour.me)} onClose={() => setHidden(until)}>
       <div className="flex flex-col gap-3">
         <p>{decideText(tour.me, `${Math.ceil(left / 1000)} s`)}</p>
         <AutoHint auto={tour.me.autoAnswer} until={until} leftMs={left} />
