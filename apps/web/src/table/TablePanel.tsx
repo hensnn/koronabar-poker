@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { TableView } from '@kb/game-core';
+import type { TableInfo, TableView } from '@kb/game-core';
 import { t } from '@kb/shared';
 import { get } from '../api';
 import { onSocket } from '../net';
@@ -7,7 +7,7 @@ import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { Fold } from '../ui';
 import { useMobileLayout } from './mobile';
-import { PLAN_OPTIONS, currentCallAmount, planFor, planTarget, setPlan, usePlan, type Plan } from './plan';
+import { PLAN_OPTIONS, autoPrefKeys, cardPrefKeys, currentCallAmount, planFor, planTarget, setPlan, usePlan, type Plan } from './plan';
 import { tournamentWaitLines, type TournamentInfo } from './InfoCard';
 
 interface Clock {
@@ -226,17 +226,22 @@ function PrefSection({ id, title, help, mobile, children }: { id: string; title:
 }
 
 /** Co dělat s kartami: Win = výherní bez showdownu, Lose = poražené na showdownu. Osobní nastavení, platí u všech stolů. */
-export function ShowdownPrefs() {
+export function ShowdownPrefs({ info, tour }: { info: TableInfo; tour: TournamentInfo | null }) {
   const settings = useSettings();
   const mobile = useMobileLayout();
   // Na telefonu větší výběry a řádky pod sebou; na počítači beze změny.
   const sel = mobile ? 'rounded-md border border-line bg-surface px-1 py-1 text-sm' : 'rounded-md border border-line bg-surface px-0.5 py-0 text-xs';
   const rowCls = mobile ? 'flex items-center justify-between gap-2 text-sm' : 'flex items-center gap-1 text-xs';
-  const rows: { key: string; label: string; title: string; options: [string, string][]; def: string }[] = [
+  const allRows: { key: string; label: string; title: string; options: [string, string][]; def: string }[] = [
     { key: 'ui.showdownWinning', label: t('table.plan.win'), title: t('table.plan.showWinning'), options: [['never', 'muck'], ['ask', 'ask'], ['always', 'show']], def: 'never' },
     { key: 'ui.runItResponse', label: t('table.plan.runIt'), title: t('table.plan.showRunIt'), options: [['ask', 'ask'], ['never', 'never'], ['always', 'always']], def: 'ask' },
     { key: 'ui.showdownLosing', label: t('table.plan.lose'), title: t('table.plan.showLosing'), options: [['show', 'show'], ['ask', 'ask'], ['muck', 'muck']], def: 'show' },
   ];
+  // Nabízí se jen to, co u tohoto stolu (turnaje) vůbec funguje; vypnuté funkce se neukazují.
+  const cardKeys = cardPrefKeys(info);
+  const rows = allRows.filter((r) => cardKeys.includes(r.key));
+  const autoKeys = autoPrefKeys(info, tour);
+  const autoRows = AUTO_ROWS.filter((r) => autoKeys.includes(r.key));
   return (
     <>
       <PrefSection id="plan" title={t('table.plan.show')} help={t('table.plan.showHelp')} mobile={mobile}>
@@ -249,9 +254,10 @@ export function ShowdownPrefs() {
           ))}
         </div>
       </PrefSection>
+      {autoRows.length > 0 && (
       <PrefSection id="auto" title={t('table.plan.auto')} help={t('table.plan.autoHelp')} mobile={mobile}>
         <div className={mobile ? 'flex flex-col gap-2 pt-1' : 'mt-1 flex flex-col gap-1'}>
-          {AUTO_ROWS.map((r) => (
+          {autoRows.map((r) => (
             <label key={r.key} className={rowCls} title={t(r.tip)}>
               <span className="text-muted">{t(r.label)}</span>
               <select className={sel} value={String(settings.values[r.key] ?? 'ask')} onChange={(e) => void saveUserSetting(r.key, e.target.value).catch(() => undefined)}>
@@ -265,6 +271,8 @@ export function ShowdownPrefs() {
           ))}
         </div>
       </PrefSection>
+      )}
+      {rows.length > 0 && (
       <PrefSection id="cards" title={t('table.plan.cards')} help={t('table.plan.cardsHelp')} mobile={mobile}>
         <div className={mobile ? 'flex flex-col gap-2 pt-1' : 'mt-1 flex flex-col gap-1'}>
           {rows.map((r) => (
@@ -281,6 +289,7 @@ export function ShowdownPrefs() {
           ))}
         </div>
       </PrefSection>
+      )}
     </>
   );
 }

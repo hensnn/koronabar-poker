@@ -607,6 +607,7 @@ export class TableActor {
         winImpact: { mediumBb: num(s, 'table.winImpactMediumBb'), bigBb: num(s, 'table.winImpactBigBb') },
         showCardsFolded: !!s['special.showCards'] && !!s['special.showCardsFolded'],
         rabbitHunt: !!s['special.rabbitHunt'],
+        muckAllowed: !!s['special.muckAllowed'],
         ante: num(s, 'table.ante') || (s['table.bbAnte'] ? bb : 0),
         bbAnte: !!s['table.bbAnte'],
         oddsDecimals: num(s, 'odds.decimals'),

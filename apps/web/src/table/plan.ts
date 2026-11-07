@@ -109,3 +109,35 @@ export function usePlanExecutor(view: TableView | undefined, tableId: string): v
     if (step.kind === 'act' && step.action) void table.act(tableId, step.action, view.handId);
   }, [view, s, tableId]);
 }
+
+/** Údaje o turnaji, podle kterých se rozhoduje, které automatické odpovědi se nabízejí. */
+interface AutoTour {
+  rebuy: { enabled: boolean };
+  reentry: { enabled: boolean };
+  addon: { enabled: boolean };
+}
+
+/**
+ * Které předvolby automatických odpovědí na turnajové dotazy se hráči nabídnou: jen u turnajového stolu a jen pro funkce,
+ * které jsou v daném turnaji zapnuté (rebuy, reentry, add-on). U cash stolu nebo dokud se údaje o turnaji nenačtou, žádné.
+ */
+export function autoPrefKeys(info: { tournament?: boolean }, tour: AutoTour | null): string[] {
+  if (!info.tournament || !tour) return [];
+  const keys: string[] = [];
+  if (tour.rebuy.enabled) keys.push('ui.autoRebuy');
+  if (tour.reentry.enabled) keys.push('ui.autoReenter');
+  if (tour.addon.enabled) keys.push('ui.autoAddon');
+  return keys;
+}
+
+/**
+ * Které předvolby karet se nabídnou podle nastavení stolu: výherní karty bez showdownu jen když stůl dovoluje ukázat karty,
+ * souhlas s run it twice jen když je zapnutý, poražené karty (ukázat / zeptat se / muck) jen když je muck povolený.
+ */
+export function cardPrefKeys(info: { showCards?: boolean; runIt?: number; muckAllowed?: boolean }): string[] {
+  const keys: string[] = [];
+  if (info.showCards) keys.push('ui.showdownWinning');
+  if ((info.runIt ?? 0) > 1) keys.push('ui.runItResponse');
+  if (info.muckAllowed) keys.push('ui.showdownLosing');
+  return keys;
+}

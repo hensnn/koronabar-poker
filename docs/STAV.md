@@ -689,3 +689,8 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Oprava: nastavení „neukazovat“ teď znamená jen, že se karty samy neukážou. Dobrovolně je výherce může ukázat vždy klepnutím na svou kartu (jednu nebo obě), dokud běží čas `time.showCardsMs`. „Ukázat vždy“ je dál automatické.
 - Pozn.: volba „zeptat se“ původně měla vlastní výzvu (`table.showWinnerPrompt`), ta se při přechodu na klepání na karty ztratila; teď se chová stejně jako „neukazovat“.
 - Test: `showdown.test.ts` (výherce s výchozím nastavením smí ukázat jednu i obě karty; při vypnutém ukázání karet server odmítne).
+### Předvolby u stolu: nabízí se jen, co stůl a turnaj umí (7. 11. 2026)
+- Problém: ve widgetu Plánovaný tah se vždy nabízely předvolby automatických odpovědí na rebuy, reentry a add-on, i u cash stolu nebo v turnaji, kde ta funkce není zapnutá. Stejně se nabízely předvolby karet pro funkce, které stůl nemá.
+- Pravidla (`plan.ts`: `autoPrefKeys`, `cardPrefKeys`): automatické odpovědi jen u turnajového stolu a jen pro zapnuté `tournament.rebuyEnabled` / `reentryEnabled` / `addonEnabled`; výherní karty bez showdownu jen při `special.showCards`; souhlas s run it twice jen při `special.runItTwice`; poražené karty (ukázat / zeptat se / muck) jen při `special.muckAllowed`. Když v oddílu nezbyde žádný řádek, schová se celý oddíl.
+- Nové pole `info.muckAllowed` v pohledu na stůl. Ostatní prvky (rebuy/add-on/reentry tlačítka, dohoda, straddle, zavolání času, rabbit hunt, dokoupení) už byly podmíněné správně. Osobní nastavení na stránce Nastavení zůstává kompletní.
+- Testy: `plan.test.ts`.

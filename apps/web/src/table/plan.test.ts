@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LegalActions, TableView } from '@kb/game-core';
-import { currentCallAmount, planFor, planTarget, resolvePlan, stepPlan, type PlanState } from './plan';
+import { autoPrefKeys, cardPrefKeys, currentCallAmount, planFor, planTarget, resolvePlan, stepPlan, type PlanState } from './plan';
 
 const legal = (over: Partial<LegalActions> = {}): LegalActions => ({ canFold: true, canCheck: false, callAmount: 0, canBet: false, canRaise: false, minRaiseTo: 0, maxRaiseTo: 0, ...over });
 
@@ -58,5 +58,30 @@ describe('vazba plánu na stůl a handu', () => {
     expect(planFor(state(), 't1')).toBe('call');
     expect(planFor(state(), 't2')).toBeNull();
     expect(planFor(null, 't1')).toBeNull();
+  });
+});
+
+describe('předvolby u stolu: nabízí se jen to, co stůl a turnaj umí', () => {
+  const tour = (rebuy: boolean, reentry: boolean, addon: boolean) => ({ rebuy: { enabled: rebuy }, reentry: { enabled: reentry }, addon: { enabled: addon } });
+
+  it('automatické odpovědi: jen funkce zapnuté v turnaji', () => {
+    expect(autoPrefKeys({ tournament: true }, tour(true, true, true))).toEqual(['ui.autoRebuy', 'ui.autoReenter', 'ui.autoAddon']);
+    expect(autoPrefKeys({ tournament: true }, tour(true, false, true))).toEqual(['ui.autoRebuy', 'ui.autoAddon']);
+    expect(autoPrefKeys({ tournament: true }, tour(false, true, false))).toEqual(['ui.autoReenter']);
+    expect(autoPrefKeys({ tournament: true }, tour(false, false, false))).toEqual([]);
+  });
+
+  it('automatické odpovědi: u cash stolu ani před načtením turnaje se nenabízí nic', () => {
+    expect(autoPrefKeys({}, tour(true, true, true))).toEqual([]);
+    expect(autoPrefKeys({ tournament: false }, null)).toEqual([]);
+    expect(autoPrefKeys({ tournament: true }, null)).toEqual([]);
+  });
+
+  it('karty: výherní jen s povoleným ukázáním, run it jen když je zapnutý, poražené jen s povoleným muckem', () => {
+    expect(cardPrefKeys({ showCards: true, runIt: 2, muckAllowed: true })).toEqual(['ui.showdownWinning', 'ui.runItResponse', 'ui.showdownLosing']);
+    expect(cardPrefKeys({ showCards: false, runIt: 0, muckAllowed: false })).toEqual([]);
+    expect(cardPrefKeys({ showCards: true, runIt: 0, muckAllowed: false })).toEqual(['ui.showdownWinning']);
+    expect(cardPrefKeys({ muckAllowed: true })).toEqual(['ui.showdownLosing']);
+    expect(cardPrefKeys({})).toEqual([]);
   });
 });

@@ -146,6 +146,8 @@ export interface TableInfo {
   /** Smí karty po showdownu ukázat i hráč, který složil a do showdownu nedošel. */
   showCardsFolded?: boolean;
   rabbitHunt?: boolean;
+  /** Na showdownu smí poražený odhodit karty (muck); jinak se ukazují vždy. */
+  muckAllowed?: boolean;
   /** Rake u tohoto stolu (průhlednost pro hráče); chybí, když se nevybírá. */
   rake?: { percent: number; capChips: number; noFlopNoDrop: boolean };
   /** Stav jackpotového fondu v měně, pokud je u stolu nějaký jackpot zapnutý. */
