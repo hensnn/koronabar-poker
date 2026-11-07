@@ -91,7 +91,6 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const actionBubbles = useActionBubbles(view, inBb);
   const rotate = useSettings().values['ui.rotateToMe'] !== false;
   const runItPref = String(useSettings().values['ui.runItResponse'] ?? 'ask');
-  const winnerPref = String(useSettings().values['ui.showdownWinning'] ?? 'never');
   const winImpactPref = String(useSettings().values['ui.winImpact'] ?? 'full');
   const mobile = useMobileLayout();
   const betChips = useSettings().values['ui.betChips'] !== false;
@@ -279,9 +278,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const bigWin = winImpactPref === 'full' && !!view.winners && !!view.info.winImpact && view.winners.some((w) => w.amount >= view.info.winImpact!.bigBb * view.info.bigBlind);
   const canShowCards = !!(view.winners && mine?.hasCards && info.showCards && (!view.seats.some((s) => s.playerId !== userId && s.cards) || (info.showCardsFolded && mine.status === 'folded')));
   const canCallClock = !!(mine && view.actingSeat !== null && view.actingSeat !== mine.seat && mine.status !== 'folded' && !view.clockCalled);
-  // Plovoucí lišta „Ukázat karty“ (pravý dolní roh stolu): jen když je co ukázat; výherce s volbou „zahodit“ ji nevidí, už ukázané karty ji zavřou.
-  const iWon = !!(mine && view.winners?.some((w) => w.seat === mine.seat));
-  const showBar = canShowCards && !(iWon && winnerPref === 'never') && !(mine?.exposed && mine.exposed.every(Boolean));
+  // Ukázání karet klepnutím na vlastní kartu: jen když je co ukázat, už ukázané karty nabídku zavřou. Nastavení „Výherní karty bez showdownu“
+  // (neukazovat) jen říká, že se karty samy neukážou; dobrovolně je výherce smí ukázat vždy, proto se nabídka neskrývá.
+  const showBar = canShowCards && !(mine?.exposed && mine.exposed.every(Boolean));
   const canRabbit = !!(view.winners && mine?.hasCards && info.rabbitHunt && view.board.length < 5 && !view.rabbit);
 
   return (

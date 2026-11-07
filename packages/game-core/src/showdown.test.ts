@@ -147,6 +147,31 @@ describe('showdown: ukázat, nebo odhodit karty (muck)', () => {
   });
 });
 
+describe('výherce bez showdownu smí karty ukázat dobrovolně (i s výchozím „neukazovat“)', () => {
+  it('po foldu soupeře server výherci s nastavením „neukazovat“ dovolí ukázat jednu i obě karty', () => {
+    const m = make({ 'special.showCards': true });
+    const folder = m.acting()!;
+    m.actor.act(folder, { type: 'fold' });
+    const winner = m.actor.viewFor(null).seats.find((s) => s.playerId !== folder)!;
+    expect(winner.exposed).toBeUndefined(); // samo se nic neukázalo
+    m.actor.showCards(winner.playerId, 0);
+    let seat = m.actor.viewFor(null).seats.find((s) => s.playerId === winner.playerId)!;
+    expect(seat.exposed?.filter((c) => c !== null)).toHaveLength(1);
+    m.actor.showCards(winner.playerId, 'both');
+    seat = m.actor.viewFor(null).seats.find((s) => s.playerId === winner.playerId)!;
+    expect(seat.exposed?.every((c) => c !== null)).toBe(true);
+    expect(m.actor.hasError()).toBeFalsy();
+  });
+
+  it('s vypnutým „Ukázáním karet“ na stole to server odmítne', () => {
+    const m = make({ 'special.showCards': false });
+    const folder = m.acting()!;
+    m.actor.act(folder, { type: 'fold' });
+    const winner = m.actor.viewFor(null).seats.find((s) => s.playerId !== folder)!;
+    expect(() => m.actor.showCards(winner.playerId, 'both')).toThrow();
+  });
+});
+
 describe('čekání u stolu je vidět všem (odpočty)', () => {
   it('rozhodování o ukázání karet je veřejné s počtem a limitem; odpočet další handy je veřejný po skončené handě', () => {
     let seenChoice = false;

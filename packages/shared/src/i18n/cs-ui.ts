@@ -136,7 +136,7 @@ export const csUi: Record<string, string> = {
   'settings.time.autoAnswerPaidSeconds.label': 'Odpočet automatické odpovědi (placené akce)',
   'settings.time.autoAnswerPaidSeconds.help': 'Za kolik sekund se podle předvolby hráče provede placená akce (rebuy, nový vstup, add-on). Nejméně 3 s, aby hráč stihl omyl zrušit. Je-li na rozhodnutí méně času, provede se těsně před koncem.',
   'settings.ui.showdownWinning.label': 'Výherní karty bez showdownu',
-  'settings.ui.showdownWinning.help': 'Když vyhraješ, protože ostatní složili: neukazovat, zeptat se, nebo ukázat vždy.',
+  'settings.ui.showdownWinning.help': 'Když vyhraješ, protože ostatní složili: neukazovat a zeptat se: karty se samy neukážou, ukážeš je klepnutím na svou kartu u sedadla; ukázat vždy: ukážou se automaticky.',
   'settings.ui.showdownWinning.option.never': 'Neukazovat',
   'settings.ui.showdownWinning.option.ask': 'Zeptat se',
   'settings.ui.showdownWinning.option.always': 'Ukázat vždy',
