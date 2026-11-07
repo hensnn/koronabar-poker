@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.get('/api/tournaments/:id/bounties', betGuard(async (req, reply) => {
     const u = viewer(req);
     const l = await svc.headBounties().list(tid(req), u.id);
-    reply.send({ bounties: l.bounties.filter((b) => b.status === 'open' || b.status === 'pendingWinner').map((b) => ({ targetId: b.target.userId, poster: b.poster.nickname, amount: b.amount })) });
+    reply.send({ survivedRule: l.survivedRule, bounties: l.bounties.filter((b) => b.status === 'open' || b.status === 'pendingWinner').map((b) => ({ targetId: b.target.userId, poster: b.poster.nickname, amount: b.amount, status: b.status })) });
   }));
   app.post('/api/tournaments/:id/bets', betGuard(async (req, reply) => {
     const b = z

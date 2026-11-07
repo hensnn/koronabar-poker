@@ -570,6 +570,8 @@ export class HeadBountyService {
     return {
       enabled: !!s['headBounty.enabled'] && (this.deps.facts(tournamentId)?.headBounty ?? true),
       limits: { min: Number(s['headBounty.min']), max: Number(s['headBounty.max']), maxPerPoster: Number(s['headBounty.maxPerPoster']) },
+      /** Co se stane s nevyplacenou odměnou, když cílový hráč turnaj přežije (return = zadavateli, house = dům, winner = vítěz). */
+      survivedRule: String(s['headBounty.survived']),
       canCancel: !!viewerId && this.canCancel(viewerId),
       bounties: rows.map((r) => ({ id: r.id, target: { userId: r.targetId, nickname: nicks.get(r.targetId) ?? '' }, poster: { userId: r.posterId, nickname: nicks.get(r.posterId) ?? '' }, amount: r.amount, status: r.status, paidTo: r.paidTo })),
     };

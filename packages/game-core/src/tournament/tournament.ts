@@ -183,6 +183,10 @@ export interface DealPayload {
   keep: number;
   total: number;
   chips: Record<string, number>;
+  /** Výplaty za první až k-té místo v době návrhu (nejméně a nejvíc, co hráč bez dohody dostane). Starší návrhy je nemají. */
+  places?: number[];
+  /** Referenční rozdělení podle ICM v době návrhu (k porovnání, kolik hráč dohodou získá nebo ztratí). */
+  fair?: Record<string, number>;
 }
 
 export interface DealOptions {
@@ -194,6 +198,12 @@ export interface DealOptions {
   participants: { userId: string; name: string; chips: number }[];
   /** Dělená částka (součet výplat za první k míst). */
   total: number;
+  /** Výplaty za místa 1 až k (bez dohody dostane hráč nejméně poslední z nich a nejvíc první). */
+  places: number[];
+  /** Referenční rozdělení podle ICM (jen když jde spočítat), k porovnání nabídek. */
+  fair: Record<string, number> | null;
+  /** Zbytek bounty, který se po dohodě, jež ukončí turnaj, rozdělí mezi zbývající hráče (0 = žádná bounty). */
+  bountyBank: number;
   keepMax: number;
   /** Výsledek každé povolené metody (kromě vlastních částek) pro srovnání vedle sebe. */
   methods: Partial<Record<DealMethod, Record<string, number>>>;
@@ -1452,8 +1462,20 @@ export class Tournament {
       }
     }
     const vote = this.voting.active('deal') ?? [...this.voting.all()].reverse().find((v) => v.kind === 'deal');
+    let fair: Record<string, number> | null = methods.icm ?? null;
+    if (!fair && k >= 2 && total > 0) {
+      try {
+        fair = dealAmounts('icm', participants, total, { roundTo: num(s, 'tournament.payoutRoundTo'), prizes: table.slice(0, k) });
+      } catch {
+        fair = null;
+      }
+    }
     return {
       blocked,
+      // Za místa mimo výplatní tabulku se nevyplácí nic: bez dohody by hráč na posledním z k míst mohl dostat i nulu.
+      places: Array.from({ length: k }, (_, i) => table[i] ?? 0),
+      fair,
+      bountyBank: this.bountyType() !== 'none' ? this.deps.money.bountyBank(this.deps.id) : 0,
       enabled: !!s['tournament.dealEnabled'],
       maxPlayers: num(s, 'tournament.dealMaxPlayers'),
       allowed: this.dealMethods(),
@@ -1486,7 +1508,7 @@ export class Tournament {
       if (e instanceof DealError) throw new TournamentError('DEAL_INVALID', { reason: e.code });
       throw e;
     }
-    const payload: DealPayload = { method: input.method, amounts, keep, total: opt.total, chips: Object.fromEntries(opt.participants.map((p) => [p.userId, p.chips])) };
+    const payload: DealPayload = { method: input.method, amounts, keep, total: opt.total, chips: Object.fromEntries(opt.participants.map((p) => [p.userId, p.chips])), places: opt.places, ...(opt.fair ? { fair: opt.fair } : {}) };
     const vote = this.voting.propose({
       kind: 'deal',
       proposer: proposerId,

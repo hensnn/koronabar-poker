@@ -955,6 +955,26 @@ describe('turnaj: dohoda (deal)', { timeout: 300_000 }, () => {
     expect(h.events.some((e) => e.type === 'dealAccepted')).toBe(true);
   });
 
+  it('podklady dohody nesou finanční údaje: výplaty za místa, referenční ICM a zbytek bounty; návrh si je pamatuje', () => {
+    const h = started();
+    const opt = h.tour.dealOptions('u1');
+    // výplaty za 1. až 4. místo dávají dělenou částku; bez dohody dostane hráč nejméně poslední a nejvíc první
+    expect(opt.places).toHaveLength(4);
+    expect(opt.places.reduce((a, b) => a + b, 0)).toBe(opt.total);
+    expect(Math.max(...opt.places)).toBe(opt.places[0]);
+    // vyplácí se jen první dvě místa: třetí a čtvrtý hráč by bez dohody nedostali nic
+    expect(opt.places).toEqual([260, 140, 0, 0]);
+    // ICM je k dispozici vždy (i kdyby ho metoda nenabízela) a rozdává přesně dělenou částku
+    expect(opt.fair).not.toBeNull();
+    expect(Object.values(opt.fair!).reduce((a, b) => a + b, 0)).toBe(opt.total);
+    expect(opt.bountyBank).toBe(0);
+    h.tour.proposeDeal('u1', { method: 'equal' });
+    const payload = h.tour.dealOptions('u1').vote!.payload as { places?: number[]; fair?: Record<string, number>; total: number };
+    expect(payload.places).toEqual(opt.places);
+    expect(payload.fair).toEqual(opt.fair);
+    expect(payload.total).toBe(opt.total);
+  });
+
   it('jediné ne dohodu zamítne, pak platí pauza mezi návrhy', async () => {
     const h = started();
     h.tour.proposeDeal('u1', { method: 'chipChop' });

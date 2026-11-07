@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
 import type { TableView } from '@kb/game-core';
 import { errorText, get, post } from '../api';
@@ -186,20 +186,39 @@ export function postersByTarget(rows: { targetId: string; poster: string }[]): M
   return out;
 }
 
-/** Zadavatelé otevřených odměn v turnaji; obnoví se při změně sázek a odměn a při změně součtů u stolu. */
-function usePosters(tournamentId: string | null | undefined, refreshKey: string): Map<string, string[]> {
-  const [posters, setPosters] = useState<Map<string, string[]>>(new Map());
+/** Otevřená odměna na hlavu: na koho, kdo ji vypsal, kolik a v jakém je stavu (čeká, nebo připadne vítězi). */
+export interface BountyRow {
+  targetId: string;
+  poster: string;
+  amount: number;
+  status: 'open' | 'pendingWinner';
+}
+export interface BountyList {
+  rows: BountyRow[];
+  /** Co se stane s odměnou, když cílový hráč turnaj přežije (return / house / winner). */
+  survivedRule: string;
+}
+
+/** Otevřené odměny v turnaji se zadavateli a stavem; obnoví se při změně sázek a odměn a při změně součtů u stolu. Bez turnaje se nic nenačítá. */
+export function useBounties(tournamentId: string | null | undefined, refreshKey: string): BountyList {
+  const [list, setList] = useState<BountyList>({ rows: [], survivedRule: 'return' });
   const load = useCallback(() => {
     if (!tournamentId) return;
-    void get<{ bounties: { targetId: string; poster: string }[] }>(`/api/tournaments/${tournamentId}/bounties`)
-      .then((r) => setPosters(postersByTarget(r.bounties)))
+    void get<{ bounties: BountyRow[]; survivedRule?: string }>(`/api/tournaments/${tournamentId}/bounties`)
+      .then((r) => setList({ rows: r.bounties, survivedRule: r.survivedRule ?? 'return' }))
       .catch(() => undefined);
   }, [tournamentId]);
   useEffect(() => {
     load();
     return tournamentId ? onSocket<{ tournamentId: string }>('bets:changed', (m) => m.tournamentId === tournamentId && load()) : undefined;
   }, [load, tournamentId, refreshKey]);
-  return posters;
+  return list;
+}
+
+/** Zadavatelé otevřených odměn v turnaji (hráč → jména). */
+function usePosters(tournamentId: string | null | undefined, refreshKey: string): Map<string, string[]> {
+  const { rows } = useBounties(tournamentId, refreshKey);
+  return useMemo(() => postersByTarget(rows), [rows]);
 }
 
 export function BountiesBody({ view, tour, tournamentId }: { view: TableView; tour?: TournamentInfo | null; tournamentId?: string | null }) {

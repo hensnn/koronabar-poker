@@ -307,6 +307,10 @@ describe('odměna na hlavu', { timeout: 90_000 }, () => {
     expect(wallet(s, g.a)).toBe(START - 100 - 50);
     expect((await s.server.headBounties.wantedOf(g.id))[g.c]).toBe(80);
     expect(s.server.headBounties.wantedSync(g.id, g.c)).toBe(80);
+    // Karta hráče u stolu: čekající odměny se zadavateli a pravidlem, co se stane, když hráč turnaj přežije
+    const waiting = await s.server.headBounties.list(g.id);
+    expect(waiting.bounties.filter((x) => x.target.userId === g.c).map((x) => x.status)).toEqual(['open', 'open']);
+    expect(['return', 'house', 'winner']).toContain(waiting.survivedRule);
     await s.server.tournaments.start(g.org, g.id);
     await s.server.tournaments.liveEliminate(g.org, g.id, g.c, [g.b]);
     await idle(s);
