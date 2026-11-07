@@ -3,7 +3,7 @@ import { FakeClock, seededRandom, type LegalActions, type PlayerAction } from '@
 import { eq } from 'drizzle-orm';
 import { buildServer } from './app.js';
 import { schema } from './db/index.js';
-import { StatsError } from './stats.js';
+import { runBoardsOf, StatsError } from './stats.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
 const servers: Server[] = [];
@@ -147,5 +147,42 @@ describe('statistiky a historie hand', { timeout: 120_000 }, () => {
     expect(d.actions).toEqual([]);
     expect(d.players.find((p) => p.userId === ps[0])!.hole).toBeNull();
     expect((await c.server.stats.playerStats(ps[0]!, ps[0]!, { from: null, to: null })).hands).toBeGreaterThanOrEqual(before);
+  });
+});
+
+describe('historie hand: run it twice', () => {
+  const rec = (runBoards?: { board: string[]; winners: { seat: number; amount: number; handKey: string | null }[] }[]) =>
+    ({ handNumber: 1, buttonSeat: 0, runs: runBoards?.length ?? 1, allInEquity: null, runBoards, players: [{ seat: 0, userId: 'u-a' }, { seat: 3, userId: 'u-b' }] }) as unknown as Parameters<typeof runBoardsOf>[0];
+  it('vítězové běhů se přepíší ze sedadel na hráče a handa s jedním během nic neukládá', () => {
+    const boards = [
+      { board: ['As', 'Kd', '7c', '2h', '9s'], winners: [{ seat: 0, amount: 100, handKey: 'hand.pair' }] },
+      { board: ['As', 'Kd', '7c', 'Qh', 'Js'], winners: [{ seat: 3, amount: 100, handKey: null }, { seat: 9, amount: 5, handKey: null }] },
+    ];
+    expect(runBoardsOf(rec(boards))).toEqual([
+      { board: boards[0]!.board, winners: [{ userId: 'u-a', amount: 100, handKey: 'hand.pair' }] },
+      { board: boards[1]!.board, winners: [{ userId: 'u-b', amount: 100, handKey: null }] }, // neznámé sedadlo se vynechá
+    ]);
+    expect(runBoardsOf(rec())).toBeNull();
+    expect(runBoardsOf(rec([boards[0]!]))).toBeNull();
+  });
+  it('detail handy vrací boardy a vítěze běhů; kombinaci vítěze jen když ukázal karty, starší handa má null', async () => {
+    const c = await start();
+    const a = await c.user();
+    const b = await c.user();
+    const base = { tableId: 't1', kind: 'cash', handNumber: 1, playedAt: new Date(0), buttonSeat: 0, pot: 200, showdown: true, blinds: { sb: 1, bb: 2, ante: 0 } };
+    const runBoards = [
+      { board: ['As', 'Kd', '7c', '2h', '9s'], winners: [{ userId: a, amount: 200, handKey: 'hand.pair' }] },
+      { board: ['As', 'Kd', '7c', 'Qh', 'Js'], winners: [{ userId: b, amount: 0, handKey: 'hand.pair' }] },
+    ];
+    await c.server.db.insert(schema.hands).values([{ id: 'h-rit', ...base, board: runBoards[0]!.board, runs: 2, runBoards }, { id: 'h-old', ...base, handNumber: 2, board: ['As', 'Kd', '7c', '2h', '9s'], runs: 2 }]);
+    const pl = (handId: string, userId: string, seat: number, revealed: boolean) => ({ handId, userId, seat, kind: 'cash', playedAt: new Date(0), startStack: 100, invested: 100, won: 0, hole: ['Ah', 'Ad'] as [string, string], revealed });
+    await c.server.db.insert(schema.handPlayers).values([pl('h-rit', a, 0, true), pl('h-rit', b, 1, false), pl('h-old', a, 0, true), pl('h-old', b, 1, true)]);
+    const d = await c.server.stats.handDetail(a, 'h-rit');
+    expect(d.runs).toBe(2);
+    expect(d.runBoards).toHaveLength(2);
+    expect(d.runBoards![0]!.winners).toEqual([{ userId: a, nickname: expect.any(String), amount: 200, handKey: 'hand.pair' }]);
+    expect(d.runBoards![1]!.winners[0]!.handKey).toBeNull(); // b karty neukázal
+    expect((await c.server.stats.handDetail(a, 'h-old')).runBoards).toBeNull();
+    expect((await c.server.stats.myHands(a)).find((h) => h.id === 'h-rit')!.runs).toBe(2);
   });
 });

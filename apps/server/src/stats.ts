@@ -19,6 +19,19 @@ export interface HandSource {
   chipsPerUnit: number;
 }
 
+/** Boardy a vítězové jednotlivých běhů (run it twice) s userId místo sedadla; u handy s jedním během null. */
+export function runBoardsOf(rec: HandRecordData): { board: string[]; winners: { userId: string; amount: number; handKey: string | null }[] }[] | null {
+  if (!rec.runBoards || rec.runBoards.length < 2) return null;
+  const bySeat = new Map(rec.players.map((p) => [p.seat, p.userId]));
+  return rec.runBoards.map((r) => ({
+    board: r.board,
+    winners: r.winners.flatMap((w) => {
+      const userId = bySeat.get(w.seat);
+      return userId ? [{ userId, amount: w.amount, handKey: w.handKey }] : [];
+    }),
+  }));
+}
+
 interface Pending {
   handId: string;
   blinds: { sb: number; bb: number; ante: number };
@@ -153,6 +166,7 @@ export class StatsService {
           pot: rec.players.reduce((n, x) => n + x.invested, 0),
           showdown,
           runs: rec.runs,
+          runBoards: runBoardsOf(rec),
           chipsPerUnit: src.chipsPerUnit,
           blinds: p.blinds,
           actions: p.actions,
@@ -434,7 +448,7 @@ export class StatsService {
   // ---------- historie hand ----------
 
   async myHands(userId: string, opts: { limit?: number; before?: number; tableId?: string } = {}): Promise<
-    { id: string; playedAt: number; kind: string; tableId: string; handNumber: number; board: string[]; hole: [string, string] | null; net: number; pot: number; chipsPerUnit: number; blinds: { sb: number; bb: number; ante: number }; showdown: boolean }[]
+    { id: string; playedAt: number; kind: string; tableId: string; handNumber: number; board: string[]; hole: [string, string] | null; net: number; pot: number; chipsPerUnit: number; blinds: { sb: number; bb: number; ante: number }; showdown: boolean; runs: number }[]
   > {
     const hp = schema.handPlayers;
     const rows = await this.deps.db
@@ -457,6 +471,7 @@ export class StatsService {
       chipsPerUnit: h.chipsPerUnit,
       blinds: h.blinds,
       showdown: h.showdown,
+      runs: h.runs,
     }));
   }
 
@@ -489,6 +504,14 @@ export class StatsService {
       showdown: h.showdown,
       purged: h.purged,
       runs: h.runs,
+      // Boardy a vítězové jednotlivých běhů; kombinace vítěze jen když ukázal karty (jako u ostatních hráčů). Starší handy je nemají (null).
+      runBoards: (h.runBoards ?? null)?.map((r) => ({
+        board: r.board,
+        winners: r.winners.map((w) => {
+          const who = ps.find((x) => x.p.userId === w.userId);
+          return { userId: w.userId, nickname: who?.nickname ?? '', amount: w.amount, handKey: who?.p.revealed ? w.handKey : null };
+        }),
+      })) ?? null,
       chipsPerUnit: h.chipsPerUnit,
       blinds: h.blinds,
       actions: h.actions,

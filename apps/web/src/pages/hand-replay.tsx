@@ -15,6 +15,8 @@ export interface HandDetail {
   showdown: boolean;
   purged: boolean;
   runs: number;
+  /** Boardy a vítězové jednotlivých běhů (run it twice); starší handy je nemají. */
+  runBoards?: { board: string[]; winners: { userId: string; nickname: string; amount: number; handKey: string | null }[] }[] | null;
   chipsPerUnit: number;
   blinds: { sb: number; bb: number; ante: number };
   actions: { userId: string; street: string; action: string; amount: number; facing: number }[];
@@ -25,6 +27,50 @@ export const fmtDate = (ts: number) => new Date(ts).toLocaleString('cs-CZ', { da
 export const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 export const tone = (n: number): 'success' | 'danger' | 'muted' => (n > 0 ? 'success' : n < 0 ? 'danger' : 'muted');
 const STREET_CARDS: Record<string, number> = { PREFLOP: 0, FLOP: 3, TURN: 4, RIVER: 5, SHOWDOWN: 5 };
+
+/** Karty, které jsou ve všech během stejné (už ležely na stole při all-inu); ostatní se mezi běhy liší. */
+export function sharedCardCount(boards: string[][]): number {
+  const first = boards[0] ?? [];
+  let n = 0;
+  while (n < first.length && boards.every((b) => b[n] === first[n])) n++;
+  return n;
+}
+
+/** Run it twice / třikrát: celý board každého běhu (karty dolosované jen pro daný běh jsou orámované) a kdo běh vyhrál. */
+export function RunsView({ d, unit }: { d: HandDetail; unit: (n: number) => number }) {
+  if (d.runs < 2) return null;
+  const runs = d.runBoards ?? [];
+  if (runs.length < 2) return <Notice>{t('stats.runsMissing', { n: d.runs })}</Notice>;
+  const shared = sharedCardCount(runs.map((r) => r.board));
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-line p-2" aria-label={t('stats.runsTitle', { n: runs.length })}>
+      <span className="text-sm font-semibold">{t('stats.runsTitle', { n: runs.length })}</span>
+      {runs.map((r, i) => (
+        <div key={i} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="w-12 text-xs text-muted">{t('stats.run', { n: i + 1 })}</span>
+          <div className="flex gap-1">
+            {r.board.map((c, j) => (
+              <CardView key={`${j}${c}`} card={c} small still mark={j >= shared} />
+            ))}
+          </div>
+          <span className="text-sm">
+            {r.winners.length === 0 ? (
+              <span className="text-muted">{t('stats.runNoWinner')}</span>
+            ) : (
+              r.winners.map((w, k) => (
+                <span key={w.userId}>
+                  {k > 0 && ', '}
+                  <strong>{w.nickname}</strong> <span className="font-mono text-success">+{unit(w.amount)}</span>
+                  {w.handKey && <span className="text-xs text-muted"> ({t(`stats.${w.handKey}`)})</span>}
+                </span>
+              ))
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** Přehrávač handy po akcích; cizí karty se ukážou jen, když je server poslal. */
 export function HandReplayBody({ d, me }: { d: HandDetail; me: string }) {
@@ -53,6 +99,7 @@ export function HandReplayBody({ d, me }: { d: HandDetail; me: string }) {
             </div>
           );
         })()}
+        <RunsView d={d} unit={unit} />
         {!d.purged && d.actions.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>

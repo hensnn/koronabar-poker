@@ -60,6 +60,7 @@ interface HandRow {
   chipsPerUnit: number;
   blinds: { sb: number; bb: number; ante: number };
   showdown: boolean;
+  runs?: number;
 }
 
 
@@ -505,7 +506,14 @@ function HandsList({ me }: { me: string }) {
                 <span className="inline-flex gap-1">{h.hole?.map((c) => <CardView key={c} card={c} small />)}</span>
               </Td>
               <Td>
-                <span className="inline-flex gap-1">{h.board.map((c) => <CardView key={c} card={c} small />)}</span>
+                <span className="inline-flex items-center gap-1">
+                  {h.board.map((c) => <CardView key={c} card={c} small />)}
+                  {(h.runs ?? 1) > 1 && (
+                    <span title={t('stats.runsBadgeTitle', { n: h.runs })}>
+                      <Badge tone="muted">{t('stats.runsBadge', { n: h.runs })}</Badge>
+                    </span>
+                  )}
+                </span>
               </Td>
               <Td>
                 <Badge tone={tone(net)}>{signed(net)}</Badge>

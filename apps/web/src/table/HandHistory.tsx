@@ -16,6 +16,7 @@ interface Row {
   hole: [string, string] | null;
   chipsPerUnit: number;
   showdown: boolean;
+  runs?: number;
 }
 
 const SUIT: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
@@ -91,7 +92,10 @@ export function HandHistory({ tableId, onClose }: { tableId: string; onClose: ()
                           #{r.handNumber} <span className="text-muted">{time(r.playedAt)}</span>
                         </td>
                         <td className="px-2 py-1">{r.hole ? <Cards list={r.hole} /> : '–'}</td>
-                        <td className="px-2 py-1">{r.board.length > 0 ? <Cards list={r.board} /> : <span className="text-muted">–</span>}</td>
+                        <td className="px-2 py-1">
+                          {r.board.length > 0 ? <Cards list={r.board} /> : <span className="text-muted">–</span>}
+                          {(r.runs ?? 1) > 1 && <span className="ml-1 rounded-sm bg-raised px-1 text-xs text-muted" title={t('stats.runsBadgeTitle', { n: r.runs })}>{t('stats.runsBadge', { n: r.runs })}</span>}
+                        </td>
                         <td className="px-2 py-1 text-right font-mono">{unit(r.pot, r.chipsPerUnit)}</td>
                         <td className={`px-2 py-1 text-right font-mono font-semibold ${net > 0 ? 'text-success' : net < 0 ? 'text-danger' : 'text-muted'}`}>{signed(net)}</td>
                       </tr>

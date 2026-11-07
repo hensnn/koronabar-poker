@@ -71,6 +71,13 @@ describe('run it twice/třikrát', () => {
       expect(m.ledger.balance(accounts.table('t'))).toBe(2000);
       const chips = Object.fromEntries(m.actor.playersSeated().map((s) => [s.userId, s.chips + s.pendingChips]));
       expect(chips.a! + chips.b!).toBe(2000);
+      // záznam handy pro historii nese boardy a vítěze každého běhu (jinak by šel přehrát jen první)
+      const end = m.events.find((e) => e.type === 'handEnd');
+      const rec = end && end.type === 'handEnd' ? end.record : null;
+      expect(rec?.runs).toBe(2);
+      expect(rec?.runBoards).toHaveLength(2);
+      expect(rec!.runBoards!.map((r) => r.board)).toEqual(view.runs!.map((r) => r.board));
+      expect(rec!.runBoards!.map((r) => r.winners.reduce((n, w) => n + w.amount, 0))).toEqual(perRun);
       // výsledek odpovídá součtu výher v obou bězích
       const wonBySeat = new Map<number, number>();
       for (const r of view.runs!) for (const w of r.winners) wonBySeat.set(w.seat, (wonBySeat.get(w.seat) ?? 0) + w.amount);

@@ -533,6 +533,8 @@ export const hands = pgTable(
     rake: bigint('rake', { mode: 'number' }).notNull().default(0),
     showdown: boolean('showdown').notNull().default(false),
     runs: integer('runs').notNull().default(1),
+    /** Při více bězích: board a vítězové každého běhu (userId, výhra a překladový klíč kombinace). Starší handy ho nemají. */
+    runBoards: jsonb('run_boards').$type<{ board: string[]; winners: { userId: string; amount: number; handKey: string | null }[] }[]>(),
     /** Podrobnosti (akce, karty) byly po uplynutí doby uchování smazány. */
     purged: boolean('purged').notNull().default(false),
     /** Kolik žetonů odpovídá jedné jednotce měny (cash); u turnaje 1. */

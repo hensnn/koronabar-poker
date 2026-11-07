@@ -678,3 +678,9 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Dřív bylo jen krátké pípnutí na hranici `ui.warnSeconds` a v její polovině; časovač se nijak vizuálně neměnil. Nově je v osobním nastavení **Poslední upozornění na čas** (`ui.warnFinalSeconds`, výchozí 5 s, 0 = vypnuto): na hranici zazní výrazné dvojité pípnutí (jen když jsem na tahu, vypíná se spolu s „Upozornění na konec času“ a má vlastní vibraci) a nahradí běžné pípnutí, které by padlo na stejné místo.
 - V posledních vteřinách zčervená a (při zapnutých animacích) bliká časovač u avatara (kruh i proužek), pruh času na telefonu, odpočet „čeká se na…“ a stavový řádek „Jsi na tahu“ u mého tahu. Barva je nový token `color.timerWarn` (výchozí shodná s `color.danger`, jde upravit v motivu), text je v barvě `onPrimary`.
 - Testy: `sfx.test.ts` (plán upozornění, hranice posledních vteřin). Vzhled ověřen vykreslením.
+
+### Historie hand: run it twice (7. 11. 2026)
+- Problém: do historie se u handy s více běhy ukládal jen počet běhů a jeden board (první běh), takže přehrávač ukázal vždy jen jeden board a nic o druhém běhu.
+- Oprava: záznam handy nově nese board a vítěze (výhra a kombinace) každého běhu (`hands.run_boards`, migrace `0046_historie_behu`). Detail handy je vrací a přehrávač (stránka Statistiky, historie u stolu i sdílená handa) pod boardem ukáže blok „Run it twice“: každý běh celými kartami, karty dolosované jen pro daný běh jsou orámované, u každého běhu kdo vyhrál, kolik a (když ukázal karty) s jakou kombinací. V seznamech hand je u run it twice štítek ×2.
+- Starší handy (před touto změnou) boardy běhů nemají a nejdou doplnit (nikdy se neukládaly). Ukáže se u nich upozornění, že se hrály na víc běhů, a výsledek je součet běhů jako dřív.
+- Testy: `special.test.ts` (záznam nese běhy), `stats.test.ts` (přepis sedadel na hráče, detail handy), `hand-replay.test.ts` (společné karty). Vzhled ověřen vykreslením.

@@ -48,6 +48,8 @@ export interface HandRecordData {
   handNumber: number;
   buttonSeat: number | null;
   runs: number;
+  /** Při více bězích (run it twice / třikrát): board a vítězové každého běhu, aby šla handa zpětně přehrát. Jinak chybí. */
+  runBoards?: { board: string[]; winners: { seat: number; amount: number; handKey: string | null }[] }[];
   /** Šance na výhru obou hráčů v okamžiku heads-up all-inu (userId → 0 až 1); jinak null. Jen pro server. */
   allInEquity: Record<string, number> | null;
   players: { seat: number; userId: string; name: string; startStack: number; invested: number; won: number; status: string; hole: [string, string] | null; revealed: boolean; /** Síla ruky na showdownu (nižší je lepší) a překladový klíč kombinace. */ handScore: number | null; handKey: string | null; /** Popis kombinace včetně parametrů (pro hlášky v chatu). */ handDesc?: HandDescription | null }[];
@@ -1507,6 +1509,7 @@ export class TableActor {
           handNumber: h.handNumber,
           buttonSeat: h.buttonSeat,
           runs: multi ? multi.length : 1,
+          ...(multi ? { runBoards: multi.map((r) => ({ board: [...r.board], winners: r.winners.map((w) => ({ seat: w.seat, amount: w.amount, handKey: w.hand?.key ?? null })) })) } : {}),
           allInEquity: this.lastEquity,
           players: h.players.map((p) => ({
             seat: p.seat,
