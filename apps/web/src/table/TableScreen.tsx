@@ -36,10 +36,10 @@ import { ChipSweeps, useChipSweeps } from './chip-fx';
 import { usePlanExecutor } from './plan';
 import { useMobileLayout } from './mobile';
 import { actionOffSm, actionToneSm } from './buttons';
-import { PlayerCard } from './PlayerCard';
+import { PlayerCard, seatBounty } from './PlayerCard';
 import { TableFx, useTableNotices, useTournamentFx } from './fx';
 import { useTableFit, useTableSize } from './size';
-import { DealButton, EntryActions, useTournamentInfo } from './InfoCard';
+import { DealButton, EntryActions, useBounties, useTournamentInfo } from './InfoCard';
 import { ShowdownPrefs } from './TablePanel';
 
 interface Props {
@@ -209,6 +209,9 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
   const fx = useTournamentFx(tournamentId, view);
   // Chipleader turnaje: kdo má nejvíc žetonů ze všech stolů (jednoznačně a při aspoň třech hráčích ve hře); u stolu má u jména korunu.
   const tourInfo = useTournamentInfo(tournamentId);
+  // Odměny na hlavu pro kartu hráče: načítají se, jen když na někoho u stolu nějaká je (jinak žádný dotaz).
+  const wantedKey = (view?.seats ?? []).map((s) => `${s.playerId}:${s.wanted ?? 0}`).join(',');
+  const bounties = useBounties((view?.seats ?? []).some((s) => (s.wanted ?? 0) > 0) ? tournamentId : null, wantedKey);
   const crownOn = useSettings().values['ui.chipLeaderCrown'] !== false;
   const leaderId = crownOn ? chipLeaderOf(tourInfo?.standings) : null;
   const notices = useTableNotices(tableId);
@@ -310,7 +313,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
             ))}
           </div>
         )}
-        {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} />}
+        {hovered && <PlayerCard seat={hovered} view={view} tour={tour} inBb={inBb} bounty={seatBounty(bounties, hovered.playerId)} roomRef={roomRef} centerRef={centerRef} />}
         <div ref={tableEl} className="tk-table relative mx-auto" data-impact={bigWin ? 'big' : undefined}>
           {/* střed: board, pot, hlášky */}
           <div ref={centerRef} className="tk-center absolute left-1/2 top-1/2 flex w-[70%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-center">
@@ -451,7 +454,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
         );
       })()}
       {mine && view.vote && view.vote.kind === 'runit' && view.vote.status === 'open' && runItPref === 'ask' && (
-        <div role="dialog" aria-label={t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })} className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
+        <div role="dialog" aria-label={t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })} className="kd-choice pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
           <strong>{t('table.runIt.title', { times: String((view.vote.payload as { times: number }).times) })}</strong>
           <p>{t('table.runIt.text', { times: String((view.vote.payload as { times: number }).times) })}</p>
           <p className="text-sm text-muted">
@@ -471,7 +474,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
       )}
 
       {mine && view.showdownChoice && (
-        <div role="dialog" aria-label={t('table.showdown.title')} className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
+        <div role="dialog" aria-label={t('table.showdown.title')} className="kd-choice pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-md border-2 border-primary bg-surface p-3 shadow-lg">
           <strong>{t('table.showdown.title')}</strong>
           <p className="text-sm text-muted">
             {t('table.showdown.hint', { s: String(Math.max(0, Math.ceil((view.showdownChoice.deadline - Date.now() - clockOffset) / 1000))) })} · <Countdown deadline={view.showdownChoice.deadline} offset={clockOffset} />

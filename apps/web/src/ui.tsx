@@ -36,6 +36,26 @@ export function isConfirmKey(e: KeyboardEvent): boolean {
   return true;
 }
 
+/**
+ * Která akce okna je výchozí, tedy co potvrdí Enter nebo mezerník: první povolené hlavní (výrazné) tlačítko; když žádné není,
+ * jediné povolené tlačítko okna (např. „Zavřít“ u informačního okna), ale nikdy ne nebezpečné (smazání apod.).
+ * Vrací pořadí tlačítka, nebo -1, když nic jednoznačného není.
+ */
+export function pickDefaultIndex(buttons: { primary: boolean; danger: boolean; disabled: boolean }[]): number {
+  const primary = buttons.findIndex((b) => b.primary && !b.disabled);
+  if (primary >= 0) return primary;
+  const enabled = buttons.map((b, i) => ({ b, i })).filter((x) => !x.b.disabled);
+  return enabled.length === 1 && !enabled[0]!.b.danger ? enabled[0]!.i : -1;
+}
+
+/** Výchozí tlačítko okna (viz `pickDefaultIndex`). */
+export function defaultButton(root: HTMLElement | null): HTMLButtonElement | null {
+  if (!root) return null;
+  const list = [...root.querySelectorAll<HTMLButtonElement>('button')];
+  const i = pickDefaultIndex(list.map((b) => ({ primary: b.classList.contains('bg-primary'), danger: b.classList.contains('bg-danger'), disabled: b.disabled })));
+  return i >= 0 ? list[i]! : null;
+}
+
 export const inputClass = 'w-full rounded-sm border border-line bg-surface px-2 py-1 text-text';
 
 /** Popisek + pole + chyba. Pole je propojené s popiskem a chybou kvůli čtečkám. */
@@ -286,7 +306,7 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
       else if (e.key === 'Tab') trapTab(e, ref.current);
       else if (isConfirmKey(e)) {
         // Enter nebo mezerník potvrdí hlavní (výrazné) tlačítko okna, pokud se právě nepíše do pole a nic jiného nemá fokus.
-        const ok = ref.current?.querySelector<HTMLButtonElement>('button.bg-primary:not(:disabled)');
+        const ok = defaultButton(ref.current);
         if (ok) {
           e.preventDefault();
           ok.click();

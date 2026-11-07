@@ -381,6 +381,22 @@ h3,
   outline-offset: 2px;
 }
 
+/*
+ * Rozhodovací okna (modální okna a nabídky u stolu, třída kd-choice): vybraná akce (Tab nebo šipky) je výrazně zvýrazněná silným
+ * rámem se září. Dokud se nic nevybralo, je zvýrazněná výchozí akce, tedy ta, kterou potvrdí Enter nebo mezerník.
+ */
+[aria-modal='true'] button:focus-visible,
+.kd-choice button:focus-visible {
+  outline: calc(var(--tk-shape-borderWidth) * 3) solid var(--tk-color-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 calc(var(--tk-shape-borderWidth) * 6) color-mix(in srgb, var(--tk-color-focus) 30%, transparent);
+}
+[aria-modal='true']:not(:has(button:focus)) button.bg-primary:not(:disabled),
+.kd-choice:not(:has(button:focus)) button.bg-primary:not(:disabled) {
+  outline: calc(var(--tk-shape-borderWidth) * 2) solid var(--tk-color-focus);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
