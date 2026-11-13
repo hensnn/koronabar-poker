@@ -6,6 +6,7 @@ import { Link, navigate } from '../router';
 import { can, useSession } from '../session';
 import { Badge, Button, Card, DataTable, Modal, Notice, Select, Spinner, Td, TextInput } from '../ui';
 import { CreateDialog, type Template } from './lobby';
+import { TournamentBasics } from './structure-editor';
 
 const TZ = 'Europe/Prague';
 export const fmtDate = (ms: number): string => new Date(ms).toLocaleString('cs-CZ', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -144,6 +145,7 @@ export function ScheduleDialog({ templates, onClose }: { templates: Template[]; 
       nameLabel={t('tournament.name')}
       onClose={onClose}
       onCreated={(id) => (rec === 'once' ? navigate(`/turnaj/${id}`) : onClose())}
+      top={({ values, set }) => <TournamentBasics values={values} set={set} />}
       extras={() => (
         <Card title={t('planning.whenTitle')}>
           <div className="flex flex-col gap-2">
