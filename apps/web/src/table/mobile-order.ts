@@ -169,7 +169,7 @@ export function moveToZone(order: MobileOrder, id: MobileWidget, zone: Zone): Mo
 export const zoneOf = (order: MobileOrder, id: MobileWidget): Zone => ZONES.find((z) => order[z].includes(id)) ?? 'hidden';
 
 /** Ikona widgetu v horní liště (když je mezi ikonami). */
-export const WIDGET_ICON: Record<MobileWidget, string> = { timer: '⏱', best: '🃏', sounds: '🔊', events: '📜', players: '👥', table: '🪑', bounties: '🎯', info: 'ℹ️', chat: '💬' };
+export const WIDGET_ICON: Record<MobileWidget, string> = { timer: '⏱', best: '🃏', sounds: '🔊', events: '📜', players: '👥', table: '♠️', bounties: '🎯', info: 'ℹ️', chat: '💬' };
 
 /** Pořadí obrazovek zleva doprava: `s1` je obrazovka se stolem (na pozici podle `main`), `s2` a `s3` jsou ostatní v pořadí kolem ní. */
 export function screenLayout(o: MobileOrder): ('s1' | 's2' | 's3')[] {

@@ -160,7 +160,7 @@ export function SettingsPage() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-bold">{t('settings.personal.title')}</h1>
       </div>
-      <Tabs tabs={[{ id: 'settings', label: t('guide.tab.settings') }, { id: 'guide', label: `📖 ${t('guide.tab.guide')}` }, { id: 'diagnostics', label: `🩺 ${t('guide.tab.diagnostics')}` }]} value={view} onChange={setView} />
+      <Tabs tabs={[{ id: 'settings', label: t('guide.tab.settings') }, { id: 'guide', label: `📖 ${t('guide.tab.guide')}` }, { id: 'diagnostics', label: `🔧 ${t('guide.tab.diagnostics')}` }]} value={view} onChange={setView} />
       {view === 'diagnostics' ? (
         <Diagnostics />
       ) : view === 'guide' ? (

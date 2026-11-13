@@ -850,7 +850,7 @@ export const csTournament: Record<string, string> = {
   'settings.rating.cashMinHands.label': 'Minimum hand pro cash sezení',
   'settings.rating.cashMinHands.help': 'Sezení (stůl a den) s méně handami do ratingu nejde.',
   'settings.rating.divisionStyle.label': 'Sada divizí',
-  'settings.rating.divisionStyle.help': 'Jak se jmenují divize ratingu a jaké mají ikony. Zvířátka: 🥔 Brambora, 🐟 Kapr, 🦊 Liška, 🐺 Vlk samotář, 🐉 Drak od zeleného stolu. Vojenské hodnosti: 🔰 Vojín, 🪖 Desátník, 🎖️ Poručík, ⭐ Major, 🌟 Generál. Vlastní: použije se text z nastavení Divize. Mění jen názvy a ikony, rating hráčů zůstává.',
+  'settings.rating.divisionStyle.help': 'Jak se jmenují divize ratingu a jaké mají ikony. Zvířátka: 🥔 Brambora, 🐟 Kapr, 🦊 Liška, 🐺 Vlk samotář, 🐉 Drak od zeleného stolu. Vojenské hodnosti: 🔰 Vojín, 🛡️ Desátník, 🎖️ Poručík, ⭐ Major, 🌟 Generál. Vlastní: použije se text z nastavení Divize. Mění jen názvy a ikony, rating hráčů zůstává.',
   'settings.rating.divisionStyle.option.animals': 'Zvířátka',
   'settings.rating.divisionStyle.option.military': 'Vojenské hodnosti',
   'settings.rating.divisionStyle.option.custom': 'Vlastní (text níže)',

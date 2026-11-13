@@ -236,7 +236,7 @@ export interface Division {
 export const DEFAULT_DIVISIONS = 'Brambora|🥔|muted|0;Kapr|🐟|info|1500;Liška|🦊|warning|1600;Vlk samotář|🐺|accent|1750;Drak od zeleného stolu|🐉|danger|1900';
 
 /** Vojenské hodnosti s odznaky. */
-export const MILITARY_DIVISIONS = 'Vojín|🔰|muted|0;Desátník|🪖|info|1500;Poručík|🎖️|warning|1600;Major|⭐|accent|1750;Generál|🌟|danger|1900';
+export const MILITARY_DIVISIONS = 'Vojín|🔰|muted|0;Desátník|🛡️|info|1500;Poručík|🎖️|warning|1600;Major|⭐|accent|1750;Generál|🌟|danger|1900';
 
 export const DIVISION_STYLES = ['animals', 'military', 'custom'] as const;
 

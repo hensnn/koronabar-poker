@@ -28,7 +28,7 @@ export function MyTableButton({ path }: { path: string }) {
   if (seats.length === 0) {
     return (
       <button type="button" disabled className="rounded-md border border-line bg-surface px-3 py-1 text-muted opacity-60" title={t('nav.myTableNone')}>
-        🪑 {t('nav.myTable')}
+        ♠️ {t('nav.myTable')}
       </button>
     );
   }
@@ -36,14 +36,14 @@ export function MyTableButton({ path }: { path: string }) {
   if (seats.length === 1) {
     return (
       <Link to={`/stul/${first.tableId}`} className={btn} title={first.name}>
-        🪑 {t('nav.myTable')}
+        ♠️ {t('nav.myTable')}
       </Link>
     );
   }
   return (
     <div ref={ref} className="relative">
       <button className={btn} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        🪑 {t('nav.myTable')} ({seats.length}) ▾
+        ♠️ {t('nav.myTable')} ({seats.length}) ▾
       </button>
       {open && (
         <div ref={menuRef} role="menu" className="absolute right-0 z-30 mt-1 flex min-w-48 flex-col gap-1 rounded-md border border-line bg-surface p-1">

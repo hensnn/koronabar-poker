@@ -216,7 +216,7 @@ export function builtinSounds(): BuiltinSound[] {
     mk('zlyhani', 'Zlyhání', '📉', 'smutek', join2(tone(311, 0.25, { slide: 0.95, gain: 0.5 }), tone(293, 0.25, { slide: 0.95, gain: 0.5 }), tone(277, 0.25, { slide: 0.95, gain: 0.5 }), tone(233, 0.9, { slide: 0.7, gain: 0.5 }))),
     mk('prohra', 'Prohra', '💀', 'smutek', join2(tone(196, 0.3, { gain: 0.5 }), tone(147, 0.3, { gain: 0.5 }), tone(110, 0.9, { slide: 0.85, gain: 0.55 }))),
     mk('poplach', 'Poplach', '🚨', 'upozorneni', join2(...Array.from({ length: 4 }, (_, i) => tone(i % 2 === 0 ? 880 : 660, 0.2, { wave: 'square', gain: 0.3 })))),
-    mk('zetony', 'Cinkání žetonů', '🪙', 'efekt', join2(...Array.from({ length: 5 }, (_, i) => join2(tone(2400 + (i % 3) * 400, 0.05, { gain: 0.35 }), noise(0.02, 5 + i), gap(0.04 + (i % 2) * 0.03))))),
+    mk('zetony', 'Cinkání žetonů', '💰', 'efekt', join2(...Array.from({ length: 5 }, (_, i) => join2(tone(2400 + (i % 3) * 400, 0.05, { gain: 0.35 }), noise(0.02, 5 + i), gap(0.04 + (i % 2) * 0.03))))),
     mk('karty', 'Rozdávání karet', '🃏', 'efekt', join2(...Array.from({ length: 4 }, (_, i) => join2(noise(0.09, 71 + i * 13, true), gap(0.12))))),
     mk('bomba', 'Bomba', '💣', 'efekt', join2(tone(90, 0.8, { slide: 0.4, gain: 0.7 }), noise(0.5, 3))),
     mk('laser', 'Laser', '🔫', 'efekt', join2(tone(2200, 0.25, { slide: 0.1, wave: 'square', gain: 0.3 }), gap(0.05), tone(2200, 0.25, { slide: 0.1, wave: 'square', gain: 0.3 }))),

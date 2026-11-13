@@ -490,7 +490,7 @@ export const cs: Record<string, string> = {
   'table.log.knockoutBounty': ' (bounty {amount})',
   'table.log.eliminated': '{name} vypadl, zbývá {remaining}',
   'table.log.level': '⏫ Level {level}: {sb}/{bb}',
-  'table.log.bubble': '🫧 Bublina',
+  'table.log.bubble': '🎈 Bublina',
   'table.log.finished': '🏆 Konec turnaje, vítěz {name}',
   'table.log.headBounty': '🎯 Odměna na hlavu {target}: {amount} → {winners}',
   'table.m.events': 'Poslední události',
