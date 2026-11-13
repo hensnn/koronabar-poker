@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distribute, mysteryValues, parseLadder, pickEliminators, BountyError } from './bounty.js';
+import { bountyPart, distribute, mysteryValues, parseLadder, pickEliminators, BountyError } from './bounty.js';
 
 const seeded = (seed: number) => {
   let s = seed >>> 0;
@@ -8,6 +8,20 @@ const seeded = (seed: number) => {
     return Math.floor((s / 4294967296) * n);
   };
 };
+
+describe('bounty: částka z platby', () => {
+  it('procenta se počítají z ceny a zaokrouhlují dolů', () => {
+    expect(bountyPart(100, 0, 0, 'percent', 30, 999)).toBe(30);
+    expect(bountyPart(99, 0, 0, 'percent', 50, 999)).toBe(49);
+  });
+  it('pevná částka je stejná pro každou cenu, ale nepřesáhne to, co zbývá po odvodech', () => {
+    expect(bountyPart(100, 0, 0, 'amount', 99, 25)).toBe(25);
+    expect(bountyPart(50, 0, 0, 'amount', 99, 25)).toBe(25);
+    expect(bountyPart(30, 10, 5, 'amount', 99, 25)).toBe(15);
+    expect(bountyPart(100, 0, 0, 'amount', 99, 500)).toBe(100);
+    expect(bountyPart(100, 0, 0, 'amount', 99, 0)).toBe(0);
+  });
+});
 
 describe('bounty: pomocné výpočty', () => {
   it('distribute: součet je vždy přesně celek a dělí poměrně', () => {

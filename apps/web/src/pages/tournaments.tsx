@@ -81,7 +81,7 @@ interface View {
   payouts: { place: number; amount: number; name?: string }[];
   schedule: { startAt: number; opensAt: number; registrationOpen: boolean; postponed: number; seriesId: string | null; unregisterUntil: number; autoPaused: boolean; invited: string[] | null } | null;
   deal: { enabled: boolean; open: boolean; done: { method: string; keep: number } | null; blocked: string | null };
-  bounty: { type: string; percent: number; pkoCash: number; payout: string; bank: number };
+  bounty: { type: string; mode?: 'percent' | 'amount'; amount?: number; percent: number; pkoCash: number; payout: string; bank: number };
   standings: { userId: string; name: string; chips: number | null; seat: number | null; tableNo: number | null; place: number; status: string; payout: number | null; head: number | null; bounty: number }[];
   live: { chipsInPlay: number; avgStack: number | null; director: boolean; suggestions: { userId: string; name: string; fromNo: number; toTable: string; toNo: number; reason: 'balance' | 'break' }[] } | null;
   tables: { id: string; no: number; players: { userId: string; name: string; seat: number; chips: number }[] }[];
@@ -581,8 +581,9 @@ export function TournamentPage({ id }: { id: string }) {
                 <div className={pairClass}>
                 <dt className="text-muted">{t('tournament.bounty')}</dt>
                 <dd>
-                  {t(view.bounty.type === 'fixed' ? 'tournament.bountyInfoFixed' : view.bounty.type === 'pko' ? 'tournament.bountyInfoPko' : 'tournament.bountyInfoMystery', {
+                  {t(`${view.bounty.type === 'fixed' ? 'tournament.bountyInfoFixed' : view.bounty.type === 'pko' ? 'tournament.bountyInfoPko' : 'tournament.bountyInfoMystery'}${view.bounty.mode === 'amount' ? 'Amount' : ''}`, {
                     percent: view.bounty.percent,
+                    amount: view.bounty.amount ?? 0,
                     cash: view.bounty.pkoCash,
                     payout: t(`tournament.payout.${view.bounty.payout}`),
                   })}

@@ -734,6 +734,8 @@ describe('turnaj: bounty', { timeout: 300_000 }, () => {
     { name: 'PKO 50 %', over: { 'tournament.bountyType': 'pko', 'tournament.bountyPercent': 50, 'tournament.pkoCashPercent': 50 } },
     { name: 'PKO 100 % hned (jako fixní) s dělením podle výhry', over: { 'tournament.bountyType': 'pko', 'tournament.bountyPercent': 25, 'tournament.pkoCashPercent': 100, 'tournament.bountySplit': 'byWinnings' } },
     { name: 'mystery', over: { 'tournament.bountyType': 'mystery', 'tournament.bountyPercent': 40, 'tournament.mysteryLadder': '0.5, 1, 1, 2, 5' } },
+    { name: 'fixní pevnou částkou 25', over: { 'tournament.bountyType': 'fixed', 'tournament.bountyMode': 'amount', 'tournament.bountyAmount': 25 } },
+    { name: 'PKO pevnou částkou 40', over: { 'tournament.bountyType': 'pko', 'tournament.bountyMode': 'amount', 'tournament.bountyAmount': 40, 'tournament.pkoCashPercent': 50 } },
   ];
   for (const [i, k] of kinds.entries()) {
     it(`${k.name}: součty sedí, účet bounty je po skončení nulový, hráči dostanou bounty`, async () => {
@@ -745,7 +747,7 @@ describe('turnaj: bounty', { timeout: 300_000 }, () => {
       expect(st.status).toBe('finished');
       expect(h.money.bountyBank('T')).toBe(0);
       expect(h.money.pool('T')).toBe(0);
-      const part = Math.floor((100 * Number(k.over['tournament.bountyPercent'])) / 100);
+      const part = k.over['tournament.bountyMode'] === 'amount' ? Number(k.over['tournament.bountyAmount']) : Math.floor((100 * Number(k.over['tournament.bountyPercent'])) / 100);
       const totalBounty = part * 6;
       // všechna bounty skončila v peněženkách hráčů
       const earned = st.results!.reduce((n, r) => n + (r.bounty ?? 0), 0);

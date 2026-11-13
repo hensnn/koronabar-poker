@@ -62,6 +62,17 @@ export function mysteryValues(count: number, total: number, ladder: number[], rn
   return values;
 }
 
+export type BountyMode = 'percent' | 'amount';
+
+/**
+ * Kolik z jedné platby (vstup nebo rebuy) jde do bounty: buď podíl z ceny v procentech, nebo pevná částka.
+ * Bounty se bere z ceny po odečtu odvodu herně a příspěvku do fondu, takže nikdy nepřesáhne to, co zbývá.
+ */
+export function bountyPart(cost: number, house: number, fund: number, mode: BountyMode, percent: number, amount: number): number {
+  const wanted = mode === 'amount' ? Math.floor(amount) : Math.floor((cost * percent) / 100);
+  return Math.max(0, Math.min(wanted, cost - house - fund));
+}
+
 export interface ContestedPlayer {
   userId: string;
   /** Kolik hráč vložil do handy. */

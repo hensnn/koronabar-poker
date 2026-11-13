@@ -164,7 +164,21 @@ export function TournamentBasics({ values, set }: { values: SettingValues; set: 
         </label>
         {values['tournament.bountyType'] !== 'none' && (
           <div className="flex flex-wrap gap-3 pl-6">
-            <NumField k="tournament.bountyPercent" values={values} set={set} />
+            <label className="flex flex-wrap items-center gap-2 text-sm">
+              {t(labelKey('tournament.bountyMode'))}
+              <select className={selectCls} value={String(values['tournament.bountyMode'])} onChange={(e) => set('tournament.bountyMode', e.target.value)}>
+                {['percent', 'amount'].map((o) => (
+                  <option key={o} value={o}>
+                    {t(optionKey('tournament.bountyMode', o))}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {values['tournament.bountyMode'] === 'amount' ? (
+              <NumField k="tournament.bountyAmount" values={values} set={set} />
+            ) : (
+              <NumField k="tournament.bountyPercent" values={values} set={set} />
+            )}
             {values['tournament.bountyType'] === 'pko' && <NumField k="tournament.pkoCashPercent" values={values} set={set} />}
           </div>
         )}

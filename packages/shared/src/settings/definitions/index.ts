@@ -713,7 +713,9 @@ const tournament: SettingDef[] = [
   int('tournament.reentryMax', { category: 'special', mutability: S, unit: 'x', appliesTo: 'tournament', dependsOn: { key: 'tournament.reentryEnabled', truthy: true } }, 1, 1, 99),
   // bounty
   choice('tournament.bountyType', { category: 'special', mutability: S, appliesTo: 'tournament' }, 'none', ['none', 'fixed', 'pko', 'mystery']),
-  int('tournament.bountyPercent', { category: 'special', mutability: S, unit: '%', appliesTo: 'tournament' }, 30, 1, 90),
+  choice('tournament.bountyMode', { category: 'special', mutability: S, appliesTo: 'tournament' }, 'percent', ['percent', 'amount']),
+  int('tournament.bountyPercent', { category: 'special', mutability: S, unit: '%', appliesTo: 'tournament', dependsOn: { key: 'tournament.bountyMode', equals: 'percent' } }, 30, 1, 90),
+  int('tournament.bountyAmount', { category: 'special', mutability: S, unit: 'currency', appliesTo: 'tournament', dependsOn: { key: 'tournament.bountyMode', equals: 'amount' } }, 30, 1, 1_000_000_000),
   int('tournament.pkoCashPercent', { category: 'special', mutability: S, unit: '%', appliesTo: 'tournament', dependsOn: { key: 'tournament.bountyType', equals: 'pko' } }, 50, 0, 100),
   text('tournament.mysteryLadder', { category: 'special', mutability: S, appliesTo: 'tournament', dependsOn: { key: 'tournament.bountyType', equals: 'mystery' } }, '0.5, 0.5, 1, 1, 1, 2, 3, 10', 100),
   choice('tournament.bountyPayout', { category: 'special', mutability: S, appliesTo: 'tournament' }, 'instant', ['instant', 'end']),
@@ -925,9 +927,24 @@ export function createDefaultRegistry(): SettingsRegistry {
     },
     {
       id: 'bountyCuts',
-      keys: ['tournament.bountyType', 'tournament.bountyPercent', 'tournament.houseCutPercent', 'tournament.fundPercent'],
-      check: (v) => (v['tournament.bountyType'] === 'none' ? 0 : (v['tournament.bountyPercent'] as number)) + (v['tournament.houseCutPercent'] as number) + (v['tournament.fundPercent'] as number) <= 100,
+      keys: ['tournament.bountyType', 'tournament.bountyMode', 'tournament.bountyPercent', 'tournament.houseCutPercent', 'tournament.fundPercent'],
+      check: (v) =>
+        v['tournament.bountyType'] === 'none' || v['tournament.bountyMode'] === 'amount'
+          ? true
+          : (v['tournament.bountyPercent'] as number) + (v['tournament.houseCutPercent'] as number) + (v['tournament.fundPercent'] as number) <= 100,
       messageKey: 'rule.bountyCutsTooHigh',
+    },
+    {
+      id: 'bountyAmountFits',
+      keys: ['tournament.bountyType', 'tournament.bountyMode', 'tournament.bountyAmount', 'tournament.buyIn', 'tournament.houseCutPercent', 'tournament.fundPercent'],
+      check: (v) => {
+        if (v['tournament.bountyType'] === 'none' || v['tournament.bountyMode'] !== 'amount') return true;
+        const buyIn = v['tournament.buyIn'] as number;
+        const house = Math.floor((buyIn * (v['tournament.houseCutPercent'] as number)) / 100);
+        const fund = Math.floor((buyIn * (v['tournament.fundPercent'] as number)) / 100);
+        return (v['tournament.bountyAmount'] as number) <= buyIn - house - fund;
+      },
+      messageKey: 'rule.bountyAmountTooHigh',
     },
     {
       id: 'tournamentCuts',

@@ -26,7 +26,7 @@ export interface TournamentInfo {
   players: number;
   alive: number;
   payouts: { place: number; amount: number }[];
-  bounty: { type: string; percent: number; pkoCash: number; bank: number };
+  bounty: { type: string; mode?: 'percent' | 'amount'; amount?: number; percent: number; pkoCash: number; bank: number };
   buyIn: number;
   fee: number;
   serverTime: number;
@@ -80,11 +80,16 @@ export function InfoBody({ view, tour, tournamentId, inBb }: { view: TableView; 
   const { me } = useSession();
   const seated = view.seats.length;
   const money = (n: number) => tableMoney(n, info);
+  const bountyByAmount = tour?.bounty.mode === 'amount';
   const bountyLine = tour
     ? tour.bounty.type === 'fixed'
-      ? t('table.info.bountyFixed', { percent: tour.bounty.percent })
+      ? bountyByAmount
+        ? t('table.info.bountyFixedAmount', { amount: money(tour.bounty.amount ?? 0) })
+        : t('table.info.bountyFixed', { percent: tour.bounty.percent })
       : tour.bounty.type === 'pko'
-        ? t('table.info.bountyPko', { percent: tour.bounty.percent })
+        ? bountyByAmount
+          ? t('table.info.bountyPkoAmount', { amount: money(tour.bounty.amount ?? 0) })
+          : t('table.info.bountyPko', { percent: tour.bounty.percent })
         : tour.bounty.type === 'mystery'
           ? t('table.info.bountyMystery')
           : null

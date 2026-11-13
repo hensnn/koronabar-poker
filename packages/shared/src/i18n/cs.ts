@@ -1290,6 +1290,8 @@ export const cs: Record<string, string> = {
   'table.info.bountyNone': 'Bez bounty',
   'table.info.bountyFixed': 'Fixní: {percent} % buy-inu za vyřazení',
   'table.info.bountyPko': 'PKO: {percent} % buy-inu v hlavě, polovinu bereš hned',
+  'table.info.bountyFixedAmount': 'Fixní: {amount} za vyřazení',
+  'table.info.bountyPkoAmount': 'PKO: {amount} z každého vstupu v hlavě, polovinu bereš hned',
   'table.info.bountyMystery': 'Mystery: odměna se ukáže po vyřazení',
   'table.info.bountyBank': 'V bounty: {amount}',
   'table.info.rebuy': 'Rebuy',

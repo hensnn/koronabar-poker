@@ -1066,7 +1066,7 @@ export class TournamentManager {
       breakMinutes: Number(s['tournament.breakMinutes']),
       prizePool: live.prizePool() || st.payments.filter((p) => !p.refunded).reduce((a, p) => a + poolPart(p), 0),
       fees: feesOf(s, st),
-      bounty: { type: String(s['tournament.bountyType']), percent: Number(s['tournament.bountyPercent']), pkoCash: Number(s['tournament.pkoCashPercent']), payout: String(s['tournament.bountyPayout']), bank: this.deps.ledger.balance(accounts.bounty(id)) },
+      bounty: { type: String(s['tournament.bountyType']), mode: s['tournament.bountyMode'] === 'amount' ? 'amount' : 'percent', amount: Number(s['tournament.bountyAmount']), percent: Number(s['tournament.bountyPercent']), pkoCash: Number(s['tournament.pkoCashPercent']), payout: String(s['tournament.bountyPayout']), bank: this.deps.ledger.balance(accounts.bounty(id)) },
       deal: { enabled: !!s['tournament.dealEnabled'], open: live.dealOptions(userId).vote?.status === 'open', done: st.deal ? { method: st.deal.method, keep: st.deal.keep } : null, blocked: live.dealBlocker() },
       schedule: row.sched ? { startAt: row.sched.startAt, opensAt: row.sched.opensAt, registrationOpen: this.registrationOpen(id), postponed: row.sched.postponed, seriesId: row.sched.seriesId, unregisterUntil: row.sched.startAt - Number(s['tournament.unregisterUntilMinutes']) * 60_000, autoPaused: row.sched.autoPaused, invited: row.sched.invited ?? null } : null,
       payouts: results ? results.filter((x) => x.payout > 0).map((x) => ({ place: x.place, amount: x.payout, name: x.name })) : live.payoutPreview(),
@@ -1152,7 +1152,7 @@ export class TournamentManager {
       fees: feesOf(s, st ?? undefined),
       payouts: (st?.results ?? []).filter((x) => x.payout > 0).map((x) => ({ place: x.place, amount: x.payout, name: x.name })),
       payoutPreset: String(s['tournament.payoutPreset']),
-      bounty: { type: String(s['tournament.bountyType']), percent: Number(s['tournament.bountyPercent']), pkoCash: Number(s['tournament.pkoCashPercent']), payout: String(s['tournament.bountyPayout']), bank: 0 },
+      bounty: { type: String(s['tournament.bountyType']), mode: s['tournament.bountyMode'] === 'amount' ? 'amount' : 'percent', amount: Number(s['tournament.bountyAmount']), percent: Number(s['tournament.bountyPercent']), pkoCash: Number(s['tournament.pkoCashPercent']), payout: String(s['tournament.bountyPayout']), bank: 0 },
       deal: { enabled: !!s['tournament.dealEnabled'], open: false, done: st?.deal ? { method: st.deal.method, keep: st.deal.keep } : null, blocked: 'STATE' },
       schedule: null,
       tables: [],
@@ -1312,7 +1312,7 @@ export interface TournamentView {
   /** Dohoda: povolená, probíhá hlasování, uzavřená; proč ji nejde navrhnout. */
   deal: { enabled: boolean; open: boolean; done: { method: string; keep: number } | null; blocked: string | null };
   /** Bounty: typ, podíl z buy-inu, zůstatek na účtu bounty (hlavy hráčů a nevyplacené odměny). */
-  bounty: { type: string; percent: number; pkoCash: number; payout: string; bank: number };
+  bounty: { type: string; mode?: 'percent' | 'amount'; amount?: number; percent: number; pkoCash: number; payout: string; bank: number };
   standings: { userId: string; name: string; chips: number | null; seat: number | null; tableNo: number | null; place: number; status: string; payout: number | null; head: number | null; bounty: number; entries?: number; rebuys?: number; addon?: boolean; /** Konec času na rozhodnutí o rebuy (kdo právě rozhoduje), jinak null. */ decideUntil?: number | null; /** Odpočet stojí, protože je hráč odpojený. */ decideFrozen?: boolean }[];
   /** Živá hra: žetony v oběhu, průměrný stack a zda smí uživatel zapisovat za hráče; jinak null. */
   live: { chipsInPlay: number; avgStack: number | null; director: boolean; suggestions: { userId: string; name: string; fromNo: number; toTable: string; toNo: number; reason: 'balance' | 'break' }[] } | null;

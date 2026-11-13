@@ -4,7 +4,7 @@ import type { SettingValues } from '@kb/shared';
 import type { Clock } from '../clock.js';
 import { Voting, VoteError, type VoteState, type VoteView } from '../voting.js';
 import type { TableEvent } from '../table-actor.js';
-import { dealAmounts, DealError, type DealMethod, computePayouts, distribute, generateStructure, mysteryValues, parseLadder, parseStructure, percentsFor, pickEliminators, PayoutError, StructureError, type ContestedPlayer, type Level, type PayoutPreset, type RemainderRule } from '@kb/shared';
+import { bountyPart, dealAmounts, DealError, type DealMethod, computePayouts, distribute, generateStructure, mysteryValues, parseLadder, parseStructure, percentsFor, pickEliminators, PayoutError, StructureError, type ContestedPlayer, type Level, type PayoutPreset, type RemainderRule } from '@kb/shared';
 
 export type TournamentErrorCode =
   | 'INVALID'
@@ -529,7 +529,10 @@ export class Tournament {
     const fund = Math.floor((cost * num(s, 'tournament.fundPercent')) / 100);
     const fundId = String(s['tournament.fundId'] || 'sezona');
     // Bounty nesou vstup a rebuy (ne add-on).
-    const bounty = kind !== 'turnaj_addon' && this.bountyType() !== 'none' ? Math.floor((cost * num(s, 'tournament.bountyPercent')) / 100) : 0;
+    const bounty =
+      kind !== 'turnaj_addon' && this.bountyType() !== 'none'
+        ? bountyPart(cost, house, fund, String(s['tournament.bountyMode'] ?? 'percent') === 'amount' ? 'amount' : 'percent', num(s, 'tournament.bountyPercent'), num(s, 'tournament.bountyAmount'))
+        : 0;
     try {
       this.deps.money.pay(this.deps.id, userId, kind, { cost, fee, house, fund, fundId, bounty }, key, userId);
     } catch (e) {
