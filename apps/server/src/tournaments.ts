@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { and, eq, inArray, or } from 'drizzle-orm';
 import { accounts, Ledger, TournamentMoney, type CashService } from '@kb/ledger';
-import { nextBreakPlan, poolPart, LiveTable, Tournament, TournamentError, TournamentTableSet, TableActor, type BreakPlan, type TableSetEvent, type Clock, type PersistedTable, type TableEvent, type TournamentEvent, type TournamentState } from '@kb/game-core';
+import { correctFinishedState, nextBreakPlan, poolPart, LiveTable, Tournament, TournamentError, TournamentTableSet, TableActor, type BreakPlan, type TableSetEvent, type Clock, type PersistedTable, type TableEvent, type TournamentEvent, type TournamentState } from '@kb/game-core';
 import {
   decideChange,
   scopeAllowed,
@@ -961,6 +961,37 @@ export class TournamentManager {
     if (!r || !st?.results || st.results.length === 0) return null;
     const s = this.resolveArchived(r);
     return { info: { rated: s['tournament.rated'] !== false, targetMinutes: Number(s['tournament.targetMinutes'] ?? 0), live: !!s['tournament.live'] }, st };
+  }
+
+  /** Skončené turnaje s výsledky (i ty už odložené z paměti) s nastavením, se kterým se hrály: podklad pro kontrolu výplat. */
+  async finishedForAudit(onlyId?: string): Promise<{ id: string; name: string; settings: SettingValues; st: TournamentState }[]> {
+    const rows = await this.deps.db
+      .select()
+      .from(schema.tournaments)
+      .where(onlyId ? eq(schema.tournaments.id, onlyId) : eq(schema.tournaments.status, 'finished'));
+    const out: { id: string; name: string; settings: SettingValues; st: TournamentState }[] = [];
+    for (const r of rows) {
+      const st = ((this.tours.get(r.id)?.state() ?? r.state) as TournamentState | null) ?? null;
+      if (!st || st.status !== 'finished' || !st.results || st.results.length === 0) continue;
+      out.push({ id: r.id, name: r.name, settings: this.resolveArchived(r), st });
+    }
+    return out;
+  }
+
+  /** Dodatečná oprava výplat skončeného turnaje: zapíše opravené výplaty do jeho stavu (peníze převádí volající přes knihu). */
+  async correctPayouts(id: string, correct: Record<string, number>): Promise<void> {
+    const at = this.deps.clock.now();
+    const tour = this.tours.get(id);
+    if (tour) {
+      tour.correctPayouts(correct, at);
+      this.deps.onChanged?.(id);
+      return;
+    }
+    const [r] = await this.deps.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
+    const st = (r?.state ?? null) as TournamentState | null;
+    if (!r || !st) throw new TournamentError('NOT_FOUND');
+    correctFinishedState(st, correct, at);
+    this.deps.journal.push(`tournament:${id}`, tournamentStateOp(id, st.status, st));
   }
 
   /** Odstraní ukončený turnaj z paměti (po čase), stůl už je zavřený. */

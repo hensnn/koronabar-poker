@@ -2232,6 +2232,26 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       throw e;
     }
   }));
+  /** Přepočet výplat skončených turnajů: podrobný seznam rozdílů (jen čte) a oprava jednoho turnaje převodem mezi hráči. */
+  const payoutErr = (e: unknown, reply: FastifyReply) => {
+    if (!(e instanceof ConsistencyError)) throw e;
+    return reply.code(e.code === 'FORBIDDEN' ? 403 : 409).send({ code: e.code === 'FORBIDDEN' ? 'FORBIDDEN' : `PAYOUT_FIX_${e.code}`, params: e.params });
+  };
+  app.get('/api/admin/consistency/payouts', guard(async (req, reply) => {
+    try {
+      return reply.send({ tournaments: await svc.consistency().payoutReport(need(req).id) });
+    } catch (e) {
+      return payoutErr(e, reply);
+    }
+  }));
+  app.post('/api/admin/consistency/repair-payouts', guard(async (req, reply) => {
+    const b = z.object({ id: z.string().min(1).max(100) }).parse(req.body);
+    try {
+      return reply.send(await svc.consistency().repairPayouts(need(req).id, b.id, { ip: req.ip, source: 'ui' }));
+    } catch (e) {
+      return payoutErr(e, reply);
+    }
+  }));
   app.get('/api/admin/house/report', guard(async (req, reply) => {
     try {
       return reply.send(await svc.houseExpenses().report(need(req).id));

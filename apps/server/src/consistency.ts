@@ -1,14 +1,37 @@
 import { and, eq, inArray, like, sql } from 'drizzle-orm';
+import { auditPayouts, type TournamentState } from '@kb/game-core';
 import { accounts, type Ledger } from '@kb/ledger';
-import type { PermissionChecker } from '@kb/shared';
+import { computePayouts, percentsFor, type PayoutPreset, type PermissionChecker, type RemainderRule, type SettingValues } from '@kb/shared';
+import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import { SIDE_SET } from './side-results.js';
 import type { WalletService } from './wallet/service.js';
 
 export class ConsistencyError extends Error {
-  constructor(public readonly code: 'FORBIDDEN') {
+  constructor(
+    public readonly code: 'FORBIDDEN' | 'NOTHING_TO_FIX' | 'INSUFFICIENT_FUNDS',
+    public readonly params: Record<string, string | number> = {},
+  ) {
     super(code);
   }
+}
+
+/** Jeden skončený turnaj, u kterého vyplacené výhry nesedí s přepočtem (nebo je nejde ověřit). */
+export interface PayoutProblem {
+  id: string;
+  name: string;
+  finishedAt: number | null;
+  /**
+   * `fixable`: rozdíl způsobilo chybné dělení výplat a jde opravit převodem mezi hráči.
+   * `mismatch`: výplaty se liší z jiného důvodu, oprava jen ručně.
+   * `uncertain`: výplaty sedí, ale dělení mezi sousedními místy nejde ze záznamu ověřit.
+   */
+  kind: 'fixable' | 'mismatch' | 'uncertain';
+  /** Prize pool turnaje podle knihy a počet míst, která podle nastavení berou výhru. */
+  pool: number;
+  paidPlaces: number;
+  /** Všechna místa turnaje: co se vyplatilo, co mělo být a kolik má hráč teď na zůstatku (kvůli vrácení přeplatku). */
+  rows: { userId: string; name: string; place: number; paid: number; correct: number; balance: number; flagged: boolean }[];
 }
 
 export interface ConsistencyCheck {
@@ -35,6 +58,13 @@ interface Deps {
   now: () => number;
   /** Zapíše výsledky skončeného turnaje do statistik (pro doplnění chybějících). */
   recordResults?: (tournamentId: string) => Promise<void>;
+  /** Skončené turnaje s výsledky a nastavením, se kterým se hrály (pro přepočet výplat). */
+  finishedTournaments?: (onlyId?: string) => Promise<{ id: string; name: string; settings: SettingValues; st: TournamentState }[]>;
+  /** Zapíše opravené výplaty do stavu turnaje. */
+  correctPayouts?: (tournamentId: string, correct: Record<string, number>) => Promise<void>;
+  /** Po opravě výplat: obnoví zůstatky dotčených hráčů a žebříčky. */
+  afterPayoutFix?: (userIds: string[]) => void;
+  audit?: AuditService;
 }
 
 const MAX_ITEMS = 10;
@@ -60,6 +90,110 @@ export class ConsistencyService {
     const ids = await this.missingResults();
     for (const id of ids) await this.deps.recordResults(id);
     return ids.length;
+  }
+
+  /**
+   * Přepočet výplat skončených turnajů: z prize poolu a nastavení turnaje spočítá, co mělo které místo dostat, a porovná to
+   * s tím, co se vyplatilo. Hledá hlavně chybu, kdy si výplatu rozdělili hráči, kteří kdysi vypadli spolu a pak si dali rebuy.
+   * Jen čte. Prize pool bere z knihy (co z účtu turnaje odešlo na výplatách a zbytku domu).
+   */
+  async payoutProblems(onlyId?: string): Promise<PayoutProblem[]> {
+    if (!this.deps.finishedTournaments) return [];
+    await this.deps.flush();
+    const db = this.deps.db;
+    const le = schema.ledgerEntries;
+    const lt_ = schema.ledgerTransactions;
+    const tours = await this.deps.finishedTournaments(onlyId);
+    if (tours.length === 0) return [];
+    const paidOut = await db
+      .select({ account: le.account, sum: sql<number>`sum(${le.amount})::int` })
+      .from(le)
+      .innerJoin(lt_, eq(lt_.id, le.transactionId))
+      .where(and(like(le.account, 'tournament:%'), eq(lt_.kind, 'turnaj_vyplata')))
+      .groupBy(le.account);
+    const poolOf = new Map(paidOut.map((r) => [r.account, -Number(r.sum)]));
+    const out: PayoutProblem[] = [];
+    for (const t of tours) {
+      const results = t.st.results!;
+      const pool = poolOf.get(accounts.tournament(t.id)) ?? 0;
+      let amounts: number[] = [];
+      if (pool > 0) {
+        try {
+          const pct = percentsFor(t.settings['tournament.payoutPreset'] as PayoutPreset, String(t.settings['tournament.payoutCustom']), results.length);
+          amounts = computePayouts(pool, pct, { roundTo: Number(t.settings['tournament.payoutRoundTo']), remainder: t.settings['tournament.payoutRemainder'] as RemainderRule }).amounts;
+        } catch {
+          amounts = [];
+        }
+      }
+      const audit = auditPayouts({
+        results,
+        amounts,
+        deal: t.st.deal ?? null,
+        tiedGroups: t.st.tiedGroups ?? [],
+        rebought: new Set(t.st.players.filter((p) => p.rebuys > 0).map((p) => p.userId)),
+      });
+      const kind = audit.verdict === 'ok' ? (audit.uncertain.length > 0 ? 'uncertain' : null) : audit.verdict;
+      if (!kind) continue;
+      const unsure = new Set(audit.uncertain.flat());
+      out.push({
+        id: t.id,
+        name: t.name,
+        finishedAt: t.st.finishedAt,
+        kind,
+        pool,
+        paidPlaces: amounts.filter((x) => x > 0).length,
+        rows: results.map((r, i) => ({
+          userId: r.userId,
+          name: r.name,
+          place: r.place,
+          paid: r.payout,
+          correct: audit.correct[i]!,
+          balance: this.deps.ledger.balance(accounts.wallet(r.userId)),
+          flagged: kind === 'uncertain' ? unsure.has(r.userId) : r.payout !== audit.correct[i],
+        })),
+      });
+    }
+    return out.sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0));
+  }
+
+  /** Seznam turnajů s chybnými nebo neověřitelnými výplatami pro správce (jen čte). */
+  async payoutReport(actorId: string): Promise<PayoutProblem[]> {
+    if (!this.deps.perms.can(actorId, 'mena.zobrazit_knihu').allowed) throw new ConsistencyError('FORBIDDEN');
+    return this.payoutProblems();
+  }
+
+  /**
+   * Opraví chybně rozdělené výplaty jednoho turnaje: jedním pohybem v knize převede rozdíl od hráčů, kteří dostali víc,
+   * hráčům, kteří dostali míň (součet je nula, nic nevzniká ani nemizí), a opraví záznam turnaje i statistiky.
+   * Když přeplacený hráč nemá dost na zůstatku, neprovede se nic (peněženka nesmí do mínusu ani do kontokorentu bez jeho vědomí).
+   */
+  async repairPayouts(actorId: string, tournamentId: string, meta: { ip?: string | null; source?: AuditSource } = {}): Promise<{ moved: number }> {
+    if (!this.deps.perms.can(actorId, 'mena.upravit_knihu').allowed || !this.deps.correctPayouts) throw new ConsistencyError('FORBIDDEN');
+    const [problem] = await this.payoutProblems(tournamentId);
+    if (!problem || problem.kind !== 'fixable') throw new ConsistencyError('NOTHING_TO_FIX');
+    const rows = problem.rows.filter((r) => r.paid !== r.correct);
+    for (const r of rows) {
+      const owes = r.paid - r.correct;
+      if (owes > 0 && r.balance < owes) throw new ConsistencyError('INSUFFICIENT_FUNDS', { name: r.name, owes, has: r.balance });
+    }
+    const entries = rows.map((r) => ({ account: accounts.wallet(r.userId), amount: r.correct - r.paid }));
+    const moved = entries.reduce((n, e) => n + Math.max(0, e.amount), 0);
+    this.deps.ledger.post({ kind: 'turnaj_vyplata', idempotencyKey: `trn:${tournamentId}:payoutfix`, gameId: tournamentId, createdBy: actorId, note: 'oprava chybně rozdělených výplat turnaje', entries });
+    await this.deps.correctPayouts(tournamentId, Object.fromEntries(rows.map((r) => [r.userId, r.correct])));
+    await this.deps.flush();
+    const gr = schema.gameResults;
+    for (const r of rows) await this.deps.db.update(gr).set({ payout: r.correct }).where(and(eq(gr.kind, 'tournament'), eq(gr.ref, tournamentId), eq(gr.userId, r.userId)));
+    await this.deps.audit?.log({
+      actorId,
+      action: 'turnaj.oprava_vyplat',
+      targetType: 'tournament',
+      targetId: tournamentId,
+      before: Object.fromEntries(rows.map((r) => [r.userId, r.paid])),
+      after: Object.fromEntries(rows.map((r) => [r.userId, r.correct])),
+      ...meta,
+    });
+    this.deps.afterPayoutFix?.(rows.map((r) => r.userId));
+    return { moved };
   }
 
   async run(actorId: string): Promise<ConsistencyReport> {
@@ -164,6 +298,10 @@ export class ConsistencyService {
     // 11) žádosti hráčů uprostřed vyřizování (pád serveru mezi dobitím a zápisem stavu)
     const stuck = await db.select({ id: schema.userRequests.id, decidedAt: schema.userRequests.decidedAt }).from(schema.userRequests).where(eq(schema.userRequests.status, 'deciding'));
     add('requestsNotStuck', stuck.map((r) => `žádost ${r.id} zůstala ve stavu „vyřizuje se“ od ${r.decidedAt?.toISOString() ?? '?'}; zkontroluj v knize pohyb s klíčem request:${r.id} a žádost ručně uzavři`));
+
+    // 12) výplaty skončených turnajů odpovídají přepočtu (chybně dělené výplaty po společném vypadnutí a rebuy)
+    const payouts = (await this.payoutProblems()).filter((p) => p.kind !== 'uncertain');
+    add('tournamentPayouts', payouts.map((p) => `turnaj ${p.name}: ${p.rows.filter((r) => r.flagged).map((r) => `${r.place}. ${r.name} dostal ${r.paid}, mělo být ${r.correct}`).join('; ')}`));
 
     return { at: this.deps.now(), ok: checks.every((c) => c.ok), checks };
   }

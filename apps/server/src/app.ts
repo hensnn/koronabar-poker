@@ -1164,7 +1164,15 @@ export async function buildServer(opts: ServerOptions = {}) {
     const x = await tournaments.finishedForStats(id);
     if (x) stats.recordTournament(id, x.info, x.st);
     await stats.idle();
-  } });
+  },
+    finishedTournaments: (onlyId) => tournaments.finishedForAudit(onlyId),
+    correctPayouts: (id, correct) => tournaments.correctPayouts(id, correct),
+    afterPayoutFix: (userIds) => {
+      for (const u of userIds) hooks.pushWallet(u);
+      stats.invalidateLeaderboard();
+    },
+    audit,
+  });
   const yearStats = new YearStatsService({ db, ledger, settings: () => settings.resolve(), now: () => clock.now() });
   yearStatsRef.current = yearStats;
   const overview = new OverviewService({

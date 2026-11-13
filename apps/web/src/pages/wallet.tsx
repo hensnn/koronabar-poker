@@ -1,5 +1,6 @@
 import { SettlementPanel } from './settlement';
 import { BalancesCard } from './admin/balances';
+import { PayoutRecheckCard } from './admin/payout-recheck';
 import { useCallback, useEffect, useState } from 'react';
 import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
 import { useSettings } from '../settings';
@@ -335,6 +336,7 @@ export function CashierPanel() {
       )}
       {can(me, 'mena.dobit') && <CreditLinesCard />}
       {can(me, 'mena.zobrazit_knihu') && <ConsistencyCard />}
+      {can(me, 'mena.zobrazit_knihu') && <PayoutRecheckCard />}
       {can(me, 'mena.zobrazit_knihu') && <BalancesCard refreshKey={me?.balance} />}
       {can(me, 'mena.zobrazit_knihu') && <LedgerPanel />}
     </div>
