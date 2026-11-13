@@ -352,7 +352,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           />
         )}
         {isTournament && <TournamentBanner tournamentId={tournamentId} handRunning={!!(view?.handId && view.winners === null && view.street !== null)} />}
-        {isTournament && <DealPanel id={tournamentId} onlyOpen />}
+        {isTournament && <DealPanel id={tournamentId} popup />}
         {isTournament && <BustSummaryButton tournamentId={tournamentId} />}
         {(() => {
           const screen = (

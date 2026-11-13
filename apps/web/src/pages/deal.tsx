@@ -5,7 +5,8 @@ import { onSocket } from '../net';
 import { useSession } from '../session';
 import { useSettings } from '../settings';
 import { dealFinance, type DealFinance } from './deal-finance';
-import { Badge, Button, Card, DataTable, isConfirmKey, Notice, Select, Td, useArrowChoices } from '../ui';
+import { dealPopupAuto } from './deal-popup';
+import { Badge, Button, Card, DataTable, isConfirmKey, Modal, Notice, Select, Td, useArrowChoices } from '../ui';
 
 type Method = 'icm' | 'chipChop' | 'equal' | 'custom';
 
@@ -77,9 +78,11 @@ function DealSummary({ f, money, meId, bountyBank = 0, accepted = false }: { f: 
 function DealRows({ f, money, meId, votes }: { f: DealFinance; money: Money; meId?: string; votes?: Record<string, boolean | null | 'voted'> }) {
   const hasFair = f.rows.some((r) => r.vsFair !== null);
   return (
-    <DataTable sortable={false} head={[t('deal.player'), t('deal.col.chips'), t('deal.col.gets'), t('deal.col.share'), ...(hasFair ? [t('deal.col.vsIcm')] : []), ...(votes ? [''] : [])]}>
+    // The vote mark is the first column: on a phone the table scrolls sideways and a trailing column would stay out of sight.
+    <DataTable sortable={false} head={[...(votes ? [''] : []), t('deal.player'), t('deal.col.chips'), t('deal.col.gets'), t('deal.col.share'), ...(hasFair ? [t('deal.col.vsIcm')] : [])]}>
       {f.rows.map((r) => (
         <tr key={r.userId} className={r.userId === meId ? 'bg-raised font-semibold' : ''}>
+          {votes && <Td>{votes[r.userId] === true ? '✓' : votes[r.userId] === false ? '✗' : votes[r.userId] === 'voted' ? '•' : '?'}</Td>}
           <Td>{r.name}</Td>
           <Td className="font-mono whitespace-nowrap">
             {r.chips} <span className="text-muted">({num1(r.chipPct)} %)</span>
@@ -91,7 +94,6 @@ function DealRows({ f, money, meId, votes }: { f: DealFinance; money: Money; meI
               <span title={t('deal.icmHint')}>{r.vsFair === null ? '' : signedMoney(r.vsFair, money)}</span>
             </Td>
           )}
-          {votes && <Td>{votes[r.userId] === true ? '✓' : votes[r.userId] === false ? '✗' : votes[r.userId] === 'voted' ? '•' : '?'}</Td>}
         </tr>
       ))}
     </DataTable>
@@ -106,8 +108,11 @@ const mmss = (ms: number): string => {
 /**
  * Dohoda o rozdělení výher: návrh (srovnání metod vedle sebe, vlastní částky, ponechání části na hru)
  * a hlasování. Částky počítá server, klient je jen zobrazuje.
+ *
+ * `popup` je podoba pro stůl: ukazuje se jen probíhající hlasování, a to jako úzký pruh nad stolem a vyskakovací okno.
+ * Stůl se tak neodsune z obrazovky; okno se samo otevře jen hráči, který ještě nehlasoval, a jde zavřít a znovu otevřít z pruhu.
  */
-export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: string; canManage?: boolean; onlyOpen?: boolean }) {
+export function DealPanel({ id, canManage = false, popup = false }: { id: string; canManage?: boolean; popup?: boolean }) {
   const { me } = useSession();
   const settings = useSettings();
   const forms = currencyFormsOf(settings.values);
@@ -120,6 +125,9 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
   const [fetchedAt, setFetchedAt] = useState(Date.now());
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
+  // Popup at the table: id of the vote whose window is open, and the vote that already popped up by itself (once per vote).
+  const [popupFor, setPopupFor] = useState<string | null>(null);
+  const seenVote = useRef<string | null>(null);
 
   const load = useCallback(() => {
     get<Options>(`/api/tournaments/${id}/deal`)
@@ -148,9 +156,18 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
   const choiceRef = useRef<HTMLDivElement>(null);
   const canAnswer = opt?.vote?.status === 'open' && opt.vote.canVote;
   const firstAnswer = canAnswer && opt?.vote?.myVote === null;
-  useArrowChoices(choiceRef, !!canAnswer);
+  // In the popup the window itself handles arrows and Enter; with the window closed no key may answer a vote the player does not see.
+  useArrowChoices(choiceRef, !!canAnswer && !popup);
+  const autoVote = popup ? (opt?.vote ?? null) : null;
   useEffect(() => {
-    if (!firstAnswer) return;
+    if (!autoVote || !dealPopupAuto(autoVote, seenVote.current)) return;
+    seenVote.current = autoVote.id;
+    // Another window is already open (e.g. the proposal form): do not stack a second one, the strip above the table stays visible.
+    if (!document.querySelector('[aria-modal="true"]')) setPopupFor(autoVote.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoVote?.id, autoVote?.status, autoVote?.canVote, autoVote?.myVote]);
+  useEffect(() => {
+    if (!firstAnswer || popup) return;
     const onKey = (e: KeyboardEvent) => {
       if (!isConfirmKey(e) || document.querySelector('[aria-modal="true"]')) return;
       e.preventDefault();
@@ -160,12 +177,12 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [firstAnswer, id, load]);
+  }, [firstAnswer, popup, id, load]);
 
   if (!opt || !opt.enabled) return null;
   const vote = opt.vote;
   const open = vote?.status === 'open';
-  if (onlyOpen && !open) return null;
+  if (popup && !open) return null;
   const nameOf = (uid: string) => opt.participants.find((p) => p.userId === uid)?.name ?? '';
   const mine = opt.participants.some((p) => p.userId === me?.user.id);
 
@@ -174,6 +191,7 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
     try {
       await post(`/api/tournaments/${id}/${path}`, body);
       setError('');
+      if (path === 'deal/vote' || path === 'deal/cancel') setPopupFor(null);
       load();
     } catch (e) {
       setError(errorText(e));
@@ -193,8 +211,7 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
       places: vote.payload.places,
       fair: vote.payload.fair,
     });
-    return (
-      <Card title={t('deal.title')}>
+    const body = (
         <div ref={choiceRef} className="kd-choice flex flex-col gap-2">
           <p>
             <Badge tone="warning">{t('deal.status.open')}</Badge> <strong>{t(`deal.method.${vote.payload.method}`)}</strong> · {mmss(remaining)}
@@ -219,14 +236,39 @@ export function DealPanel({ id, canManage = false, onlyOpen = false }: { id: str
                 {t('deal.cancel')}
               </Button>
             )}
+            {popup && (
+              <Button className="ml-auto" onClick={() => setPopupFor(null)}>
+                {vote.canVote && vote.myVote === null ? t('deal.popup.later') : t('deal.popup.close')}
+              </Button>
+            )}
           </div>
           {error && <Notice kind="error">{error}</Notice>}
         </div>
-      </Card>
+    );
+    if (!popup) return <Card title={t('deal.title')}>{body}</Card>;
+    const waiting = vote.canVote && vote.myVote === null;
+    return (
+      <>
+        <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-primary bg-surface px-3 py-2 text-sm">
+          <Badge tone="warning">{t('deal.status.open')}</Badge>
+          <strong>{t('deal.title')}</strong>
+          <span className="font-mono">{mmss(remaining)}</span>
+          <span className="text-muted">{t('deal.votes', { voted: vote.tally.voted, total: vote.tally.total })}</span>
+          {vote.canVote && <span className={waiting ? 'font-semibold text-warning' : 'text-muted'}>{t(waiting ? 'deal.popup.waiting' : vote.myVote ? 'deal.popup.agreed' : 'deal.popup.disagreed')}</span>}
+          <Button variant={waiting ? 'primary' : 'secondary'} className="ml-auto" onClick={() => setPopupFor(vote.id)}>
+            {t('deal.popup.show')}
+          </Button>
+        </div>
+        {popupFor === vote.id && (
+          <Modal aside wide title={t('deal.title')} onClose={() => setPopupFor(null)}>
+            {body}
+          </Modal>
+        )}
+      </>
     );
   }
 
-  if (onlyOpen) return null;
+  if (popup) return null;
 
   // ---- uzavřená dohoda ----
   if (opt.deal) {
