@@ -10,6 +10,7 @@ export * from './hand-names.js';
 export * from './rake.js';
 export * from './modules/index.js';
 export * from './tournament/tournament.js';
+export * from './tournament/tied-payouts.js';
 export * from './tournament/live-table.js';
 export * from './tournament/table-set.js';
 export * from './tournament/break-plan.js';

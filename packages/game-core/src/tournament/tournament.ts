@@ -5,6 +5,7 @@ import type { Clock } from '../clock.js';
 import { Voting, VoteError, type VoteState, type VoteView } from '../voting.js';
 import type { TableEvent } from '../table-actor.js';
 import { bountyPart, dealAmounts, DealError, type DealMethod, computePayouts, distribute, generateStructure, mysteryValues, parseLadder, parseStructure, percentsFor, pickEliminators, PayoutError, StructureError, type ContestedPlayer, type Level, type PayoutPreset, type RemainderRule } from '@kb/shared';
+import { applyTiedPayouts, correctFinishedState } from './tied-payouts.js';
 
 export type TournamentErrorCode =
   | 'INVALID'
@@ -108,6 +109,8 @@ export interface TournamentState {
   startedAt: number | null;
   finishedAt: number | null;
   results: { userId: string; name: string; place: number; payout: number; bounty?: number }[] | null;
+  /** Dodatečná oprava výplat (chybně dělené výplaty): kdy proběhla a co bylo vyplaceno původně. */
+  payoutFix?: { at: number; before: Record<string, number> };
   /** Uzavřená dohoda (deal): částky pro zbývající hráče a část ponechaná na hru. */
   deal?: { method: DealMethod; amounts: Record<string, number>; keep: number; participants: string[]; at: number };
   /** Hlasování (dohoda…) včetně uzavřených; ukládá se kvůli obnově po restartu. */
@@ -1021,6 +1024,11 @@ export class Tournament {
     this.deps.onChange?.();
   }
 
+  /** A player who returns to the game (rebuy, re-entry) leaves every remembered tie from an earlier shared bust. */
+  private untie(userId: string): void {
+    if (this.st.tiedGroups) this.st.tiedGroups = this.st.tiedGroups.map((g) => g.filter((id) => id !== userId)).filter((g) => g.length > 1);
+  }
+
   private eliminate(p: PlayerRecord): void {
     this.decideTimers.get(p.userId)?.();
     this.decideTimers.delete(p.userId);
@@ -1088,6 +1096,8 @@ export class Tournament {
     if (p.status === 'deciding') {
       this.decideTimers.get(userId)?.();
       this.decideTimers.delete(userId);
+      // Back in the game: a shared bust (same hand, same stack) no longer ties this player's place and payout to anyone.
+      this.untie(userId);
       p.status = 'playing';
       p.decideUntil = null;
       delete p.decideLeftMs;
@@ -1210,7 +1220,7 @@ export class Tournament {
     p.rebuys = 0;
     p.addon = false;
     this.st.eliminations = this.st.eliminations.filter((id) => id !== userId);
-    if (this.st.tiedGroups) this.st.tiedGroups = this.st.tiedGroups.map((g) => g.filter((id) => id !== userId)).filter((g) => g.length > 1);
+    this.untie(userId);
     if (!waiting) {
       try {
         this.seat(p, num(s, 'tournament.startingStack'));
@@ -1389,14 +1399,11 @@ export class Tournament {
     const deal = this.st.deal;
     const results = order.map((userId, i) => ({ userId, name: this.rec(userId)?.name ?? '', place: i + 1, payout: deal && userId in deal.amounts ? deal.amounts[userId]! + (i === 0 ? deal.keep : 0) : (amounts[i] ?? 0), bounty: this.rec(userId)?.bountyEarned ?? 0 }));
     // Souběžně vyřazení se stejným stackem na začátku handy dělí výplaty za svá místa rovným dílem (pořadí míst zůstává podle sedadel).
-    for (const group of this.st.tiedGroups ?? []) {
-      const rows = results.filter((r) => group.includes(r.userId) && !(deal && r.userId in deal.amounts));
-      if (rows.length < 2) continue;
-      const parts = distribute(rows.reduce((a, r) => a + r.payout, 0), rows.map(() => 1));
-      rows.forEach((r, i) => {
-        r.payout = parts[i]!;
-      });
-    }
+    // Safety net inside: only neighbouring places of eliminated players may share, never the winner or distant places.
+    const shared = applyTiedPayouts(results, this.st.tiedGroups ?? [], (userId) => !!deal && userId in deal.amounts);
+    results.forEach((r, i) => {
+      r.payout = shared[i]!;
+    });
     for (const r of results) if (r.payout > 0) this.deps.money.payout(this.deps.id, r.userId, r.payout, `trn:${this.deps.id}:payout:${r.place}`);
     if (toHouse > 0) this.deps.money.toHouse(this.deps.id, toHouse, `trn:${this.deps.id}:house`);
     this.st.results = results;
@@ -1407,6 +1414,15 @@ export class Tournament {
     const table = this.table;
     queueMicrotask(() => table?.close());
     this.deps.onEvent?.({ type: 'finished', results });
+  }
+
+  /**
+   * Later correction of a finished tournament (wrongly shared payouts): stores the corrected payouts and drops the ties
+   * that caused the error. Money is moved by the caller through the ledger; this only keeps the record truthful.
+   */
+  correctPayouts(correct: Record<string, number>, at: number): void {
+    correctFinishedState(this.st, correct, at);
+    this.save();
   }
 
   // ---------- dohoda (deal) ----------

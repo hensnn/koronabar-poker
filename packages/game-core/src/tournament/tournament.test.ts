@@ -506,6 +506,50 @@ describe('turnaj: registrace a peníze', () => {
       expect(h.table.isHeld()).toBe(false);
     });
 
+    it('společné vypadnutí se stejným stackem a následné rebuy výplaty na konci nedělí', () => {
+      // Two players bust in the same hand with equal stacks, both rebuy and play on. One of them wins, the other finishes last:
+      // the old tie must be forgotten, otherwise they would share the money for the 1st and the 4th place.
+      const run = (stacks: [number, number]) => {
+        const h = harness({ ...base }, 4);
+        registerAll(h);
+        h.tour.start();
+        h.tour.onTableEvent({ type: 'bust', players: [{ userId: 'u1', startStack: stacks[0] }, { userId: 'u4', startStack: stacks[1] }], hand: [] } as never);
+        h.tour.rebuy('u1', { busted: true });
+        h.tour.rebuy('u4', { busted: true });
+        for (const u of ['u4', 'u3', 'u2']) {
+          bust(h, u);
+          h.tour.declineDecision(u);
+        }
+        const st = h.tour.state();
+        expect(st.status).toBe('finished');
+        expect(st.results!.map((r) => r.userId)).toEqual(['u1', 'u2', 'u3', 'u4']);
+        expect(h.ledger.balance(accounts.tournament('T'))).toBe(0);
+        return st.results!.map((r) => r.payout);
+      };
+      const tied = run([100, 100]);
+      expect(tied).toEqual(run([100, 200]));
+      expect(tied[0]!).toBeGreaterThan(tied[1]!);
+      expect(tied[3]).toBe(0);
+    });
+
+    it('kdo si po společném vypadnutí dal rebuy, už se s druhým o výplatu nedělí', () => {
+      // u3 and u4 bust together with equal stacks; u4 gives up (4th), u3 rebuys and later finishes 2nd.
+      const h = harness({ ...base }, 4);
+      registerAll(h);
+      h.tour.start();
+      h.tour.onTableEvent({ type: 'bust', players: [{ userId: 'u3', startStack: 100 }, { userId: 'u4', startStack: 100 }], hand: [] } as never);
+      h.tour.declineDecision('u4');
+      h.tour.rebuy('u3', { busted: true });
+      for (const u of ['u2', 'u3']) {
+        bust(h, u);
+        h.tour.declineDecision(u);
+      }
+      const results = h.tour.state().results!;
+      expect(results.map((r) => r.userId)).toEqual(['u1', 'u3', 'u2', 'u4']);
+      expect(results[3]!.payout).toBe(0);
+      expect(results[1]!.payout).toBeGreaterThan(results[2]!.payout);
+    });
+
     it('pauza zastaví odpočet rozhodování jen s volbou', () => {
       for (const stops of [true, false]) {
         const h = harness({ ...base, 'tournament.rebuyTimerStops': stops });
