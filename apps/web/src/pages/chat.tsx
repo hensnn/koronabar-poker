@@ -107,7 +107,7 @@ export function ChatPage() {
                 {g.list.map((c) => (
                   <li key={c.id}>
                     <button className={`flex w-full items-center justify-between rounded-sm px-2 py-1 text-left ${c.id === activeId ? 'bg-primary text-on-primary' : 'bg-surface'}`} onClick={() => setActiveId(c.id)}>
-                      <span className="truncate">{c.kind === 'table' && tablesWithChannels ? '♠️ ' : ''}{c.name}</span>
+                      <span className="truncate">{c.kind === 'table' && tablesWithChannels ? '🪑 ' : ''}{c.name}</span>
                       {c.unread > 0 && <Badge tone="danger">{c.unread}</Badge>}
                     </button>
                   </li>
@@ -135,7 +135,7 @@ export function ChatPage() {
                 <span className="hidden px-2 pt-1 text-xs uppercase text-muted md:block">{g.title}</span>
                 {g.list.map((c) => (
                   <button key={c.id} className={`flex shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md px-2 py-1 text-left md:w-full md:whitespace-normal ${c.id === activeId ? 'bg-primary text-on-primary' : 'bg-surface'}`} onClick={() => setActiveId(c.id)}>
-                    <span className="truncate">{c.kind === 'table' && tablesWithChannels ? '♠️ ' : ''}{c.name}</span>
+                    <span className="truncate">{c.kind === 'table' && tablesWithChannels ? '🪑 ' : ''}{c.name}</span>
                     {c.unread > 0 && <Badge tone="danger">{c.unread}</Badge>}
                   </button>
                 ))}

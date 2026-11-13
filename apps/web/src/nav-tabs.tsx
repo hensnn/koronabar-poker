@@ -111,17 +111,17 @@ export function BottomNav({ tabs, isActive, path, extra, rail = false }: { tabs:
   const toTable =
     myTables.length === 0 ? (
       <span key="table" className={`${item} text-muted opacity-60`} title={t('nav.myTableNone')}>
-        <span aria-hidden="true" className="text-xl">♠️</span>
+        <span aria-hidden="true" className="text-xl">🪑</span>
         <span>{t('nav.myTable')}</span>
       </span>
     ) : myTables.length === 1 ? (
       <Link key="table" to={`/stul/${myTables[0]!.tableId}`} className={`${item} font-semibold text-primary`} title={myTables[0]!.name}>
-        <span aria-hidden="true" className="text-xl">♠️</span>
+        <span aria-hidden="true" className="text-xl">🪑</span>
         <span>{t('nav.myTable')}</span>
       </Link>
     ) : (
       <button key="table" type="button" data-more aria-expanded={sheet === 'tables'} aria-haspopup="menu" onClick={() => setSheet((s) => (s === 'tables' ? null : 'tables'))} className={`${item} font-semibold text-primary`}>
-        <span aria-hidden="true" className="text-xl">♠️</span>
+        <span aria-hidden="true" className="text-xl">🪑</span>
         <span>
           {t('nav.myTable')} ({myTables.length})
         </span>
@@ -133,7 +133,7 @@ export function BottomNav({ tabs, isActive, path, extra, rail = false }: { tabs:
         <div data-more className={`${sheetPos} flex flex-col gap-1 rounded-lg border border-line bg-surface p-2 shadow-lg ${vis}`} role="menu">
           {myTables.map((s) => (
             <Link key={s.tableId} to={`/stul/${s.tableId}`} role="menuitem" className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-raised">
-              <span aria-hidden="true">♠️</span>
+              <span aria-hidden="true">🪑</span>
               {s.name}
               {s.tournamentId ? ` · ${t('nav.myTableTournament')}` : ''}
             </Link>
