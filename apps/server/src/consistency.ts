@@ -1,7 +1,7 @@
 import { and, eq, inArray, like, sql } from 'drizzle-orm';
 import { auditPayouts, type TournamentState } from '@kb/game-core';
 import { accounts, type Ledger } from '@kb/ledger';
-import { computePayouts, percentsFor, type PayoutPreset, type PermissionChecker, type RemainderRule, type SettingValues } from '@kb/shared';
+import { computePayouts, legacyPercentsFor, percentsFor, type PayoutPreset, type PermissionChecker, type RemainderRule, type SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import { SIDE_SET } from './side-results.js';
@@ -116,22 +116,35 @@ export class ConsistencyService {
     for (const t of tours) {
       const results = t.st.results!;
       const pool = poolOf.get(accounts.tournament(t.id)) ?? 0;
-      let amounts: number[] = [];
-      if (pool > 0) {
+      const tableBy = (rule: typeof percentsFor): number[] => {
+        if (pool <= 0) return [];
         try {
-          const pct = percentsFor(t.settings['tournament.payoutPreset'] as PayoutPreset, String(t.settings['tournament.payoutCustom']), results.length);
-          amounts = computePayouts(pool, pct, { roundTo: Number(t.settings['tournament.payoutRoundTo']), remainder: t.settings['tournament.payoutRemainder'] as RemainderRule }).amounts;
+          const pct = rule(t.settings['tournament.payoutPreset'] as PayoutPreset, String(t.settings['tournament.payoutCustom']), results.length);
+          return computePayouts(pool, pct, { roundTo: Number(t.settings['tournament.payoutRoundTo']), remainder: t.settings['tournament.payoutRemainder'] as RemainderRule }).amounts;
         } catch {
-          amounts = [];
+          return [];
+        }
+      };
+      const auditWith = (table: number[]) =>
+        auditPayouts({
+          results,
+          amounts: table,
+          deal: t.st.deal ?? null,
+          tiedGroups: t.st.tiedGroups ?? [],
+          rebought: new Set(t.st.players.filter((p) => p.rebuys > 0).map((p) => p.userId)),
+        });
+      // Starší turnaj mohl být vyplacen podle dřívějšího pravidla pro vlastní tabulku s méně hráči než placenými místy:
+      // když sedí podle něj, není to chyba (platilo tehdy) a nehlásí se.
+      let amounts = tableBy(percentsFor);
+      let audit = auditWith(amounts);
+      if (audit.verdict === 'mismatch') {
+        const legacy = tableBy(legacyPercentsFor);
+        const legacyAudit = auditWith(legacy);
+        if (legacyAudit.verdict !== 'mismatch') {
+          amounts = legacy;
+          audit = legacyAudit;
         }
       }
-      const audit = auditPayouts({
-        results,
-        amounts,
-        deal: t.st.deal ?? null,
-        tiedGroups: t.st.tiedGroups ?? [],
-        rebought: new Set(t.st.players.filter((p) => p.rebuys > 0).map((p) => p.userId)),
-      });
       const kind = audit.verdict === 'ok' ? (audit.uncertain.length > 0 ? 'uncertain' : null) : audit.verdict;
       if (!kind) continue;
       const unsure = new Set(audit.uncertain.flat());

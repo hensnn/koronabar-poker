@@ -536,12 +536,16 @@ export class Tournament {
       kind !== 'turnaj_addon' && this.bountyType() !== 'none'
         ? bountyPart(cost, house, fund, String(s['tournament.bountyMode'] ?? 'percent') === 'amount' ? 'amount' : 'percent', num(s, 'tournament.bountyPercent'), num(s, 'tournament.bountyAmount'))
         : 0;
+    // A deal fixes how today's prize pool is split. Once it is agreed, nobody may add money to the pool any more
+    // (it would belong to no one); while it is only being voted on, new money makes the proposal outdated.
+    if (this.st.deal) throw new TournamentError('DEAL_DONE');
     try {
       this.deps.money.pay(this.deps.id, userId, kind, { cost, fee, house, fund, fundId, bounty }, key, userId);
     } catch (e) {
       if (e instanceof LedgerError && e.code === 'INSUFFICIENT_FUNDS') throw new TournamentError('INSUFFICIENT_FUNDS');
       throw e;
     }
+    if (this.st.status === 'running') this.voting.cancelAll('deal');
     this.st.payments.push({ userId, kind, cost, fee, house, fund, fundId, bounty, key });
     return bounty;
   }
@@ -1213,7 +1217,10 @@ export class Tournament {
     if (waiting && !this.canReenterNow(p, true)) throw new TournamentError('REENTRY_NOT_ALLOWED');
     if (!waiting && !this.canSeatNow()) throw new TournamentError('FULL');
     const key = `trn:${this.deps.id}:reg:${userId}:${this.entryNo(userId)}`;
-    const part = this.pay(userId, 'turnaj_buyin', num(s, 'tournament.buyIn'), num(s, 'tournament.fee'), key);
+    // A free tournament (no buy-in and no fee) has nothing to charge: like the first entry, the re-entry then posts no payment.
+    const reCost = num(s, 'tournament.buyIn');
+    const reFee = num(s, 'tournament.fee');
+    const part = reCost + reFee > 0 ? this.pay(userId, 'turnaj_buyin', reCost, reFee, key) : 0;
     this.addBounty(p, part);
     const before = { entries: p.entries, rebuys: p.rebuys, addon: p.addon, eliminations: [...this.st.eliminations], tiedGroups: this.st.tiedGroups?.map((g) => [...g]) };
     p.entries++;
@@ -1404,6 +1411,10 @@ export class Tournament {
     results.forEach((r, i) => {
       r.payout = shared[i]!;
     });
+    // Safety net: nothing may stay on the tournament account. Money a deal did not cover (it cannot arise any more:
+    // payments are refused after a deal) goes to the winner, who played on for the part left in the game.
+    const unassigned = pool - toHouse - results.reduce((a, r) => a + r.payout, 0);
+    if (unassigned > 0 && results[0]) results[0].payout += unassigned;
     for (const r of results) if (r.payout > 0) this.deps.money.payout(this.deps.id, r.userId, r.payout, `trn:${this.deps.id}:payout:${r.place}`);
     if (toHouse > 0) this.deps.money.toHouse(this.deps.id, toHouse, `trn:${this.deps.id}:house`);
     this.st.results = results;
@@ -1456,7 +1467,10 @@ export class Tournament {
     if (alive.length < 2 || alive.length > num(s, 'tournament.dealMaxPlayers') || alive.some((p) => p.status !== 'playing')) return 'DEAL_PLAYERS';
     const rebuyOpen = !!s['tournament.rebuyEnabled'] && this.levelNumber() <= num(s, 'tournament.rebuyUntilLevel');
     const addonOpen = !!s['tournament.addonEnabled'] && this.levelNumber() <= num(s, 'tournament.addonUntilLevel');
-    if (this.lateRegOpen() || rebuyOpen || addonOpen) return 'DEAL_WINDOWS_OPEN';
+    // The one-off add-on offer opens only after its last level ended: while anybody can still buy through it (or it is
+    // about to open), the prize pool may grow and a deal counted now would not cover that money.
+    const addonOffer = !!s['tournament.addonEnabled'] && (!!this.st.addonOfferPending || alive.some((p) => this.addonOffered(p.userId)));
+    if (this.lateRegOpen() || rebuyOpen || addonOpen || addonOffer) return 'DEAL_WINDOWS_OPEN';
     if (this.voting.active('deal')) return 'DEAL_ACTIVE';
     const last = this.st.lastDealRejectedAt;
     if (last !== undefined && this.deps.clock.now() - last < num(s, 'tournament.dealCooldownSeconds') * 1000) return 'DEAL_COOLDOWN';

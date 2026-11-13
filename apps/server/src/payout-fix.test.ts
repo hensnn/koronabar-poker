@@ -71,6 +71,37 @@ async function breakLikeTheOldBug(s: Ctx, id: string, winner: string, fourth: st
 }
 
 describe('přepočet výplat starších turnajů', { timeout: 120_000 }, () => {
+  it('turnaj vyplacený podle dřívějšího pravidla vlastní tabulky (míň hráčů než placených míst) se nehlásí jako chyba', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const [a, b] = [await s.user(), await s.user()];
+    const { id } = await s.server.tournaments.create(org, { name: 'Dva hráči', templateId: 'tour-turbo', settings: LIVE });
+    for (const p of [a, b]) await s.server.tournaments.liveRegister(org, id, p);
+    await s.server.tournaments.start(org, id);
+    await s.server.tournaments.liveEliminate(org, id, b, [a]);
+    await s.server.journal.flush();
+    await new Promise((r) => setTimeout(r, 300));
+    await s.server.journal.flush();
+    // today: 50/30/20 for two players is scaled to 62.5/37.5 of the pool 200
+    expect((await s.server.tournaments.view(id, a)).results!.map((r) => r.payout)).toEqual([125, 75]);
+    expect(await s.server.consistency.payoutReport(s.admin)).toEqual([]);
+    // the same tournament as it was paid before the rule changed: the unused 20 % went to the last paid place (100/100)
+    (s.server.tournaments as unknown as { archive(id: string): void }).archive(id);
+    const [row] = await s.server.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
+    const st = row!.state as TournamentState;
+    st.results![0]!.payout = 100;
+    st.results![1]!.payout = 100;
+    await s.server.db.update(schema.tournaments).set({ state: st }).where(eq(schema.tournaments.id, id));
+    s.server.ledger.post({ kind: 'turnaj_vyplata', idempotencyKey: `test:${id}:old-rule`, gameId: id, entries: [{ account: accounts.wallet(a), amount: -25 }, { account: accounts.wallet(b), amount: 25 }] });
+    await s.server.journal.flush();
+    expect(await s.server.consistency.payoutReport(s.admin)).toEqual([]);
+    // an amount that fits neither rule is still reported for a manual review
+    st.results![0]!.payout = 110;
+    st.results![1]!.payout = 90;
+    await s.server.db.update(schema.tournaments).set({ state: st }).where(eq(schema.tournaments.id, id));
+    expect((await s.server.consistency.payoutReport(s.admin)).map((p) => p.kind)).toEqual(['mismatch']);
+  });
+
   it('správně vyplacený turnaj kontrola nehlásí', async () => {
     const s = await start();
     const org = await s.user('organizator');

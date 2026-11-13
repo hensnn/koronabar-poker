@@ -1145,6 +1145,63 @@ describe('turnaj: dohoda (deal)', { timeout: 300_000 }, () => {
     expect(v.proposer).toBeNull();
     expect(v.voters.every((x) => !x.voted)).toBe(true);
   });
+
+  // Found by the random simulation (payout-sim.test.ts): a deal with a kept part agreed while the one-off add-on offer
+  // was still open; add-ons bought afterwards stayed on the tournament account and nobody got them.
+  it('dohodu nejde navrhnout, dokud běží jednorázová nabídka add-onu', () => {
+    const h = started({ 'tournament.addonEnabled': true, 'tournament.addonFromLevel': 1, 'tournament.addonUntilLevel': 1, 'tournament.addonCost': 100, 'tournament.addonChips': 500, 'tournament.addonMode': 'offer', 'tournament.addonOfferSeconds': 30, 'tournament.levelMinutes': 1, 'tournament.breakEveryLevels': 0 });
+    for (let i = 0; i < 400 && h.tour.addonOfferUntil() === null; i++) h.clock.advance(1000);
+    expect(h.tour.addonOffered('u1')).toBe(true);
+    expect(h.tour.dealOptions('u1').blocked).toBe('DEAL_WINDOWS_OPEN');
+    expect(() => h.tour.proposeDeal('u1', { method: 'equal' })).toThrow(/DEAL_WINDOWS_OPEN/);
+    h.tour.addon('u2');
+    h.clock.advance(31_000);
+    expect(h.tour.addonOfferUntil()).toBeNull();
+    expect(h.tour.dealOptions('u1').blocked).toBeNull();
+    // the deal now counts with the add-on money
+    expect(h.tour.dealOptions('u1').total).toBe(500);
+  });
+
+  it('po uzavřené dohodě už do prize poolu nikdo nepřidá a nová platba zruší rozjednané hlasování', async () => {
+    const pay = (h: Harness, key: string) => (h.tour as unknown as { pay(userId: string, kind: string, cost: number, fee: number, key: string): number }).pay('u1', 'turnaj_addon', 100, 0, key);
+    // a payment while the vote is open makes the proposal outdated
+    const open = started();
+    open.tour.proposeDeal('u1', { method: 'equal' });
+    expect(open.tour.dealOptions('u1').vote!.status).toBe('open');
+    pay(open, 'test:during-vote');
+    expect(open.tour.dealOptions('u1').vote!.status).toBe('cancelled');
+    expect(open.tour.state().deal).toBeUndefined();
+    // after a deal that leaves a part in play nothing more can be paid in, and the whole pool is paid out at the end
+    const h = started({ 'tournament.dealKeepMaxPercent': 20 });
+    h.tour.proposeDeal('u1', { method: 'equal', keep: 40 });
+    voteAll(h);
+    expect(h.tour.state().deal).toMatchObject({ keep: 40 });
+    expect(h.tour.state().status).toBe('running');
+    expect(() => pay(h, 'test:after-deal')).toThrow(/DEAL_DONE/);
+    await play(h, { seed: 5 });
+    const st = h.tour.state();
+    expect(st.status).toBe('finished');
+    expect(st.results!.reduce((a, r) => a + r.payout, 0)).toBe(400);
+    expect(h.money.pool('T')).toBe(0);
+    expect(st.results![0]!.payout).toBe(90 + 40);
+  });
+});
+
+describe('turnaj zdarma', () => {
+  // Found by the random simulation: a re-entry into a tournament with no buy-in and no fee crashed on a zero payment.
+  it('nový vstup (re-entry) nic neúčtuje a nespadne', () => {
+    const h = harness({ 'tournament.buyIn': 0, 'tournament.fee': 0, 'tournament.guarantee': 300, 'tournament.reentryEnabled': true, 'tournament.reentryMax': 1, 'tournament.lateRegLevels': 3 }, 4);
+    registerAll(h);
+    h.tour.start();
+    h.tour.onTableEvent({ type: 'bust', players: [{ userId: 'u1', startStack: 100 }], hand: [] } as never);
+    h.tour.reenter('u1');
+    const me = h.tour.state().players.find((p) => p.userId === 'u1')!;
+    expect(me.status).toBe('playing');
+    expect(me.entries).toBe(2);
+    expect(h.tour.state().payments).toHaveLength(0);
+    expect(h.ledger.balance(accounts.wallet('u1'))).toBe(WALLET);
+    expect(() => h.tour.reenter('u1')).toThrow(TournamentError);
+  });
 });
 
 describe('turnaj: odložená přestávka (ruční události stolu)', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatStructure, generateStructure, parseStructure, StructureError } from './blinds.js';
-import { balancePercents, BP, computePayouts, defaultPercents, paidPlaces, parsePercents, percentsFor, PayoutError } from './payouts.js';
+import { balancePercents, BP, computePayouts, defaultPercents, legacyPercentsFor, paidPlaces, parsePercents, percentsFor, PayoutError } from './payouts.js';
 
 describe('struktura blindů', () => {
   it('rozebere zápis s ante i bez a vrátí ho zpět', () => {
@@ -81,8 +81,20 @@ describe('výplaty', () => {
     expect(code('50,30')).toBe('SUM');
     expect(code('abc')).toBe('SYNTAX');
     expect(code('')).toBe('EMPTY');
-    // víc míst než hráčů: zbytek připadne poslednímu placenému
-    expect(percentsFor('custom', '50,30,20', 2)).toEqual([5000, 5000]);
+    // víc míst než hráčů: procenta obsazených míst se poměrně přepočítají, lepší místo nikdy nedostane míň
+    expect(percentsFor('custom', '50,30,20', 2)).toEqual([6250, 3750]);
+    expect(percentsFor('custom', '40,25,15,10,10', 2)).toEqual([6154, 3846]);
+    expect(percentsFor('custom', '40,25,15,10,10', 4)).toEqual([4446, 2777, 1666, 1111]);
+    expect(percentsFor('custom', '50,30,20', 1)).toEqual([10000]);
+    expect(percentsFor('custom', '50,30,20', 3)).toEqual([5000, 3000, 2000]);
+    for (const [text, n] of [['50,30,20', 2], ['40,25,15,10,10', 3], ['33.34,33.33,33.33', 2], ['60,25,10,5', 3]] as const) {
+      const p = percentsFor('custom', text, n);
+      expect(p.reduce((a, b) => a + b, 0)).toBe(10000);
+      for (let i = 1; i < p.length; i++) expect(p[i]!).toBeLessThanOrEqual(p[i - 1]!);
+    }
+    // dřívější pravidlo (jen pro zpětnou kontrolu starších turnajů): zbytek poslednímu placenému místu
+    expect(legacyPercentsFor('custom', '50,30,20', 2)).toEqual([5000, 5000]);
+    expect(legacyPercentsFor('custom', '40,25,15,10,10', 2)).toEqual([4000, 6000]);
   });
 
   it('součet výher a zbytku je vždy přesně prize pool (náhodné pokusy)', () => {

@@ -1969,7 +1969,7 @@ export const csTournament: Record<string, string> = {
   'settings.tournament.payoutPreset.option.top3': 'První tři místa',
   'settings.tournament.payoutPreset.option.custom': 'Vlastní procenta',
   'settings.tournament.payoutCustom.label': 'Vlastní procenta',
-  'settings.tournament.payoutCustom.help': 'Procenta pro 1., 2., 3. … místo oddělená čárkou (např. 50,30,20), desetinná místa s tečkou. Součet musí být 100.',
+  'settings.tournament.payoutCustom.help': 'Procenta pro 1., 2., 3. … místo oddělená čárkou (např. 50,30,20), desetinná místa s tečkou. Součet musí být 100. Když je hráčů míň než placených míst, procenta obsazených míst se poměrně přepočítají na 100 % (např. 50,30,20 pro dva hráče dá 62,5 a 37,5).',
   'settings.tournament.payoutRoundTo.label': 'Zaokrouhlení výher',
   'settings.tournament.payoutRoundTo.help': 'Výhry se zaokrouhlí dolů na násobek této částky.',
   'settings.tournament.payoutRemainder.label': 'Zbytek ze zaokrouhlení',

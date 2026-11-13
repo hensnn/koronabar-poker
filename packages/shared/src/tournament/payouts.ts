@@ -76,7 +76,24 @@ export function percentsFor(preset: PayoutPreset, custom: string, players: numbe
   if (preset !== 'custom') return defaultPercents(paidPlaces(preset, players));
   const pct = parsePercents(custom);
   if (pct.length <= players) return pct;
-  // Víc míst než hráčů: přebývající procenta připadnou poslednímu placenému místu.
+  // Víc míst než hráčů: procenta obsazených míst se poměrně přepočítají na 100 % (poměry mezi místy zůstanou,
+  // takže lepší místo nikdy nedostane míň než horší). Zbytek po zaokrouhlení připadne vítězi.
+  const kept = pct.slice(0, Math.max(1, players));
+  const total = kept.reduce((a, b) => a + b, 0);
+  if (total <= 0) return [BP, ...kept.slice(1).map(() => 0)];
+  const out = kept.map((x) => Math.floor((x * BP) / total));
+  out[0]! += BP - out.reduce((a, b) => a + b, 0);
+  return out;
+}
+
+/**
+ * Pravidlo platné do 13. 11. 2026: přebývající procenta vlastní tabulky připadla poslednímu placenému místu
+ * (druhý tak mohl dostat víc než vítěz). Slouží jen ke zpětné kontrole turnajů odehraných podle něj.
+ */
+export function legacyPercentsFor(preset: PayoutPreset, custom: string, players: number): number[] {
+  if (preset !== 'custom') return defaultPercents(paidPlaces(preset, players));
+  const pct = parsePercents(custom);
+  if (pct.length <= players) return pct;
   const kept = pct.slice(0, players);
   kept[kept.length - 1]! += pct.slice(players).reduce((a, b) => a + b, 0);
   return kept;
