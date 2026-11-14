@@ -115,6 +115,17 @@ describe('lobby: zakládání stolů', () => {
     expect(await err(s.server.tables.createTable(u, { name: 'Dobrý název', templateId: 'neexistuje' }))).toBe('INVALID');
   });
 
+  it('a table with equal blinds (10/10) can be created and played; it used to throw and leave a broken table behind', async () => {
+    const s = await start();
+    const u = await s.user();
+    const { id } = await s.server.tables.createTable(u, { name: 'Stejné blindy', templateId: 'cash-klasika', settings: { 'table.smallBlind': 10, 'table.bigBlind': 10 } });
+    const actor = s.server.tables.get(id)!;
+    expect(actor).toBeDefined();
+    expect(actor.hasError()).toBeNull();
+    expect(actor.viewFor(null).info).toMatchObject({ smallBlind: 10, bigBlind: 10 });
+    expect(s.server.tables.list().map((r) => r.id)).toContain(id);
+  });
+
   it('bez oprávnění (host, nováček) stůl založit nejde', async () => {
     const s = await start();
     const host = await s.user();

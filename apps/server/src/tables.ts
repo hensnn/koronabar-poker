@@ -99,6 +99,16 @@ export class TableManager {
 
   private spawn(row: TableRow, restore?: PersistedTable): TableActor {
     this.rows.set(row.id, row);
+    try {
+      return this.start(row, restore);
+    } catch (e) {
+      // a table that cannot start must not stay listed as if it ran
+      this.rows.delete(row.id);
+      throw e;
+    }
+  }
+
+  private start(row: TableRow, restore?: PersistedTable): TableActor {
     const settings = () => this.resolve(this.rows.get(row.id)!);
     const actor = new TableActor({
       tableId: row.id,
@@ -127,7 +137,13 @@ export class TableManager {
     const rows = await this.deps.db.select().from(schema.gameTables).where(eq(schema.gameTables.status, 'open'));
     for (const r of rows) {
       const snap = (await loadTableState(this.deps.db, r.id)) as PersistedTable | undefined;
-      this.spawn({ ...r, settings: r.settings ?? {} }, snap);
+      try {
+        this.spawn({ ...r, settings: r.settings ?? {} }, snap);
+      } catch (e) {
+        // One table that cannot be restored must not keep the whole server from starting. It stays in the database
+        // (its chips are still on its account, the consistency check shows them) and is reported here.
+        console.error(`Stůl ${r.id} (${r.name}) se nepodařilo obnovit:`, e instanceof Error ? e.message : e);
+      }
     }
   }
 
@@ -138,7 +154,13 @@ export class TableManager {
       .insert(schema.gameTables)
       .values({ id: input.id, name: input.name, ownerId: input.ownerId ?? null, templateId: input.templateId ?? null, templateValues: template && !template.builtin ? template.values : null, settings: input.settings ?? {}, status: 'open' })
       .returning();
-    return this.spawn({ ...row!, settings: row!.settings ?? {} });
+    try {
+      return this.spawn({ ...row!, settings: row!.settings ?? {} });
+    } catch (e) {
+      // the table could not start: leave no half-created row behind (it would break the next start of the server)
+      await this.deps.db.delete(schema.gameTables).where(eq(schema.gameTables.id, input.id));
+      throw e;
+    }
   }
 
   list(): TableRow[] {

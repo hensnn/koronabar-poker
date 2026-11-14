@@ -91,17 +91,22 @@ export class PokertoolsAdapter implements PokerEngineAdapter {
 
   constructor(cfg: EngineConfig, restore?: unknown) {
     this.cfg = cfg;
+    // Equal blinds (1/1, 5/5) are a normal home game and the settings allow them, but the engine refuses to be
+    // created with them. It plays them fine once it runs (that is how a tournament level with equal blinds arrives),
+    // so it is created with a stand-in big blind and gets the real blinds right after.
+    const equal = cfg.bigBlind <= cfg.smallBlind;
     this.engine = restore
       ? PokerEngine.restore(restore as never)
       : new PokerEngine({
           smallBlind: cfg.smallBlind,
-          bigBlind: cfg.bigBlind,
+          bigBlind: equal ? cfg.smallBlind + 1 : cfg.bigBlind,
           ante: cfg.ante,
           maxPlayers: cfg.maxPlayers,
           timeBankSeconds: cfg.timeBankSeconds,
           validateIntegrity: true,
           ...(cfg.randomProvider ? { randomProvider: cfg.randomProvider } : {}),
         } as never);
+    if (!restore && equal) this.setBlinds(cfg.smallBlind, cfg.bigBlind, cfg.ante);
   }
 
   private get raw(): any {

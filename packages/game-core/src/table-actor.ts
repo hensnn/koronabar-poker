@@ -159,6 +159,8 @@ export class TableActor {
   private pendingFinish: HandState | null = null;
   /** Rozhodnuté hlasování o run it twice, jehož výsledek se ještě ukazuje u stolu, než se začne rozdávat. */
   private runItResultId: string | null = null;
+  /** What the hand in progress put aside for players as the difference between several runs and the engine's single result (cleared on the boundary, where it turns into chips). */
+  private runDeltas = new Map<string, number>();
   private shown = new Map<number, (Card | null)[]>();
   private rabbit: Card[] | null = null;
   private bombPotHand: string | null = null;
@@ -653,9 +655,25 @@ export class TableActor {
     });
   }
 
-  /** Doporučení pro snapshot: stav, který přežije restart serveru. */
+  /**
+   * Doporučení pro snapshot: stav, který přežije restart serveru.
+   *
+   * A hand and everything it changed must be saved together, or not at all:
+   *  - a cash hand that is over is saved with its result (the chips it left, plus its rake, bonuses and the correction
+   *    for several runs). A restart before the next deal then changes nothing;
+   *  - a hand still in progress, and any hand at a tournament table, is saved as it started: it returns on restore, and
+   *    so must the correction for several runs it has already put aside. (A tournament learns who busted only on the
+   *    boundary, from chips that match its own records, so its tables keep the state of the last boundary.)
+   * Saving the chips from before the hand together with its side effects, as it used to be, moved chips between
+   * players for a hand that after the restart never happened.
+   */
   persisted(): PersistedTable {
-    return { seats: [...this.seats.values()].map((e) => ({ ...e })), recentLeaves: [...this.recentLeaves] };
+    // over = the pot is moved and the rake, jackpots and bonuses are taken (not while the result is still being shown)
+    const settled = this.phase === 'pause' && !this.settling && !this.opt.tournament;
+    return {
+      seats: [...this.seats.values()].map((e) => ({ ...e, chips: settled ? this.currentChips(e) : e.chips, pendingChips: settled ? e.pendingChips : e.pendingChips - (this.runDeltas.get(e.userId) ?? 0) })),
+      recentLeaves: [...this.recentLeaves],
+    };
   }
 
   /** Kde jsou žetony: u stolu = součet stacků v enginu a v registru. Pro kontrolu invariantu. */
@@ -948,6 +966,8 @@ export class TableActor {
     const contested = lastHand?.finished
       ? lastHand.players.map((p) => ({ userId: p.playerId, invested: p.invested + p.dead, won: (lastHand.winners ?? []).filter((w) => w.seat === p.seat).reduce((n, w) => n + w.amount, 0), equity: this.lastEquity?.[p.playerId] ?? null }))
       : [];
+    // from here on the last hand is part of the chips: its correction for several runs is no longer something apart
+    this.runDeltas.clear();
     for (const e of [...this.seats.values()]) {
       const engineStack = this.adapter.stackOf(e.userId);
       if (engineStack !== null) {
@@ -1435,7 +1455,10 @@ export class TableActor {
     for (const p of h.players) {
       const delta = (out.winnings.get(p.seat) ?? 0) - (engineWon.get(p.seat) ?? 0);
       const e = this.seats.get(p.playerId);
-      if (e && delta !== 0) e.pendingChips += delta;
+      if (e && delta !== 0) {
+        e.pendingChips += delta;
+        this.runDeltas.set(p.playerId, (this.runDeltas.get(p.playerId) ?? 0) + delta);
+      }
     }
     this.override = { handId: h.handId, winners, engineWinners: h.winners, runs: out.runs };
     return out.runs;
@@ -1845,8 +1868,10 @@ export class TableActor {
 
   private finishHand(): void {
     this.settling = false;
-    this.settleSevenTwo();
+    // The rake first: the 7-2 bonus takes at most what a player really has left, and a player who won a side pot has
+    // less than it looks until the rake is taken from it (the other order left such a player with a negative stack).
     this.settleRakeAndJackpots();
+    this.settleSevenTwo();
     this.pipeline.run('onHandEnd', this.moduleCtx(), this.handState());
     this.phase = 'pause';
     this.persistBoundaryState();
