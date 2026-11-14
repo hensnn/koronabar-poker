@@ -10,7 +10,7 @@ import { Badge, Button, Card, Notice } from '../ui';
 import { PollsPanel } from './polls';
 import { useFeatures } from '../features';
 import { rankColorClass } from '../progress-client';
-import { creditWarning, type CreditInfo } from './credit-warning';
+import { creditStatus, type CreditInfo } from './credit-status';
 
 interface CashTable {
   id: string;
@@ -145,7 +145,7 @@ export function DashboardPage() {
   const mine = myIndex >= 0 ? board[myIndex] : undefined;
   const shown = board.slice(0, TOP);
   const meOutside = mine && myIndex >= TOP;
-  const owed = creditWarning(credit);
+  const overdraft = creditStatus(credit);
 
   return (
     <div className="flex flex-col gap-3">
@@ -160,14 +160,21 @@ export function DashboardPage() {
               {formatCurrency(me?.balance ?? 0, forms)}
             </p>
             <p className="text-sm text-muted">{t('dashboard.balance')}</p>
-            {owed && (
+            {overdraft && overdraft.debt > 0 && (
               <div role="status" className="flex flex-col gap-1 rounded-md border border-danger bg-surface p-3">
                 <p className="text-sm font-semibold text-danger">{t('dashboard.credit.title')}</p>
-                <p className="font-mono text-3xl font-bold text-danger">−{formatCurrency(owed.debt, forms)}</p>
+                <p className="font-mono text-3xl font-bold text-danger">−{formatCurrency(overdraft.debt, forms)}</p>
                 <p className="text-sm">
-                  {t(`dashboard.credit.${owed.state}`, { available: formatCurrency(owed.available, forms), limit: formatCurrency(owed.limit, forms) })}{' '}
-                  {t(owed.autoRepay ? 'dashboard.credit.auto' : 'dashboard.credit.manual')}
+                  {t(`dashboard.credit.${overdraft.state}`, { available: formatCurrency(overdraft.available, forms), limit: formatCurrency(overdraft.limit, forms) })}{' '}
+                  {t(overdraft.autoRepay ? 'dashboard.credit.auto' : 'dashboard.credit.manual')}
                 </p>
+              </div>
+            )}
+            {overdraft && overdraft.debt === 0 && (
+              <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3">
+                <p className="text-sm font-semibold">{t('dashboard.credit.idleTitle')}</p>
+                {overdraft.state === 'unused' && <p className="font-mono text-xl font-bold">{formatCurrency(overdraft.limit, forms)}</p>}
+                <p className="text-sm text-muted">{t(`dashboard.credit.${overdraft.state}`)}</p>
               </div>
             )}
             {mine && (
