@@ -26,7 +26,7 @@ export const csTv: Record<string, string> = {
   'tv.players.title': 'Hráči',
   'tv.leaderboard.season': 'Žebříček sezóny',
   'tv.leaderboard.seasonNamed': 'Žebříček: {name}',
-  'tv.leaderboard.rating': 'Rating',
+  'tv.leaderboard.rating': 'Skill',
   'tv.leaderboard.evening': 'Dnešní večer',
   'tv.polls.title': 'Běžící ankety',
   'tv.polls.until': 'do {time}',

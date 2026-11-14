@@ -49,7 +49,7 @@ export const csLive: Record<string, string> = {
   'live.chipsInPlay': 'Žetony v oběhu',
   'live.eliminateTitle': 'Vyřadit hráče {nick}',
   'live.killers': 'Kdo ho vyřadil (nepovinné)',
-  'live.killersHint': 'Vybrané hráče platí bounty a rating. Když nikdo nevybraný není, bounty zůstane na konec.',
+  'live.killersHint': 'Vybrané hráče platí bounty a skill. Když nikdo nevybraný není, bounty zůstane na konec.',
   'live.confirmEliminate': 'Vyřadit',
   'live.noTable': 'Hraje se u skutečného stolu, aplikace nezobrazuje karty.',
 

@@ -55,7 +55,7 @@ U každého parametru je napsáno, **kdy jde měnit**: hned, od další handy, j
 
 Po založení jde vše upravit tlačítkem **Upravit pravidla** na stránce turnaje (zakladatel nebo správce): před startem cokoli, během turnaje jen parametry označené „lze měnit kdykoli“ nebo „od další handy“. Tlačítko **Pravidla** ukáže, co právě platí.
 
-Po založení: hráči se registrují (nebo je organizátor přihlásí), start ručně nebo automaticky, průběh řídí server (levely, přestávky, pauzy, vyřazení, výplaty). Výsledky jdou do statistik, XP, ratingu a herního večera. Hlasatel a TV režim hlásí a ukazují průběh.
+Po založení: hráči se registrují (nebo je organizátor přihlásí), start ručně nebo automaticky, průběh řídí server (levely, přestávky, pauzy, vyřazení, výplaty). Výsledky jdou do statistik, XP, skillu a herního večera. Hlasatel a TV režim hlásí a ukazují průběh.
 
 ## 4. Čas na tah a time bank
 
@@ -108,9 +108,9 @@ Panely se na telefonu nepoužívají, proto tam není ani nastavení panelů. St
 
 ## 5. Po testování: vynulování
 
-**Správa → Údržba** (jen hlavní správce). Zaškrtni, co se má smazat všem hráčům: zavřít stoly a zrušit turnaje (žetony se vrátí), XP a úrovně, úspěchy, rating, statistiky a historie hand, peněženky na startovní zůstatek. Potvrzuje se slovem VYNULOVAT a je to nevratné (zápis v audit logu). Doporučený postup po zkušebním provozu: 1) zavřít hry, 2) vynulovat XP, úspěchy, rating a statistiky, 3) peněženky na startovní zůstatek. Zvlášť je **Nový start účetní knihy**: smaže historii všech transakcí a každému připíše počáteční zůstatek (jde jen bez otevřených stolů a běžících turnajů). Jednotlivému hráči vynuluješ XP, úspěchy a rating ve **Správa → Uživatelé** tlačítkem *Vynulovat XP a rating*. Rating navíc umí „měkký reset sezóny“ a přepočet z historie ve Statistiky → Rating (pro běžné sezóny bez mazání).
+**Správa → Údržba** (jen hlavní správce). Zaškrtni, co se má smazat všem hráčům: zavřít stoly a zrušit turnaje (žetony se vrátí), XP a úrovně, úspěchy, skill, statistiky a historie hand, peněženky na startovní zůstatek. Potvrzuje se slovem VYNULOVAT a je to nevratné (zápis v audit logu). Doporučený postup po zkušebním provozu: 1) zavřít hry, 2) vynulovat XP, úspěchy, skill a statistiky, 3) peněženky na startovní zůstatek. Zvlášť je **Nový start účetní knihy**: smaže historii všech transakcí a každému připíše počáteční zůstatek (jde jen bez otevřených stolů a běžících turnajů). Jednotlivému hráči vynuluješ XP, úspěchy a skill ve **Správa → Uživatelé** tlačítkem *Vynulovat XP a skill*. Skill navíc umí „měkký reset sezóny“ a přepočet z historie ve Statistiky → Skill (pro běžné sezóny bez mazání).
 
-**Smazání hráče** (**Správa → Uživatelé → Smazat**) účet neodstraní z databáze, ale anonymizuje: přezdívka se změní na „Smazaný hráč 1a2b3c4d“, e-mail, heslo, avatar, barva a osobní nastavení se vymažou, přihlášení přestane fungovat (relace, přístupové tokeny, push odběry i jeho pozvánky se zruší) a zůstatek peněženky se vrátí bance. Odehrané handy, výsledky turnajů, rating a XP zůstávají, aby seděly součty v historii ostatních hráčů; v žebříčku se smazaný hráč už neukazuje. Hranice dne a roku ve statistikách se počítají podle nastavení *Časové pásmo aplikace* (Správa → Nastavení → Systém).
+**Smazání hráče** (**Správa → Uživatelé → Smazat**) účet neodstraní z databáze, ale anonymizuje: přezdívka se změní na „Smazaný hráč 1a2b3c4d“, e-mail, heslo, avatar, barva a osobní nastavení se vymažou, přihlášení přestane fungovat (relace, přístupové tokeny, push odběry i jeho pozvánky se zruší) a zůstatek peněženky se vrátí bance. Odehrané handy, výsledky turnajů, skill a XP zůstávají, aby seděly součty v historii ostatních hráčů; v žebříčku se smazaný hráč už neukazuje. Hranice dne a roku ve statistikách se počítají podle nastavení *Časové pásmo aplikace* (Správa → Nastavení → Systém).
 
 ## 6. Kde co najdeš
 
@@ -124,14 +124,14 @@ Panely se na telefonu nepoužívají, proto tam není ani nastavení panelů. St
 | Levely, výplaty, poplatky, plánování | Šablona nebo úprava turnaje → rozšířené nastavení → Turnaj a podkategorie |
 | Plánování, připomínky, série a ligy | Hra → Stoly → Naplánovat, Série a ligy |
 | Peněženka, žádosti o dobití, vyúčtování večera (filtr Vše / Cash / Turnaje) | Hra → Peněženka |
-| XP, hodnosti, úspěchy, rating | Nastavení → Zkušenosti a hodnosti, Herní rating |
+| XP, hodnosti, úspěchy, skill | Nastavení → Zkušenosti a hodnosti, Skill |
 | Vzhled, hustota zobrazení, zvuky, panely, odhlášení | Nastavení → Osobní nastavení (Odhlásit je vpravo nahoře) |
 | Hlasatel, TV | Správa → Hlasatel, Správa → TV |
 | Home Assistant, Discord, webhooky | Správa → Napojení ven; postup v `docs/HOME-ASSISTANT.md` |
 | Kdo co smí | Správa → Role |
 | Peníze hráčům | Správa → Pokladna |
 | Co se stalo | Správa → Audit log, Finance |
-| Jak se mi daří (grafy zůstatku, výsledků, XP, ratingu) | Hra → Statistiky → Moje statistiky → Jak se mi daří |
+| Jak se mi daří (grafy zůstatku, výsledků, XP, skillu) | Hra → Statistiky → Moje statistiky → Jak se mi daří |
 | Přehled a srovnání všech hráčů | Hra → Statistiky → Přehled hráčů (správce může vypnout: Správa → Nastavení → Statistiky) |
 
 Tip: pro první večer stačí jeden cash stůl ze šablony Klasika a jeden turnaj Freezeout s výplatou *top3*. Zbytek dolaď, až uvidíš, jak se hraje.
@@ -263,7 +263,7 @@ Zrušený turnaj se vrátí celý: každému se vrátí všechny jeho platby (vs
 - **Souhrn po vypadnutí:** kdo vypadne z běžícího turnaje, dostane okno se souhrnem (kolik vložil: buy-in, rebuy, add-on, na kterém místě skončil, výhra za umístění a bounty). Znovu ho vyvoláš tlačítkem **Můj souhrn** nad stolem, i když ostatní ještě hrají. Výhra za umístění se vyplatí až po konci turnaje.
 - **Odměna na hlavu:** když se tvoje vypsaná odměna uplatní, ukáže se ti nahoře výrazný pruh (kdo byl vyřazen a kdo odměnu dostal) a přijde upozornění do zvonečku. V tabulce výsledků (okno po konci turnaje i stránka turnaje) je sloupec **Odměny na hlavu**: zeleně získané za vyřazení, červeně ztracené (odměna, kterou jsi vypsal a dostal ji někdo jiný); započítává se i do zisku, a je i v CSV.
 - Sázky na turnaj a odměny na hlavu se při zrušení vrací jako dřív.
-- **Statistiky:** zrušený turnaj nezanechá žádné statistiky. Smažou se jeho handy a záznamy o vyřazení a XP všech hráčů se přepočítá z toho, co zbylo. Už získané úspěchy (achievementy) a jejich XP zůstávají. Rating se u zrušeného turnaje nikdy nepočítal.
+- **Statistiky:** zrušený turnaj nezanechá žádné statistiky. Smažou se jeho handy a záznamy o vyřazení a XP všech hráčů se přepočítá z toho, co zbylo. Už získané úspěchy (achievementy) a jejich XP zůstávají. Skill se u zrušeného turnaje nikdy nepočítal.
 - Vrácení najdeš v účetní knize jako „Vrácení platby za turnaj“ (a „zrušení turnaje: vrácení vyplacené bounty“).
 
 ## Ovládání oken s volbou a odmítnutí rebuy
@@ -297,7 +297,7 @@ Správce a pokladník s přístupem ke knize najdou ve **Správa → Pokladna** 
 7. výsledky turnajů ve statistikách odpovídají knize,
 8. každý skončený turnaj má výsledky ve statistikách.
 
-Zelené ✔ znamená v pořádku. U červeného ✖ se ukážou příklady. Chybějící výsledky skončeného turnaje (např. po pádu serveru nebo údržbě) doplní tlačítko **Doplnit chybějící výsledky** (peníze se tím nemění, XP a rating pak přepočítá *Správa → Údržba*). Kontrolu doporučujeme pustit po větších zásazích do peněz, po obnově ze zálohy a po údržbě.
+Zelené ✔ znamená v pořádku. U červeného ✖ se ukážou příklady. Chybějící výsledky skončeného turnaje (např. po pádu serveru nebo údržbě) doplní tlačítko **Doplnit chybějící výsledky** (peníze se tím nemění, XP a skill pak přepočítá *Správa → Údržba*). Kontrolu doporučujeme pustit po větších zásazích do peněz, po obnově ze zálohy a po údržbě.
 
 ### Proč se čísla mohou lišit mezi obrazovkami
 - **Přehled hráčů, vyúčtování v peněžence, večery a roční statistika** počítají peníze z účetní knihy a vždy zahrnují všechno, co se u hry stalo (výhry, bounty, odměny na hlavu a sázky bokem). Cash zahrnuje i žetony, které má hráč ještě u stolu.
@@ -306,10 +306,10 @@ Zelené ✔ znamená v pořádku. U červeného ✖ se ukážou příklady. Chyb
 - **Kontokorent** se do výdělku nepočítá: výhra ve hře zůstává celá, splátka je samostatný pohyb.
 
 
-## Divize ratingu a kde je vidět
+## Divize skillu a kde je vidět
 
-Rating hráče se překládá na divizi s ikonou: 🥔 Brambora, 🐟 Kapr, 🦊 Liška, 🐺 Vlk samotář a 🐉 Drak od zeleného stolu. Hranice, názvy, ikony i barvy změníš v Nastavení → Rating → Divize (tvar `Název|ikona|barva|od`, oddělené středníkem; první divize musí začínat na 0). Divizi najdeš v Lobby v kartě Moje konto (i s počtem bodů do další divize), v žebříčku hráčů v Lobby a na stránce Postup. Stránka Postup funguje i s vypnutým XP, stačí zapnutý rating. Když správce skryje čísla ratingu, zůstane vidět jen divize a ikona.
+Skill hráče se překládá na divizi s ikonou: 🥔 Brambora, 🐟 Kapr, 🦊 Liška, 🐺 Vlk samotář a 🐉 Drak od zeleného stolu. Hranice, názvy, ikony i barvy změníš v Nastavení → Skill → Divize (tvar `Název|ikona|barva|od`, oddělené středníkem; první divize musí začínat na 0). Divizi najdeš v Lobby v kartě Moje konto (i s počtem bodů do další divize), v žebříčku hráčů v Lobby a na stránce Postup. Stránka Postup funguje i s vypnutým XP, stačí zapnutý skill. Když správce skryje čísla skillu, zůstane vidět jen divize a ikona.
 
-Sadu divizí přepneš v Nastavení → Rating → Sada divizí: Zvířátka (výchozí), Vojenské hodnosti (🔰 Vojín, 🛡️ Desátník, 🎖️ Poručík, ⭐ Major, 🌟 Generál) nebo Vlastní (použije se text z nastavení Divize). Přepnutí mění jen názvy a ikony, rating hráčů zůstává. Ikona divize je také ve veřejných žebříčcích a v televizním zobrazení.
+Sadu divizí přepneš v Nastavení → Skill → Sada divizí: Zvířátka (výchozí), Vojenské hodnosti (🔰 Vojín, 🛡️ Desátník, 🎖️ Poručík, ⭐ Major, 🌟 Generál) nebo Vlastní (použije se text z nastavení Divize). Přepnutí mění jen názvy a ikony, skill hráčů zůstává. Ikona divize je také ve veřejných žebříčcích a v televizním zobrazení.
 
-- **Barva hráče:** každý hráč má svou barvu, která se ukazuje jako tečka u jména v žebříčcích a přehledech (lobby, Statistiky, rating, veřejný přehled, televize) a jako barva čáry v grafech srovnání. Správce ji nastaví v **Správa → Uživatelé → sloupec Barva**: paleta má 12 odstínů (sloupce) a 5 tónů od světlého po tmavý (řádky); volba "Automaticky" přidělí volnou barvu podle pořadí registrace. Základní odstíny jde změnit v editoru vzhledu (Barva hráče 1 až 12).
+- **Barva hráče:** každý hráč má svou barvu, která se ukazuje jako tečka u jména v žebříčcích a přehledech (lobby, Statistiky, skill, veřejný přehled, televize) a jako barva čáry v grafech srovnání. Správce ji nastaví v **Správa → Uživatelé → sloupec Barva**: paleta má 12 odstínů (sloupce) a 5 tónů od světlého po tmavý (řádky); volba "Automaticky" přidělí volnou barvu podle pořadí registrace. Základní odstíny jde změnit v editoru vzhledu (Barva hráče 1 až 12).

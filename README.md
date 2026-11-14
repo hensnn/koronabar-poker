@@ -2,7 +2,7 @@
 
 Vlastní webová pokerová herna pro domácí hry přátel přes internet. Cash game i turnaje, virtuální měna **bez peněžní hodnoty** (žádné platby, směna ani výběry). Běží na tvém serveru pod tvou doménou (v návodu je jako příklad `poker.example.cz`).
 
-> Stav projektu: všech 12 fází ze zadání je hotových a pokrytých testy (cash i turnaje, plánování, chat, zvukové emotikony, XP a rating, ankety, statistiky, vzhled, živá hra a TV, hlasatel, večery, sázky, limity, kosmetika, Home Assistant a API, AI asistent a MCP, PWA). Podrobnosti a odložené drobnosti jsou v `docs/STAV.md`, výsledek poslední kontroly (testy, simulace her, známé nedostatky) v `docs/AUDIT.md`.
+> Stav projektu: všech 12 fází ze zadání je hotových a pokrytých testy (cash i turnaje, plánování, chat, zvukové emotikony, XP a skill, ankety, statistiky, vzhled, živá hra a TV, hlasatel, večery, sázky, limity, kosmetika, Home Assistant a API, AI asistent a MCP, PWA). Podrobnosti a odložené drobnosti jsou v `docs/STAV.md`, výsledek poslední kontroly (testy, simulace her, známé nedostatky) v `docs/AUDIT.md`.
 
 ## Co potřebuješ
 
