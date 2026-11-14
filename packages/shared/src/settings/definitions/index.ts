@@ -245,6 +245,12 @@ const stats: SettingDef[] = [
   int('stats.leaderboardMinHands', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 30, 0, 100000),
   int('stats.cacheSeconds', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 's' }, 30, 0, 3600),
   int('stats.categoryMinGames', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 3, 1, 1000),
+  // Leaderboard in the lobby, the same for everybody: period ('all', 'current' = the running season, or a season id), rows, order, columns.
+  text('stats.lobbyBoardSeason', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'all', 60),
+  int('stats.lobbyBoardRows', { category: 'stats', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 8, 3, 50),
+  choice('stats.lobbyBoardSort', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'profit', ['profit', 'skill']),
+  bool('stats.lobbyBoardSkill', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
+  bool('stats.lobbyBoardProfit', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
   bool('stats.yearEnabled', { category: 'stats', mutability: ADM, scopes: GLOBAL }, true),
   text('stats.yearFieldsWeb', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'net,tournamentNet,cashNet,liveNet,won,lost,topUps,withdrawals,balanceStart,balanceEnd,hands,tournaments,monthly', 300),
   text('stats.yearFieldsEmail', { category: 'stats', mutability: ADM, scopes: GLOBAL }, 'net,tournamentNet,cashNet,topUps,withdrawals,balanceEnd', 300),
@@ -973,6 +979,12 @@ export function createDefaultRegistry(): SettingsRegistry {
       keys: ['economy.transferMin', 'economy.transferMax'],
       check: (v) => (v['economy.transferMin'] as number) <= (v['economy.transferMax'] as number),
       messageKey: 'rule.transferMinAboveMax',
+    },
+    {
+      id: 'lobbyBoardSeason',
+      keys: ['stats.lobbyBoardSeason'],
+      check: (v) => /^(all|current|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(String(v['stats.lobbyBoardSeason'] ?? '')),
+      messageKey: 'rule.invalidLobbyBoardSeason',
     },
     {
       id: 'timezone',

@@ -65,7 +65,7 @@ const gameKindCond = (kind: typeof schema.ledgerTransactions.kind) => or(like(ki
  * Čistý výsledek hráčů ze všech her podle účetní knihy: cash (včetně živého) a turnaje (včetně bounty, sázek a odměn na hlavu) zvlášť.
  * Jediný zdroj peněz pro přehledy; shoduje se s vyúčtováním v peněžence a s výsledky večerů. Bez vkladů a výběrů správcem, bez kontokorentu.
  */
-export async function gameNets(db: Db, opts: { userIds?: string[] } = {}): Promise<Map<string, { cash: number; tournament: number }>> {
+export async function gameNets(db: Db, opts: { userIds?: string[]; from?: Date | null; to?: Date | null } = {}): Promise<Map<string, { cash: number; tournament: number }>> {
   const out = new Map<string, { cash: number; tournament: number }>();
   if (opts.userIds && opts.userIds.length === 0) return out;
   const le = schema.ledgerEntries;
@@ -74,7 +74,8 @@ export async function gameNets(db: Db, opts: { userIds?: string[] } = {}): Promi
     .select({ account: le.account, kind: lt_.kind, net: sql<number>`coalesce(sum(${le.amount}), 0)::int` })
     .from(le)
     .innerJoin(lt_, sql`${lt_.id} = ${le.transactionId}`)
-    .where(and(like(le.account, 'wallet:%'), gameKindCond(lt_.kind), opts.userIds ? inArray(le.account, opts.userIds.map((u) => `wallet:${u}`)) : undefined))
+    // a period (season) takes the movements from its start up to, not including, its end, like the statistics do
+    .where(and(like(le.account, 'wallet:%'), gameKindCond(lt_.kind), opts.userIds ? inArray(le.account, opts.userIds.map((u) => `wallet:${u}`)) : undefined, opts.from ? gte(lt_.at, opts.from) : undefined, opts.to ? lt(lt_.at, opts.to) : undefined))
     .groupBy(le.account, lt_.kind);
   for (const r of rows) {
     const id = r.account.slice('wallet:'.length);

@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { currencyFormsOf, formatCurrency, t } from '@kb/shared';
-import { get } from '../api';
+import { errorText, get, put } from '../api';
 import { Link, navigate } from '../router';
-import { useSession } from '../session';
+import { can, useSession } from '../session';
 import { PlayerDotById } from '../player-color';
 import { deviceId, useSettings } from '../settings';
 import { useMySeats } from '../my-seat';
-import { Badge, Button, Card, Notice } from '../ui';
+import { Badge, Button, Card, Modal, Notice, Select, TextInput } from '../ui';
 import { PollsPanel } from './polls';
 import { useFeatures } from '../features';
 import { rankColorClass } from '../progress-client';
@@ -44,6 +44,24 @@ interface Row {
   division?: { name: string; icon: string; color: string; rating: number | null } | null;
 }
 
+/** Row of the leaderboard in the lobby; a column the administrator switched off comes as null. */
+interface BoardRow {
+  place: number;
+  userId: string;
+  nickname: string;
+  rank?: { name: string; icon: string; color: string };
+  division: { name: string; icon: string; color: string; rating: number | null } | null;
+  total: number | null;
+}
+/** Leaderboard in the lobby as the server set it up for everybody (period, order, columns, number of rows). */
+interface Board {
+  period: { kind: 'all' } | { kind: 'season'; id: string; name: string };
+  sort: 'profit' | 'skill';
+  columns: { skill: boolean; profit: boolean };
+  rows: BoardRow[];
+  me: BoardRow | null;
+}
+
 interface MyRating {
   rating: number | null;
   provisional: boolean;
@@ -63,7 +81,6 @@ const WHEN: Intl.DateTimeFormatOptions = {
   hour: '2-digit',
   minute: '2-digit',
 };
-const TOP = 8;
 
 /** Hlavní stránka: kde hraju, můj zůstatek, otevřené cash stoly, plánované turnaje a žebříček hráčů. */
 export function DashboardPage() {
@@ -74,6 +91,8 @@ export function DashboardPage() {
   const [tables, setTables] = useState<CashTable[] | null>(null);
   const [tours, setTours] = useState<Tour[] | null>(null);
   const [rows, setRows] = useState<Row[] | null | 'hidden'>(null);
+  const [board, setBoard] = useState<Board | null | 'hidden'>(null);
+  const [configuring, setConfiguring] = useState(false);
   const [myRating, setMyRating] = useState<{ tournament: MyRating; cash: MyRating } | null>(null);
   const [credit, setCredit] = useState<CreditInfo | null>(null);
   const forms = currencyFormsOf(settings.values);
@@ -130,6 +149,19 @@ export function DashboardPage() {
     };
   }, []);
 
+  const loadBoard = useCallback(
+    () =>
+      get<Board>('/api/lobby/leaderboard')
+        .then(setBoard)
+        .catch(() => setBoard('hidden')),
+    [],
+  );
+  useEffect(() => {
+    void loadBoard();
+    const id = setInterval(() => void loadBoard(), 30_000);
+    return () => clearInterval(id);
+  }, [loadBoard]);
+
   const upcoming = (tours ?? [])
     .filter((x) => x.status === 'registering' || x.status === 'running')
     .sort((a, b) =>
@@ -140,11 +172,10 @@ export function DashboardPage() {
           : 1,
     )
     .slice(0, 6);
-  const board = Array.isArray(rows) ? rows : [];
-  const myIndex = board.findIndex((r) => r.userId === me?.user.id);
-  const mine = myIndex >= 0 ? board[myIndex] : undefined;
-  const shown = board.slice(0, TOP);
-  const meOutside = mine && myIndex >= TOP;
+  // My earnings over the whole history come from the players' overview; my place is the one on the board below.
+  const mine = Array.isArray(rows) ? rows.find((r) => r.userId === me?.user.id) : undefined;
+  const shown = board && board !== 'hidden' ? board : null;
+  const myPlace = shown ? (shown.rows.find((r) => r.userId === me?.user.id)?.place ?? shown.me?.place ?? null) : null;
   const overdraft = creditStatus(credit);
 
   return (
@@ -181,7 +212,7 @@ export function DashboardPage() {
               <p>
                 {t('dashboard.earnings')}:{' '}
                 <strong className={`font-mono ${tone(mine.total)}`}>{signed(mine.total)}</strong>
-                <span className="text-muted"> · {t('dashboard.place', { n: myIndex + 1 })}</span>
+                {myPlace !== null && <span className="text-muted"> · {t('dashboard.place', { n: myPlace })}</span>}
               </p>
             )}
             {myRating && <RatingLines r={myRating} />}
@@ -308,31 +339,133 @@ export function DashboardPage() {
           </Link>
         }
       >
-        {rows === 'hidden' ? (
+        {board === 'hidden' ? (
           <Notice>{t('dashboard.statsHidden')}</Notice>
-        ) : rows === null ? (
+        ) : !shown ? (
           <p className="text-muted">{t('app.loading')}</p>
-        ) : shown.length === 0 ? (
+        ) : shown.rows.length === 0 ? (
           <p className="text-muted">{t('dashboard.noPlayers')}</p>
         ) : (
-          <ol className="flex flex-col gap-1">
-            {shown.map((r, i) => (
-              <Entry key={r.userId} place={i + 1} row={r} me={r.userId === me?.user.id} />
-            ))}
-            {meOutside && mine && <Entry place={myIndex + 1} row={mine} me />}
-          </ol>
+          <>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted">
+                {shown.period.kind === 'season' ? t('dashboard.board.periodSeason', { name: shown.period.name }) : t('dashboard.board.periodAll')}
+                {shown.sort === 'skill' && ` · ${t('dashboard.board.sortedBySkill')}`}
+              </p>
+              {can(me, 'nastaveni.globalni') && <Button onClick={() => setConfiguring(true)}>{t('dashboard.board.configure')}</Button>}
+            </div>
+            {/* column labels: same widths as the rows below */}
+            <div className="flex items-center gap-3 border border-transparent px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+              <span className="w-6 text-right">#</span>
+              <span className="min-w-0 flex-1 basis-0">{t('dashboard.board.colPlayer')}</span>
+              {shown.columns.skill && <span className="min-w-0 flex-1 basis-0 text-center">{t('dashboard.board.colSkill')}</span>}
+              {shown.columns.profit && <span className="w-20 text-right">{t('dashboard.board.colProfit')}</span>}
+            </div>
+            <ol className="flex flex-col gap-1">
+              {shown.rows.map((r) => (
+                <Entry key={r.userId} row={r} columns={shown.columns} me={r.userId === me?.user.id} />
+              ))}
+              {shown.me && <Entry row={shown.me} columns={shown.columns} me />}
+            </ol>
+          </>
         )}
-        <p className="mt-2 text-xs text-muted">{t('dashboard.earningsHelp')}</p>
+        {shown?.columns.profit && <p className="mt-2 text-xs text-muted">{t('dashboard.earningsHelp')}</p>}
       </Card>
+      {configuring && shown && (
+        <BoardConfig
+          board={shown}
+          onClose={() => setConfiguring(false)}
+          onSaved={() => {
+            setConfiguring(false);
+            void loadBoard();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
+/**
+ * Setting up the leaderboard in the lobby for everybody (administrator): the period, most of all the season, then the
+ * number of rows, the order and the columns. The values are ordinary global settings; this is just a handier form.
+ */
+function BoardConfig({ board, onClose, onSaved }: { board: Board; onClose: () => void; onSaved: () => void }) {
+  const settings = useSettings();
+  const [seasons, setSeasons] = useState<{ id: string; name: string }[]>([]);
+  const [season, setSeason] = useState(String(settings.values['stats.lobbyBoardSeason'] ?? 'all'));
+  const [rows, setRows] = useState(String(settings.values['stats.lobbyBoardRows'] ?? board.rows.length));
+  const [sort, setSort] = useState<'profit' | 'skill'>(board.sort);
+  const [skill, setSkill] = useState(board.columns.skill);
+  const [profit, setProfit] = useState(board.columns.profit);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    get<{ seasons: { id: string; name: string }[] }>('/api/stats/seasons')
+      .then((d) => setSeasons(d.seasons))
+      .catch(() => setSeasons([]));
+  }, []);
+  const save = async () => {
+    setBusy(true);
+    try {
+      const values: [string, string | number | boolean][] = [
+        ['stats.lobbyBoardSeason', season],
+        ['stats.lobbyBoardRows', Number(rows)],
+        ['stats.lobbyBoardSort', sort],
+        ['stats.lobbyBoardSkill', skill],
+        ['stats.lobbyBoardProfit', profit],
+      ];
+      for (const [key, value] of values) await put('/api/settings/global', { key, value });
+      onSaved();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title={t('dashboard.board.configTitle')} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-muted">{t('dashboard.board.configHelp')}</p>
+        <Select label={t('dashboard.board.season')} value={season} onChange={(e) => setSeason(e.target.value)}>
+          <option value="all">{t('dashboard.board.seasonAll')}</option>
+          <option value="current">{t('dashboard.board.seasonCurrent')}</option>
+          {seasons.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </Select>
+        <TextInput label={t('dashboard.board.rows')} type="number" min={3} max={50} value={rows} onChange={(e) => setRows(e.target.value)} />
+        <Select label={t('dashboard.board.sort')} value={sort} onChange={(e) => setSort(e.target.value === 'skill' ? 'skill' : 'profit')}>
+          <option value="profit">{t('dashboard.board.sort.profit')}</option>
+          <option value="skill">{t('dashboard.board.sort.skill')}</option>
+        </Select>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" role="switch" checked={skill} onChange={(e) => setSkill(e.target.checked)} />
+          {t('dashboard.board.showSkill')}
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" role="switch" checked={profit} onChange={(e) => setProfit(e.target.checked)} />
+          {t('dashboard.board.showProfit')}
+        </label>
+        {error && <Notice kind="error">{error}</Notice>}
+        <div className="flex gap-2">
+          <Button variant="primary" disabled={busy} onClick={() => void save()}>
+            {t('dashboard.board.save')}
+          </Button>
+          <Button onClick={onClose}>{t('table.cancel')}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Entry({ row, columns, me }: { row: BoardRow; columns: Board['columns']; me: boolean }) {
   const features = useFeatures();
   const xpOn = features.xp;
   const ratingOn = features.ratingTournament || features.ratingCash;
   const shownDivision = ratingOn ? row.division : null;
+  const place = row.place;
   return (
     <li
       className={`flex items-center gap-3 rounded-md border px-3 py-1 ${me ? 'border-primary bg-raised' : 'border-line'}`}
@@ -347,15 +480,17 @@ function Entry({ place, row, me }: { place: number; row: Row; me: boolean }) {
         <PlayerDotById userId={row.userId} />
         {row.nickname}
       </strong>
-      <span className="min-w-0 flex-1 basis-0 truncate text-center">
-        {shownDivision && (
-          <span className={`whitespace-nowrap text-sm ${rankColorClass(shownDivision.color)}`} title={shownDivision.name}>
-            <span aria-hidden>{shownDivision.icon}</span> <span className="hidden sm:inline">{shownDivision.name}</span>
-            {shownDivision.rating != null && <span className="ml-1 font-mono text-muted">{shownDivision.rating}</span>}
-          </span>
-        )}
-      </span>
-      <span className={`w-20 text-right font-mono ${tone(row.total)}`}>{signed(row.total)}</span>
+      {columns.skill && (
+        <span className="min-w-0 flex-1 basis-0 truncate text-center">
+          {shownDivision && (
+            <span className={`whitespace-nowrap text-sm ${rankColorClass(shownDivision.color)}`} title={shownDivision.name}>
+              <span aria-hidden>{shownDivision.icon}</span> <span className="hidden sm:inline">{shownDivision.name}</span>
+              {shownDivision.rating != null && <span className="ml-1 font-mono text-muted">{shownDivision.rating}</span>}
+            </span>
+          )}
+        </span>
+      )}
+      {columns.profit && row.total !== null && <span className={`w-20 text-right font-mono ${tone(row.total)}`}>{signed(row.total)}</span>}
     </li>
   );
 }

@@ -1108,6 +1108,7 @@ export const cs: Record<string, string> = {
   'rule.minBuyInAboveMax': 'Minimální buy-in nesmí být větší než maximální.',
   'rule.anteAboveBigBlind': 'Ante nesmí být větší než big blind.',
   'rule.transferMinAboveMax': 'Nejmenší převod nesmí být větší než největší převod.',
+  'rule.invalidLobbyBoardSeason': 'Období žebříčku v lobby musí být all (celá doba), current (právě běžící sezóna) nebo ID sezóny. Nejsnáz ho nastavíš tlačítkem Nastavit přímo u žebříčku v lobby.',
   'rule.invalidTimezone': 'Zadej platný název časového pásma (např. Europe/Prague).',
   'change.denied.afterStart': 'Tuto hodnotu lze měnit jen před startem hry.',
   'change.denied.adminOnly': 'Tuto hodnotu smí měnit jen administrátor.',

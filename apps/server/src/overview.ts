@@ -24,6 +24,30 @@ interface Deps {
   divisions?: (scope: 'tournament' | 'cash') => Promise<{ byUser: Map<string, DivisionInfo>; fallback: DivisionInfo }>;
   /** Hráči, kteří právě sedí u cash stolů (jejich žetony se do cash výsledku počítají jako výběr). */
   seated?: () => { userId: string; chips: number }[];
+  /** Seasons, for the leaderboard in the lobby. */
+  seasons?: () => Promise<{ id: string; name: string; startsAt: number; endsAt: number | null }[]>;
+  now?: () => number;
+}
+
+export interface LobbyBoardRow {
+  place: number;
+  userId: string;
+  nickname: string;
+  rank: { name: string; icon: string; color: string };
+  /** null when the Skill column is switched off (or the player has no division). */
+  division: DivisionInfo | null;
+  /** null when the Profit column is switched off. */
+  total: number | null;
+}
+
+/** Leaderboard in the lobby: the same for everybody, set up by the administrator (period, rows, order, columns). */
+export interface LobbyBoard {
+  period: { kind: 'all' } | { kind: 'season'; id: string; name: string };
+  sort: 'profit' | 'skill';
+  columns: { skill: boolean; profit: boolean };
+  rows: LobbyBoardRow[];
+  /** The viewer's own row when it did not fit among the rows shown. */
+  me: LobbyBoardRow | null;
 }
 
 /** Divize s číslem ratingu (i provizorním). */
@@ -76,21 +100,58 @@ export class OverviewService {
   }
 
   async overview(): Promise<{ rows: OverviewRow[] }> {
+    return { rows: await this.rows() };
+  }
+
+  /**
+   * Leaderboard in the lobby. What it shows is decided here from the global settings, not by the client: the period
+   * (whole history, the running season, or one chosen season), how many rows, the order and which columns.
+   * A season that no longer exists, or "running season" while none runs, falls back to the whole history.
+   */
+  async lobbyBoard(viewerId: string): Promise<LobbyBoard> {
+    this.visible();
+    const s = this.deps.settings();
+    const wanted = String(s['stats.lobbyBoardSeason'] ?? 'all');
+    const now = this.deps.now?.() ?? Date.now();
+    const seasons = wanted === 'all' ? [] : ((await this.deps.seasons?.()) ?? []);
+    const season = wanted === 'current' ? seasons.find((x) => x.startsAt <= now && (x.endsAt === null || x.endsAt > now)) : seasons.find((x) => x.id === wanted);
+    const all = await this.rows(season ? { from: new Date(season.startsAt), to: season.endsAt === null ? null : new Date(season.endsAt) } : {});
+    const columns = { skill: s['stats.lobbyBoardSkill'] !== false, profit: s['stats.lobbyBoardProfit'] !== false };
+    const sort = s['stats.lobbyBoardSort'] === 'skill' ? 'skill' : 'profit';
+    // Skill as a number for ordering; hidden numbers (or no skill at all) leave the order by profit.
+    const skill = (r: OverviewRow) => r.division?.rating ?? r.ratingTournament ?? r.ratingCash ?? Number.NEGATIVE_INFINITY;
+    if (sort === 'skill') all.sort((a, b) => skill(b) - skill(a) || b.total - a.total || b.balance - a.balance);
+    const view = (r: OverviewRow, i: number): LobbyBoardRow => ({ place: i + 1, userId: r.userId, nickname: r.nickname, rank: r.rank, division: columns.skill ? r.division : null, total: columns.profit ? r.total : null });
+    const limit = Math.max(1, Number(s['stats.lobbyBoardRows']) || 1);
+    const mine = all.findIndex((r) => r.userId === viewerId);
+    return {
+      period: season ? { kind: 'season', id: season.id, name: season.name } : { kind: 'all' },
+      sort,
+      columns,
+      rows: all.slice(0, limit).map(view),
+      me: mine >= limit ? view(all[mine]!, mine) : null,
+    };
+  }
+
+  /** Rows of all active players, ordered by profit. `from`/`to` limit the profit to a period; the rest is as of now. */
+  private async rows(period: { from?: Date | null; to?: Date | null } = {}): Promise<OverviewRow[]> {
     this.visible();
     const db = this.deps.db;
     const users = await db.select({ id: schema.users.id, nickname: schema.users.nickname, lastSeenAt: schema.users.lastSeenAt }).from(schema.users).where(eq(schema.users.status, 'active'));
     const ids = users.map((u) => u.id);
-    if (ids.length === 0) return { rows: [] };
+    if (ids.length === 0) return [];
     const briefs = new Map((await this.deps.brief(ids)).map((b) => [b.userId, b]));
     const xp = new Map((await db.select({ userId: schema.playerProgress.userId, xp: schema.playerProgress.xp }).from(schema.playerProgress)).map((p) => [p.userId, Number(p.xp)]));
     // Jen cash ruce; ruce odehrané v turnajích se sem nepočítají (turnaje mají vlastní sloupec).
     const handsRows = await db.select({ userId: schema.handPlayers.userId, n: sql<number>`count(*)::int` }).from(schema.handPlayers).where(eq(schema.handPlayers.kind, 'cash')).groupBy(schema.handPlayers.userId);
     const hands = new Map(handsRows.map((r) => [r.userId, Number(r.n)]));
     // Peníze podle účetní knihy (stejný zdroj jako vyúčtování v peněžence a výsledky večerů): cash včetně živého, turnaje včetně sázek a odměn na hlavu.
-    const nets = await gameNets(db);
+    const nets = await gameNets(db, { from: period.from, to: period.to });
     const rate = Number(this.deps.settings()['cash.chipsPerCurrencyUnit']) || 1;
     const seated = new Map<string, number>();
-    for (const x of this.deps.seated?.() ?? []) seated.set(x.userId, (seated.get(x.userId) ?? 0) + Math.floor(x.chips / rate));
+    // chips at the tables count as a withdrawal only for a period that reaches the present
+    const open = !period.to || period.to.getTime() > (this.deps.now?.() ?? Date.now());
+    for (const x of open ? (this.deps.seated?.() ?? []) : []) seated.set(x.userId, (seated.get(x.userId) ?? 0) + Math.floor(x.chips / rate));
     const gr = schema.gameResults;
     const tourRows = await db
       .select({ userId: gr.userId, n: sql<number>`count(*)::int` })
@@ -137,7 +198,7 @@ export class OverviewService {
       };
     });
     rows.sort((a, b) => b.total - a.total || b.balance - a.balance);
-    return { rows };
+    return rows;
   }
 
   /** Vývoj vybraných hráčů v čase: výdělek ze všech her (turnaje + cash + živý cash v měně), zůstatek nebo XP. */

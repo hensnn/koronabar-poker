@@ -242,3 +242,128 @@ describe('výdaje domu spravuje i pokladník (se schválením)', () => {
     expect(after.month.total).toBe(400);
   });
 });
+
+describe('leaderboard in the lobby', { timeout: 60_000 }, () => {
+  async function scene(over: Record<string, string | number | boolean> = {}) {
+    const clock = new FakeClock();
+    const server = await buildServer({
+      clock,
+      emailWorker: false,
+      masterKey: { key: Buffer.alloc(32, 3), version: 1 },
+      settingsOverride: { 'system.emailVerificationRequired': false, 'system.publicUrl': 'http://localhost', ...over },
+      bootstrapAdmin: { nickname: 'Admin', password: 'admin-heslo-123' },
+      defaultTable: false,
+    });
+    servers.push(server);
+    const [admin] = server.perms.mainAdminIds();
+    const user = async (nick: string) => {
+      const inv = await server.accounts.createInvite(admin!, {});
+      return (await server.accounts.register({ inviteCode: inv, nickname: nick, email: `${nick}@example.cz`, password: 'heslo-hrace-123', acceptTerms: true })).userId;
+    };
+    const [a, b] = [await user('Karel'), await user('Jana')];
+    let n = 0;
+    /** One cash session: both buy in 500 and leave with the given chips. */
+    const session = (chipsA: number, chipsB: number) => {
+      const table = `stul-${++n}`;
+      server.cash.buyIn(a, table, 500, `t:${n}:a:in`);
+      server.cash.buyIn(b, table, 500, `t:${n}:b:in`);
+      server.cash.cashOut(a, table, chipsA, `t:${n}:a:out`);
+      server.cash.cashOut(b, table, chipsB, `t:${n}:b:out`);
+    };
+    const DAY = 86_400_000;
+    // last year's season: Karel +300, Jana -300
+    const start1 = clock.now();
+    session(800, 200);
+    clock.advance(10 * DAY);
+    const start2 = clock.now();
+    const old = await server.stats.createSeason(admin!, { name: 'Loni', startsAt: start1 - 1000, endsAt: start2 });
+    const cur = await server.stats.createSeason(admin!, { name: 'Letos', startsAt: start2 });
+    // this year's season: Karel -400, Jana +400
+    clock.advance(DAY);
+    session(100, 900);
+    await server.journal.flush();
+    const set = (key: string, value: string | number | boolean) => server.settings.set(admin!, 'global', '', key, value);
+    const board = (viewer = admin!) => server.overview.lobbyBoard(viewer);
+    const totals = (x: Awaited<ReturnType<typeof board>>) => x.rows.filter((r) => r.total !== 0).map((r) => [r.nickname, r.total]);
+    return { server, clock, admin: admin!, a, b, old, cur, set, board, totals };
+  }
+
+  it('shows the whole history by default; the administrator switches everybody to a season', async () => {
+    const s = await scene();
+    const all = await s.board();
+    expect(all.period).toEqual({ kind: 'all' });
+    expect(all.sort).toBe('profit');
+    expect(all.columns).toEqual({ skill: true, profit: true });
+    expect(s.totals(all)).toEqual([['Jana', 100], ['Karel', -100]]);
+
+    // the running season: found by the date, so next year's season takes over by itself
+    await s.set('stats.lobbyBoardSeason', 'current');
+    const now = await s.board(s.a);
+    expect(now.period).toEqual({ kind: 'season', id: s.cur, name: 'Letos' });
+    expect(s.totals(now)).toEqual([['Jana', 400], ['Karel', -400]]);
+
+    // one chosen season, also a finished one
+    await s.set('stats.lobbyBoardSeason', s.old);
+    const last = await s.board();
+    expect(last.period).toEqual({ kind: 'season', id: s.old, name: 'Loni' });
+    expect(s.totals(last)).toEqual([['Karel', 300], ['Jana', -300]]);
+
+    // when the running season ends and a new one starts, "current" follows it without touching the setting
+    await s.set('stats.lobbyBoardSeason', 'current');
+    await s.server.stats.updateSeason(s.admin, s.cur, { endsAt: s.clock.now() });
+    s.clock.advance(1000);
+    const next = await s.server.stats.createSeason(s.admin, { name: 'Napřesrok', startsAt: s.clock.now() - 500 });
+    const fresh = await s.board();
+    expect(fresh.period).toEqual({ kind: 'season', id: next, name: 'Napřesrok' });
+    expect(s.totals(fresh)).toEqual([]); // nobody has played in it yet
+  });
+
+  it('a season that is gone, or no running season, falls back to the whole history; a wrong value is refused', async () => {
+    const s = await scene();
+    await s.set('stats.lobbyBoardSeason', s.old);
+    await s.server.stats.deleteSeason(s.admin, s.old);
+    expect((await s.board()).period).toEqual({ kind: 'all' });
+    await s.set('stats.lobbyBoardSeason', 'current');
+    await s.server.stats.deleteSeason(s.admin, s.cur);
+    const b = await s.board();
+    expect(b.period).toEqual({ kind: 'all' });
+    expect(s.totals(b)).toEqual([['Jana', 100], ['Karel', -100]]);
+    await expect(s.set('stats.lobbyBoardSeason', 'letos')).rejects.toThrow();
+  });
+
+  it('number of rows, own row below the list, hidden columns and order by skill', async () => {
+    const s = await scene({ 'stats.lobbyBoardRows': 3 });
+    // three players in total and three rows: everybody fits, nobody gets an extra row
+    const three = await s.board(s.a);
+    expect(three.rows.map((r) => r.place)).toEqual([1, 2, 3]);
+    expect(three.me).toBeNull();
+    // a fourth player pushes the last one out: he sees his own row with his real place
+    const inv = await s.server.accounts.createInvite(s.admin, {});
+    await s.server.accounts.register({ inviteCode: inv, nickname: 'Petr', email: 'petr@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
+    const four = await s.board(s.a);
+    expect(four.rows).toHaveLength(3);
+    expect(four.rows.some((r) => r.userId === s.a)).toBe(false);
+    expect(four.me).toMatchObject({ userId: s.a, nickname: 'Karel', place: 4, total: -100 });
+    expect((await s.board(s.b)).me).toBeNull(); // Jana leads, she is in the list already
+
+    await s.set('stats.lobbyBoardSkill', false);
+    await s.set('stats.lobbyBoardProfit', false);
+    const bare = await s.board(s.a);
+    expect(bare.columns).toEqual({ skill: false, profit: false });
+    expect(bare.rows.every((r) => r.division === null && r.total === null)).toBe(true);
+    expect(bare.me).toMatchObject({ division: null, total: null });
+
+    await s.set('stats.lobbyBoardSkill', true);
+    await s.set('stats.lobbyBoardSort', 'skill');
+    const bySkill = await s.board();
+    expect(bySkill.sort).toBe('skill');
+    expect(bySkill.rows[0]!.division).not.toBeNull();
+    // everybody has the starting skill here, so equal skill keeps the order by profit
+    expect(bySkill.rows[0]!.nickname).toBe('Jana');
+  });
+
+  it('is hidden together with the overview between players', async () => {
+    const s = await scene({ 'stats.publicOverview': false });
+    await expect(s.board()).rejects.toThrow('HIDDEN');
+  });
+});

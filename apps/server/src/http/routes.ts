@@ -2017,6 +2017,14 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
       overviewErr(e, reply);
     }
   }));
+  /** Leaderboard in the lobby: period, rows, order and columns come from the global settings, the same for everybody. */
+  app.get('/api/lobby/leaderboard', guard(async (req, reply) => {
+    try {
+      reply.send(await svc.overview().lobbyBoard(need(req).id));
+    } catch (e) {
+      overviewErr(e, reply);
+    }
+  }));
   /** Kategorie „kdo je v čem nejlepší“ z přehledu hráčů a žebříčku turnajů (za celou dobu). */
   // ---------- roční statistika („výdělek v roce“) ----------
   app.get('/api/stats/year', guard(async (req, reply) => {
