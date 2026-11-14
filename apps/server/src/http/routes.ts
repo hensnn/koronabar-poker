@@ -1575,7 +1575,8 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     reply.send({ ok: true });
   }));
   app.post('/api/evenings/:id/close', evGuard(async (req, reply) => {
-    await svc.evenings().close(need(req).id, eid(req), meta(req));
+    const b = z.object({ force: z.boolean().optional() }).parse(req.body ?? {});
+    await svc.evenings().close(need(req).id, eid(req), meta(req), { force: b.force });
     reply.send({ ok: true });
   }));
   app.post('/api/evenings/:id/reopen', evGuard(async (req, reply) => {

@@ -245,4 +245,68 @@ describe('herní večery', { timeout: 90_000 }, () => {
     expect(csv).toContain('Odměna na hlavu (vyplaceno)');
     expect(csv).toContain('Vklad do sázky');
   });
+
+  it('a manual close warns while somebody sits at a cash table; a forced or automatic close marks that player in the summary', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const [a, c] = [await s.user(), await s.user()];
+    const { id: tableId } = await s.server.tables.createTable(org, { name: 'Cash večer', templateId: 'cash-klasika' });
+    const { id } = await s.server.evenings.create(org, 'Cash');
+    await s.server.evenings.addGame(org, id, 'cash', tableId);
+    // a bought in, lost everything and left: there is no cash-out movement at all; c still sits with chips
+    s.server.cash.buyIn(a, tableId, 300, 'test:a:buyin');
+    s.server.tables.get(tableId)!.join(c, 'E2x', 0, 500);
+    await s.server.journal.flush();
+
+    // open evening: the chips at the table count as a withdrawal and the player is marked as sitting
+    const live = (await s.server.evenings.view(id, org)).summary;
+    const of = (sum: typeof live, u: string) => sum.players.find((p) => p.userId === u)!;
+    expect(of(live, c)).toMatchObject({ seated: 500, net: 0 });
+    expect(of(live, a).seated).toBeUndefined();
+    expect(of(live, a).parts).toEqual({ cashBuyIn: -300 });
+
+    // manual close: refused with the names, nothing changes
+    const err = await s.server.evenings.close(org, id).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EveningError);
+    expect((err as EveningError).code).toBe('SEATED');
+    expect((err as EveningError).params).toEqual({ players: 'E2x' });
+    expect((await s.server.evenings.view(id, org)).status).toBe('open');
+
+    // forced close: the chips are not in the result, the summary says who was still sitting and with how much
+    await s.server.evenings.close(org, id, {}, { force: true });
+    const closed = (await s.server.evenings.view(id, org)).summary;
+    expect(of(closed, c)).toMatchObject({ seated: 500, net: -500 });
+    expect(of(closed, a).seated).toBeUndefined(); // left with nothing: no mark, the page shows an explicit 0
+    expect(of(closed, a).net).toBe(-300);
+
+    // the player leaves after the close; recomputing keeps the note (it cannot be found out later)
+    s.clock.advance(60_000);
+    s.server.tables.get(tableId)!.leave(c);
+    await s.server.journal.flush();
+    await s.server.evenings.recompute(org, id);
+    expect(of((await s.server.evenings.view(id, org)).summary, c)).toMatchObject({ seated: 500, net: -500 });
+
+    // reopening and closing again takes the cash-out in and the mark is gone
+    await s.server.evenings.reopen(org, id);
+    await s.server.evenings.close(org, id);
+    const fixed = (await s.server.evenings.view(id, org)).summary;
+    expect(of(fixed, c).seated).toBeUndefined();
+    expect(of(fixed, c).net).toBe(0);
+    expect(of(fixed, c).parts).toEqual({ cashBuyIn: -500, cashOut: 500 });
+  });
+
+  it('the automatic close never asks: it closes and marks who was still sitting', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const c = await s.user();
+    const { id: tableId } = await s.server.tables.createTable(org, { name: 'Noční cash', templateId: 'cash-klasika' });
+    const { id } = await s.server.evenings.create(org, 'Noc');
+    await s.server.evenings.addGame(org, id, 'cash', tableId);
+    s.server.tables.get(tableId)!.join(c, 'E1x', 0, 400);
+    await s.server.journal.flush();
+    await s.server.evenings.close(null, id);
+    const view = await s.server.evenings.view(id, org);
+    expect(view.status).toBe('closed');
+    expect(view.summary.players.find((p) => p.userId === c)).toMatchObject({ seated: 400, net: -400 });
+  });
 });

@@ -776,6 +776,13 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Testy: `apps/server/src/integrations/pictures.test.ts` (kreslení, skrytí částek, limit řádků, dělené první místo, skutečné PNG; odeslání do Discordu, návrat k textu při chybě, čtení z databáze po restartu, oprávnění k ukázce).
 - Omezení: emotikony a neobvyklé znaky v přezdívkách se v obrázku nemusí vykreslit (písmo je nemá). Skutečné odeslání do Discordu je potřeba vyzkoušet na ostrém kanálu tlačítkem zkušební zprávy.
 
+### Herní večer: hráč u stolu při uzavření (14. 11. 2026)
+- Podnět majitele: večer se uzavřel, když hráč ještě seděl u cash stolu; v souhrnu pak vypadal, jako by prohrál celý vklad, a nešlo to poznat od hráče, který opravdu odešel s nulou.
+- **Nula při odchodu bez žetonů:** hráč, který hrál cash a od stolu si nic neodnesl, má ve sloupci „Cash výběry“ výslovně `0` (dřív prázdné pole). Hráč, který cash nehrál, má pole dál prázdné.
+- **Značka „u stolu“:** hráč, který u cash stolu večera sedí, má ve stejném sloupci značku. U otevřeného večera se jeho žetony počítají jako výběr (jako dosud). U uzavřeného večera se nezapočítávají (peníze byly ještě ve hře); souhrn si pamatuje, kdo při uzavření seděl a s jakou hodnotou žetonů (`seated` u hráče), nad tabulkou je upozornění se jmény a zmínka jde i do zprávy v chatu. Poznámka přežije i „Přepočítat souhrn“ (později ji už zjistit nejde); zmizí po znovuotevření a novém uzavření, kdy se započítá skutečný výběr.
+- **Upozornění při ručním uzavření:** když u cash stolu večera někdo sedí, server ruční uzavření odmítne chybou `EVENING_SEATED` se jmény a stránka se zeptá, zda uzavřít i tak (`force`). Kontrola je na serveru, takže zachytí i hráče, který přisedl po načtení stránky. Automatické uzavření se neptá, jen hráče v souhrnu označí (rozhodnutí: majitel chtěl upozornění u ručního uzavření; automatika zůstává beze změny chování).
+- Testy: `apps/server/src/evenings.test.ts` (odmítnutí se jmény, vynucené a automatické uzavření se značkou, přepočet značku zachová, znovuotevření ji odstraní). Vzhled ověřen vykreslením na počítači i v šířce telefonu na ukázkových datech.
+
 ### Discord: odkaz na výsledky turnaje (14. 11. 2026)
 - Upřesnění majitele k souhrnům: nemusí jít o obrázek, stačí odkaz, hlavně ať je k dispozici celé zhodnocení hry nebo večera. Zpráva o konci turnaje proto nově nese odkaz na stránku turnaje s úplnými výsledky (`/turnaj/<id>`), v textové i obrázkové podobě; večer odkaz na svůj souhrn měl už dřív. Událost `tournament.finished` má navíc pole `url`.
 

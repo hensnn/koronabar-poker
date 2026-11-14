@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t } from '@kb/shared';
-import { del, errorText, get, patch, post } from '../api';
+import { ApiError, del, errorText, get, patch, post } from '../api';
 import { onSocket } from '../net';
 import { Link, navigate } from '../router';
 import type { Card as PokerCard } from '@kb/game-core';
@@ -29,6 +29,8 @@ interface Player {
   knockouts: number;
   xp: number;
   score: number;
+  /** Chips (in currency) at a cash table: now for an open evening (counted), at closing for a closed one (not counted). */
+  seated?: number;
 }
 
 interface HandShowPlayer {
@@ -193,6 +195,22 @@ export function EveningPage({ id }: { id: string }) {
     }
   };
 
+  /**
+   * Closing: when somebody still sits at a cash table the owner is warned first (their chips would be missing from the
+   * result). The server checks again, so a player who sat down after this page loaded is caught as well.
+   */
+  const closeEvening = async () => {
+    const seated = seatedNames(s);
+    if (!confirm(seated ? t('evening.confirmCloseSeated', { players: seated }) : t('evening.confirmClose'))) return;
+    try {
+      await post(`/api/evenings/${id}/close`, { force: !!seated });
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.code !== 'EVENING_SEATED') throw e;
+      if (confirm(t('evening.confirmCloseSeated', { players: String(e.params?.players ?? '') }))) await post(`/api/evenings/${id}/close`, { force: true });
+    }
+  };
+  const leftBehind = open ? [] : s.players.filter((p) => p.seated !== undefined);
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -225,9 +243,7 @@ export function EveningPage({ id }: { id: string }) {
             {open && (
               <Button
                 variant="primary"
-                onClick={() => {
-                  if (confirm(t('evening.confirmClose'))) void run(() => post(`/api/evenings/${id}/close`));
-                }}
+                onClick={() => void run(closeEvening)}
               >
                 {t('evening.close')}
               </Button>
@@ -254,11 +270,13 @@ export function EveningPage({ id }: { id: string }) {
         )}
       </div>
 
+      {leftBehind.length > 0 && <Notice kind="warning">{t('evening.seatedNotice', { players: leftBehind.map((p) => t('evening.seatedOne', { nick: p.nickname, amount: p.seated ?? 0 })).join(', ') })}</Notice>}
+
       <Card title={t('evening.ranking')}>
         {s.players.length === 0 ? (
           <p className="text-muted">{t('tournament.noPlayers')}</p>
         ) : (
-          <Ranking s={s} />
+          <Ranking s={s} open={open} />
         )}
         {view.canManage && s.house !== 0 && <p className="mt-2 text-sm text-muted">{t('evening.houseTotal', { amount: s.house })}</p>}
       </Card>
@@ -448,11 +466,40 @@ const RANK_PARTS = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout',
 const signedN = (v: number): string => (v > 0 ? `+${v}` : String(v));
 const toneOf = (v: number): string => (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : '');
 
-function Ranking({ s }: { s: Summary }) {
+/** Nicknames of the players sitting at a cash table of the evening, or '' when nobody does. */
+const seatedNames = (s: Summary): string =>
+  s.players
+    .filter((p) => p.seated !== undefined)
+    .map((p) => p.nickname)
+    .sort((a, b) => a.localeCompare(b, 'cs'))
+    .join(', ');
+
+/** Played cash in this evening: bought in, cashed out or sits at a table. Such a player always gets a cash-out value. */
+const playedCash = (p: Player): boolean => p.seated !== undefined || (p.parts?.cashBuyIn ?? 0) !== 0 || (p.parts?.cashOut ?? 0) !== 0;
+
+/**
+ * Cash-out cell. A player who left the table with nothing gets an explicit 0, so the row cannot be mistaken for a
+ * player who still sits there; that one carries the "at the table" badge (closed evening: chips not in the result).
+ */
+function CashOutCell({ p, open }: { p: Player; open: boolean }) {
+  const value = p.parts?.cashOut ?? 0;
+  if (!playedCash(p)) return <Td className="font-mono" />;
+  if (p.seated === undefined) return <Td className={`font-mono ${toneOf(value)}`}>{signedN(value)}</Td>;
+  return (
+    <Td className={`whitespace-nowrap font-mono ${toneOf(value)}`}>
+      <span title={t(open ? 'evening.seatedOpenTitle' : 'evening.seatedTitle', { amount: p.seated })}>
+        {value !== 0 ? `${signedN(value)} ` : ''}
+        <Badge tone="warning">{t('evening.seated')}</Badge>
+      </span>
+    </Td>
+  );
+}
+
+function Ranking({ s, open }: { s: Summary; open: boolean }) {
   const players = [...s.players].sort((a, b) => b.net - a.net || a.nickname.localeCompare(b.nickname, 'cs'));
   // Starší uzavřené večery složky nemají (jen cash a turnaje): ukážou se původní sloupce, dokud správce nepřepočítá souhrn.
   const hasParts = players.some((p) => p.parts && Object.keys(p.parts).length > 0);
-  const used = hasParts ? RANK_PARTS.filter((k) => players.some((p) => (p.parts?.[k] ?? 0) !== 0)) : [];
+  const used = hasParts ? RANK_PARTS.filter((k) => players.some((p) => (p.parts?.[k] ?? 0) !== 0 || (k === 'cashOut' && playedCash(p)))) : [];
   const hasKo = players.some((p) => p.knockouts > 0);
   return (
     <div className="overflow-x-auto">
@@ -470,11 +517,15 @@ function Ranking({ s }: { s: Summary }) {
             <Td className="font-mono">{i + 1}.</Td>
             <Td className="whitespace-nowrap">{p.nickname}</Td>
             {hasParts ? (
-              used.map((k) => (
-                <Td key={k} className={`font-mono ${toneOf(p.parts?.[k] ?? 0)}`}>
-                  {(p.parts?.[k] ?? 0) !== 0 ? signedN(p.parts![k]!) : ''}
-                </Td>
-              ))
+              used.map((k) =>
+                k === 'cashOut' ? (
+                  <CashOutCell key={k} p={p} open={open} />
+                ) : (
+                  <Td key={k} className={`font-mono ${toneOf(p.parts?.[k] ?? 0)}`}>
+                    {(p.parts?.[k] ?? 0) !== 0 ? signedN(p.parts![k]!) : ''}
+                  </Td>
+                ),
+              )
             ) : (
               <>
                 <Td className="font-mono">{p.cash}</Td>

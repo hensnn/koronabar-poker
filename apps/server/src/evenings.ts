@@ -7,7 +7,7 @@ import { schema, type Db } from './db/index.js';
 import { SIDE_KINDS, SIDE_SET } from './side-results.js';
 import { settlementPartOf } from './wallet/service.js';
 
-export type EveningErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'DISABLED' | 'CLOSED' | 'GAME_TAKEN' | 'OPEN_EXISTS';
+export type EveningErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'INVALID' | 'DISABLED' | 'CLOSED' | 'GAME_TAKEN' | 'OPEN_EXISTS' | 'SEATED';
 
 export class EveningError extends Error {
   constructor(
@@ -36,6 +36,12 @@ export interface EveningPlayer {
   placePoints: number;
   xp: number;
   score: number;
+  /**
+   * Chips (in currency) the player has at a cash table of the evening. Open evening: right now, and they count as a
+   * withdrawal. Closed evening: at the moment of closing, and they are NOT in the result (the money was still in play).
+   * Missing = the player was not sitting at a table.
+   */
+  seated?: number;
 }
 
 export interface EveningLine {
@@ -275,7 +281,17 @@ export class EveningService {
     return { net: Number(s['evening.mvpNetWeight']), place: Number(s['evening.mvpPlaceWeight']), ko: Number(s['evening.mvpKnockoutWeight']), xp: Number(s['evening.mvpXpWeight']) };
   }
 
-  async compute(ev: Row): Promise<EveningSummary> {
+  /** Chips (in currency) of the players sitting right now at the cash tables of the evening. */
+  private async seatedAt(id: string): Promise<Record<string, number>> {
+    const cash = new Set((await this.games(id)).filter((g) => g.kind === 'cash').map((g) => g.ref));
+    const rate = Number(this.s()['cash.chipsPerCurrencyUnit']) || 1;
+    const out: Record<string, number> = {};
+    for (const seat of this.deps.seated()) if (cash.has(seat.tableId)) out[seat.userId] = (out[seat.userId] ?? 0) + Math.floor(seat.chips / rate);
+    return out;
+  }
+
+  /** `seatedAtClose`: who was still sitting at a cash table when the evening was closed (kept as a note, not counted). */
+  async compute(ev: Row, seatedAtClose: Record<string, number> = {}): Promise<EveningSummary> {
     const db = this.deps.db;
     const now = this.deps.now();
     const from = ev.startsAt.getTime();
@@ -327,11 +343,13 @@ export class EveningService {
       addLine(uid, gid, tx.kind, e.amount, 1);
       if (BUYIN_KINDS.has(tx.kind) && e.amount < 0) turnover += -e.amount;
     }
+    const atTable: Record<string, number> = open ? {} : { ...seatedAtClose };
     if (open) {
       const rate = Number(this.s()['cash.chipsPerCurrencyUnit']) || 1;
       for (const seat of this.deps.seated()) {
         if (!cashSet.has(seat.tableId)) continue;
         const value = Math.floor(seat.chips / rate);
+        atTable[seat.userId] = (atTable[seat.userId] ?? 0) + value;
         cash[seat.userId] = (cash[seat.userId] ?? 0) + value;
         (breakdown[seat.userId] ??= {}).seated = (breakdown[seat.userId]!.seated ?? 0) + value;
         addLine(seat.userId, seat.tableId, 'seated', value, 1);
@@ -349,7 +367,7 @@ export class EveningService {
     const knockouts: Record<string, number> = {};
     for (const e of elim) for (const k of e.killers) knockouts[k.userId] = (knockouts[k.userId] ?? 0) + 1;
 
-    const userIds = [...new Set([...Object.keys(cash), ...Object.keys(tour), ...Object.keys(side), ...gr.map((r) => r.userId), ...Object.keys(knockouts)])];
+    const userIds = [...new Set([...Object.keys(cash), ...Object.keys(tour), ...Object.keys(side), ...gr.map((r) => r.userId), ...Object.keys(knockouts), ...Object.keys(atTable)])];
     const xp: Record<string, number> = {};
     if (userIds.length) {
       const rows = await db
@@ -366,7 +384,7 @@ export class EveningService {
       const net = (cash[userId] ?? 0) + (tour[userId] ?? 0) + (side[userId] ?? 0);
       const pp = Math.round((placePoints[userId] ?? 0) * 100) / 100;
       const score = Math.round(((net * w.net) / 100 + pp * w.place + (knockouts[userId] ?? 0) * w.ko + ((xp[userId] ?? 0) * w.xp) / 100) * 10) / 10;
-      return { userId, nickname: names[userId] ?? '?', net, cash: cash[userId] ?? 0, tournament: tour[userId] ?? 0, side: side[userId] ?? 0, breakdown: breakdown[userId] ?? {}, parts: partsOf(breakdown[userId] ?? {}), knockouts: knockouts[userId] ?? 0, placePoints: pp, xp: xp[userId] ?? 0, score };
+      return { userId, nickname: names[userId] ?? '?', net, cash: cash[userId] ?? 0, tournament: tour[userId] ?? 0, side: side[userId] ?? 0, breakdown: breakdown[userId] ?? {}, parts: partsOf(breakdown[userId] ?? {}), knockouts: knockouts[userId] ?? 0, placePoints: pp, xp: xp[userId] ?? 0, score, ...(userId in atTable ? { seated: atTable[userId]! } : {}) };
     });
     players.sort((a, b) => b.score - a.score || b.net - a.net || a.nickname.localeCompare(b.nickname));
 
@@ -508,17 +526,28 @@ export class EveningService {
     if (s.awards.hunter) lines.push(t('evening.chat.hunter', { nick: s.awards.hunter.nickname, count: s.awards.hunter.count }));
     if (s.awards.banker) lines.push(t('evening.chat.banker', { nick: s.awards.banker.nickname, bb: s.awards.banker.bb }));
     if (s.awards.badBeat) lines.push(t('evening.chat.badBeat', { nick: s.awards.badBeat.nickname, equity: s.awards.badBeat.equity }));
+    const seated = s.players.filter((p) => p.seated !== undefined).map((p) => p.nickname);
+    if (seated.length > 0) lines.push(t('evening.chat.seated', { nicks: seated.join(', ') }));
     lines.push(t('evening.chat.transfers', { n: s.transfers.length, link: `${String(this.s()['system.publicUrl'] ?? '').replace(/\/$/, '')}/vecery/${ev.id}` }));
     return lines.join('\n');
   }
 
-  /** Uzavření večera: souhrn se uloží, pošle do chatu a (volitelně) e-mailem hráčům. `actorId` null = automatika. */
-  async close(actorId: string | null, id: string, meta: Meta = {}): Promise<void> {
+  /**
+   * Uzavření večera: souhrn se uloží, pošle do chatu a (volitelně) e-mailem hráčům. `actorId` null = automatika.
+   * A manual close stops with SEATED while somebody still sits at a cash table of the evening (their chips would be
+   * missing from the result); `force` closes anyway and the summary marks those players.
+   */
+  async close(actorId: string | null, id: string, meta: Meta = {}, opts: { force?: boolean } = {}): Promise<void> {
     if (actorId) this.manage(actorId);
     const ev = await this.load(id);
     if (ev.status !== 'open') throw new EveningError('CLOSED');
+    const seated = await this.seatedAt(id);
+    if (actorId && !opts.force && Object.keys(seated).length > 0) {
+      const users = await this.deps.db.select({ nickname: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, Object.keys(seated)));
+      throw new EveningError('SEATED', { players: users.map((u) => u.nickname).sort((a, b) => a.localeCompare(b, 'cs')).join(', ') });
+    }
     const closed = { ...ev, status: 'closed', endsAt: new Date(this.deps.now()) } as Row;
-    const summary = await this.compute(closed);
+    const summary = await this.compute(closed, seated);
     await this.deps.db.update(schema.evenings).set({ status: 'closed', endsAt: closed.endsAt, summary }).where(eq(schema.evenings.id, id));
     await this.deps.audit.log({ actorId: actorId ?? undefined, action: 'vecer.uzavrit', targetType: 'evening', targetId: id, after: { auto: actorId === null, games: summary.stats.games }, ...meta });
     await this.refreshOpen();
@@ -554,7 +583,9 @@ export class EveningService {
     this.manage(actorId);
     const ev = await this.load(id);
     if (ev.status !== 'closed') throw new EveningError('INVALID', { field: 'status' });
-    const summary = await this.compute(ev);
+    // Who sat at a table when the evening was closed cannot be found out later: keep the note from the stored summary.
+    const before = (ev.summary as EveningSummary | null)?.players ?? [];
+    const summary = await this.compute(ev, Object.fromEntries(before.filter((p) => p.seated !== undefined).map((p) => [p.userId, p.seated!])));
     await this.deps.db.update(schema.evenings).set({ summary }).where(eq(schema.evenings.id, id));
     await this.deps.audit.log({ actorId, action: 'vecer.prepocitat', targetType: 'evening', targetId: id, ...meta });
     this.deps.onChanged?.(id);
