@@ -755,3 +755,9 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
   - Předvolba „standard“ platí 3 místa při 7 až 10 hráčích, ale jen 2 při 11 až 13 (15 % z pole), pak zase 3. Týká se jen turnajů nad 10 hráčů.
 - Simulace nepokrývá: turnaje na více stolech, živou hru, sázky bokem a odměny na hlavu (mají vlastní testy), cash game.
 - Testy navíc: tři regresní v `tournament.test.ts` (dohoda a nabídka add-onu, platby po dohodě, re-entry zdarma), `structure.test.ts` (přepočet procent, dřívější pravidlo), `payout-fix.test.ts` (starší turnaj podle dřívějšího pravidla se nehlásí).
+
+### Lobby: upozornění na čerpaný kontokorent (14. 11. 2026)
+- Zadání majitele: hráč má mít v lobby ve widgetu „Moje konto“ velké červené číslo, když čerpá kontokorent.
+- Kde: Lobby → „Moje konto“, hned pod zůstatkem. Zobrazí se jen při dluhu nad nulu: nadpis „Čerpáš kontokorent (dluh)“, dluh velkým červeným číslem se znaménkem mínus, pod ním kolik zbývá v limitu (nebo že je limit vyčerpaný či kontokorent vypnutý) a jak se dluh splácí. Bez dluhu se neukazuje nic.
+- Údaj se bere ze stejného místa jako v Peněžence (`/api/wallet/credit`), načítá se při každé změně zůstatku a navíc po 30 sekundách (čerpání, které hned zaplatí vstup, zůstatek nezmění).
+- Rozhodování, co ukázat, je v `credit-warning.ts` s testem `credit-warning.test.ts`. Vzhled ověřen vykreslením na počítači i v šířce telefonu s ukázkovým dluhem; se skutečnými daty bez dluhu se upozornění neukáže.

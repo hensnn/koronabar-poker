@@ -10,6 +10,7 @@ import { Badge, Button, Card, Notice } from '../ui';
 import { PollsPanel } from './polls';
 import { useFeatures } from '../features';
 import { rankColorClass } from '../progress-client';
+import { creditWarning, type CreditInfo } from './credit-warning';
 
 interface CashTable {
   id: string;
@@ -74,7 +75,25 @@ export function DashboardPage() {
   const [tours, setTours] = useState<Tour[] | null>(null);
   const [rows, setRows] = useState<Row[] | null | 'hidden'>(null);
   const [myRating, setMyRating] = useState<{ tournament: MyRating; cash: MyRating } | null>(null);
+  const [credit, setCredit] = useState<CreditInfo | null>(null);
   const forms = currencyFormsOf(settings.values);
+  const balance = me?.balance;
+
+  // The overdraft: reloaded with every balance change and on a timer, because a draw that pays a buy-in right away
+  // leaves the balance where it was.
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      get<CreditInfo>('/api/wallet/credit')
+        .then((c) => alive && setCredit(c))
+        .catch(() => undefined);
+    load();
+    const id = setInterval(load, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [balance]);
 
   useEffect(() => {
     let alive = true;
@@ -126,6 +145,7 @@ export function DashboardPage() {
   const mine = myIndex >= 0 ? board[myIndex] : undefined;
   const shown = board.slice(0, TOP);
   const meOutside = mine && myIndex >= TOP;
+  const owed = creditWarning(credit);
 
   return (
     <div className="flex flex-col gap-3">
@@ -140,6 +160,16 @@ export function DashboardPage() {
               {formatCurrency(me?.balance ?? 0, forms)}
             </p>
             <p className="text-sm text-muted">{t('dashboard.balance')}</p>
+            {owed && (
+              <div role="status" className="flex flex-col gap-1 rounded-md border border-danger bg-surface p-3">
+                <p className="text-sm font-semibold text-danger">{t('dashboard.credit.title')}</p>
+                <p className="font-mono text-3xl font-bold text-danger">−{formatCurrency(owed.debt, forms)}</p>
+                <p className="text-sm">
+                  {t(`dashboard.credit.${owed.state}`, { available: formatCurrency(owed.available, forms), limit: formatCurrency(owed.limit, forms) })}{' '}
+                  {t(owed.autoRepay ? 'dashboard.credit.auto' : 'dashboard.credit.manual')}
+                </p>
+              </div>
+            )}
             {mine && (
               <p>
                 {t('dashboard.earnings')}:{' '}
