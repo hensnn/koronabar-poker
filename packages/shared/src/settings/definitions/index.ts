@@ -588,6 +588,7 @@ const chat: SettingDef[] = [
   int('chat.messagesPerMinute', { category: 'chat', mutability: ADM, scopes: GLOBAL, unit: 'x' }, 20, 1, 600),
   int('chat.historyDays', { category: 'chat', mutability: ADM, scopes: GLOBAL, unit: 'dní' }, 0, 0, 3650),
   int('chat.editWindowMinutes', { category: 'chat', mutability: ADM, scopes: GLOBAL, unit: 'min' }, 15, 0, 10080),
+  bool('chat.threads', { category: 'chat', mutability: ADM, scopes: GLOBAL }, true),
   bool('chat.playerChannels', { category: 'chat', mutability: ADM, scopes: GLOBAL }, false),
   bool('chat.groupsEnabled', { category: 'chat', mutability: ADM, scopes: GLOBAL }, true),
   bool('chat.spectatorChat', { category: 'chat', mutability: ADM, scopes: GLOBAL }, true),
@@ -599,6 +600,7 @@ const chat: SettingDef[] = [
   bool('chat.digestEnabled', { category: 'chat', mutability: ADM, scopes: GLOBAL }, true),
   bool('push.chatMentions', { category: 'chat', mutability: A, scopes: USER }, true),
   bool('push.chatDm', { category: 'chat', mutability: A, scopes: USER }, true),
+  bool('push.chatThreads', { category: 'chat', mutability: A, scopes: USER }, true),
   choice('chat.digest', { category: 'chat', mutability: A, scopes: USER }, 'off', ['off', 'daily', 'weekly']),
   text('chat.emojiList', { category: 'chat', mutability: ADM, scopes: GLOBAL }, '👍,👎,😂,😮,😢,🔥,🎉,♠️,♥️,♦️,♣️,🍺', 500),
 ];

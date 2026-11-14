@@ -96,6 +96,41 @@ describe('chat navíc', { timeout: 60_000 }, () => {
     expect(c.pushed).toHaveLength(2);
   });
 
+  it('push for a reply in my thread: respects the preference and the muted channel, and does not double a private message', async () => {
+    const c = await start();
+    const a = await c.user();
+    const b = await c.user();
+    await c.server.push.subscribe(a, c.sub('a'));
+    const main = await c.server.chat.ensureMainChannel();
+    const q = await c.server.chat.send(a, main, 'Kdo jde v pátek?');
+    await c.server.chat.send(b, main, 'Já jdu', { replyTo: q.id });
+    await wait();
+    expect(c.pushed).toHaveLength(1);
+    expect(c.pushed[0]!.body).toMatchObject({ title: `${c.nick(b)} odpověděl(a) ve vlákně`, body: 'Já jdu', url: '/chat' });
+
+    // notifications of the channel switched off
+    await c.server.chat.setNotifyMuted(a, main, true);
+    await c.server.chat.send(b, main, 'A ty?', { replyTo: q.id });
+    await wait();
+    expect(c.pushed).toHaveLength(1);
+    await c.server.chat.setNotifyMuted(a, main, false);
+
+    // personal preference switched off
+    await c.server.settings.set(a, 'user', a, 'push.chatThreads', false);
+    await c.server.chat.send(b, main, 'Haló?', { replyTo: q.id });
+    await wait();
+    expect(c.pushed).toHaveLength(1);
+    await c.server.settings.set(a, 'user', a, 'push.chatThreads', true);
+
+    // in a private chat the ordinary message push already covers the reply: one push, not two
+    const dm = await c.server.chat.openDm(a, b);
+    const dq = await c.server.chat.send(a, dm, 'soukromá otázka');
+    await c.server.chat.send(b, dm, 'soukromá odpověď', { replyTo: dq.id });
+    await wait();
+    expect(c.pushed).toHaveLength(2);
+    expect(c.pushed[1]!.body.body).toBe('soukromá odpověď');
+  });
+
   it('obrázky: kontrola obsahu, velikosti a formátu, přístup jen ke čtenářům kanálu', async () => {
     const c = await start({ 'chat.imageMaxKb': 16, 'chat.imageFormats': 'png' });
     const a = await c.user();

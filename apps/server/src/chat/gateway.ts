@@ -34,10 +34,11 @@ export function setupChatEvents(io: Server, chat: ChatService) {
   chat.on({
     message: (c, m) => void deliver(c.id, m.userId, 'chat:message', m).catch(() => undefined),
     edited: (id, m) => void deliver(id, m.userId, 'chat:edited', m).catch(() => undefined),
-    deleted: (id, messageId) => void io.to(room(id)).emit('chat:deleted', { channelId: id, messageId }),
+    deleted: (id, messageId, threadId) => void io.to(room(id)).emit('chat:deleted', { channelId: id, messageId, threadId }),
     reaction: (id, messageId, reactions) => void io.to(room(id)).emit('chat:reaction', { channelId: id, messageId, reactions }),
     pinned: (id, m) => void io.to(room(id)).emit('chat:pinned', m),
     mention: (userId, m) => void io.to(`user:${userId}`).emit('chat:mention', { messageId: m.id, channelId: m.channelId, from: m.nickname }),
+    threadReply: (userId, m) => void io.to(`user:${userId}`).emit('chat:thread-reply', { messageId: m.id, channelId: m.channelId, threadId: m.threadId, from: m.nickname }),
     joined: (userId, channelId) => void io.in(`user:${userId}`).socketsJoin(room(channelId)),
   });
 }
@@ -72,7 +73,8 @@ export function registerChatSocket(socket: Socket, ctx: ChatSocketCtx) {
   }
 
   handle('chat:channels', () => chat.listChannels(user.userId));
-  handle('chat:history', (m) => chat.history(user.userId, m.channelId, { before: m.before, limit: m.limit }));
+  handle('chat:history', (m) => chat.history(user.userId, m.channelId, { before: m.before, limit: m.limit, threads: m.threads }));
+  handle('chat:thread', (m) => chat.thread(user.userId, m.messageId));
   handle('chat:send', (m) => chat.send(user.userId, m.channelId, m.body, { replyTo: m.replyTo ?? null, image: m.image ?? null }));
   handle('chat:notify-mute', (m) => chat.setNotifyMuted(user.userId, m.channelId, m.on));
   handle('chat:edit', (m) => chat.edit(user.userId, m.messageId, m.body));

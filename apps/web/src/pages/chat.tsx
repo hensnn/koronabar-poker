@@ -6,12 +6,14 @@ import {
   deleteMessage,
   editMessage,
   loadChannels,
+  loadThread,
   muteUser,
   notifyTyping,
   openChannel,
   pinMessage,
   reactTo,
   searchMessages,
+  seenThread,
   sendMessage,
   setNotifyMuted,
   setActive,
@@ -37,6 +39,8 @@ import { Badge, Button, Card, Field, Modal, Notice, NumInput, TextInput } from '
 const NO_MESSAGES: Message[] = [];
 /** Seznam se považuje za „dole“, když od konce chybí nejvýš tolik bodů. */
 const STICK_SLACK = 24;
+/** „1 odpověď“, „3 odpovědi“, „5 odpovědí“. */
+const threadCount = (n: number): string => (n === 1 ? t('chat.thread.one') : n >= 2 && n <= 4 ? t('chat.thread.few', { n }) : t('chat.thread.many', { n }));
 
 /** Text chyby z chatu (kód z brány, např. CHAT_MUTED). */
 const errMsg = (e: unknown): string => {
@@ -180,12 +184,40 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
   const messages = store.messages[channel.id] ?? NO_MESSAGES;
   const typing = (store.typing[channel.id] ?? []).filter((x) => Date.now() - x.at < 4000);
   const emojis = String(settings.values['chat.emojiList']).split(',').map((e) => e.trim()).filter(Boolean);
-  const nick = useMemo(() => new Map(messages.map((m) => [m.id, m.nickname ?? ''])), [messages]);
+  // Threads: replies collapsed under the message they answer. Never in the chat at a game table (short, fast messages).
+  const threadsOn = !compact && channel.kind !== 'table' && settings.values['chat.threads'] !== false;
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
+  const nick = useMemo(() => new Map([...messages, ...Object.values(store.threads).flat()].map((m) => [m.id, m.nickname ?? ''])), [messages, store.threads]);
 
   useEffect(() => {
-    void openChannel(channel.id).catch((e) => setError(errMsg(e)));
+    void openChannel(channel.id, undefined, threadsOn).catch((e) => setError(errMsg(e)));
     return () => setActive(null);
-  }, [channel.id]);
+  }, [channel.id, threadsOn]);
+  // An open thread is being read: replies that arrive into it are not "new".
+  useEffect(() => {
+    for (const id of expanded) if (store.fresh[id]) seenThread(id);
+  }, [expanded, store.fresh]);
+  // Thread whose end should come into view once its replies are drawn (just opened, or I just answered in it).
+  const [reveal, setReveal] = useState<number | null>(null);
+  const openThread = (rootId: number) => {
+    setExpanded((cur) => new Set(cur).add(rootId));
+    void loadThread(rootId)
+      .then(() => setReveal(rootId))
+      .catch((e) => setError(errMsg(e)));
+  };
+  useEffect(() => {
+    if (reveal === null) return;
+    listRef.current?.querySelector(`[data-thread="${reveal}"]`)?.lastElementChild?.scrollIntoView({ block: 'nearest' });
+    setReveal(null);
+  }, [reveal]);
+  const toggleThread = (rootId: number) => {
+    if (!expanded.has(rootId)) return openThread(rootId);
+    setExpanded((cur) => {
+      const next = new Set(cur);
+      next.delete(rootId);
+      return next;
+    });
+  };
   // Seznam drží dole (nejnovější), jen dokud hráč nevyjel výš: načtení starších zpráv ani nová zpráva ho pak neshodí zpátky.
   const stick = useRef(true);
   useEffect(() => {
@@ -201,8 +233,11 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
     const text = body.trim();
     if (!text && !(image && !editing)) return;
     try {
+      // my own reply opens its thread, so I see where it landed
+      const root = !editing && reply && threadsOn ? (reply.threadId ?? reply.id) : null;
       if (editing) await editMessage(editing.id, text);
       else await sendMessage(channel.id, text, reply?.id, image?.id);
+      if (root !== null) openThread(root);
       setImage(null);
       setBody('');
       setReply(null);
@@ -219,34 +254,9 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
   const showPlayers = settings.values['chat.showPlayersAtTable'] !== false;
   const shown = compact ? messages.filter((m) => (m.system ? showSystem : showPlayers)) : messages;
   const toggle = (key: string, value: boolean) => void saveUserSetting(key, value).catch((e: unknown) => setError(errMsg(e)));
-  return (
-    <div className={`flex flex-col ${compact ? 'gap-1 text-sm' : 'gap-2'} ${fill ? 'h-full min-h-0' : ''}`}>
-      {compact && (
-        <div className="flex items-center gap-1 text-xs">
-          <button className={`rounded-sm border px-2 ${showSystem ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-muted'}`} aria-pressed={showSystem} onClick={() => toggle('chat.showSystemAtTable', !showSystem)}>
-            {t('chat.filterGame')}
-          </button>
-          <button className={`rounded-sm border px-2 ${showPlayers ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-muted'}`} aria-pressed={showPlayers} onClick={() => toggle('chat.showPlayersAtTable', !showPlayers)}>
-            {t('chat.filterPlayers')}
-          </button>
-        </div>
-      )}
-      {!compact && (
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-heading text-xl font-bold">{channel.name}</h2>
-          {channel.kind !== 'table' && (
-            <Button aria-pressed={channel.notifyMuted} title={channel.notifyMuted ? t('chat.notifyUnmute') : t('chat.notifyMute')} onClick={() => void setNotifyMuted(channel.id, !channel.notifyMuted).catch((e) => setError(errMsg(e)))}>
-              {channel.notifyMuted ? '🔕' : '🔔'}
-            </Button>
-          )}
-        </div>
-      )}
-      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${fill ? 'min-h-0 flex-1 gap-0 p-1 leading-tight' : compact ? `min-h-16 gap-0 p-1 leading-tight ${listHeight ? '' : 'h-32 resize-y'}` : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')} style={!fill && compact && listHeight ? { height: listHeight } : undefined} onScroll={() => { const el = listRef.current; if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_SLACK; }}>
-        {messages.length >= 50 && (
-          <Button onClick={() => void openChannel(channel.id, messages[0]!.id)}>{t('chat.older')}</Button>
-        )}
-        {shown.map((m) => (
-          <div key={m.id} className={`rounded-sm px-2 ${compact ? 'py-0' : 'py-1'} ${m.system ? 'text-muted' : ''} ${m.mentions.includes(me?.user.id ?? '') ? 'bg-raised' : ''}`}>
+  /** One message; `root` is the question when the message is drawn as a reply inside its thread. */
+  const item = (m: Message, root: Message | null) => (
+    <div key={m.id} className={`rounded-sm px-2 ${compact ? 'py-0' : 'py-1'} ${m.system ? 'text-muted' : ''} ${m.mentions.includes(me?.user.id ?? '') ? 'bg-raised' : ''}`}>
             {m.system ? (
               <em className="not-italic">
                 <RichBody body={m.body} />
@@ -266,7 +276,7 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
                   {m.editedAt && <span className="text-xs text-muted">({t('chat.edited')})</span>}
                   {m.pinned && <Badge tone="warning">{t('chat.pinned')}</Badge>}
                 </div>
-                {m.replyTo && <p className="border-l-2 border-line pl-2 text-sm text-muted">{t('chat.replyTo', { nick: nick.get(m.replyTo) ?? '…' })}</p>}
+                {m.replyTo && m.replyTo !== root?.id && <p className="border-l-2 border-line pl-2 text-sm text-muted">{t('chat.replyTo', { nick: nick.get(m.replyTo) ?? '…' })}</p>}
                 {m.body && <MessageBody body={m.body} />}
                 {m.image && <img src={chatImageUrl(m.image)} alt={t('chat.image')} loading="lazy" className="mt-1 max-h-64 max-w-full rounded-sm border border-line" />}
                 <div className={`flex flex-wrap items-center gap-1 text-sm ${compact ? 'hidden' : 'mt-1'}`}>
@@ -305,7 +315,7 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
                   )}
                   {m.userId && m.userId !== me?.user.id && (
                     <>
-                      <button className="text-muted underline" onClick={() => void setIgnore(m.userId!, true).then(() => openChannel(channel.id))}>
+                      <button className="text-muted underline" onClick={() => void setIgnore(m.userId!, true).then(() => openChannel(channel.id, undefined, threadsOn))}>
                         {t('chat.ignore')}
                       </button>
                       {can(me, 'chat.ztlumit') && (
@@ -321,7 +331,58 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
                 </div>
               </>
             )}
-          </div>
+    </div>
+  );
+  return (
+    <div className={`flex flex-col ${compact ? 'gap-1 text-sm' : 'gap-2'} ${fill ? 'h-full min-h-0' : ''}`}>
+      {compact && (
+        <div className="flex items-center gap-1 text-xs">
+          <button className={`rounded-sm border px-2 ${showSystem ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-muted'}`} aria-pressed={showSystem} onClick={() => toggle('chat.showSystemAtTable', !showSystem)}>
+            {t('chat.filterGame')}
+          </button>
+          <button className={`rounded-sm border px-2 ${showPlayers ? 'border-primary bg-primary text-on-primary' : 'border-line bg-surface text-muted'}`} aria-pressed={showPlayers} onClick={() => toggle('chat.showPlayersAtTable', !showPlayers)}>
+            {t('chat.filterPlayers')}
+          </button>
+        </div>
+      )}
+      {!compact && (
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-heading text-xl font-bold">{channel.name}</h2>
+          {channel.kind !== 'table' && (
+            <Button aria-pressed={channel.notifyMuted} title={channel.notifyMuted ? t('chat.notifyUnmute') : t('chat.notifyMute')} onClick={() => void setNotifyMuted(channel.id, !channel.notifyMuted).catch((e) => setError(errMsg(e)))}>
+              {channel.notifyMuted ? '🔕' : '🔔'}
+            </Button>
+          )}
+        </div>
+      )}
+      <div ref={listRef} className={`flex flex-col overflow-y-auto rounded-md border border-line bg-surface ${fill ? 'min-h-0 flex-1 gap-0 p-1 leading-tight' : compact ? `min-h-16 gap-0 p-1 leading-tight ${listHeight ? '' : 'h-32 resize-y'}` : 'h-96 gap-2 p-2'}`} aria-live="polite" aria-label={t('chat.messages')} style={!fill && compact && listHeight ? { height: listHeight } : undefined} onScroll={() => { const el = listRef.current; if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_SLACK; }}>
+        {messages.length >= 50 && (
+          <Button onClick={() => void openChannel(channel.id, messages[0]!.id, threadsOn)}>{t('chat.older')}</Button>
+        )}
+        {shown.map((m) => (
+          <Fragment key={m.id}>
+            {item(m, null)}
+            {threadsOn && m.thread && (
+              <div data-thread={m.id} className="ml-4 flex flex-col border-l-2 border-line pl-2">
+                <button type="button" className="flex flex-wrap items-center gap-x-2 text-left text-sm text-muted" aria-expanded={expanded.has(m.id)} aria-label={expanded.has(m.id) ? t('chat.thread.close') : t('chat.thread.open')} onClick={() => toggleThread(m.id)}>
+                  <span aria-hidden>{expanded.has(m.id) ? '▾' : '▸'}</span>
+                  <span className="font-semibold">{threadCount(m.thread.count)}</span>
+                  {!expanded.has(m.id) && <span>· {t('chat.thread.last', { nick: m.thread.lastNickname ?? '', time: new Date(m.thread.lastAt).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) })}</span>}
+                  {!expanded.has(m.id) && (store.fresh[m.id] ?? 0) > 0 && <Badge tone="danger">{t('chat.thread.new', { n: store.fresh[m.id] ?? 0 })}</Badge>}
+                </button>
+                {expanded.has(m.id) && (
+                  <>
+                    {store.threads[m.id] ? store.threads[m.id]!.map((r) => item(r, m)) : <p className="text-sm text-muted">{t('chat.thread.loading')}</p>}
+                    <div>
+                      <button className="text-sm text-muted underline" onClick={() => setReply(m)}>
+                        {t('chat.thread.reply')}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </Fragment>
         ))}
       </div>
       <p className="h-5 text-sm text-muted" aria-live="polite">

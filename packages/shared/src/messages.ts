@@ -38,7 +38,8 @@ const channelId = z.string().uuid();
 const messageId = z.number().int().positive();
 export const chatClientMessages = {
   'chat:channels': z.object({}).optional(),
-  'chat:history': z.object({ channelId, before: messageId.optional(), limit: z.number().int().min(1).max(200).optional() }),
+  'chat:history': z.object({ channelId, before: messageId.optional(), limit: z.number().int().min(1).max(200).optional(), threads: z.boolean().optional() }),
+  'chat:thread': z.object({ messageId }),
   'chat:send': z.object({ channelId, body: z.string().max(10000), replyTo: messageId.nullable().optional(), image: z.string().uuid().nullable().optional() }),
   'chat:notify-mute': z.object({ channelId, on: z.boolean() }),
   'chat:edit': z.object({ messageId, body: z.string().max(10000) }),

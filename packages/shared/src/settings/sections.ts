@@ -107,7 +107,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
     ['poll.pause', /^poll\.pauseVote/],
   ],
   chat: [
-    ['chat.general', /^chat\.(enabled|mainChannelName|maxLength|messagesPerMinute|historyDays|editWindowMinutes|playerChannels|groupsEnabled|spectatorChat|wordFilter|autoTournamentMessages|emojiList)$/],
+    ['chat.general', /^chat\.(enabled|mainChannelName|maxLength|messagesPerMinute|historyDays|editWindowMinutes|threads|playerChannels|groupsEnabled|spectatorChat|wordFilter|autoTournamentMessages|emojiList)$/],
     ['chat.images', /^chat\.image/],
     ['chat.notify', /^(chat\.digest|push\.chat)/],
   ],

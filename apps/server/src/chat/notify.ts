@@ -32,6 +32,7 @@ export class ChatNotifier {
     this.deps.chat.on({
       message: (ch, m) => void this.onMessage(ch, m).catch(() => undefined),
       mention: (userId, m) => void this.onMention(userId, m).catch(() => undefined),
+      threadReply: (userId, m) => void this.onThreadReply(userId, m).catch(() => undefined),
     });
   }
 
@@ -52,6 +53,14 @@ export class ChatNotifier {
   private async onMention(userId: string, m: MessageDto): Promise<void> {
     if (m.system || this.deps.isOnline(userId) || userPrefs(this.deps.settings, userId)['push.chatMentions'] === false) return;
     await this.deps.push.send([userId], { title: t('push.chatTitleMention', { nick: m.nickname ?? '' }), body: this.preview(m), url: '/chat', tag: `chat-mention-${m.channelId}` });
+  }
+
+  /** A reply in a thread the user started or wrote in. In a private or group chat the ordinary message push covers it. */
+  private async onThreadReply(userId: string, m: MessageDto): Promise<void> {
+    if (m.system || this.deps.isOnline(userId) || userPrefs(this.deps.settings, userId)['push.chatThreads'] === false) return;
+    if ((await this.deps.chat.notifyTargets(m.channelId, m.userId)).includes(userId)) return;
+    if (await this.deps.chat.notifyMutedFor(userId, m.channelId)) return;
+    await this.deps.push.send([userId], { title: t('push.chatTitleThread', { nick: m.nickname ?? '' }), body: this.preview(m), url: '/chat', tag: `chat-thread-${m.threadId}` });
   }
 }
 

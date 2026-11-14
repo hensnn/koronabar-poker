@@ -61,16 +61,33 @@ export interface MessageDto {
   reactions: Record<string, string[]>;
   /** Id přiloženého obrázku (stahuje se z /api/chat/images/:id). */
   image: string | null;
+  /** Thread the message belongs to (id of the question it answers, directly or through other replies); null for a message of the main line. */
+  threadId: number | null;
+  /** Replies under this message; only in a history asked for with threads, null when there are none. */
+  thread?: ThreadSummary | null;
+}
+
+/** What the collapsed thread shows under its question. */
+export interface ThreadSummary {
+  /** Replies that are not deleted (and not from somebody the viewer ignores). */
+  count: number;
+  lastId: number;
+  lastAt: string;
+  lastNickname: string | null;
+  /** Replies of other people the viewer has not read yet. */
+  unread: number;
 }
 
 export interface ChatEvents {
   message(channel: { id: string; key: string; kind: string }, msg: MessageDto): void;
   edited(channelId: string, msg: MessageDto): void;
-  deleted(channelId: string, messageId: number): void;
+  deleted(channelId: string, messageId: number, threadId: number | null): void;
   reaction(channelId: string, messageId: number, reactions: Record<string, string[]>): void;
   pinned(channelId: string, msg: MessageDto): void;
   /** Uživatel byl zmíněn (pro push a e-mailový souhrn). */
   mention(userId: string, msg: MessageDto): void;
+  /** Somebody answered in a thread the user started or wrote in (in-app marker and push). */
+  threadReply(userId: string, msg: MessageDto): void;
   /** Uživatel se stal členem kanálu (např. nová soukromá zpráva). */
   joined(userId: string, channelId: string): void;
 }
@@ -340,6 +357,7 @@ export class ChatService {
         pinned: !!r.pinnedAt,
         reactions: rs,
         image: r.deletedAt ? null : (r.image ?? null),
+        threadId: r.threadId ?? null,
       };
     });
   }
@@ -361,21 +379,43 @@ export class ChatService {
     if (this.limiter.count(key, 60_000) >= perMinute) throw new ChatError('RATE_LIMITED', { perMinute });
     const mute = await this.activeMute(userId, channelId);
     if (mute) throw new ChatError('MUTED', { until: mute.until.toISOString(), reason: mute.reason });
+    // A reply joins the thread of the message it answers; a reply to a reply stays in the same thread (one level).
+    let threadId: number | null = null;
     if (opts.replyTo) {
-      const [target] = await this.deps.db.select({ id: schema.chatMessages.id }).from(schema.chatMessages).where(and(eq(schema.chatMessages.id, opts.replyTo), eq(schema.chatMessages.channelId, channelId)));
+      const [target] = await this.deps.db.select({ id: schema.chatMessages.id, threadId: schema.chatMessages.threadId }).from(schema.chatMessages).where(and(eq(schema.chatMessages.id, opts.replyTo), eq(schema.chatMessages.channelId, channelId)));
       if (!target) throw new ChatError('NOT_FOUND');
+      threadId = target.threadId ?? target.id;
     }
     this.limiter.record(key, 60_000);
     const text = this.filterWords(body);
     const mentions = await this.findMentions(text, userId, ch);
-    const [row] = await this.deps.db.insert(schema.chatMessages).values({ channelId, userId, body: text, replyTo: opts.replyTo ?? null, mentions, image: opts.image ?? null, createdAt: this.now() }).returning();
+    const [row] = await this.deps.db.insert(schema.chatMessages).values({ channelId, userId, body: text, replyTo: opts.replyTo ?? null, threadId, mentions, image: opts.image ?? null, createdAt: this.now() }).returning();
     if (opts.image) await this.deps.db.update(schema.chatImages).set({ attached: true }).where(eq(schema.chatImages.id, opts.image));
     const [dto] = await this.toDto([row!]);
     // Odesílatel má svou zprávu přečtenou.
     await this.markRead(userId, channelId, row!.id).catch(() => undefined);
     this.events.message?.({ id: ch.id, key: ch.key, kind: ch.kind }, dto!);
     for (const m of mentions) this.events.mention?.(m, dto!);
+    if (threadId !== null) for (const u of await this.threadAudience(ch, threadId, userId, mentions)) this.events.threadReply?.(u, dto!);
     return dto!;
+  }
+
+  /**
+   * Who should learn about a new reply in a thread: the author of the question and everybody who wrote in it, except
+   * the sender, people already told by a mention, people who ignore the sender and people who cannot read the channel.
+   */
+  private async threadAudience(ch: { id: string; kind: string; key: string }, threadId: number, senderId: string, mentioned: string[]): Promise<string[]> {
+    const rows = await this.deps.db
+      .select({ userId: schema.chatMessages.userId })
+      .from(schema.chatMessages)
+      .where(and(or(eq(schema.chatMessages.id, threadId), eq(schema.chatMessages.threadId, threadId)), isNull(schema.chatMessages.deletedAt)));
+    const out: string[] = [];
+    for (const u of new Set(rows.map((r) => r.userId).filter((x): x is string => !!x))) {
+      if (u === senderId || mentioned.includes(u)) continue;
+      if ((await this.ignoredBy(u)).has(senderId)) continue;
+      if ((await this.access(u, ch)).read) out.push(u);
+    }
+    return out;
   }
 
   private async findMentions(text: string, authorId: string, ch: { id: string; kind: string; key: string }): Promise<string[]> {
@@ -399,18 +439,61 @@ export class ChatService {
     return dto!;
   }
 
-  async history(userId: string, channelId: string, opts: { before?: number; limit?: number } = {}): Promise<MessageDto[]> {
-    await this.readable(userId, channelId);
+  /**
+   * History of a channel, oldest first. With `threads` (and the feature switched on) it holds only the main line:
+   * replies are left out and each message carries the summary of the thread under it; the replies come from `thread`.
+   * Table chats are never threaded.
+   */
+  async history(userId: string, channelId: string, opts: { before?: number; limit?: number; threads?: boolean } = {}): Promise<MessageDto[]> {
+    const { ch } = await this.readable(userId, channelId);
     const limit = Math.min(opts.limit ?? 50, 200);
     const ignored = await this.ignoredBy(userId);
+    const threaded = !!opts.threads && this.s['chat.threads'] !== false && ch.kind !== 'table';
     const rows = await this.deps.db
       .select()
       .from(schema.chatMessages)
-      .where(and(eq(schema.chatMessages.channelId, channelId), opts.before ? lt(schema.chatMessages.id, opts.before) : undefined))
+      .where(and(eq(schema.chatMessages.channelId, channelId), opts.before ? lt(schema.chatMessages.id, opts.before) : undefined, threaded ? isNull(schema.chatMessages.threadId) : undefined))
       .orderBy(desc(schema.chatMessages.id))
       .limit(limit);
     const visible = rows.filter((r) => !r.userId || !ignored.has(r.userId));
-    return (await this.toDto(visible)).reverse();
+    const dtos = (await this.toDto(visible)).reverse();
+    if (!threaded || dtos.length === 0) return dtos;
+    const summaries = await this.threadSummaries(userId, channelId, dtos.map((d) => d.id), ignored);
+    return dtos.map((d) => ({ ...d, thread: summaries.get(d.id) ?? null }));
+  }
+
+  private async threadSummaries(userId: string, channelId: string, rootIds: number[], ignored: Set<string>): Promise<Map<number, ThreadSummary>> {
+    const db = this.deps.db;
+    const replies = await db
+      .select({ id: schema.chatMessages.id, threadId: schema.chatMessages.threadId, userId: schema.chatMessages.userId, createdAt: schema.chatMessages.createdAt })
+      .from(schema.chatMessages)
+      .where(and(inArray(schema.chatMessages.threadId, rootIds), isNull(schema.chatMessages.deletedAt)))
+      .orderBy(asc(schema.chatMessages.id));
+    const [member] = await db.select({ lastReadId: schema.chatMembers.lastReadId }).from(schema.chatMembers).where(and(eq(schema.chatMembers.channelId, channelId), eq(schema.chatMembers.userId, userId)));
+    const lastRead = member?.lastReadId ?? 0;
+    const out = new Map<number, ThreadSummary & { lastUserId: string | null }>();
+    for (const r of replies) {
+      if (r.userId && ignored.has(r.userId)) continue;
+      const s = out.get(r.threadId!) ?? { count: 0, lastId: 0, lastAt: '', lastNickname: null, unread: 0, lastUserId: null };
+      s.count++;
+      s.lastId = r.id;
+      s.lastAt = r.createdAt.toISOString();
+      s.lastUserId = r.userId;
+      if (r.id > lastRead && r.userId !== userId) s.unread++;
+      out.set(r.threadId!, s);
+    }
+    const authors = [...new Set([...out.values()].map((s) => s.lastUserId).filter((x): x is string => !!x))];
+    const nick = new Map((authors.length ? await db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, authors)) : []).map((u) => [u.id, u.nickname]));
+    return new Map([...out].map(([id, { lastUserId, ...s }]) => [id, { ...s, lastNickname: lastUserId ? (nick.get(lastUserId) ?? null) : null }]));
+  }
+
+  /** Replies of one thread, oldest first (deleted ones stay as placeholders, like in the main line). */
+  async thread(userId: string, rootId: number): Promise<MessageDto[]> {
+    const root = await this.message(rootId);
+    await this.readable(userId, root.channelId);
+    const ignored = await this.ignoredBy(userId);
+    const rows = await this.deps.db.select().from(schema.chatMessages).where(eq(schema.chatMessages.threadId, rootId)).orderBy(asc(schema.chatMessages.id));
+    return this.toDto(rows.filter((r) => !r.userId || !ignored.has(r.userId)));
   }
 
   async search(userId: string, q: string, channelId?: string): Promise<MessageDto[]> {
@@ -461,7 +544,7 @@ export class ChatService {
     if (m.deletedAt) return;
     await this.deps.db.update(schema.chatMessages).set({ deletedAt: this.now(), deletedBy: userId }).where(eq(schema.chatMessages.id, messageId));
     if (!own) await this.deps.audit.log({ actorId: userId, action: 'chat.zprava_smazana', targetType: 'chat_message', targetId: String(messageId), before: { author: m.userId, body: m.body } });
-    this.events.deleted?.(m.channelId, messageId);
+    this.events.deleted?.(m.channelId, messageId, m.threadId ?? null);
   }
 
   async react(userId: string, messageId: number, emoji: string): Promise<Record<string, string[]>> {
@@ -506,6 +589,12 @@ export class ChatService {
   }
 
   /** Komu poslat upozornění na novou zprávu v soukromém / skupinovém kanálu (členové bez autora a bez ztlumených). */
+  /** Has the user switched off notifications from this channel? */
+  async notifyMutedFor(userId: string, channelId: string): Promise<boolean> {
+    const [m] = await this.deps.db.select({ muted: schema.chatMembers.notifyMuted }).from(schema.chatMembers).where(and(eq(schema.chatMembers.channelId, channelId), eq(schema.chatMembers.userId, userId)));
+    return !!m?.muted;
+  }
+
   async notifyTargets(channelId: string, authorId: string | null): Promise<string[]> {
     const ch = await this.channel(channelId);
     if (ch.kind !== 'dm' && ch.kind !== 'group') return [];
@@ -596,6 +685,8 @@ export class ChatService {
     if (!days) return 0;
     const cutoff = new Date(this.now().getTime() - days * 86400_000);
     const res = await this.deps.db.delete(schema.chatMessages).where(lt(schema.chatMessages.createdAt, cutoff)).returning({ id: schema.chatMessages.id });
+    // Replies that outlived their question become ordinary messages of the main line, otherwise nobody would see them.
+    if (res.length > 0) await this.deps.db.execute(sql`update chat_messages set thread_id = null where thread_id is not null and thread_id not in (select id from chat_messages)`);
     return res.length;
   }
 }

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDefaultRegistry, resolveSettings } from '@kb/shared';
 import { AuditService } from '../auth/audit.js';
@@ -33,10 +35,11 @@ async function setup(over: Record<string, number | boolean | string> = {}) {
   chat.on({
     message: (_c, m) => void log.push({ kind: 'message', payload: m }),
     edited: (_c, m) => void log.push({ kind: 'edited', payload: m }),
-    deleted: (_c, id) => void log.push({ kind: 'deleted', payload: id }),
+    deleted: (_c, id, threadId) => void log.push({ kind: 'deleted', payload: id, ...(threadId ? { threadId } : {}) } as { kind: string; payload: any }),
     reaction: (_c, id, r) => void log.push({ kind: 'reaction', payload: { id, r } }),
     pinned: (_c, m) => void log.push({ kind: 'pinned', payload: m }),
     mention: (u, m) => void log.push({ kind: 'mention', payload: { u, id: m.id } }),
+    threadReply: (u, m) => void log.push({ kind: 'threadReply', payload: { u, id: m.id } }),
     joined: (u, c) => void log.push({ kind: 'joined', payload: { u, c } }),
   });
   const user = async (nick: string, role = 'hrac') => {
@@ -340,5 +343,147 @@ describe('název hlavního kanálu', () => {
       settings: () => resolveSettings(reg, [{ scope: 'global', values: { 'chat.mainChannelName': 'Krčma' } }]).values,
     });
     expect((await renamed.listChannels(u)).find((c) => c.id === s.main)?.name).toBe('Krčma');
+  });
+});
+
+describe('threads: replies collapsed under the question', () => {
+  it('a reply joins the thread of its question, a reply to a reply stays in the same thread', async () => {
+    const s = await setup();
+    const [a, b] = [await s.user('Karel'), await s.user('Jana')];
+    const q = await s.chat.send(a, s.main, 'Kdo jde v pátek?');
+    const r1 = await s.chat.send(b, s.main, 'Já jdu', { replyTo: q.id });
+    const r2 = await s.chat.send(a, s.main, 'V kolik?', { replyTo: r1.id });
+    const other = await s.chat.send(b, s.main, 'Zítra hraju cash');
+    expect(q.threadId).toBeNull();
+    expect(r1.threadId).toBe(q.id);
+    expect(r2.threadId).toBe(q.id); // one level only
+    expect(r2.replyTo).toBe(r1.id); // what exactly it answers is still known
+    expect(other.threadId).toBeNull();
+  });
+
+  it('the main line holds only questions with a summary; replies come from the thread', async () => {
+    const s = await setup();
+    const [a, b, c] = [await s.user('Karel'), await s.user('Jana'), await s.user('Petr')];
+    const q = await s.chat.send(a, s.main, 'Kdo jde v pátek?');
+    const r1 = await s.chat.send(b, s.main, 'Já jdu', { replyTo: q.id });
+    s.advance(60_000);
+    const r2 = await s.chat.send(c, s.main, 'Já taky', { replyTo: r1.id });
+    const plain = await s.chat.send(b, s.main, 'Zítra hraju cash');
+
+    const line = await s.chat.history(a, s.main, { threads: true });
+    expect(line.map((m) => m.body)).toEqual(['Kdo jde v pátek?', 'Zítra hraju cash']);
+    expect(line[0]!.thread).toEqual({ count: 2, lastId: r2.id, lastAt: r2.createdAt, lastNickname: 'Petr', unread: 2 });
+    expect(line[1]!.thread).toBeNull();
+    // Jana sent the last message, which reads the channel for her: nothing is unread; the same after Karel reads it
+    expect((await s.chat.history(b, s.main, { threads: true }))[0]!.thread!.unread).toBe(0);
+    await s.chat.markRead(a, s.main, plain.id);
+    expect((await s.chat.history(a, s.main, { threads: true }))[0]!.thread!.unread).toBe(0);
+
+    expect((await s.chat.thread(a, q.id)).map((m) => [m.body, m.nickname, m.threadId])).toEqual([['Já jdu', 'Jana', q.id], ['Já taky', 'Petr', q.id]]);
+    // without the request for threads the history is the plain sequence, as other parts of the app expect
+    expect((await s.chat.history(a, s.main)).map((m) => m.body)).toEqual(['Kdo jde v pátek?', 'Já jdu', 'Já taky', 'Zítra hraju cash']);
+    expect((await s.chat.history(a, s.main))[0]!.thread).toBeUndefined();
+  });
+
+  it('paging counts questions, not replies, so a long thread does not push the questions out', async () => {
+    const s = await setup({ 'chat.messagesPerMinute': 100 });
+    const u = await s.user('U');
+    const first = await s.chat.send(u, s.main, 'otázka 1');
+    for (let i = 0; i < 5; i++) await s.chat.send(u, s.main, `odpověď ${i}`, { replyTo: first.id });
+    await s.chat.send(u, s.main, 'otázka 2');
+    await s.chat.send(u, s.main, 'otázka 3');
+    const page = await s.chat.history(u, s.main, { threads: true, limit: 2 });
+    expect(page.map((m) => m.body)).toEqual(['otázka 2', 'otázka 3']);
+    const older = await s.chat.history(u, s.main, { threads: true, limit: 2, before: page[0]!.id });
+    expect(older.map((m) => [m.body, m.thread?.count])).toEqual([['otázka 1', 5]]);
+  });
+
+  it('switched off, and in the chat of a game table, everything stays in one line', async () => {
+    const off = await setup({ 'chat.threads': false });
+    const u = await off.user('U');
+    const q = await off.chat.send(u, off.main, 'otázka');
+    await off.chat.send(u, off.main, 'odpověď', { replyTo: q.id });
+    expect((await off.chat.history(u, off.main, { threads: true })).map((m) => m.body)).toEqual(['otázka', 'odpověď']);
+    await database?.close();
+
+    const s = await setup();
+    const p = await s.user('P');
+    const table = await s.chat.ensureTableChannel('stul-1', 'Stůl 1');
+    s.tableMembers.set('stul-1', { read: [p], write: [p] });
+    const tq = await s.chat.send(p, table, 'gg');
+    await s.chat.send(p, table, 'díky', { replyTo: tq.id });
+    expect((await s.chat.history(p, table, { threads: true })).map((m) => m.body)).toEqual(['gg', 'díky']);
+  });
+
+  it('deleted and ignored replies do not count; the thread respects who may read the channel', async () => {
+    const s = await setup();
+    const [a, b, c] = [await s.user('Karel'), await s.user('Jana'), await s.user('Petr')];
+    const blocked = await s.user('Zablok', 'zablokovany');
+    const q = await s.chat.send(a, s.main, 'otázka');
+    const r1 = await s.chat.send(b, s.main, 'od Jany', { replyTo: q.id });
+    await s.chat.send(c, s.main, 'od Petra', { replyTo: q.id });
+    await s.chat.delete(b, r1.id);
+    expect(s.log.find((l) => l.kind === 'deleted')).toMatchObject({ payload: r1.id, threadId: q.id });
+    expect((await s.chat.history(a, s.main, { threads: true }))[0]!.thread).toMatchObject({ count: 1, lastNickname: 'Petr' });
+    // the deleted reply stays in the thread as a placeholder, like in the main line
+    expect((await s.chat.thread(a, q.id)).map((m) => [m.deleted, m.body])).toEqual([[true, ''], [false, 'od Petra']]);
+
+    await s.chat.setIgnore(a, c, true);
+    expect((await s.chat.history(a, s.main, { threads: true }))[0]!.thread).toBeNull();
+    expect((await s.chat.thread(a, q.id)).filter((m) => !m.deleted)).toEqual([]);
+    expect(await code(s.chat.thread(blocked, q.id))).toBe('FORBIDDEN');
+    expect(await code(s.chat.thread(a, 99999))).toBe('NOT_FOUND');
+  });
+
+  it('a new reply is announced to the author of the question and to everybody who wrote in the thread', async () => {
+    const s = await setup();
+    const [a, b, c, d] = [await s.user('Karel'), await s.user('Jana'), await s.user('Petr'), await s.user('Dana')];
+    const told = (id: number) => s.log.filter((l) => l.kind === 'threadReply' && l.payload.id === id).map((l) => l.payload.u).sort();
+    const q = await s.chat.send(a, s.main, 'otázka');
+    expect(s.log.some((l) => l.kind === 'threadReply')).toBe(false); // a question announces nothing
+    const r1 = await s.chat.send(b, s.main, 'první', { replyTo: q.id });
+    expect(told(r1.id)).toEqual([a]); // not the sender herself
+    const r2 = await s.chat.send(c, s.main, 'druhá', { replyTo: r1.id });
+    expect(told(r2.id)).toEqual([a, b].sort());
+    // a mention already told Jana; Dana never wrote in the thread
+    const r3 = await s.chat.send(a, s.main, '@Jana díky', { replyTo: q.id });
+    expect(told(r3.id)).toEqual([c]);
+    expect(s.log.filter((l) => l.kind === 'mention' && l.payload.id === r3.id).map((l) => l.payload.u)).toEqual([b]);
+    // who ignores the sender is left alone
+    await s.chat.setIgnore(a, c, true);
+    const r4 = await s.chat.send(c, s.main, 'třetí', { replyTo: q.id });
+    expect(told(r4.id)).toEqual([b]);
+    expect(told(r4.id)).not.toContain(d);
+  });
+
+  it('cleaning old history turns replies that outlived their question into ordinary messages', async () => {
+    const s = await setup({ 'chat.historyDays': 7 });
+    const u = await s.user('U');
+    const q = await s.chat.send(u, s.main, 'stará otázka');
+    s.advance(10 * 86_400_000);
+    await s.chat.send(u, s.main, 'pozdní odpověď', { replyTo: q.id });
+    expect(await s.chat.purgeOld()).toBe(1);
+    const line = await s.chat.history(u, s.main, { threads: true });
+    expect(line.map((m) => [m.body, m.threadId])).toEqual([['pozdní odpověď', null]]);
+  });
+
+  it('the update groups replies written before threads existed', async () => {
+    const s = await setup();
+    const u = await s.user('U');
+    const at = new Date('2026-07-01T10:00:00Z');
+    const add = async (body: string, replyTo: number | null) => (await s.db.insert(schema.chatMessages).values({ channelId: s.main, userId: u, body, replyTo, createdAt: at }).returning({ id: schema.chatMessages.id }))[0]!.id;
+    const q = await add('otázka', null);
+    const r1 = await add('odpověď', q);
+    const r2 = await add('odpověď na odpověď', r1);
+    const r3 = await add('ještě hlouběji', r2);
+    const lost = await add('odpověď na smazanou zprávu', 987654);
+    const alone = await add('obyčejná zpráva', null);
+    // the same statement the migration runs (its last one)
+    const migration = readFileSync(new URL('../../drizzle/0047_chat_vlakna.sql', import.meta.url), 'utf8');
+    await s.db.execute(sql.raw(migration.split('--> statement-breakpoint').at(-1)!));
+    const rows = await s.db.select({ id: schema.chatMessages.id, threadId: schema.chatMessages.threadId }).from(schema.chatMessages);
+    const thread = new Map(rows.map((r) => [r.id, r.threadId]));
+    expect([q, r1, r2, r3, lost, alone].map((id) => thread.get(id))).toEqual([null, q, q, q, null, null]);
+    expect((await s.chat.history(u, s.main, { threads: true })).map((m) => [m.body, m.thread?.count ?? 0])).toEqual([['otázka', 3], ['odpověď na smazanou zprávu', 0], ['obyčejná zpráva', 0]]);
   });
 });

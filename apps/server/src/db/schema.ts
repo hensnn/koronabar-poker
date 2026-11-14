@@ -376,6 +376,8 @@ export const chatMessages = pgTable(
     userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     body: text('body').notNull(),
     replyTo: bigint('reply_to', { mode: 'number' }),
+    /** Thread the message belongs to: id of the root message (the question). Null for a root or a standalone message. */
+    threadId: bigint('thread_id', { mode: 'number' }),
     system: boolean('system').notNull().default(false),
     mentions: jsonb('mentions').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     createdAt: createdAt(),
@@ -387,7 +389,7 @@ export const chatMessages = pgTable(
     /** Přiložený obrázek (`chat_images`). */
     image: uuid('image'),
   },
-  (t) => [index('chat_messages_channel_idx').on(t.channelId, t.id)],
+  (t) => [index('chat_messages_channel_idx').on(t.channelId, t.id), index('chat_messages_thread_idx').on(t.threadId, t.id)],
 );
 
 export const chatReactions = pgTable(

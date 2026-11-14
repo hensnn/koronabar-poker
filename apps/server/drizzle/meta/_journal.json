@@ -330,6 +330,13 @@
       "when": 1794008577949,
       "tag": "0046_historie_behu",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794663651104,
+      "tag": "0047_chat_vlakna",
+      "breakpoints": true
     }
   ]
 }

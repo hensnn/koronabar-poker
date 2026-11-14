@@ -30,9 +30,14 @@ export function SoundHost() {
     const offMention = onSocket('chat:mention', () => {
       if (prefs.current.mention) playMentionTone(prefs.current.volume);
     });
+    // a reply in a thread the player started or wrote in rings like a mention
+    const offThread = onSocket('chat:thread-reply', () => {
+      if (prefs.current.mention) playMentionTone(prefs.current.volume);
+    });
     return () => {
       offSound();
       offMention();
+      offThread();
       offDm();
     };
   }, []);

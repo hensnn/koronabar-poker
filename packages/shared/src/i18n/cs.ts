@@ -99,6 +99,8 @@ export const cs: Record<string, string> = {
   'settings.chat.historyDays.help': 'Po kolika dnech se staré zprávy smažou. 0 = navždy.',
   'settings.chat.editWindowMinutes.label': 'Doba pro úpravu zprávy',
   'settings.chat.editWindowMinutes.help': 'Jak dlouho po odeslání jde zprávu upravit. 0 = bez omezení.',
+  'settings.chat.threads.label': 'Odpovědi sbalené do vláken',
+  'settings.chat.threads.help': 'Zapnuto: odpovědi se v chatu schovají pod zprávu, na kterou reagují, a rozbalí se kliknutím; hlavní řada zůstane přehledná. Vypnuto: všechny zprávy jdou za sebou jako dřív. Chat u herního stolu vlákna nepoužívá nikdy.',
   'settings.chat.playerChannels.label': 'Kanály zakládají hráči',
   'settings.chat.groupsEnabled.label': 'Skupinové chaty',
   'settings.chat.groupsEnabled.help': 'Povolí hráčům zakládat skupinové konverzace (soukromé místnosti pro víc lidí). Po vypnutí zmizí tlačítko Nová skupina i seznam skupin a skupinové zprávy se nikomu nezobrazí ani nedoručí; uložené zprávy zůstanou a po zapnutí se vrátí.',
