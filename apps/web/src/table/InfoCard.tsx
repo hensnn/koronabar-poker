@@ -6,6 +6,7 @@ import { onSocket } from '../net';
 import { DealPanel } from '../pages/deal';
 import { PostBountyDialog } from '../pages/bets';
 import { useSession } from '../session';
+import { deviceId } from '../settings';
 import { Button, Modal } from '../ui';
 import { actionOffSm, actionTone, actionToneSm } from './buttons';
 import { decideText, decideTitle } from './decide-text';
@@ -396,6 +397,7 @@ export function AddonOfferDialog({ tour, tournamentId }: { tour: TournamentInfo 
             {t('tournament.addonOfferYes')}
           </Button>
         </div>
+        {deviceId() !== 'phone' && <p className="text-right text-xs text-muted">{t('table.keys.offer', { yes: t('tournament.addonOfferYes') })}</p>}
       </div>
     </Modal>
   );
@@ -477,16 +479,17 @@ export function RebuyDecisionDialog({ tour, tournamentId }: { tour: TournamentIn
             {t('tournament.rebuyDecline')}
           </Button>
           {tour.me.canReenter && (
-            <button className={actionTone.special} disabled={busy} onClick={() => void act('reenter')}>
+            <button className={actionTone.special} disabled={busy} data-default={tour.me.canRebuy ? undefined : ''} onClick={() => void act('reenter')}>
               {t('tournament.reenter')} ({tour.buyIn + tour.fee})
             </button>
           )}
           {tour.me.canRebuy && (
-            <button className={actionTone.add} disabled={busy} onClick={() => void act('rebuy')}>
+            <button className={actionTone.add} disabled={busy} data-default="" onClick={() => void act('rebuy')}>
               {t('tournament.rebuy')} ({tour.rebuy.cost})
             </button>
           )}
         </div>
+        {deviceId() !== 'phone' && <p className="text-right text-xs text-muted">{t('table.keys.offer', { yes: tour.me.canRebuy ? t('tournament.rebuy') : t('tournament.reenter') })}</p>}
       </div>
     </Modal>
   );

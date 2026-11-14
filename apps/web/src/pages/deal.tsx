@@ -6,7 +6,7 @@ import { useSession } from '../session';
 import { useSettings } from '../settings';
 import { dealFinance, type DealFinance } from './deal-finance';
 import { dealPopupAuto } from './deal-popup';
-import { Badge, Button, Card, DataTable, isConfirmKey, Modal, Notice, Select, Td, useArrowChoices } from '../ui';
+import { Badge, Button, Card, DataTable, isOfferKey, Modal, Notice, Select, Td, useArrowChoices } from '../ui';
 
 type Method = 'icm' | 'chipChop' | 'equal' | 'custom';
 
@@ -169,7 +169,7 @@ export function DealPanel({ id, canManage = false, popup = false }: { id: string
   useEffect(() => {
     if (!firstAnswer || popup) return;
     const onKey = (e: KeyboardEvent) => {
-      if (!isConfirmKey(e) || document.querySelector('[aria-modal="true"]')) return;
+      if (!isOfferKey(e) || document.querySelector('[aria-modal="true"]')) return;
       e.preventDefault();
       void post(`/api/tournaments/${id}/deal/vote`, { yes: true })
         .then(() => load())

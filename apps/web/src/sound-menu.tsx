@@ -4,6 +4,7 @@ import { labelKey, t } from '@kb/shared';
 import { scaleLockFactor } from './scale-lock';
 import { saveUserSetting, useSettings } from './settings';
 import { playSfx, SFX_THEMES } from './table/sfx';
+import { useEscape } from './ui';
 
 /** Přepínače zvuku v nabídce 🔊: každý řádek je osobní nastavení, které se uloží hned. */
 const ROWS: { key: string; def: boolean; invert?: boolean; label?: string }[] = [
@@ -52,6 +53,7 @@ export function SoundMenu() {
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
+  useEscape(open, () => setOpen(false));
   const rows = ROWS.filter((r) => r.key !== 'announcer.mute' || settings.values['announcer.enabled'] !== false);
   const isOn = (r: (typeof ROWS)[number]) => {
     const v = Boolean(settings.values[r.key] ?? r.def);

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { t } from '@kb/shared';
 import { del, errorText, get, post } from '../api';
 import { useLocation, matchPath } from '../router';
-import { Badge, Button, Notice } from '../ui';
+import { Badge, Button, Notice, useEscape } from '../ui';
 import { useSettings } from '../settings';
 import { pickVoice } from '../announcer/engine';
 
@@ -171,6 +171,7 @@ export function AssistantLauncher({ floating = true }: { floating?: boolean } = 
   const { path } = useLocation();
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);

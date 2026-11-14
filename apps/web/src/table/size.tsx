@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from '@kb/shared';
 import { ScaleLockButtons } from '../scale-lock-button';
 import { saveUserSetting, useSettings } from '../settings';
-import { Button } from '../ui';
+import { Button, useEscape } from '../ui';
 
 const H = 'ui.tableHeightPercent';
 const A = 'ui.tableAreaWidthPercent';
@@ -78,6 +78,7 @@ export function TableSizeButton({ iconOnly }: { iconOnly: boolean }) {
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
+  useEscape(open, () => setOpen(false));
   const commit = (key: string) => {
     const value = size[field(key)];
     void saveUserSetting(key, value).finally(() => publish({ ...live, [field(key)]: undefined }));

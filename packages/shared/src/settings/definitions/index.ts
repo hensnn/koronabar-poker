@@ -803,6 +803,9 @@ const ui: SettingDef[] = [
   choice('ui.winImpact', { category: 'ui', mutability: A, scopes: USER }, 'full', ['off', 'subtle', 'full']),
   int('ui.mobileTableAspect', { category: 'ui', mutability: A, scopes: USER, unit: '%' }, 85, 70, 200),
   bool('ui.hotkeysEnabled', { category: 'ui', mutability: A, scopes: USER }, true),
+  // Offers that pop up by themselves at the table (rebuy, add-on, run it twice, showing cards): how long after they appear
+  // Enter, Space and Escape are held back, so a key meant for something else does not answer them.
+  int('ui.hotkeyOfferDelayMs', { category: 'ui', mutability: A, scopes: USER, unit: 'ms' }, 600, 0, 3000, 100),
   text('ui.hotkeyFold', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'f', 1),
   text('ui.hotkeyCall', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'c', 1),
   text('ui.hotkeyBet', { category: 'ui', mutability: A, scopes: USER, dependsOn: { key: 'ui.hotkeysEnabled', truthy: true } }, 'b', 1),

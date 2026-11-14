@@ -28,7 +28,7 @@ import { scaledPx, useScaleFactor } from '../scale-lock';
 import { ScaleLockButton } from '../scale-lock-button';
 import { SoundMenu } from '../sound-menu';
 import { AssistantToolButton } from './assistant';
-import { Button, DataTable, ErrorToast, Modal, Notice, Td } from '../ui';
+import { Button, DataTable, ErrorToast, Modal, Notice, Td, useEscape } from '../ui';
 import { ChatPanel } from './chat';
 import { DealPanel } from './deal';
 import { useFeatures } from '../features';
@@ -61,6 +61,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const features = useFeatures();
   const [showSettlement, setShowSettlement] = useState(false);
   const [drawer, setDrawer] = useState<string | null>(null);
+  useEscape(drawer !== null, () => setDrawer(null));
   const [focus, setFocus] = useState(false);
   const [history, setHistory] = useState(false);
   const hiddenSides = useHiddenSides();

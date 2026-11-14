@@ -843,6 +843,8 @@ export const cs: Record<string, string> = {
   'table.peek': 'Ukázat karty (přejetím myší, na dotyku klepnutím)',
   'settings.ui.mobileTableAspect.label': 'Tvar stolu na telefonu (šířka ku výšce)',
   'settings.ui.mobileTableAspect.help': 'Na úzkém displeji je ovál vyšší, aby se vešla sedadla a karty a nepřekrývaly se: 70 % = nejvyšší, 85 % = výchozí, 100 % = kruh, 150 % = stejně protáhlý jako na počítači.',
+  'settings.ui.hotkeyOfferDelayMs.label': 'Pojistka kláves u nabídek',
+  'settings.ui.hotkeyOfferDelayMs.help': 'Nabídky, které u stolu vyskočí samy (rebuy, add-on, run it twice, ukázání karet), po tuto dobu od zobrazení nereagují na Enter, mezerník ani Escape. Klávesa stisknutá kvůli něčemu jinému tak omylem nic nekoupí ani neodsouhlasí. 0 = bez pojistky.',
   'settings.ui.hotkeysEnabled.label': 'Klávesové zkratky u stolu',
   'settings.ui.hotkeysEnabled.help': 'Ovládání tahu klávesnicí: Fold, Check/Call, Bet, Raise, All-in a šipky nahoru/dolů pro výšku sázky.',
   'settings.ui.hotkeyFold.label': 'Klávesa Fold',

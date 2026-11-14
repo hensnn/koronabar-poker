@@ -4,7 +4,7 @@ import { t } from '@kb/shared';
 import { formatAmount, parseList, quickBetDefaults } from './format';
 import { amountInRange, clampAmount } from './amount';
 import { useSettings } from '../settings';
-import { NumInput } from '../ui';
+import { NumInput, topModal } from '../ui';
 import { PlanBar } from './TablePanel';
 
 interface Props {
@@ -66,6 +66,8 @@ export function ActionBar({ view, tableId, legal, inBb, quickPost, quickPre, bus
       const el = e.target as HTMLElement | null;
       // Držená klávesa (opakování) nesmí poslat akci vícekrát.
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      // A window is open over the table: its keys are its own, a letter must not fold or call behind it.
+      if (topModal()) return;
       // Posuvník sázky sám šipky nechává na nás (aby skok byl malý blind); ostatní pole si je nechávají.
       const slider = el?.tagName === 'INPUT' && (el as HTMLInputElement).type === 'range';
       if (!slider && el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;

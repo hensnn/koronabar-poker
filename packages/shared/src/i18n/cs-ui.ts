@@ -92,6 +92,8 @@ export const csUi: Record<string, string> = {
   'table.showdown.title': 'Showdown: ukázat karty?',
   'table.showdown.show': 'Ukázat karty',
   'table.showdown.muck': 'Muck (odhodit)',
+  'table.keys.choice': 'Enter: {yes} · Esc: {no} · šipky přepínají',
+  'table.keys.offer': 'Enter: {yes} · Esc: rozhodnout později · šipky přepínají',
   'table.showdown.hint': 'Bez odpovědi se karty za {s} s odhodí (muck).',
   'table.showWinnerPrompt': 'Vyhrál jsi bez showdownu. Ukázat karty?',
   'table.keepHidden': 'Neukazovat',

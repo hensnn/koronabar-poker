@@ -20,7 +20,7 @@ import { formatAmount, seatPosition, tableMoney } from './format';
 import { Panel } from './Panel';
 import { Resizable } from './resizable';
 import { useTableWidgets } from './widgets';
-import { defaultOf, saveUserSetting } from '../settings';
+import { defaultOf, deviceId, saveUserSetting } from '../settings';
 import { flyOffset, useDealAnimation, type DealState } from './deal';
 import { Amount } from './Chips';
 import { amountInRange } from './amount';
@@ -30,7 +30,7 @@ import { useTableSfx } from './sfx';
 import { useActionBubbles, type Bubble } from './actions-feed';
 import { MobileMid } from './mobile-ui';
 import { avatarClasses, LookName, useLook, useMyTableLook } from '../cosmetics-client';
-import { ErrorToast, isConfirmKey, Modal, NumInput, useArrowChoices } from '../ui';
+import { ErrorToast, isOfferKey, Modal, NumInput, useArrowChoices, useKeyGuard } from '../ui';
 import { ChipStack } from './Chips';
 import { ChipSweeps, useChipSweeps } from './chip-fx';
 import { usePlanExecutor } from './plan';
@@ -158,13 +158,25 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
     if (autoVote) void table.vote(tableId, runItPref === 'always');
   }, [autoVote, runItPref, tableId]);
 
-  // Nabídky přes stůl (ukázat karty, souhlas s run it twice): Enter nebo mezerník zvolí hlavní odpověď.
+  // Nabídky přes stůl (ukázat karty, souhlas s run it twice): Enter nebo mezerník zvolí hlavní odpověď, Escape tu druhou.
   const prompt = useRef<(() => void) | null>(null);
+  const promptNo = useRef<(() => void) | null>(null);
+  // The offer on screen (null = none): keys are held back for a moment after it appears. A new one (another hand)
+  // starts its own short hold.
+  const offerNow = !view?.seats.some((s) => s.playerId === userId) ? null : view.showdownChoice ? `showdown:${view.handId}` : vote?.kind === 'runit' && runItPref === 'ask' && vote.status === 'open' && vote.canVote ? `runit:${view.handId}` : null;
+  const offerHeld = useKeyGuard(offerNow);
+  const offerHeldRef = useRef(offerHeld);
+  offerHeldRef.current = offerHeld;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!prompt.current || !isConfirmKey(e) || document.querySelector('[aria-modal="true"]')) return;
+      const escape = e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !e.repeat;
+      const answer = escape ? promptNo.current : isOfferKey(e) ? prompt.current : null;
+      if (!answer) return;
+      // Another window or panel is open (it has its own Escape and Enter), or the focused button answers by itself.
+      if (document.querySelector('[role="dialog"]:not(.kd-choice)')) return;
       e.preventDefault();
-      prompt.current();
+      if (offerHeldRef.current()) return;
+      answer();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -255,7 +267,10 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
     setActPending(false);
     if (!r.ok && r.code !== 'STALE_ACTION' && r.code !== 'NOT_YOUR_TURN') setError(ackErrorText(r.code, r.params));
   };
-  prompt.current = !mine || dialog ? null : view.showdownChoice ? () => void run(table.showdown(tableId, 'show')) : view.vote?.kind === 'runit' && runItPref === 'ask' && view.vote.status === 'open' && view.vote.canVote && view.vote.myVote !== true ? () => void run(table.vote(tableId, true)) : null;
+  const runItOpen = view.vote?.kind === 'runit' && runItPref === 'ask' && view.vote.status === 'open' && view.vote.canVote;
+  prompt.current = !mine || dialog ? null : view.showdownChoice ? () => void run(table.showdown(tableId, 'show')) : runItOpen && view.vote!.myVote !== true ? () => void run(table.vote(tableId, true)) : null;
+  promptNo.current = !mine || dialog ? null : view.showdownChoice ? () => void run(table.showdown(tableId, 'muck')) : runItOpen && view.vote!.myVote !== false ? () => void run(table.vote(tableId, false)) : null;
+  const keysHint = deviceId() !== 'phone';
 
   // Run it: pot leží nad řádky jednotlivých běhů, aby se s nimi a s mými kartami nepřekrýval.
   const multiRun = !!view.runs && view.runs.length >= 1;
@@ -470,6 +485,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
               </button>
             </div>
           )}
+          {view.vote.canVote && keysHint && <p className="text-xs text-muted">{t('table.keys.choice', { yes: t('table.runIt.agree', { times: String((view.vote.payload as { times: number }).times) }), no: t('table.runIt.disagree') })}</p>}
         </div>
       )}
 
@@ -487,6 +503,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
               {t('table.showdown.muck')}
             </button>
           </div>
+          {keysHint && <p className="text-xs text-muted">{t('table.keys.choice', { yes: t('table.showdown.show'), no: t('table.showdown.muck') })}</p>}
         </div>
       )}
 
@@ -870,7 +887,8 @@ function AmountDialog({ title, topUp, view, balance: wallet, error, onCancel, on
       {v > wallet && <p className="text-sm text-muted">{t('table.creditWillUse', { amount: tableMoney(v - wallet, info) })}</p>}
       <div className="flex items-center gap-3">
         <input aria-label={t('table.amount')} type="range" className="flex-1" min={min} max={Math.max(min, max)} value={v} onChange={(e) => setV(Number(e.target.value))} />
-        <NumInput aria-label={t('table.amountExact')} className="w-28" min={min} max={Math.max(min, max)} value={v} onChange={setV} />
+        {/* the window opens in the amount: type it, or use the arrows, and Enter confirms (not on a phone, where it would only pop the keyboard up) */}
+        <NumInput aria-label={t('table.amountExact')} className="w-28" min={min} max={Math.max(min, max)} value={v} onChange={setV} autoFocus={deviceId() !== 'phone'} onFocus={(e) => e.currentTarget.select()} />
       </div>
       {none && <p className="rounded-md border border-warning px-2 py-1 text-sm">{t(topUp ? 'table.topUpFull' : 'table.buyInNone')}</p>}
       {error && (

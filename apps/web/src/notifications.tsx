@@ -6,6 +6,7 @@ import { onSocket } from './net';
 import { disablePush, currentSubscription, enablePush, pushSupported } from './push';
 import { Link } from './router';
 import { popoverClass, popoverPlace, type PopoverPlace } from './sound-menu';
+import { useEscape } from './ui';
 
 interface Item {
   id: number;
@@ -108,6 +109,7 @@ export function NotificationBell() {
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
+  useEscape(open, () => setOpen(false));
   return (
     <div className="relative" ref={box}>
       <button className="rounded-md border border-line bg-surface px-3 py-1" aria-label={unread > 0 ? t('notifications.unread', { n: unread }) : t('notifications.title')} aria-expanded={open}

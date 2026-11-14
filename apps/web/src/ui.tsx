@@ -27,14 +27,25 @@ export function isConfirmKey(e: KeyboardEvent): boolean {
   if ((e.key !== 'Enter' && e.key !== ' ') || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.repeat) return false;
   const el = e.target as HTMLElement | null;
   const tag = el?.tagName;
-  if (tag === 'BUTTON' || tag === 'A' || tag === 'SELECT' || tag === 'TEXTAREA' || el?.isContentEditable) return false;
+  if (tag === 'BUTTON' || tag === 'A' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'SUMMARY' || el?.isContentEditable) return false;
+  // Anything that acts like a control keeps its own Enter and Space: a fold header, a row or a card one can activate, a custom switch.
+  if (el?.closest?.(OWN_KEYS)) return false;
   if (tag === 'INPUT') {
     if (e.key === ' ' || el?.closest('form')) return false;
     const type = (el as HTMLInputElement).type;
-    if (type === 'checkbox' || type === 'radio' || type === 'range' || type === 'file') return false;
+    if (['checkbox', 'radio', 'range', 'file', 'button', 'submit', 'reset', 'image', 'color'].includes(type)) return false;
   }
   return true;
 }
+
+/** Elements that handle Enter and Space themselves although they are not buttons or links by tag. */
+const OWN_KEYS = 'summary, [role="button"], [role="link"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"], [role="option"], [role="menuitem"], [tabindex="0"]';
+
+/**
+ * A button that switches or opens something (a tab, a filter that stays pressed, a disclosure) rather than confirms
+ * the window. The selected ones look like the main button, so they must not be taken for it.
+ */
+export const TOGGLE_BUTTON = '[role="tab"], [role="switch"], [role="option"], [role="radio"], [role="checkbox"], [aria-pressed], [aria-selected], [aria-expanded]';
 
 /**
  * Která akce okna je výchozí, tedy co potvrdí Enter nebo mezerník: první povolené hlavní (výrazné) tlačítko; když žádné není,
@@ -44,14 +55,39 @@ export function isConfirmKey(e: KeyboardEvent): boolean {
 export function pickDefaultIndex(buttons: { primary: boolean; danger: boolean; disabled: boolean }[]): number {
   const primary = buttons.findIndex((b) => b.primary && !b.disabled);
   if (primary >= 0) return primary;
+  // The window has a main button, it just cannot be used yet (a required field is empty): Enter must then do nothing,
+  // not fall through to "Cancel" as the only button left and close the window under the user's hands.
+  if (buttons.some((b) => b.primary)) return -1;
   const enabled = buttons.map((b, i) => ({ b, i })).filter((x) => !x.b.disabled);
   return enabled.length === 1 && !enabled[0]!.b.danger ? enabled[0]!.i : -1;
 }
 
-/** Výchozí tlačítko okna (viz `pickDefaultIndex`). */
+/**
+ * A key that answers an offer lying over the table (not a window): Enter or Space, but never from a field. Enter in the
+ * bet amount must not agree to a vote that happens to be open.
+ */
+export function isOfferKey(e: KeyboardEvent): boolean {
+  return isConfirmKey(e) && (e.target as HTMLElement | null)?.tagName !== 'INPUT';
+}
+
+/**
+ * Offers that appear by themselves (rebuy, add-on, a vote) hold the keyboard back for a moment after they show up, so a
+ * key pressed for something else does not answer them. `id` names the offer on screen (null = none); the returned
+ * function tells whether keys are still held back.
+ */
+export function useKeyGuard(id: string | number | null): () => boolean {
+  const delay = Number(useSettings().values['ui.hotkeyOfferDelayMs'] ?? 0);
+  const since = useRef<{ id: string | number | null; at: number }>({ id: null, at: 0 });
+  if (since.current.id !== id) since.current = { id, at: Date.now() };
+  return () => since.current.id !== null && Date.now() - since.current.at < delay;
+}
+
+/** Výchozí tlačítko okna (viz `pickDefaultIndex`). A button marked `data-default` is the default outright (an offer whose buttons are not styled as the main one). */
 export function defaultButton(root: HTMLElement | null): HTMLButtonElement | null {
   if (!root) return null;
-  const list = [...root.querySelectorAll<HTMLButtonElement>('button')];
+  const marked = root.querySelector<HTMLButtonElement>('button[data-default]:not(:disabled)');
+  if (marked) return marked;
+  const list = [...root.querySelectorAll<HTMLButtonElement>('button')].filter((b) => !b.matches(TOGGLE_BUTTON));
   const i = pickDefaultIndex(list.map((b) => ({ primary: b.classList.contains('bg-primary'), danger: b.classList.contains('bg-danger'), disabled: b.disabled })));
   return i >= 0 ? list[i]! : null;
 }
@@ -213,6 +249,12 @@ function sizeStyle(w: number, h: number): CSSProperties | undefined {
   return style;
 }
 
+/** Enter on a slider in a window confirms it (the amount was just set with the arrows); the slider itself does nothing with Enter. */
+const isSliderEnter = (e: KeyboardEvent): boolean => {
+  const el = e.target as HTMLInputElement | null;
+  return e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !e.repeat && el?.tagName === 'INPUT' && el.type === 'range';
+};
+
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 /** Tab a Shift+Tab krouží jen po prvcích uvnitř okna (fokus neuteče na stránku pod ním). */
@@ -240,6 +282,29 @@ function trapTab(e: KeyboardEvent, root: HTMLElement | null): void {
 // Kolik oken je právě otevřených: stránka pod nimi (#root) je pro čtečky i klávesnici neaktivní, dokud se nezavře poslední.
 let openModals = 0;
 
+// Open windows from the oldest to the newest. Only the one on top reacts to the keyboard: with a window opened from
+// another window one Escape must close just the upper one, Enter must confirm just the upper one, and Tab must stay in it.
+const modalStack: HTMLElement[] = [];
+/** The window on top (the only one that takes the keyboard), or null when no window is open. */
+export const topModal = (): HTMLElement | null => modalStack[modalStack.length - 1] ?? null;
+
+/**
+ * Escape closes a small panel that is not a full window (notifications, a menu, a drawer). While a window is open on
+ * top of it the key belongs to that window.
+ */
+export function useEscape(active: boolean, onEscape: () => void): void {
+  const fn = useRef(onEscape);
+  fn.current = onEscape;
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !topModal()) fn.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [active]);
+}
+
 /** Označí aplikaci pod okny jako neaktivní (`inert`); vrací funkci, která ji po zavření okna zase uvolní. */
 function inertAppRoot(): () => void {
   const root = document.getElementById('root');
@@ -262,15 +327,20 @@ export function useArrowChoices(ref: { current: HTMLElement | null }, enabled = 
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       const root = ref.current;
       if (!root) return;
+      // a window is open and these choices are not in it (they sit under it, or in a lower window): the keys are not theirs
+      const top = topModal();
+      if (top && !top.contains(root)) return;
       const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      // Fields use the arrows themselves (the caret, a number, a slider, a group of radio buttons); a checkbox does not.
+      const ownArrows = el?.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'checkbox';
+      if (el && (ownArrows || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       const items = [...root.querySelectorAll<HTMLElement>(selector)];
       // Jen okna s malou volbou; velké okna s mnoha tlačítky si šipky nechají pro posouvání.
       if (items.length === 0 || items.length > maxItems) return;
       const at = items.indexOf(document.activeElement as HTMLElement);
       const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
       let next: HTMLElement | undefined;
-      if (at < 0) next = items.find((x) => x.classList.contains('bg-primary')) ?? items[forward ? 0 : items.length - 1];
+      if (at < 0) next = items.find((x) => x.classList.contains('bg-primary') && !x.matches(TOGGLE_BUTTON)) ?? items[forward ? 0 : items.length - 1];
       else next = items[(at + (forward ? 1 : -1) + items.length) % items.length];
       if (!next) return;
       e.preventDefault();
@@ -284,7 +354,14 @@ export function useArrowChoices(ref: { current: HTMLElement | null }, enabled = 
 export function Modal({ title, onClose, children, dirty = false, wide = false, fit = false, page = false, sizeKey, aside = false }: { title: string; onClose: () => void; children: ReactNode; /** Okno u dolního okraje a s průhlednějším pozadím: stůl za ním zůstane vidět (rozhodnutí během hry, např. nabídka add-onu). */ aside?: boolean; /** Neuložené změny: zavření se potvrzuje. */ dirty?: boolean; /** Širší okno pro tabulky. */ wide?: boolean; /** Okno se přizpůsobí šířce obsahu (tabulka se vejde bez posuvníku), nejvýš do šířky okna prohlížeče. */ fit?: boolean; /** Místo okna celá obrazovka s tlačítkem Zpět (formuláře nastavení: využijí všechno místo). */ page?: boolean; /** Okno má nastavitelnou velikost (tažení za pravý dolní roh); rozměry se pamatují v osobním nastavení `<klíč>Width` a `<klíč>Height`. */ sizeKey?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useArrowChoices(ref);
+  // What had the focus before the window opened, to give it back on close. Read while rendering: by the time effects
+  // run, a field with autofocus inside the window has already taken the focus.
+  const [opener] = useState(() => document.activeElement as HTMLElement | null);
   const values = useSettings().values;
+  // A window that came up by itself during the game (`aside`: an offer) does not take keys for a moment after it appears.
+  const held = useKeyGuard(aside ? 'offer' : null);
+  const heldRef = useRef(held);
+  heldRef.current = held;
   const storedW = sizeKey ? Number(values[`${sizeKey}Width`] ?? 0) : 0;
   const storedH = sizeKey ? Number(values[`${sizeKey}Height`] ?? 0) : 0;
   const closeRef = useRef(onClose);
@@ -298,13 +375,21 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
   // onClose bývá nová funkce při každém překreslení; efekt běží jen při otevření, jinak by se okno
   // při každé obnově dat znovu zaměřilo a odrolovalo na začátek (na telefonu „vyhazovalo nahoru“).
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
+    const el = ref.current;
+    // A field with autofocus inside the window already has the focus (typing can start at once): leave it there.
+    if (el && !el.contains(document.activeElement)) el.focus();
     const releaseInert = inertAppRoot();
+    if (el) modalStack.push(el);
     const onKey = (e: KeyboardEvent) => {
+      if (topModal() !== el) return;
+      if (heldRef.current() && (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ')) {
+        // too soon after the offer appeared: the key was not meant for it (it must not press a focused button either)
+        e.preventDefault();
+        return;
+      }
       if (e.key === 'Escape') close();
       else if (e.key === 'Tab') trapTab(e, ref.current);
-      else if (isConfirmKey(e)) {
+      else if (isConfirmKey(e) || isSliderEnter(e)) {
         // Enter nebo mezerník potvrdí hlavní (výrazné) tlačítko okna, pokud se právě nepíše do pole a nic jiného nemá fokus.
         const ok = defaultButton(ref.current);
         if (ok) {
@@ -316,8 +401,12 @@ export function Modal({ title, onClose, children, dirty = false, wide = false, f
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+      const at = el ? modalStack.indexOf(el) : -1;
+      if (at >= 0) modalStack.splice(at, 1);
       releaseInert();
-      prev?.focus?.();
+      // Give the focus back only when the window is really gone. (In development React runs effects twice on mount:
+      // that pretended close must not pull the focus out of a field inside the window.)
+      if (!el?.isConnected && opener?.isConnected) opener.focus();
     };
   }, []);
   // Změna velikosti tažením za roh: po puštění myši se nové rozměry uloží, ale jen když se okno od stisknutí opravdu změnilo
