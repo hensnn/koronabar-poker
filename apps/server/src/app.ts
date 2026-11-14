@@ -57,6 +57,7 @@ import { NotesService } from './notes.js';
 import { SharedHandService } from './shared-hands.js';
 import { CosmeticService } from './cosmetics.js';
 import { IntegrationService, type TournamentSummary } from './integrations/service.js';
+import { PictureService } from './integrations/picture-service.js';
 import { ApiTokenService } from './api-tokens.js';
 import { AssistantService } from './assistant/service.js';
 import { McpService } from './assistant/mcp.js';
@@ -115,6 +116,8 @@ export interface ServerOptions {
   audioProcessor?: AudioProcessor;
   /** Náhrada za fetch a spojení s MQTT (testy). */
   integrationFetch?: typeof fetch;
+  /** SVG to PNG for summary pictures (tests replace the native renderer). */
+  pictureRender?: (svg: string, fallbackFont: string) => Promise<Uint8Array>;
   mqttConnector?: import('./integrations/mqtt.js').MqttConnector;
   /** Náhrada poskytovatele AI a jeho spojení (testy). */
   assistantProvider?: import('./assistant/providers.js').AiProvider;
@@ -329,7 +332,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   const schedulerRef: { current?: Scheduler } = {};
   const notificationsRef: { current?: NotificationService } = {};
   const seriesRef: { current?: SeriesService } = {};
-  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, messages: () => messagesRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, yearStats: () => yearStatsRef.current!, houseExpenses: () => houseExpenses, consistency: () => consistency, mailYear: (userId, year) => mailYear(userId, year), timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: () => publicOrigin().startsWith('https://'), allowedOrigins });
+  await registerRoutes(app, { db, audit, perms, accounts, settings, ledger, cash, secrets, email, approvals, wallet, hooks, tables: () => tablesRef.current!, tournaments: () => tournamentsRef.current!, templates: () => templates, maintenance: () => maintenanceRef.current!, messages: () => messagesRef.current!, history: () => historyRef.current!, structures: () => structuresRef.current!, publicBoards: () => publicBoardsRef.current!, yearStats: () => yearStatsRef.current!, houseExpenses: () => houseExpenses, consistency: () => consistency, mailYear: (userId, year) => mailYear(userId, year), timeline: () => timeline, overview: () => overview, scheduler: () => schedulerRef.current!, notifications: () => notificationsRef.current!, push: () => push, stats: () => stats, progress: () => progress, achievements: () => achievements, rating: () => rating, polls: () => pollsRef, themes: () => themeService, themeAssets: () => themeAssetsRef, liveCash: () => liveCashRef, tv: () => tvRef, announcer: () => announcerRef, evenings: () => eveningRef, bets: () => betsRef, headBounties: () => bountiesRef, limits: () => limitsRef, notes: () => notesRef, sharedHands: () => sharedHandsRef, cosmetics: () => cosmeticsRef, integrations: () => integrationsRef, pictures: () => picturesRef, apiTokens: () => apiTokensRef, assistant: () => assistantRef, mcp: () => mcpRef, chatPost: async (userId, text) => void (await chat.send(userId, await chat.ensureMainChannel(), text)), publicUrl: () => publicUrlNow(), sounds: () => sounds, chatImages: () => chatImages, series: () => seriesRef.current!, calendarSecret: () => master.key }, { secureCookie: () => publicOrigin().startsWith('https://'), allowedOrigins });
 
   let broadcast: (tableId: string) => void = () => undefined;
   // Chat: hlavní kanál, kanály stolů a systémové zprávy u stolů.
@@ -370,6 +373,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   let sharedHandsRef!: SharedHandService;
   let cosmeticsRef!: CosmeticService;
   let integrationsRef!: IntegrationService;
+  let picturesRef!: PictureService;
   let apiTokensRef!: ApiTokenService;
   let assistantRef!: AssistantService;
   let mcpRef!: McpService;
@@ -409,7 +413,7 @@ export async function buildServer(opts: ServerOptions = {}) {
       case 'bubble':
         return say('bubble');
       case 'finished':
-        out('tournament.finished', { name: tname, winner: e.results[0]?.name ?? '', players: e.results.length });
+        out('tournament.finished', { id, name: tname, winner: e.results[0]?.name ?? '', players: e.results.length, url: `${String(settings.resolve()['system.publicUrl'] ?? '').replace(/\/$/, '')}/turnaj/${id}` });
         return say('winner', { winner: e.results[0]?.name ?? '', name: tournaments.nameOf(id) ?? '' });
       default:
         return undefined;
@@ -922,7 +926,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   });
   eveningRef = new EveningService({
     // Do integrací (Discord, webhooky) jde i odkaz na stránku večera se souhrnem.
-    onClosed: (info) => out('evening.closed', { name: info.name, games: info.games, players: info.players, mvp: info.mvp, url: `${String(settings.resolve()['system.publicUrl'] ?? '').replace(/\/$/, '')}/vecery/${info.id}` }),
+    onClosed: (info) => out('evening.closed', { id: info.id, name: info.name, games: info.games, players: info.players, mvp: info.mvp, url: `${String(settings.resolve()['system.publicUrl'] ?? '').replace(/\/$/, '')}/vecery/${info.id}` }),
     db,
     perms,
     audit,
@@ -1015,12 +1019,26 @@ export async function buildServer(opts: ServerOptions = {}) {
     onLookChanged: (userId) => void io.emit('looks:changed', { userId }),
   });
   await cosmeticsRef.init();
+  picturesRef = new PictureService({
+    db,
+    perms,
+    settings: () => settings.resolve(),
+    now: () => clock.now(),
+    render: opts.pictureRender,
+    tournament: (id) => {
+      const st = tournaments.get(id)?.state();
+      const name = tournaments.nameOf(id);
+      if (!st?.results || name === undefined) return null;
+      return { name, finishedAt: st.finishedAt ?? clock.now(), results: st.results.map((r) => ({ place: r.place, name: r.name, payout: r.payout, bounty: r.bounty ?? 0 })) };
+    },
+  });
   integrationsRef = new IntegrationService({
     db,
     perms,
     audit,
     settings: () => settings.resolve(),
     secrets,
+    picture: (p) => picturesRef.forEvent(p),
     fetcher: opts.integrationFetch,
     connector: opts.mqttConnector,
     now: () => clock.now(),
@@ -1237,6 +1255,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     sharedHands: sharedHandsRef,
     cosmetics: cosmeticsRef,
     integrations: integrationsRef,
+    pictures: picturesRef,
     apiTokens: apiTokensRef,
     assistant: assistantRef,
     mcp: mcpRef,

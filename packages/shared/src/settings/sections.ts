@@ -66,7 +66,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
   integrations: [
     ['integrations.general', /^integrations\.(enabled|logDays|bigPotBb|allowPrivateUrls)$/],
     ['integrations.webhooks', /^integrations\.webhook/],
-    ['integrations.discord', /^integrations\.discord/],
+    ['integrations.discord', /^integrations\.(discord|picture)/],
     ['integrations.mqtt', /^integrations\.mqtt/],
   ],
   theme: [

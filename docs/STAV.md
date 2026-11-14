@@ -762,3 +762,20 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 - Údaj se bere ze stejného místa jako v Peněžence (`/api/wallet/credit`), načítá se při každé změně zůstatku a navíc po 30 sekundách (čerpání, které hned zaplatí vstup, zůstatek nezmění).
 - Doplněno týž den na pokyn majitele: údaj vidí všichni hráči, i když nečerpají, aby znali svůj limit. Bez dluhu je to neutrální rámeček „Limit kontokorentu“ s částkou limitu a větou, že hráč nečerpá a jak čerpání funguje; hráč s limitem 0 vidí, že kontokorent k dispozici nemá. Červené číslo zůstává jen při dluhu. Nic se neukáže jen tehdy, když je kontokorent vypnutý pro všechny a hráč nic nedluží.
 - Rozhodování, co ukázat, je v `credit-status.ts` s testem `credit-status.test.ts`. Vzhled ověřen vykreslením na počítači i v šířce telefonu: bez čerpání se skutečnými daty, s nulovým limitem a s dluhem na ukázkových datech.
+
+### Discord: souhrny jako obrázek (14. 11. 2026)
+- Zadání majitele: Discord má umět poslat souhrn hry jako obrázek místo textu, volitelně v nastavení; stejně i další souhrny, například herní večer.
+- Rozsah první verze (rozhodnutí moje, majitel může rozšířit): obrázkem umí chodit **konec turnaje** (vítěz, pořadí, výhry, bounty) a **souhrn herního večera** (MVP, ocenění, pořadí s vyřazeními, body a profitem). Ostatní události (registrace, level, velký pot…) zůstávají textem.
+- Zapíná se **u každého Discord kanálu zvlášť** (Správa → Napojení ven, přepínač „Souhrny posílat jako obrázek místo textu“; nastavení `integrations.discordPictures`, `integrations.discord2Pictures`…). Výchozí stav je vypnuto, takže se po aktualizaci nic nemění.
+- Vzhled obrázku: barvy, písma a zaoblení z design tokenů výchozího motivu herny (`theme.defaultId`). Společná nastavení: režim tmavý/světlý (`integrations.pictureMode`), šířka (`integrations.pictureWidth`, písmo a odstupy se škálují s ní), nejvíc řádků tabulky (`integrations.pictureMaxRows`, zbytek se shrne do řádky „a dalších hráčů“), zobrazení částek (`integrations.pictureAmounts`; vypnuto = jen pořadí, vyřazení a body) a záložní písmo (`integrations.pictureFont`).
+- K obrázku jde krátký popisek (název a u večera odkaz na web). **Když se obrázek nepodaří vytvořit, pošle se původní text**, zpráva se nikdy neztratí.
+- Technicky: obrázek se skládá jako SVG (`apps/server/src/integrations/pictures.ts`) a převádí na PNG knihovnou `@resvg/resvg-js` (v projektu už byla kvůli ikonám, nově je i mezi závislostmi serveru). Data sbírá `PictureService` (`picture-service.ts`): turnaj z paměti, po restartu z tabulky `game_results`; večer z uloženého souhrnu. Události `tournament.finished` a `evening.closed` nově nesou `id` (webhooky a MQTT ho dostanou navíc, nic se jim neodebralo). Do Discordu jde zpráva jako multipart s přílohou.
+- Docker obraz dostal písmo `font-dejavu` (v čistém obrazu žádné písmo není a text by se nevykreslil).
+- Ve správě je karta **Ukázka obrázků** (vymyšlená data, kreslí server stejně jako pro Discord). Zkušební zpráva kanálu se zapnutými obrázky pošle ukázkový obrázek turnaje.
+- V obrázku jsou jen veřejná data (pořadí, výhry, vyřazení, profit večera), nikdy karty. Jména hráčů se do obrázku vkládají ošetřená, aby ho nešlo rozbít ani do něj nic podstrčit.
+- Testy: `apps/server/src/integrations/pictures.test.ts` (kreslení, skrytí částek, limit řádků, dělené první místo, skutečné PNG; odeslání do Discordu, návrat k textu při chybě, čtení z databáze po restartu, oprávnění k ukázce).
+- Omezení: emotikony a neobvyklé znaky v přezdívkách se v obrázku nemusí vykreslit (písmo je nemá). Skutečné odeslání do Discordu je potřeba vyzkoušet na ostrém kanálu tlačítkem zkušební zprávy.
+
+### Discord: odkaz na výsledky turnaje (14. 11. 2026)
+- Upřesnění majitele k souhrnům: nemusí jít o obrázek, stačí odkaz, hlavně ať je k dispozici celé zhodnocení hry nebo večera. Zpráva o konci turnaje proto nově nese odkaz na stránku turnaje s úplnými výsledky (`/turnaj/<id>`), v textové i obrázkové podobě; večer odkaz na svůj souhrn měl už dřív. Událost `tournament.finished` má navíc pole `url`.
+

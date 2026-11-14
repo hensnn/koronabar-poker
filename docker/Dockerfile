@@ -10,8 +10,9 @@ RUN pnpm --filter @kb/server deploy --legacy --prod /deploy
 
 FROM node:22-alpine
 WORKDIR /app
-# ffmpeg: ořez a normalizace hlasitosti nahrávaných zvukových emotikonů; tzdata: české časové pásmo (TZ).
-RUN apk add --no-cache ffmpeg tzdata
+# ffmpeg: ořez a normalizace hlasitosti nahrávaných zvukových emotikonů; tzdata: české časové pásmo (TZ);
+# font-dejavu: písmo pro obrázky se souhrnem do Discordu (v čistém obrazu žádné písmo není).
+RUN apk add --no-cache ffmpeg tzdata font-dejavu
 ENV NODE_ENV=production \
     TZ=Europe/Prague \
     PORT=3000 \

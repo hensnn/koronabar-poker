@@ -44,6 +44,9 @@ export function parseEventList(text: string | undefined | null): IntegrationEven
 
 export const DEFAULT_EVENT_LIST = INTEGRATION_EVENTS.filter((e) => !NOISY_EVENTS.includes(e)).join(',');
 
+/** Events Discord can also send as a summary picture instead of text; switched on per channel. */
+export const PICTURE_EVENTS: readonly IntegrationEvent[] = ['tournament.finished', 'evening.closed'];
+
 /** Discord kanály: pevné sloty 1 až 4, každý s vlastním webhookem (tajný údaj), názvem, vypínačem a událostmi. */
 export const DISCORD_SLOTS = [1, 2, 3, 4] as const;
 export type DiscordSlot = (typeof DISCORD_SLOTS)[number];
@@ -56,12 +59,14 @@ export interface DiscordSlotKeys {
   enabled: string;
   name: string;
   events: string;
+  /** Switch: send summaries as pictures. */
+  pictures: string;
 }
 
 export const discordSlotKeys = (slot: DiscordSlot): DiscordSlotKeys =>
   slot === 1
-    ? { slot, target: 'discord', secret: 'discord.webhookUrl', enabled: 'integrations.discordEnabled', name: 'integrations.discordName', events: 'integrations.discordEvents' }
-    : { slot, target: `discord${slot}`, secret: `discord.webhookUrl${slot}`, enabled: `integrations.discord${slot}Enabled`, name: `integrations.discord${slot}Name`, events: `integrations.discord${slot}Events` };
+    ? { slot, target: 'discord', secret: 'discord.webhookUrl', enabled: 'integrations.discordEnabled', name: 'integrations.discordName', events: 'integrations.discordEvents', pictures: 'integrations.discordPictures' }
+    : { slot, target: `discord${slot}`, secret: `discord.webhookUrl${slot}`, enabled: `integrations.discord${slot}Enabled`, name: `integrations.discord${slot}Name`, events: `integrations.discord${slot}Events`, pictures: `integrations.discord${slot}Pictures` };
 
 /** Slot podle cíle doručení (`discord`, `discord2`…), jinak undefined. */
 export const discordSlotOfTarget = (target: string): DiscordSlot | undefined => DISCORD_SLOTS.find((s) => discordSlotKeys(s).target === target);

@@ -187,6 +187,8 @@ V **Napojení ven** přidáš adresu a vybereš události. Každá zpráva je JS
 ### Discord
 V Discordu vytvoř webhook kanálu (Nastavení kanálu → Integrace → Webhooky), adresu vlož do tajných údajů (`discord.webhookUrl`), zapni **Discord** v nastavení a vyber události (výchozí: registrace do turnaje, konec turnaje, souhrn večera). Tlačítkem **Poslat zkušební zprávu** si to ověříš.
 
+**Souhrny jako obrázek:** u každého Discord kanálu jde ve **Správa → Napojení ven** zapnout „Souhrny posílat jako obrázek místo textu“. Konec turnaje (vítěz, pořadí, výhry) a souhrn herního večera (MVP, ocenění, pořadí s profitem) pak přijdou jako obrázek v barvách výchozího motivu herny; ostatní události chodí dál jako text. Tlačítka **Ukázka obrázků** tamtéž ukážou, jak obrázek vypadá. Šířku, světlý/tmavý režim, počet řádků a to, zda se ukazují částky v Koronách, změníš v **Nastavení → Napojení ven → Discord**. Když se obrázek nepodaří vytvořit, pošle se obyčejný text, takže zpráva se neztratí.
+
 ### REST API a osobní tokeny
 V **Profilu → Přístupové tokeny** si vytvoříš token s vybraným rozsahem. Token nikdy nemůže víc než ty sám a jde kdykoli zrušit. Celou hodnotu uvidíš jen při vytvoření. Volání:
 

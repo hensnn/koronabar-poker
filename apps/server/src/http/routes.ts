@@ -54,6 +54,7 @@ import { NotesError, type NotesService } from '../notes.js';
 import { HandError, type SharedHandService } from '../shared-hands.js';
 import { CosmeticError, type CosmeticService } from '../cosmetics.js';
 import { IntegrationError, type IntegrationService } from '../integrations/service.js';
+import type { PictureService } from '../integrations/picture-service.js';
 import { ApiError, type ApiTokenService, type TokenAuth } from '../api-tokens.js';
 import { AssistantError, type AssistantService } from '../assistant/service.js';
 import type { McpService } from '../assistant/mcp.js';
@@ -111,6 +112,7 @@ export interface Services {
   sharedHands: () => SharedHandService;
   cosmetics: () => CosmeticService;
   integrations: () => IntegrationService;
+  pictures: () => PictureService;
   apiTokens: () => ApiTokenService;
   assistant: () => AssistantService;
   mcp: () => McpService;
@@ -1287,13 +1289,21 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   app.put('/api/integrations/discord/:slot', intGuard(async (req, reply) => {
     const u = need(req);
     const slot = slotOf(req);
-    const body = z.object({ name: z.string().min(1).max(40).optional(), enabled: z.boolean().optional(), events: z.array(z.string()).optional() }).parse(req.body);
+    const body = z.object({ name: z.string().min(1).max(40).optional(), enabled: z.boolean().optional(), pictures: z.boolean().optional(), events: z.array(z.string()).optional() }).parse(req.body);
     await svc.integrations().overview(u.id); // oprávnění ověří přehled
     const k = discordSlotKeys(slot);
+    if (body.pictures !== undefined) await svc.settings.set(u.id, 'global', '', k.pictures, body.pictures);
     if (body.name !== undefined) await svc.settings.set(u.id, 'global', '', k.name, body.name.trim());
     if (body.enabled !== undefined) await svc.settings.set(u.id, 'global', '', k.enabled, body.enabled);
     if (body.events) await svc.settings.set(u.id, 'global', '', k.events, svc.integrations().parseSelection(body.events));
     reply.send({ ok: true });
+  }));
+  /** Preview of a summary picture with made-up data (PNG). */
+  app.get('/api/integrations/picture-preview/:kind', intGuard(async (req, reply) => {
+    const kind = (req.params as { kind: string }).kind;
+    if (kind !== 'tournament' && kind !== 'evening') throw new IntegrationError('INVALID', { field: 'kind' });
+    const png = await svc.pictures().preview(need(req).id, kind);
+    reply.header('content-type', 'image/png').header('cache-control', 'no-store').send(Buffer.from(png));
   }));
   app.put('/api/integrations/events/:channel', intGuard(async (req, reply) => {
     const u = need(req);

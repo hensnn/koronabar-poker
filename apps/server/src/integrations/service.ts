@@ -5,6 +5,7 @@ import {
   INTEGRATION_EVENTS,
   isIntegrationEvent,
   NOISY_EVENTS,
+  PICTURE_EVENTS,
   parseEventList,
   DISCORD_SLOTS,
   discordSlotKeys,
@@ -69,6 +70,8 @@ interface Deps {
   now: () => number;
   /** Stav „hlavního“ turnaje (běžícího, jinak nejbližšího). */
   summary: () => TournamentSummary | null;
+  /** Summary picture for an event (Discord channels that send summaries as pictures); null = send text. */
+  picture?: (p: IntegrationPayload) => Promise<{ png: Uint8Array; filename: string } | null>;
   fetcher?: typeof fetch;
   connector?: MqttConnector;
   onError?: (e: unknown) => void;
@@ -197,14 +200,23 @@ export class IntegrationService {
     const f = this.deps.fetcher ?? fetch;
     const payload = d.payload as unknown as IntegrationPayload;
     let url: string;
-    let body: string;
+    let body: string | FormData;
     const headers: Record<string, string> = { 'content-type': 'application/json', 'user-agent': 'KoronaBar-Poker' };
     const slot = discordSlotOfTarget(d.target);
     if (slot) {
       const u = await this.deps.secrets.reveal(discordSlotKeys(slot).secret);
       if (!u) return { ok: false, code: null, error: 'NOT_CONFIGURED' };
       url = u;
-      body = JSON.stringify({ content: clip(this.discordText(payload), 1900), allowed_mentions: { parse: [] } });
+      const picture = await this.discordPicture(slot, payload);
+      if (picture) {
+        // A file goes as multipart: the JSON part names the attachment, the browser-style form sets its own content type.
+        body = new FormData();
+        body.set('payload_json', JSON.stringify({ content: clip(this.discordText(payload, true), 1900), allowed_mentions: { parse: [] }, attachments: [{ id: 0, filename: picture.filename }] }));
+        body.set('files[0]', new Blob([picture.png as Uint8Array<ArrayBuffer>], { type: 'image/png' }), picture.filename);
+        delete headers['content-type'];
+      } else {
+        body = JSON.stringify({ content: clip(this.discordText(payload), 1900), allowed_mentions: { parse: [] } });
+      }
     } else {
       const [ep] = d.endpointId ? await this.deps.db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, d.endpointId)) : [];
       if (!ep) return { ok: false, code: null, error: 'ENDPOINT_GONE' };
@@ -228,11 +240,25 @@ export class IntegrationService {
     }
   }
 
-  /** Text zprávy pro Discord: překlad události s dosazenými proměnnými. */
-  discordText(p: IntegrationPayload): string {
+  /**
+   * Picture for a Discord channel that sends summaries as pictures. A failed picture never loses the message:
+   * the error is reported and the channel gets the text instead.
+   */
+  private async discordPicture(slot: DiscordSlot, p: IntegrationPayload): Promise<{ png: Uint8Array; filename: string } | null> {
+    if (!this.s()[discordSlotKeys(slot).pictures] || !PICTURE_EVENTS.includes(p.event) || !this.deps.picture) return null;
+    try {
+      return await this.deps.picture(p);
+    } catch (e) {
+      this.deps.onError?.(e);
+      return null;
+    }
+  }
+
+  /** Text zprávy pro Discord: překlad události s dosazenými proměnnými. With `picture` the short caption that goes along the picture. */
+  discordText(p: IntegrationPayload, picture = false): string {
     const vars: Record<string, string | number> = {};
     for (const [k, v] of Object.entries(p.data)) vars[k] = v === null ? '' : typeof v === 'boolean' ? (v ? t('common.yes') : t('common.no')) : v;
-    return t(`integration.discord.${p.event}`, vars);
+    return t(`integration.${picture ? 'discordPicture' : 'discord'}.${p.event}`, vars);
   }
 
   // ---------- MQTT ----------
@@ -344,7 +370,7 @@ export class IntegrationService {
       discord: await Promise.all(
         DISCORD_SLOTS.map(async (slot) => {
           const k = discordSlotKeys(slot);
-          return { slot, name: String(s[k.name] ?? ''), enabled: !!s[k.enabled], events: parseEventList(String(s[k.events])), configured: !!(await this.deps.secrets.reveal(k.secret)) };
+          return { slot, name: String(s[k.name] ?? ''), enabled: !!s[k.enabled], pictures: !!s[k.pictures], events: parseEventList(String(s[k.events])), configured: !!(await this.deps.secrets.reveal(k.secret)) };
         }),
       ),
       mqttEvents: parseEventList(String(s['integrations.mqttEvents'])),
@@ -446,7 +472,10 @@ export class IntegrationService {
     this.manage(actorId);
     const k = discordSlotKeys(slot);
     if (!(await this.deps.secrets.reveal(k.secret))) throw new IntegrationError('NOT_CONFIGURED');
-    const payload: IntegrationPayload = { version: 1, event: 'poll.created', at: this.deps.now(), data: { title: t('integration.testTitle'), test: true } };
+    // A channel that sends summaries as pictures is tested with a sample picture, so the owner sees the real thing.
+    const payload: IntegrationPayload = this.s()[k.pictures]
+      ? { version: 1, event: 'tournament.finished', at: this.deps.now(), data: { name: t('integration.picture.sampleTournament'), winner: t('integration.picture.samplePlayer', { n: 1 }), players: 8, url: String(this.s()['system.publicUrl'] ?? ''), test: true } }
+      : { version: 1, event: 'poll.created', at: this.deps.now(), data: { title: t('integration.testTitle'), test: true } };
     const [row] = await this.deps.db
       .insert(schema.webhookDeliveries)
       .values({ target: k.target, event: payload.event, payload: payload as unknown as Record<string, unknown>, nextAttemptAt: new Date(this.deps.now()) })

@@ -271,7 +271,7 @@ describe('webhooky', { timeout: 60_000 }, () => {
     expect(events).toContain('player.eliminated');
     expect(events).toContain('tournament.finished');
     const fin = JSON.parse(calls.find((x) => x.headers['x-kb-event'] === 'tournament.finished')!.body);
-    expect(fin.data).toMatchObject({ name: 'Čtvrteční', players: 2 });
+    expect(fin.data).toMatchObject({ name: 'Čtvrteční', players: 2, id, url: `http://localhost/turnaj/${id}` });
     // v žádné události nejsou karty ani balíček
     for (const call of calls) expect(call.body).not.toMatch(/"(hole|deck|cards)"/);
     void schema;
