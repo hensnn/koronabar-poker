@@ -475,6 +475,61 @@ export class StatsService {
     }));
   }
 
+  /**
+   * Hands of all players, newest first, for the holder of `statistiky.vsechny_handy`; `userId` narrows the list to
+   * hands one player took part in. It shows what the table saw: hole cards only when the player showed them (and the
+   * viewer's own). Hidden cards never leave the server, not even for an administrator.
+   */
+  async allHands(actorId: string, opts: { limit?: number; before?: number; userId?: string; tableId?: string } = {}) {
+    if (!this.deps.perms.can(actorId, 'statistiky.vsechny_handy').allowed) throw new StatsError('FORBIDDEN');
+    const db = this.deps.db;
+    const h = schema.hands;
+    const hp = schema.handPlayers;
+    const hands = await db
+      .select()
+      .from(h)
+      .where(
+        and(
+          opts.before ? lt(h.playedAt, new Date(opts.before)) : undefined,
+          opts.tableId ? eq(h.tableId, opts.tableId) : undefined,
+          opts.userId ? inArray(h.id, db.select({ id: hp.handId }).from(hp).where(eq(hp.userId, opts.userId))) : undefined,
+        ),
+      )
+      .orderBy(desc(h.playedAt), desc(h.handNumber))
+      .limit(Math.min(Math.max(opts.limit ?? 50, 1), 200));
+    const seats = hands.length
+      ? await db
+          .select({ p: hp, nickname: schema.users.nickname })
+          .from(hp)
+          .innerJoin(schema.users, eq(schema.users.id, hp.userId))
+          .where(inArray(hp.handId, hands.map((x) => x.id)))
+      : [];
+    const byHand = new Map<string, typeof seats>();
+    for (const s of seats) byHand.set(s.p.handId, [...(byHand.get(s.p.handId) ?? []), s]);
+    return {
+      hands: hands.map((x) => ({
+        id: x.id,
+        playedAt: x.playedAt.getTime(),
+        kind: x.kind,
+        tableId: x.tableId,
+        handNumber: x.handNumber,
+        board: x.board,
+        pot: x.pot,
+        chipsPerUnit: x.chipsPerUnit,
+        blinds: x.blinds,
+        showdown: x.showdown,
+        runs: x.runs,
+        players: (byHand.get(x.id) ?? [])
+          .sort((a, b) => a.p.seat - b.p.seat)
+          .map(({ p, nickname }) => ({ userId: p.userId, nickname, net: p.won - p.invested, hole: p.userId === actorId || p.revealed ? p.hole : null })),
+      })),
+      // the filter of players comes with the first page only
+      players: opts.before
+        ? undefined
+        : (await db.selectDistinct({ userId: hp.userId, nickname: schema.users.nickname }).from(hp).innerJoin(schema.users, eq(schema.users.id, hp.userId))).sort((a, b) => a.nickname.localeCompare(b.nickname, 'cs')),
+    };
+  }
+
   /** Detail sdílené handy: bez kontroly účasti, karty jen ukázané při showdownu, dobrovolně odkryté, nebo vlastní. */
   handDetailShared(viewerId: string, handId: string, revealed: string[]) {
     return this.handDetail(viewerId, handId, { open: true, revealed });
@@ -490,7 +545,7 @@ export class StatsService {
       .innerJoin(schema.users, eq(schema.users.id, schema.handPlayers.userId))
       .where(eq(schema.handPlayers.handId, handId));
     const mine = ps.some((x) => x.p.userId === viewerId);
-    if (!opts.open && !mine && !this.deps.perms.can(viewerId, 'statistiky.sezony').allowed) throw new StatsError('FORBIDDEN');
+    if (!opts.open && !mine && !this.deps.perms.can(viewerId, 'statistiky.sezony').allowed && !this.deps.perms.can(viewerId, 'statistiky.vsechny_handy').allowed) throw new StatsError('FORBIDDEN');
     return {
       id: h.id,
       kind: h.kind,

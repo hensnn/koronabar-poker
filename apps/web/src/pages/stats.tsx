@@ -531,6 +531,115 @@ function HandsList({ me }: { me: string }) {
   );
 }
 
+interface AllHandRow extends Omit<HandRow, 'hole' | 'net'> {
+  players: { userId: string; nickname: string; net: number; hole: [string, string] | null }[];
+}
+
+/**
+ * Hands of all players for the holder of the permission: newest first, optionally one player's. Cards appear only
+ * where the player showed them; the server never sends hidden ones.
+ */
+function AllHandsList({ me }: { me: string }) {
+  const [rows, setRows] = useState<AllHandRow[]>([]);
+  const [players, setPlayers] = useState<{ userId: string; nickname: string }[]>([]);
+  const [player, setPlayer] = useState('');
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
+  const load = useCallback(
+    (before?: number) => {
+      get<{ hands: AllHandRow[]; players?: { userId: string; nickname: string }[] }>(`/api/stats/hands/all?limit=30${player ? `&userId=${player}` : ''}${before ? `&before=${before}` : ''}`)
+        .then((d) => {
+          setRows((cur) => (before ? [...cur, ...d.hands] : d.hands));
+          if (d.players) setPlayers(d.players);
+          setDone(d.hands.length < 30);
+          setError('');
+        })
+        .catch((e) => setError(errorText(e)));
+    },
+    [player],
+  );
+  useEffect(() => load(), [load]);
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-muted">{t('stats.handsAllHelp')}</p>
+      <div className="max-w-xs">
+        <Select label={t('stats.handsPlayer')} value={player} onChange={(e) => setPlayer(e.target.value)}>
+          <option value="">{t('stats.handsAnyPlayer')}</option>
+          {players.map((p) => (
+            <option key={p.userId} value={p.userId}>
+              {p.nickname}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {error && <Notice kind="error">{error}</Notice>}
+      {!error && rows.length === 0 && <Notice>{done ? t('stats.noHands') : t('app.loading')}</Notice>}
+      {rows.length > 0 && (
+        <div className="overflow-x-auto">
+          <DataTable head={[t('stats.when'), t('stats.type'), t('stats.handsPlayers'), t('stats.board'), t('stats.handsPot'), '']}>
+            {rows.map((h) => {
+              const unit = (v: number) => (h.chipsPerUnit > 1 ? Math.round(v / h.chipsPerUnit) : v);
+              return (
+                <tr key={h.id}>
+                  <Td className="whitespace-nowrap">{fmtDate(h.playedAt)}</Td>
+                  <Td>{h.kind === 'cash' ? t('stats.cash') : t('stats.tournament')}</Td>
+                  <Td>
+                    <span className="flex flex-wrap gap-x-3 gap-y-1">
+                      {h.players.map((p) => (
+                        <span key={p.userId} className="inline-flex items-center gap-1 whitespace-nowrap">
+                          {p.nickname}
+                          {p.hole?.map((c) => <CardView key={c} card={c} small />)}
+                          <Badge tone={tone(unit(p.net))}>{signed(unit(p.net))}</Badge>
+                        </span>
+                      ))}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className="inline-flex items-center gap-1">
+                      {h.board.map((c) => <CardView key={c} card={c} small />)}
+                      {(h.runs ?? 1) > 1 && (
+                        <span title={t('stats.runsBadgeTitle', { n: h.runs })}>
+                          <Badge tone="muted">{t('stats.runsBadge', { n: h.runs })}</Badge>
+                        </span>
+                      )}
+                    </span>
+                  </Td>
+                  <Td className="font-mono">{unit(h.pot)}</Td>
+                  <Td>
+                    <Button onClick={() => setOpen(h.id)}>{t('stats.replay')}</Button>
+                  </Td>
+                </tr>
+              );
+            })}
+          </DataTable>
+        </div>
+      )}
+      {!done && rows.length > 0 && <Button onClick={() => load(rows[rows.length - 1]!.playedAt)}>{t('stats.more')}</Button>}
+      {open && <Replay id={open} me={me} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+/** Hand history tab: own hands for everybody; with the permission also a switch to the hands of all players. */
+function HandsTab({ me, all }: { me: string; all: boolean }) {
+  const [scope, setScope] = useState<'mine' | 'all'>('mine');
+  if (!all) return <HandsList me={me} />;
+  return (
+    <>
+      <Tabs
+        tabs={[
+          { id: 'mine' as const, label: t('stats.handsMine') },
+          { id: 'all' as const, label: t('stats.handsAll') },
+        ]}
+        value={scope}
+        onChange={setScope}
+      />
+      {scope === 'mine' ? <HandsList me={me} /> : <AllHandsList me={me} />}
+    </>
+  );
+}
+
 const dayInput = (ts: number | null) => (ts ? new Date(ts).toISOString().slice(0, 10) : '');
 
 function SeasonsAdmin({ seasons, reload }: { seasons: Season[]; reload: () => void }) {
@@ -625,7 +734,7 @@ export function StatsPage() {
       {tab === 'year' && <YearView />}
       {tab === 'players' && me && <PlayersOverview meId={me.user.id} />}
       {tab === 'board' && <Leaderboard season={season} seasons={seasons} />}
-      {tab === 'hands' && me && <HandsList me={me.user.id} />}
+      {tab === 'hands' && me && <HandsTab me={me.user.id} all={can(me, 'statistiky.vsechny_handy')} />}
       {tab === 'seasons' && manage && <SeasonsAdmin seasons={seasons} reload={reload} />}
       {tab === 'progress' && <ProgressPage embedded />}
     </main>

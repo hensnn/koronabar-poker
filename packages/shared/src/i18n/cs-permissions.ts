@@ -108,6 +108,7 @@ export const csPermissions: Record<string, string> = {
   ...perm('statistiky.uspechy', 'Spravovat úspěchy', 'Přidávat, upravovat a vypínat úspěchy (odznaky) a jejich odměny.'),
   ...perm('statistiky.reset_postupu', 'Resetovat postup', 'Vynulovat postup hráče (XP a úroveň, úspěchy, rating) a provést měkký reset ratingu pro všechny. Nevratné.'),
   ...perm('statistiky.prepocitat', 'Přepočítat historii', 'Zpětně přepočítat XP a rating z uložené historie her (nejdřív jde jen o náhled, přepočet se pak potvrdí).'),
+  ...perm('statistiky.vsechny_handy', 'Zobrazit handy všech hráčů', 'Ve Statistikách v Historii hand procházet a přehrávat handy všech hráčů, ne jen vlastní. Karty jsou vidět jen ty, které hráč u stolu ukázal; skryté karty zůstávají skryté.'),
   ...perm('nastaveni.hra.upravit', 'Upravit nastavení her', 'Měnit nastavení her, které mohu spravovat.'),
   ...perm('nastaveni.sablony.sprava', 'Spravovat šablony', 'Ukládat, sdílet a mazat šablony her.'),
   ...perm('nastaveni.globalni', 'Globální nastavení', 'Měnit globální výchozí hodnoty.'),

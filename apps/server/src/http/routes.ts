@@ -2080,6 +2080,15 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     const q = req.query as { limit?: string; before?: string; tableId?: string };
     reply.send({ hands: await svc.stats().myHands(need(req).id, { limit: q.limit ? Number(q.limit) : undefined, before: q.before ? Number(q.before) : undefined, tableId: q.tableId?.slice(0, 80) || undefined }) });
   }));
+  /** Hands of all players (permission `statistiky.vsechny_handy`); hidden cards stay hidden. */
+  app.get('/api/stats/hands/all', guard(async (req, reply) => {
+    const q = z.object({ limit: z.coerce.number().int().optional(), before: z.coerce.number().optional(), userId: z.string().uuid().optional(), tableId: z.string().max(80).optional() }).parse(req.query);
+    try {
+      reply.send(await svc.stats().allHands(need(req).id, q));
+    } catch (e) {
+      statsErr(e, reply);
+    }
+  }));
   app.get('/api/stats/hands/:id', guard(async (req, reply) => {
     try {
       reply.send(await svc.stats().handDetail(need(req).id, (req.params as { id: string }).id));

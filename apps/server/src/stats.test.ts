@@ -186,3 +186,61 @@ describe('historie hand: run it twice', () => {
     expect((await c.server.stats.myHands(a)).find((h) => h.id === 'h-rit')!.runs).toBe(2);
   });
 });
+
+describe('hand history: hands of all players', { timeout: 60_000 }, () => {
+  it('only the holder of the permission lists them; cards show only where the player showed them', async () => {
+    const c = await start();
+    const [a, b, d] = [await c.user(), await c.user(), await c.user()];
+    const statistik = await c.user('statistik');
+    const viewer = await c.user();
+    const roleId = await c.server.perms.createRole(c.admin, { key: 'handy', name: 'Handy', power: 5, permissions: [{ key: 'statistiky.vsechny_handy', effect: 'allow' }] });
+    await c.server.perms.assignRole(c.admin, viewer, roleId);
+
+    const base = { tableId: 't1', kind: 'cash', buttonSeat: 0, pot: 200, showdown: true, blinds: { sb: 1, bb: 2, ante: 0 }, board: ['As', 'Kd', '7c', '2h', '9s'] };
+    await c.server.db.insert(schema.hands).values([
+      { id: 'h1', ...base, handNumber: 1, playedAt: new Date(1000) },
+      { id: 'h2', ...base, handNumber: 2, playedAt: new Date(2000), showdown: false },
+      { id: 'h3', ...base, handNumber: 3, playedAt: new Date(3000) },
+    ]);
+    const pl = (handId: string, userId: string, seat: number, revealed: boolean, won: number) => ({ handId, userId, seat, kind: 'cash', playedAt: new Date(0), startStack: 100, invested: 100, won, hole: ['Ah', 'Ad'] as [string, string], revealed });
+    await c.server.db.insert(schema.handPlayers).values([pl('h1', a, 0, true, 200), pl('h1', b, 1, false, 0), pl('h2', b, 0, false, 200), pl('h2', d, 1, false, 0), pl('h3', a, 0, false, 0), pl('h3', d, 1, true, 200)]);
+
+    // without the permission: refused, even for a role that manages seasons
+    await expect(c.server.stats.allHands(a)).rejects.toBeInstanceOf(StatsError);
+    await expect(c.server.stats.allHands(statistik)).rejects.toBeInstanceOf(StatsError);
+
+    const all = await c.server.stats.allHands(viewer);
+    expect(all.hands.map((h) => h.id)).toEqual(['h3', 'h2', 'h1']);
+    expect(all.players?.map((p) => p.userId).sort()).toEqual([a, b, d].sort());
+    const h1 = all.hands.find((h) => h.id === 'h1')!;
+    expect(h1.players.map((p) => [p.userId, p.net, p.hole])).toEqual([
+      [a, 100, ['Ah', 'Ad']], // shown at showdown
+      [b, -100, null], // mucked: hidden even from the holder of the permission
+    ]);
+    expect(all.hands.find((h) => h.id === 'h2')!.players.every((p) => p.hole === null)).toBe(true);
+    // nothing in the whole answer leaks a card that was not shown
+    const hidden = all.hands.flatMap((h) => h.players).filter((p) => p.hole !== null).map((p) => p.userId);
+    expect(hidden.sort()).toEqual([a, d].sort());
+
+    // filter by player, paging and limit
+    expect((await c.server.stats.allHands(viewer, { userId: b })).hands.map((h) => h.id)).toEqual(['h2', 'h1']);
+    const older = await c.server.stats.allHands(viewer, { before: 3000 });
+    expect(older.hands.map((h) => h.id)).toEqual(['h2', 'h1']);
+    expect(older.players).toBeUndefined();
+    expect((await c.server.stats.allHands(viewer, { limit: 1 })).hands.map((h) => h.id)).toEqual(['h3']);
+
+    // the detail (replay) opens for the holder as well, again without hidden cards
+    const detail = await c.server.stats.handDetail(viewer, 'h1');
+    expect(detail.players.map((p) => p.hole)).toEqual([['Ah', 'Ad'], null]);
+    await expect(c.server.stats.handDetail(d, 'h1')).rejects.toBeInstanceOf(StatsError); // d did not play this hand
+  });
+
+  it('the administrator role gets the permission, the statistician role does not', async () => {
+    const c = await start();
+    const admin = await c.user('admin');
+    const statistik = await c.user('statistik');
+    expect(c.server.perms.can(admin, 'statistiky.vsechny_handy').allowed).toBe(true);
+    expect(c.server.perms.can(c.admin, 'statistiky.vsechny_handy').allowed).toBe(true);
+    expect(c.server.perms.can(statistik, 'statistiky.vsechny_handy').allowed).toBe(false);
+  });
+});

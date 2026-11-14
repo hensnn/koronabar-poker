@@ -786,3 +786,10 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
 ### Discord: odkaz na výsledky turnaje (14. 11. 2026)
 - Upřesnění majitele k souhrnům: nemusí jít o obrázek, stačí odkaz, hlavně ať je k dispozici celé zhodnocení hry nebo večera. Zpráva o konci turnaje proto nově nese odkaz na stránku turnaje s úplnými výsledky (`/turnaj/<id>`), v textové i obrázkové podobě; večer odkaz na svůj souhrn měl už dřív. Událost `tournament.finished` má navíc pole `url`.
 
+### Historie hand: handy všech hráčů pro správce (14. 11. 2026)
+- Zadání majitele: správce (podle oprávnění v rolích) má vidět handy všech hráčů. Dosud byla historie hand jen osobní.
+- Nové oprávnění **„Zobrazit handy všech hráčů“** (`statistiky.vsechny_handy`). Má ho hlavní správce a předpřipravená role Správce (při aktualizaci se jí přidá samo, jednou); role Statistik ho nemá. Dá se přidělit nebo odebrat v editoru rolí.
+- Statistiky → Historie hand má s tímto oprávněním přepínač **Moje handy / Všechny handy**. Přehled všech hand jde od nejnovější, umí filtr podle hráče, u každé handy ukazuje hráče s výsledkem, board, pot a tlačítko Přehrát (stejné přehrání jako u vlastních hand). Server: `StatsService.allHands`, `GET /api/stats/hands/all`.
+- **Rozhodnutí (potvrzeno majitelem 14. 11. 2026): skryté karty zůstávají skryté i pro správce.** Vidět jsou jen karty, které hráč u stolu ukázal (a vlastní karty toho, kdo se dívá). Důvod: nepřekročitelné pravidlo 1 (klient nikdy nedostane cizí karty) a férovost, protože správce sám hraje a z cizích zahozených karet by poznal styl soupeřů. Zobrazení skrytých karet se nedoplňuje.
+- Testy: `apps/server/src/stats.test.ts` (bez oprávnění odmítnuto, pořadí, filtr, stránkování, žádná neukázaná karta v odpovědi, detail handy, které role oprávnění mají). Vzhled ověřen na skutečných datech vývojové databáze na počítači i v šířce telefonu.
+
