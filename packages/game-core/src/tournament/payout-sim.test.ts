@@ -4,6 +4,7 @@ import { accounts, CashService, Ledger, TournamentMoney } from '@kb/ledger';
 import { createDefaultRegistry, resolveSettings, type SettingValues } from '@kb/shared';
 import { randomLegalAction, seededRandom } from '../bot.js';
 import { FakeClock } from '../clock.js';
+import { watchTable } from '../deep-fuzz-harness.js';
 import { TableActor } from '../table-actor.js';
 import { auditPayouts } from './tied-payouts.js';
 import { Tournament, TournamentError, type Payment } from './tournament.js';
@@ -122,6 +123,9 @@ interface Sim {
   /** Every bust the table reported, with each player's entry and rebuy count at that moment (to tell later who came back). */
   busts: { userId: string; startStack: number; stamp: string }[][];
   seen: { rebuy: number; addon: number; reentry: number; late: number; dealPassed: number; dealKeep: number; tie: number };
+  /** Rules of the table itself (hidden cards, a stuck hand, offered actions, hand records), checked after every step. */
+  watch: { check: () => void };
+  broken: string[];
 }
 
 function build(seed: number, over: Over, players: number, late: number): Sim {
@@ -137,13 +141,16 @@ function build(seed: number, over: Over, players: number, late: number): Sim {
   for (const u of [...users, ...lateUsers]) cash.mint(u, WALLET, `mint-${u}`);
   const busts: Sim['busts'] = [];
   const tour = new Tournament({ id: 'T', settings: () => settings, clock, money });
-  const table = new TableActor({ tableId: 'T', tournament: true, settings: () => tour.tableSettings(), clock, cash, randomProvider: seededRandom(seed), onEvent: (e) => {
+  const broken: string[] = [];
+  const watch = watchTable(() => table, clock, (rule, detail) => void broken.push(`${rule}: ${detail}`), () => Number(tour.tableSettings()['table.seats']), undefined, () => !!tour.tableSettings()['table.bbAnte'] || !!tour.tableSettings()['special.bombPot']);
+  const table: TableActor = new TableActor({ tableId: 'T', tournament: true, settings: () => tour.tableSettings(), clock, cash, randomProvider: seededRandom(seed), onEvent: (e) => {
+      watch.onEvent(e);
       if (e.type === 'bust') busts.push(e.players.map((b) => ({ userId: b.userId, startStack: b.startStack, stamp: stampOf(tour, b.userId) })));
       tour.onTableEvent(e);
     },
   });
   tour.attachTable(table);
-  return { clock, ledger, money, table, tour, settings, users, lateUsers, busts, seen: { rebuy: 0, addon: 0, reentry: 0, late: 0, dealPassed: 0, dealKeep: 0, tie: 0 } };
+  return { clock, ledger, money, table, tour, settings, users, lateUsers, busts, seen: { rebuy: 0, addon: 0, reentry: 0, late: 0, dealPassed: 0, dealKeep: 0, tie: 0 }, watch, broken };
 }
 
 /** Entry number and rebuys paid so far: changes whenever the player comes back into the game. */
@@ -221,6 +228,8 @@ async function play(h: Sim, seed: number): Promise<void> {
     const err = h.table.hasError() as Error | null;
     if (err) throw new Error(`table error at step ${step}: ${err.stack}`);
     if (h.tour.state().status === 'running' && h.table.totalChips() !== granted(h)) throw new Error(`chips at the table ${h.table.totalChips()} differ from chips granted ${granted(h)} at step ${step}`);
+    h.watch.check();
+    if (h.broken.length) throw new Error(`table rule broken at step ${step}: ${h.broken[0]}`);
   }
   await Promise.resolve();
 }

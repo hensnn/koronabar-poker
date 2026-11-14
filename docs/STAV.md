@@ -848,3 +848,23 @@ Nová stránka Správa → Zprávy členům: příjemci podle rolí, přihláše
   5. **Nákup a dokoupení žetonů:** okno se otevře rovnou v poli s částkou (na telefonu ne, aby nevyskakovala klávesnice), částka je označená k přepsání a **Enter potvrdí i z posuvníku** (dřív na posuvníku nedělal nic).
   6. U nabídek je na počítači řádek s nápovědou kláves (Enter, Esc, šipky).
 - Ověřeno v prohlížeči u stolu: okno nákupu žetonů (zaměření v částce, šipka na posuvníku, Enter z posuvníku potvrdil, Escape zavřel). Run it twice, ukázání karet, rebuy a add-on se naživo vyvolat nepodařilo (chtějí rozehranou hru více hráčů); pokryté jsou testy pomocných funkcí (`confirm-key.test.ts`) a kontrolou kódu.
+
+### Hledání chyb simulací: kombinace speciálních prvků (14. 11. 2026)
+- Zadání majitele: pokračovat v testech, simulovat hru s různými kombinacemi nastavení speciálních prvků a hledat chyby.
+- **Nová důkladná simulace cash stolu** (`packages/game-core/src/deep-fuzz-harness.ts`, test `deep-fuzz.test.ts`). Losuje široké kombinace nastavení (run it twice až na tři běhy, rabbit hunt, ukazování karet a muck, bonus 7-2, bomb pot, rake, rakeback, jackpoty, poplatek za čas, straddle obou druhů, big blind ante, mrtvý button, limity sázek, kurz žetonů, velikost stolu, stejné blindy) a mění některá nastavení mezi handami. Boti dělají vše, co může hráč, včetně tahu mimo pořadí. Po každém kroku se hlídá:
+  - žetony nevznikají ani nemizí a kniha sedí se stolem;
+  - nikdo nevidí cizí karty, dokud někdo může jednat; odhozené karty zůstanou skryté; divák nedostane nabídku akcí;
+  - rozehraná handa nezůstane stát;
+  - nabízené akce dávají smysl (dorovnání nepřesáhne stack, minimum nepřevyšuje maximum…);
+  - záznam handy se sčítá na nulu a žádná karta v něm není dvakrát;
+  - na showdownu vyhrává správná ruka (nezávislé vyhodnocení): nejlepší ruka neodejde s prázdnou a ruka poražená na všech boardech nic nevyhraje;
+  - **restart serveru v tomto okamžiku**: uložený stav odpovídá knize a mezi handami dá každému to, co má.
+- Stejná pravidla stolu hlídá i simulace celých turnajů (`tournament/payout-sim.test.ts`) a simulace přes skutečný server dostala režim `special` (`apps/server/scripts/simulate.ts special <sekundy> <semínko>`): kombinace speciálních prvků, hlasování o run it twice, ukazování karet, rabbit hunt a kontrola, že po síti nepřijdou cizí karty během sázení.
+- **Nalezené a opravené chyby:**
+  1. **Stejný malý a velký blind (např. 10/10).** Kontrola nastavení ho dovolí (a struktury turnajů také), ale herní engine se s ním odmítl vytvořit. Založení stolu skončilo chybou a v databázi zůstal rozbitý stůl, kvůli kterému by server po restartu nenastartoval. Oprava: engine se vytvoří se zástupným blindem a skutečné blindy dostane hned poté (stejnou cestou, jakou přicházejí levely turnaje); nepovedené založení po sobě nenechá řádek v databázi; stůl, který se při startu nepodaří obnovit, už neshodí celý server (zapíše se do logu).
+  2. **Bonus 7-2 spolu s rake:** bonus se strhával dřív než rake, takže hráč, který vyhrál vedlejší pot, zaplatil bonus z žetonů, které mu pak vzal rake, a skončil se **záporným stackem**. Teď se bere nejdřív rake.
+  3. **Restart serveru krátce po dohrané handě:** stůl se uložil se žetony z doby před handou, ale s jejími vedlejšími dopady (rake, bonus 7-2, jackpot a rozdíl z run it twice). Po restartu se tak handa „nestala“, ale její dopady ano a žetony se přesunuly mezi hráči. Teď se dohraná cash handa ukládá celá i s výsledkem; rozehraná handa (a handa u turnajového stolu) se vrací celá, včetně rozdílu z více běhů, který si stůl už odložil.
+- **Odehráno:** přes 1 100 náhodných kombinací nastavení cash stolu (zhruba 1 200 kroků každá), 600 náhodných turnajů a 9 běhů přes skutečný server. Po opravách bez dalšího nálezu.
+- **Co simulace nenašla, ale stojí za zmínku:** u potu menšího než počet běhů připadne celý zbytek prvnímu běhu (běžné pravidlo „liché žetony prvnímu boardu“), takže vítěz druhého běhu z takového potu nedostane nic. Nechal jsem to tak, jde nejvýš o žeton.
+- Testy: `deep-regress.test.ts` (semínka, která chyby 2 a 3 vyvolávala, stejné blindy, restart mezi handami i během handy), `lobby.test.ts` (založení stolu se stejnými blindy). Ověřeno, že testy starou podobu chyb chytí.
+- Omezení: restart u turnajového stolu těsně po dohrané handě handu dál vrací (turnaj se dozvídá o vyřazení až na předělu); dopady handy se ale už nevracejí osamoceně. Simulace přes skutečný server odehraje za 40 sekund jen několik hand, těžiště je v simulaci herního jádra.

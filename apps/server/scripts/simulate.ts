@@ -3,13 +3,17 @@
  * kteří hrají náhodné legální tahy a navíc dělají neplechu (sit out, top-up, odchody, odpojení, pauza, změny nastavení).
  * Průběžně se kontrolují invarianty: součet účetní knihy, žetony u stolů proti knize, zaseknutí hry, chyby serveru.
  *
- *   pnpm --filter @kb/server exec tsx scripts/simulate.ts [cash|tournament|all] [sekundy] [seed]
+ *   pnpm --filter @kb/server exec tsx scripts/simulate.ts [cash|special|tournament|all] [sekundy] [seed]
+ *
+ * `special` = the cash game with a random combination of special features (run it twice, rabbit hunt, showing cards,
+ * 7-2 bonus, bomb pot, rake and jackpots, straddle, big blind ante) drawn from the seed.
  */
 import { io, type Socket } from 'socket.io-client';
 import { accounts } from '@kb/ledger';
 import { randomLegalAction, seededRandom } from '@kb/game-core';
 import type { TableView } from '@kb/game-core';
 import { buildServer } from '../src/app.js';
+import { deepCombo } from '../../../packages/game-core/src/deep-fuzz-harness.js';
 
 const mode = process.argv[2] ?? 'all';
 const seconds = Number(process.argv[3] ?? 60);
@@ -137,6 +141,30 @@ function dumpEngine(tableId: string) {
 
 /** Bot na tahu zahraje náhodnou legální akci; občas pošle záměrně špatnou. */
 function play(bot: Bot, tableId: string, v: TableView) {
+  // What really arrived over the network: while somebody can still act, no view may carry another player's cards.
+  if (v.actingSeat !== null) {
+    const leak = v.seats.find((s) => s.playerId !== bot.id && s.cards);
+    if (leak) problem(`${bot.nick}: během sázení přišly karty hráče ${leak.name} (handa ${v.handId}, ${v.street})`);
+    if (v.rabbit) problem(`${bot.nick}: během sázení přišly karty rabbit huntu`);
+  }
+  if (v.legal && v.viewerSeat !== v.actingSeat) problem(`${bot.nick}: dostal nabídku akcí, i když není na tahu`);
+  // run it twice: a vote of a seated bot
+  if (v.vote?.status === 'open' && v.vote.canVote && (v.vote.myVote === null || v.vote.myVote === undefined)) {
+    const key = `${tableId}:${v.handId}:vote`;
+    if (!bot.acted.has(key)) {
+      bot.acted.add(key);
+      if (rnd() < 0.8) setTimeout(() => void emit(bot, 'table:vote', { tableId, yes: rnd() < 0.7 }), 20 + Math.floor(rnd() * 300));
+    }
+  }
+  // after the hand: showing cards by choice and the rabbit hunt (refusals are fine, an unexpected server error is not)
+  if (v.winners && v.actingSeat === null && v.viewerSeat !== null) {
+    const key = `${tableId}:${v.handId}:after`;
+    if (!bot.acted.has(key)) {
+      bot.acted.add(key);
+      if (rnd() < 0.3) setTimeout(() => void emit(bot, 'table:show', { tableId, which: pick<'both' | 0 | 1>(['both', 0, 1]) }), 30 + Math.floor(rnd() * 200));
+      if (rnd() < 0.3) setTimeout(() => void emit(bot, 'table:rabbit', { tableId }), 30 + Math.floor(rnd() * 200));
+    }
+  }
   if (v.showdownChoice) {
     const key = `${tableId}:${v.handId}:choice`;
     if (!bot.acted.has(key)) {
@@ -192,9 +220,9 @@ function checkInvariants(label: string) {
 }
 
 // ---------- cash ----------
-async function cashPhase(ms: number) {
-  console.log('— CASH GAME —');
-  const { id } = await server.tables.createTable(admin!, { name: 'Simulace', templateId: 'cash-klasika', settings: { ...FAST_API, 'table.seats': 6, 'time.timeoutsToSitOut': 2 } });
+async function cashPhase(ms: number, special: Record<string, string | number | boolean> = {}) {
+  console.log('— CASH GAME —' + (Object.keys(special).length ? ' speciální prvky: ' + JSON.stringify(special) : ''));
+  const { id } = await server.tables.createTable(admin!, { name: 'Simulace', templateId: 'cash-klasika', settings: { ...FAST_API, 'table.seats': 6, 'time.timeoutsToSitOut': 2, ...special } });
   const actor = server.tables.get(id)!;
   // ladění: záznam plánování dalších hand
   const trace: string[] = [];
@@ -420,6 +448,12 @@ async function tournamentPhase(name: string, over: Record<string, string | numbe
 try {
   for (let i = 0; i < 6; i++) bots.push(await makeBot(i));
   const per = Math.max(20, Math.floor((seconds * 1000) / (mode === 'all' ? 4 : 1)));
+  if (mode === 'special') {
+    // special features only: the size of the table, the blinds and the buy-ins stay as the bots expect them
+    const keep = (k: string) => /^(special\.|rake\.|jackpot\.|table\.(straddle|bbAnte|deadButton))/.test(k);
+    const combo = Object.fromEntries(Object.entries(deepCombo(seed)).filter(([k]) => keep(k)));
+    await cashPhase(seconds * 1000, combo);
+  }
   if (mode === 'cash' || mode === 'all') await cashPhase(per);
   if (mode === 'tournament' || mode === 'all') {
     await tournamentPhase('freezeout', {}, per);
