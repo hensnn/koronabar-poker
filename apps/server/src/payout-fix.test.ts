@@ -12,14 +12,14 @@ afterEach(async () => {
   for (const s of servers.splice(0)) await s.close().catch(() => undefined);
 });
 
-async function start() {
+async function start(extra: Record<string, unknown> = {}) {
   const clock = new FakeClock();
   const server = await buildServer({
     clock,
     scheduler: false,
     emailWorker: false,
     masterKey: { key: Buffer.alloc(32, 31), version: 1 },
-    settingsOverride: { 'system.emailVerificationRequired': false, 'system.publicUrl': 'http://localhost', 'economy.startingBalance': 10_000 },
+    settingsOverride: { 'system.emailVerificationRequired': false, 'system.publicUrl': 'http://localhost', 'economy.startingBalance': 10_000, ...extra },
     bootstrapAdmin: { nickname: 'Admin', password: 'admin-heslo-123' },
     defaultTable: false,
   });
@@ -141,15 +141,17 @@ describe('přepočet výplat starších turnajů', { timeout: 120_000 }, () => {
     await expect(s.server.consistency.payoutReport(ps[1]!)).rejects.toThrow(ConsistencyError);
     await expect(s.server.consistency.repairPayouts(ps[1]!, id)).rejects.toThrow(ConsistencyError);
 
-    // the overpaid player has spent the money: nothing moves, the wallet must not go below zero
+    // the overpaid player has spent the money and has no overdraft: nothing moves, the wallet must not go below zero
+    await s.server.wallet.setCreditLimit(s.admin, fourth, 0);
     s.server.ledger.post({ kind: 'cash_buyin', idempotencyKey: 'test:spend', gameId: 'stul-x', entries: [{ account: accounts.wallet(fourth), amount: -9_950 }, { account: accounts.table('stul-x'), amount: 9_950 }] });
-    await expect(s.server.consistency.repairPayouts(s.admin, id)).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS', params: { owes: 100, has: 50 } });
+    await expect(s.server.consistency.repairPayouts(s.admin, id)).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS', params: { owes: 100, has: 50, credit: 0 } });
     expect(bal(winner)).toBe(10_000);
     s.server.ledger.post({ kind: 'cash_cashout', idempotencyKey: 'test:back', gameId: 'stul-x', entries: [{ account: accounts.table('stul-x'), amount: -9_950 }, { account: accounts.wallet(fourth), amount: 9_950 }] });
 
-    // the repair: one balanced move between the two wallets, nothing created and nothing lost
+    // the repair: one balanced move between the two wallets, nothing created and nothing lost; the overdraft is not touched
     const total = ps.reduce((n, u) => n + bal(u), 0);
-    expect(await s.server.consistency.repairPayouts(s.admin, id)).toEqual({ moved: 100 });
+    expect(await s.server.consistency.repairPayouts(s.admin, id)).toEqual({ moved: 100, credit: 0 });
+    expect(s.server.wallet.creditDebt(fourth)).toBe(0);
     expect(ps.map(bal)).toEqual([10_100, 10_020, 9_980, 9_900]);
     expect(ps.reduce((n, u) => n + bal(u), 0)).toBe(total);
 
@@ -170,5 +172,101 @@ describe('přepočet výplat starších turnajů', { timeout: 120_000 }, () => {
     // a second repair has nothing to do and moves nothing
     await expect(s.server.consistency.repairPayouts(s.admin, id)).rejects.toMatchObject({ code: 'NOTHING_TO_FIX' });
     expect(ps.map(bal)).toEqual([10_100, 10_020, 9_980, 9_900]);
+  });
+
+  /** A broken tournament whose overpaid 4th place has only 50 left in the wallet and should return 100. */
+  async function brokenAndSpent(s: Ctx) {
+    const org = await s.user('organizator');
+    const ps = [await s.user(), await s.user(), await s.user(), await s.user()];
+    const [winner, , , fourth] = ps as [string, string, string, string];
+    const id = await finished(s, org, ps);
+    await breakLikeTheOldBug(s, id, winner, fourth);
+    s.server.ledger.post({ kind: 'cash_buyin', idempotencyKey: 'test:spend', gameId: 'stul-x', entries: [{ account: accounts.wallet(fourth), amount: -9_950 }, { account: accounts.table('stul-x'), amount: 9_950 }] });
+    const bal = (u: string) => s.server.ledger.balance(accounts.wallet(u));
+    return { id, winner, fourth, bal };
+  }
+
+  it('když přeplacenému hráči chybí Korony, zbytek se načerpá z jeho kontokorentu a vznikne mu dluh', async () => {
+    const s = await start();
+    const { id, winner, fourth, bal } = await brokenAndSpent(s);
+    const mint = () => s.server.ledger.balance(accounts.mint());
+    const mintBefore = mint();
+
+    // the report says how much the player can still draw
+    const row = (await s.server.consistency.payoutReport(s.admin))[0]!.rows.find((r) => r.userId === fourth)!;
+    expect(row).toMatchObject({ paid: 100, correct: 0, balance: 50, credit: 1000 });
+
+    // 50 from the wallet, 50 from the overdraft: the wronged player gets everything at once
+    expect(await s.server.consistency.repairPayouts(s.admin, id)).toEqual({ moved: 100, credit: 50 });
+    expect(bal(winner)).toBe(10_100);
+    expect(bal(fourth)).toBe(0);
+    expect(s.server.wallet.creditDebt(fourth)).toBe(50);
+    expect(s.server.wallet.creditDebt(winner)).toBe(0);
+    // nothing created out of thin air: what the mint issued is exactly the debt
+    expect(mint()).toBe(mintBefore - 50);
+    const draw = s.server.ledger.transactions().filter((t) => t.kind === 'credit_draw');
+    expect(draw).toHaveLength(1);
+    expect(draw[0]).toMatchObject({ gameId: id, createdBy: s.admin, note: 'kontokorent: čerpání při opravě výplat turnaje' });
+
+    // records, audit and all the consistency checks (including the overdraft one) agree
+    expect((await s.server.tournaments.view(id, winner)).results!.map((r) => r.payout)).toEqual([200, 120, 80, 0]);
+    const audit = await s.server.db.select().from(schema.auditLog).where(eq(schema.auditLog.action, 'mena.uver_oprava_vyplat'));
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({ actorId: s.admin, targetId: fourth, after: { amount: 50, tournamentId: id } });
+    const after = await s.server.consistency.run(s.admin);
+    expect(after.checks.filter((c) => !c.ok), JSON.stringify(after.checks.filter((c) => !c.ok))).toEqual([]);
+
+    // the debt is repaid from the player's next income, like any other overdraft
+    s.server.ledger.post({ kind: 'cash_cashout', idempotencyKey: 'test:back', gameId: 'stul-x', entries: [{ account: accounts.table('stul-x'), amount: -9_950 }, { account: accounts.wallet(fourth), amount: 9_950 }] });
+    expect(s.server.wallet.creditDebt(fourth)).toBe(0);
+    expect(bal(fourth)).toBe(9_900);
+    expect(mint()).toBe(mintBefore);
+  });
+
+  it('kontokorent se čerpá jen do volného limitu: o Koronu víc a nezapíše se nic, ani dluh', async () => {
+    const s = await start();
+    const { id, winner, fourth, bal } = await brokenAndSpent(s);
+    await s.server.wallet.setCreditLimit(s.admin, fourth, 49);
+    await expect(s.server.consistency.repairPayouts(s.admin, id)).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS', params: { owes: 100, has: 50, credit: 49 } });
+    expect([bal(winner), bal(fourth)]).toEqual([10_000, 50]);
+    expect(s.server.wallet.creditDebt(fourth)).toBe(0);
+    expect(s.server.ledger.transactions().filter((t) => t.kind === 'credit_draw')).toEqual([]);
+    expect((await s.server.consistency.payoutReport(s.admin))[0]!.kind).toBe('fixable');
+
+    // the admin raises the personal limit and the same repair goes through
+    await s.server.wallet.setCreditLimit(s.admin, fourth, 50);
+    expect(await s.server.consistency.repairPayouts(s.admin, id)).toEqual({ moved: 100, credit: 50 });
+    expect([bal(winner), bal(fourth)]).toEqual([10_100, 0]);
+    expect(s.server.wallet.creditDebt(fourth)).toBe(50);
+  });
+
+  it('přerušená oprava (pohyb už v knize je, záznam turnaje ne) se jen dokončí: nic se znovu nepřevádí ani nečerpá', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const ps = [await s.user(), await s.user(), await s.user(), await s.user()];
+    const [winner, , , fourth] = ps as [string, string, string, string];
+    const id = await finished(s, org, ps);
+    await breakLikeTheOldBug(s, id, winner, fourth);
+    const bal = (u: string) => s.server.ledger.balance(accounts.wallet(u));
+    // the money moved, then the server went down before the tournament record was corrected
+    s.server.ledger.post({ kind: 'turnaj_vyplata', idempotencyKey: `trn:${id}:payoutfix`, gameId: id, entries: [{ account: accounts.wallet(winner), amount: 100 }, { account: accounts.wallet(fourth), amount: -100 }] });
+    // meanwhile the overpaid player spent everything: a naive retry would now reach for the overdraft
+    s.server.ledger.post({ kind: 'cash_buyin', idempotencyKey: 'test:spend', gameId: 'stul-x', entries: [{ account: accounts.wallet(fourth), amount: -9_900 }, { account: accounts.table('stul-x'), amount: 9_900 }] });
+    expect((await s.server.consistency.payoutReport(s.admin))[0]!.kind).toBe('fixable');
+
+    expect(await s.server.consistency.repairPayouts(s.admin, id)).toEqual({ moved: 100, credit: 0 });
+    expect([bal(winner), bal(fourth)]).toEqual([10_100, 0]);
+    expect(s.server.wallet.creditDebt(fourth)).toBe(0);
+    expect((await s.server.tournaments.view(id, winner)).results!.map((r) => r.payout)).toEqual([200, 120, 80, 0]);
+    expect(await s.server.consistency.payoutReport(s.admin)).toEqual([]);
+  });
+
+  it('s vypnutým kontokorentem se oprava bez dostatečného zůstatku odmítne jako dřív', async () => {
+    const s = await start({ 'economy.creditEnabled': false });
+    const { id, winner, fourth, bal } = await brokenAndSpent(s);
+    expect((await s.server.consistency.payoutReport(s.admin))[0]!.rows.find((r) => r.userId === fourth)!.credit).toBe(0);
+    await expect(s.server.consistency.repairPayouts(s.admin, id)).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS', params: { owes: 100, has: 50, credit: 0 } });
+    expect([bal(winner), bal(fourth)]).toEqual([10_000, 50]);
+    expect(s.server.wallet.creditDebt(fourth)).toBe(0);
   });
 });

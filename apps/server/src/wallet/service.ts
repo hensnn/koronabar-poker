@@ -347,6 +347,40 @@ export class WalletService {
     };
   };
 
+  /**
+   * Čerpání kontokorentu z rozhodnutí správce mimo platbu za hru (oprava chybně rozdělených výplat turnaje): částka se doplní
+   * z účtu vydání měny jako dluh hráče. Jen v mezích jeho volného limitu; jinak vrací null a nic se nezapíše.
+   * Oprávnění kontroluje volající. `undoCreditDraw` čerpání vrátí, když navazující pohyb selže.
+   */
+  drawCreditFor(userId: string, amount: number, o: { key: string; gameId?: string; note: string; createdBy: string }): Tx | null {
+    if (!Number.isSafeInteger(amount) || amount <= 0) return null;
+    const info = this.creditInfo(userId);
+    if (!info.enabled || amount > info.available) return null;
+    return this.deps.ledger.post({
+      kind: 'credit_draw',
+      idempotencyKey: o.key,
+      gameId: o.gameId,
+      entries: [
+        { account: accounts.mint(), amount: -amount },
+        { account: accounts.wallet(userId), amount },
+      ],
+      createdBy: o.createdBy,
+      note: o.note,
+    });
+  }
+
+  /** Vrátí čerpání z `drawCreditFor` zpět (hráči nesmí zůstat dluh, když se pohyb, kvůli kterému čerpal, nezapsal). */
+  undoCreditDraw(drawn: Tx): void {
+    this.deps.ledger.post({
+      kind: 'credit_repay',
+      idempotencyKey: `${drawn.idempotencyKey}:undo`,
+      gameId: drawn.gameId,
+      createdBy: drawn.createdBy,
+      note: 'vrácení čerpání: pohyb se nezdařil',
+      entries: drawn.entries.map((x) => ({ account: x.account, amount: -x.amount })),
+    });
+  }
+
   /** Seznam hráčů s jejich úvěrovou linkou (pro správce): osobní limit, výchozí, dluh. */
   async creditLines(actorId: string) {
     if (!this.deps.perms.can(actorId, 'mena.dobit').allowed) throw new PermissionError('FORBIDDEN');

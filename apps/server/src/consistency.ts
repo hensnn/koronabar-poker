@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, like, sql } from 'drizzle-orm';
 import { auditPayouts, type TournamentState } from '@kb/game-core';
-import { accounts, type Ledger } from '@kb/ledger';
+import { accounts, type Ledger, type Tx } from '@kb/ledger';
 import { computePayouts, legacyPercentsFor, percentsFor, type PayoutPreset, type PermissionChecker, type RemainderRule, type SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
@@ -30,8 +31,11 @@ export interface PayoutProblem {
   /** Prize pool turnaje podle knihy a počet míst, která podle nastavení berou výhru. */
   pool: number;
   paidPlaces: number;
-  /** Všechna místa turnaje: co se vyplatilo, co mělo být a kolik má hráč teď na zůstatku (kvůli vrácení přeplatku). */
-  rows: { userId: string; name: string; place: number; paid: number; correct: number; balance: number; flagged: boolean }[];
+  /**
+   * Všechna místa turnaje: co se vyplatilo, co mělo být, kolik má hráč teď na zůstatku a kolik může ještě čerpat
+   * z kontokorentu (`credit`, 0 = nic nebo vypnuto); obojí kvůli vrácení přeplatku.
+   */
+  rows: { userId: string; name: string; place: number; paid: number; correct: number; balance: number; credit: number; flagged: boolean }[];
 }
 
 export interface ConsistencyCheck {
@@ -162,6 +166,7 @@ export class ConsistencyService {
           paid: r.payout,
           correct: audit.correct[i]!,
           balance: this.deps.ledger.balance(accounts.wallet(r.userId)),
+          credit: this.deps.wallet.creditInfo(r.userId).available,
           flagged: kind === 'uncertain' ? unsure.has(r.userId) : r.payout !== audit.correct[i],
         })),
       });
@@ -178,20 +183,45 @@ export class ConsistencyService {
   /**
    * Opraví chybně rozdělené výplaty jednoho turnaje: jedním pohybem v knize převede rozdíl od hráčů, kteří dostali víc,
    * hráčům, kteří dostali míň (součet je nula, nic nevzniká ani nemizí), a opraví záznam turnaje i statistiky.
-   * Když přeplacený hráč nemá dost na zůstatku, neprovede se nic (peněženka nesmí do mínusu ani do kontokorentu bez jeho vědomí).
+   * Když přeplacený hráč nemá dost na zůstatku, chybějící část se načerpá z jeho kontokorentu (vznikne mu dluh jako při
+   * platbě za hru), ale jen do volného limitu. Když nestačí ani ten (nebo je kontokorent vypnutý), neprovede se nic:
+   * peněženka nesmí do mínusu.
    */
-  async repairPayouts(actorId: string, tournamentId: string, meta: { ip?: string | null; source?: AuditSource } = {}): Promise<{ moved: number }> {
+  async repairPayouts(actorId: string, tournamentId: string, meta: { ip?: string | null; source?: AuditSource } = {}): Promise<{ moved: number; credit: number }> {
     if (!this.deps.perms.can(actorId, 'mena.upravit_knihu').allowed || !this.deps.correctPayouts) throw new ConsistencyError('FORBIDDEN');
     const [problem] = await this.payoutProblems(tournamentId);
     if (!problem || problem.kind !== 'fixable') throw new ConsistencyError('NOTHING_TO_FIX');
     const rows = problem.rows.filter((r) => r.paid !== r.correct);
-    for (const r of rows) {
-      const owes = r.paid - r.correct;
-      if (owes > 0 && r.balance < owes) throw new ConsistencyError('INSUFFICIENT_FUNDS', { name: r.name, owes, has: r.balance });
-    }
     const entries = rows.map((r) => ({ account: accounts.wallet(r.userId), amount: r.correct - r.paid }));
     const moved = entries.reduce((n, e) => n + Math.max(0, e.amount), 0);
-    this.deps.ledger.post({ kind: 'turnaj_vyplata', idempotencyKey: `trn:${tournamentId}:payoutfix`, gameId: tournamentId, createdBy: actorId, note: 'oprava chybně rozdělených výplat turnaje', entries });
+    const key = `trn:${tournamentId}:payoutfix`;
+    const fix = { kind: 'turnaj_vyplata' as const, idempotencyKey: key, gameId: tournamentId, createdBy: actorId, note: 'oprava chybně rozdělených výplat turnaje', entries };
+    const { ledger, wallet } = this.deps;
+    const drawn: { userId: string; amount: number; txId: number }[] = [];
+    // The move may already be in the ledger (an earlier attempt failed right after it): then only the records are finished below.
+    if (!ledger.hasKey(key)) {
+      // Fresh balances; nothing is awaited between these checks and the posts, so no other payment can slip in between.
+      const short = rows
+        .map((r) => ({ r, owes: r.paid - r.correct, has: ledger.balance(accounts.wallet(r.userId)) }))
+        .filter((x) => x.owes > x.has)
+        .map((x) => ({ ...x, credit: wallet.creditInfo(x.r.userId).available }));
+      for (const x of short) if (x.owes - x.has > x.credit) throw new ConsistencyError('INSUFFICIENT_FUNDS', { name: x.r.name, owes: x.owes, has: x.has, credit: x.credit });
+      const draws: Tx[] = [];
+      try {
+        for (const x of short) {
+          const amount = x.owes - x.has;
+          const tx = wallet.drawCreditFor(x.r.userId, amount, { key: `credit:payoutfix:${tournamentId}:${x.r.userId}:${randomUUID()}`, gameId: tournamentId, createdBy: actorId, note: 'kontokorent: čerpání při opravě výplat turnaje' });
+          if (!tx) throw new ConsistencyError('INSUFFICIENT_FUNDS', { name: x.r.name, owes: x.owes, has: x.has, credit: x.credit });
+          draws.push(tx);
+          drawn.push({ userId: x.r.userId, amount, txId: tx.id });
+        }
+        ledger.post(fix);
+      } catch (e) {
+        // No debt may stay behind when the payouts were not moved.
+        for (const d of draws) wallet.undoCreditDraw(d);
+        throw e;
+      }
+    } else ledger.post(fix);
     await this.deps.correctPayouts(tournamentId, Object.fromEntries(rows.map((r) => [r.userId, r.correct])));
     await this.deps.flush();
     const gr = schema.gameResults;
@@ -205,8 +235,9 @@ export class ConsistencyService {
       after: Object.fromEntries(rows.map((r) => [r.userId, r.correct])),
       ...meta,
     });
+    for (const d of drawn) await this.deps.audit?.log({ actorId, action: 'mena.uver_oprava_vyplat', targetType: 'user', targetId: d.userId, after: { amount: d.amount, tournamentId, txId: d.txId }, ...meta });
     this.deps.afterPayoutFix?.(rows.map((r) => r.userId));
-    return { moved };
+    return { moved, credit: drawn.reduce((n, d) => n + d.amount, 0) };
   }
 
   async run(actorId: string): Promise<ConsistencyReport> {

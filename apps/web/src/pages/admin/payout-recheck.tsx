@@ -38,8 +38,8 @@ export function PayoutRecheckCard() {
     setBusy(true);
     setError('');
     try {
-      const r = await post<{ moved: number }>('/api/admin/consistency/repair-payouts', { id: p.id });
-      setDone(t('payoutFix.done', { name: p.name, moved: money(r.moved) }));
+      const r = await post<{ moved: number; credit: number }>('/api/admin/consistency/repair-payouts', { id: p.id });
+      setDone(t(r.credit > 0 ? 'payoutFix.doneCredit' : 'payoutFix.done', { name: p.name, moved: money(r.moved), credit: money(r.credit) }));
       setConfirm(null);
       await run();
     } catch (e) {
@@ -93,9 +93,14 @@ export function PayoutRecheckCard() {
               {p.kind === 'fixable' && (
                 <>
                   <p className="text-sm">{t('payoutFix.transfers', { list: transfers(p) })}</p>
-                  {plan.short.map((x) => (
+                  {plan.credit.map((x) => (
                     <Notice key={x.userId} kind="warning">
-                      {t('payoutFix.short', { name: x.name, has: money(x.has), owes: money(x.owes), missing: money(x.owes - x.has) })}
+                      {t('payoutFix.fromCredit', { name: x.name, has: money(x.has), owes: money(x.owes), amount: money(x.amount) })}
+                    </Notice>
+                  ))}
+                  {plan.short.map((x) => (
+                    <Notice key={x.userId} kind="error">
+                      {t(x.credit > 0 ? 'payoutFix.shortCredit' : 'payoutFix.short', { name: x.name, has: money(x.has), owes: money(x.owes), credit: money(x.credit), missing: money(x.owes - x.has - x.credit) })}
                     </Notice>
                   ))}
                   {can(me, 'mena.upravit_knihu') && (
@@ -123,6 +128,11 @@ export function PayoutRecheckCard() {
                 </li>
               ))}
             </ul>
+            {payoutFixPlan(confirm).credit.map((x) => (
+              <Notice key={x.userId} kind="warning">
+                {t('payoutFix.confirmCredit', { name: x.name, amount: money(x.amount), wallet: money(x.has) })}
+              </Notice>
+            ))}
             <p className="text-sm text-muted">{t('payoutFix.confirmNote')}</p>
             <div className="flex justify-end gap-2">
               <Button disabled={busy} onClick={() => setConfirm(null)}>
