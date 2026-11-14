@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t } from '@kb/shared';
 import { errorText, get } from '../api';
-import { Button, Card, DataTable, Fold, Notice, Spinner, Tabs, Td } from '../ui';
+import { Button, Card, DataTable, Fold, Notice, Select, Spinner, Tabs, Td } from '../ui';
+import { useFeatures } from '../features';
 
 type Parts = Partial<Record<string, number>>;
 /** Pořadí složek ve sloupcích, shodné s tabulkou výsledků turnaje (Buy-in, Rebuy, Add-on, Výhra, Bounty). */
@@ -14,6 +15,13 @@ interface Settlement {
   games: { id: string; name: string; kind: 'cash' | 'tournament'; results: Record<string, number>; parts: Record<string, Parts> }[];
   names: Record<string, string>;
   house: number | null;
+}
+
+interface EveningOption {
+  id: string;
+  name: string;
+  status: 'open' | 'closed';
+  startsAt: number;
 }
 
 const HOUR = 3600_000;
@@ -69,15 +77,33 @@ export function SettlementPanel() {
   const [data, setData] = useState<Settlement | null>(null);
   const [error, setError] = useState('');
   const [kind, setKind] = useState<'all' | 'cash' | 'tournament'>('all');
+  // Evenings to pick from; null until loaded, so the first request already knows whether an evening is running.
+  const features = useFeatures();
+  const [evenings, setEvenings] = useState<EveningOption[] | null>(features.evenings ? null : []);
+  /** Chosen evening; '' = settle by the dates below. */
+  const [evening, setEvening] = useState('');
+  useEffect(() => {
+    if (!features.evenings) return setEvenings([]);
+    get<{ evenings: EveningOption[] }>('/api/evenings')
+      .then((d) => {
+        // A running evening is what the owner comes here for, also after midnight when "today" would miss it.
+        // Only the newest one counts (the list is newest first): an old evening somebody forgot to close is not it.
+        setEvening(d.evenings[0]?.status === 'open' ? d.evenings[0].id : '');
+        setEvenings(d.evenings);
+      })
+      .catch(() => setEvenings([]));
+  }, [features.evenings]);
+  const ready = evenings !== null;
   const load = useCallback(() => {
+    if (!ready) return;
     setData(null);
-    get<Settlement>(`/api/settlement?from=${from}&to=${to}`)
+    get<Settlement>(evening ? `/api/settlement?evening=${evening}` : `/api/settlement?from=${from}&to=${to}`)
       .then((d) => {
         setData(d);
         setError('');
       })
       .catch((e) => setError(errorText(e)));
-  }, [from, to]);
+  }, [from, to, evening, ready]);
   useEffect(load, [load]);
 
   // Filtr druhu hry: přepočítá se z rozpadu po hrách, takže tabulka hráčů ukazuje jen cash nebo jen turnaje.
@@ -106,7 +132,19 @@ export function SettlementPanel() {
   return (
     <Card title={t('settlement.periodTitle')}>
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end gap-3">
+        {evenings && evenings.length > 0 && (
+          <div className="max-w-sm">
+            <Select label={t('settlement.evening')} value={evening} onChange={(e) => setEvening(e.target.value)}>
+              <option value="">{t('settlement.eveningByDate')}</option>
+              {evenings.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.status === 'open' ? t('settlement.eveningOpen', { name: e.name }) : t('settlement.eveningOption', { name: e.name, date: new Date(e.startsAt).toLocaleDateString() })}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+        <div className={`flex flex-wrap items-end gap-3 ${evening ? 'hidden' : ''}`}>
           <label className="flex flex-col text-sm">
             {t('settlement.from')}
             <input type="datetime-local" className="rounded-sm border border-line bg-surface px-2 py-1" value={toLocalInput(from)} onChange={(e) => e.target.value && setFrom(new Date(e.target.value).getTime())} />
@@ -119,6 +157,7 @@ export function SettlementPanel() {
           <Button onClick={() => preset(Date.now() - 24 * HOUR)}>{t('settlement.last24')}</Button>
           <Button onClick={() => preset(Date.now() - 7 * 24 * HOUR)}>{t('settlement.last7')}</Button>
         </div>
+        {!evening && evenings && evenings.length > 0 && <p className="text-sm text-muted">{t('settlement.wholeEvenings')}</p>}
         <Tabs
           tabs={[
             { id: 'all' as const, label: t('settlement.filter.all') },

@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { bestFive, describeHand, type Card } from '@kb/game-core';
 import { minimalTransfers, type Transfer } from '@kb/ledger';
 import { formatLocal, t, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
+import { cashWindowStart } from './evening-spans.js';
 import { SIDE_KINDS, SIDE_SET } from './side-results.js';
 import { settlementPartOf } from './wallet/service.js';
 
@@ -311,7 +312,10 @@ export class EveningService {
           .where(and(inArray(schema.ledgerTransactions.gameId, allIds), or(sql`${schema.ledgerTransactions.kind} like 'turnaj_%'`, inArray(schema.ledgerTransactions.kind, WALLET_KINDS))))
       : [];
     const cashSet = new Set(cashIds);
-    const inWindow = txs.filter((x) => !cashSet.has(x.gameId ?? '') || (x.at.getTime() >= from && x.at.getTime() <= to));
+    // Cash tables count from a little before the evening: it starts with the first hand, but the players bought in before it.
+    const [previous] = await db.select({ endsAt: schema.evenings.endsAt }).from(schema.evenings).where(and(ne(schema.evenings.id, ev.id), lte(schema.evenings.endsAt, ev.startsAt))).orderBy(desc(schema.evenings.endsAt)).limit(1);
+    const cashFrom = cashWindowStart(from, previous?.endsAt?.getTime() ?? null, Number(this.s()['evening.gapHours']) * 3600_000);
+    const inWindow = txs.filter((x) => !cashSet.has(x.gameId ?? '') || (x.at.getTime() > cashFrom && x.at.getTime() <= to));
     const byTx = new Map(inWindow.map((x) => [x.id, x]));
     const entries = byTx.size ? await db.select().from(schema.ledgerEntries).where(and(inArray(schema.ledgerEntries.transactionId, [...byTx.keys()]), sql`${schema.ledgerEntries.account} like 'wallet:%'`)) : [];
     const results = new Map<string, Record<string, number>>();

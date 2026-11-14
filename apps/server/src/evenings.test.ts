@@ -309,4 +309,92 @@ describe('herní večery', { timeout: 90_000 }, () => {
     expect(view.status).toBe('closed');
     expect(view.summary.players.find((p) => p.userId === c)).toMatchObject({ seated: 400, net: -400 });
   });
+
+  it('cash buy-ins made before the first hand belong to the automatic evening, those of the previous evening do not', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const [a, b] = [await s.user(), await s.user()];
+    const { id: tableId } = await s.server.tables.createTable(org, { name: 'Cash', templateId: 'cash-klasika' });
+    const actor = s.server.tables.get(tableId)!;
+    // first evening: a sits down half a minute before the first hand (which is what creates the evening)
+    actor.join(a, 'E1x', 0, 500);
+    s.clock.advance(30_000);
+    await s.server.evenings.cashActivity(tableId);
+    await s.server.journal.flush();
+    const first = (await s.server.evenings.list(org)).evenings[0]!.id;
+    expect((await s.server.evenings.view(first, org)).summary.players.find((p) => p.userId === a)).toMatchObject({ net: 0, seated: 500, parts: { cashBuyIn: -500, cashOut: 500 } });
+    actor.leave(a);
+    await s.server.journal.flush();
+    await s.server.evenings.close(null, first);
+    expect((await s.server.evenings.view(first, org)).summary.players.find((p) => p.userId === a)).toMatchObject({ net: 0, parts: { cashBuyIn: -500, cashOut: 500 } });
+
+    // second evening an hour later at the same table: only b, nothing of a's earlier play
+    s.clock.advance(3600_000);
+    actor.join(b, 'E2x', 1, 400);
+    s.clock.advance(30_000);
+    await s.server.evenings.cashActivity(tableId);
+    await s.server.journal.flush();
+    const list = (await s.server.evenings.list(org)).evenings;
+    expect(list).toHaveLength(2);
+    const second = list.find((e) => e.id !== first)!.id;
+    const players = (await s.server.evenings.view(second, org)).summary.players;
+    expect(players.map((p) => p.userId)).toEqual([b]);
+    expect(players[0]).toMatchObject({ net: 0, seated: 400, parts: { cashBuyIn: -400, cashOut: 400 } });
+  });
+
+  it('wallet settlement counts whole evenings by the day they started; an evening across midnight is not split', async () => {
+    const s = await start();
+    const org = await s.user('organizator');
+    const [a, b, c] = [await s.user(), await s.user(), await s.user()];
+    const t0 = s.clock.now();
+    const midnight = t0 + 4 * 3600_000;
+    // evening 1 starts before midnight, its tournament pays out after midnight
+    const { id: t1 } = await s.server.tournaments.create(org, { name: 'První', templateId: 'tour-turbo', settings: LIVE });
+    for (const p of [a, b, c]) await s.server.tournaments.liveRegister(org, t1, p);
+    await s.server.tournaments.start(org, t1);
+    await new Promise((r) => setTimeout(r, 300)); // the automatic attachment finishes
+    s.clock.advance(5 * 3600_000);
+    await s.server.tournaments.liveEliminate(org, t1, c, [a]);
+    await s.server.tournaments.liveEliminate(org, t1, b, [a]);
+    await s.server.journal.flush();
+    const e1 = (await s.server.evenings.list(org)).evenings[0]!.id;
+    await s.server.evenings.close(null, e1);
+    // evening 2 the next day
+    s.clock.advance(20 * 3600_000);
+    await playTournament(s, org, 'Druhý', [b, a, c]);
+    await new Promise((r) => setTimeout(r, 300));
+    // a movement that belongs to no evening: still picked by its own time
+    s.server.cash.buyIn(c, 'stul-bez-vecera', 40, 'test:free:buyin');
+    await s.server.journal.flush();
+    const end = s.clock.now() + 1000;
+
+    const names = (r: Awaited<ReturnType<typeof s.server.wallet.settlementForPeriod>>) => r.games.map((g) => g.name).sort();
+    const net = (r: Awaited<ReturnType<typeof s.server.wallet.settlementForPeriod>>, u: string) => r.players.find((p) => p.userId === u)?.total ?? 0;
+
+    // "today" (from midnight): only the evening that started today, although the first tournament paid out today too
+    const today = await s.server.wallet.settlementForPeriod(s.admin, midnight, end);
+    expect(names(today)).toEqual(['Druhý', 'stul-bez-vecera']);
+    expect(net(today, b)).toBe(200); // b won the second tournament
+    expect(net(today, a)).toBe(-100);
+    expect(net(today, c)).toBe(-100 - 40);
+
+    // "yesterday" (until midnight): the whole first evening including the payout after midnight
+    const yesterday = await s.server.wallet.settlementForPeriod(s.admin, t0 - 3600_000, midnight);
+    expect(names(yesterday)).toEqual(['První']);
+    expect(net(yesterday, a)).toBe(200);
+    expect(net(yesterday, b)).toBe(-100);
+    expect(yesterday.players.reduce((n, p) => n + p.total, 0)).toBe(0);
+    expect(Math.abs(yesterday.house!)).toBe(0);
+
+    // exactly one evening by its id, whatever the dates say
+    const one = await s.server.wallet.settlementForPeriod(s.admin, 0, 1, [], { eveningId: e1 });
+    expect(names(one)).toEqual(['První']);
+    expect(net(one, a)).toBe(200);
+    await expect(s.server.wallet.settlementForPeriod(s.admin, 0, 1, [], { eveningId: '00000000-0000-4000-8000-000000000000' })).rejects.toThrow();
+
+    // both days together: nothing is counted twice
+    const both = await s.server.wallet.settlementForPeriod(s.admin, t0 - 3600_000, end);
+    expect(names(both)).toEqual(['Druhý', 'První', 'stul-bez-vecera']);
+    expect(net(both, a)).toBe(200 - 100);
+  });
 });

@@ -2362,10 +2362,10 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   }));
 
   app.get('/api/settlement', guard(async (req, reply) => {
-    const q = z.object({ from: z.coerce.number().optional(), to: z.coerce.number().optional() }).parse(req.query);
+    const q = z.object({ from: z.coerce.number().optional(), to: z.coerce.number().optional(), evening: z.string().uuid().optional() }).parse(req.query);
     const now = Date.now();
     const seated = svc.tables().list().flatMap((row) => (svc.tables().get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, tableId: row.id, chips: s.chips + s.pendingChips })));
-    const r = await svc.wallet.settlementForPeriod(need(req).id, q.from ?? now - 24 * 3600_000, q.to ?? now, seated);
+    const r = await svc.wallet.settlementForPeriod(need(req).id, q.from ?? now - 24 * 3600_000, q.to ?? now, seated, { eveningId: q.evening });
     return reply.send({ ...r, note: 'Převody jsou jen ve virtuální měně, která nemá žádnou peněžní hodnotu.' });
   }));
 

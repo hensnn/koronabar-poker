@@ -7,6 +7,7 @@ import type { ApprovalService } from '../auth/approvals.js';
 import type { AuditService, AuditSource } from '../auth/audit.js';
 import { schema, type Db } from '../db/index.js';
 import { SIDE_KINDS, SIDE_SET } from '../side-results.js';
+import { buildSpans, ownerOf } from '../evening-spans.js';
 
 export interface WalletMeta {
   ip?: string | null;
@@ -678,24 +679,47 @@ export class WalletService {
    * podle pohybů v peněžence (u stolů, kde hráč ještě sedí, se připočítají žetony u stolu), rozpad po hrách a minimální seznam převodů. Zisk herny (rake, poplatky, odvody)
    * se nedělí mezi hráče, v převodech je na straně „domu“. Hráči, kteří u cash stolu stále sedí, se počítají podle žetonů u stolu.
    * Vidí ho ten, kdo je jeho součástí (jen svůj řádek a své převody), nebo kdo má oprávnění „mena.vyuctovani“.
+   *
+   * Evenings count whole: an evening belongs to the period when it STARTED in it, and then all of it is in (a payout
+   * after midnight, a registration days ahead), while an evening that started outside the period is left out entirely.
+   * Only movements that belong to no evening are picked by their own time. `eveningId` settles exactly that evening.
    */
-  async settlementForPeriod(actorId: string, fromMs: number, toMs: number, seated: { userId: string; tableId: string; chips: number }[] = []): Promise<PeriodSettlement> {
+  async settlementForPeriod(actorId: string, fromMs: number, toMs: number, seated: { userId: string; tableId: string; chips: number }[] = [], opts: { eveningId?: string } = {}): Promise<PeriodSettlement> {
     if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs < fromMs) throw new PermissionError('INVALID', { field: 'period' });
-    const txs = await this.deps.db
-      .select({ id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind, gameId: schema.ledgerTransactions.gameId })
-      .from(schema.ledgerTransactions)
-      .where(and(gte(schema.ledgerTransactions.at, new Date(fromMs)), lte(schema.ledgerTransactions.at, new Date(toMs)), or(like(schema.ledgerTransactions.kind, 'cash_%'), like(schema.ledgerTransactions.kind, 'turnaj_%'), eq(schema.ledgerTransactions.kind, 'bounty'), eq(schema.ledgerTransactions.kind, 'jackpot_payout'), inArray(schema.ledgerTransactions.kind, SIDE_KINDS))));
+    const db = this.deps.db;
+    const cols = { id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind, gameId: schema.ledgerTransactions.gameId, at: schema.ledgerTransactions.at };
+    const gameKinds = or(like(schema.ledgerTransactions.kind, 'cash_%'), like(schema.ledgerTransactions.kind, 'turnaj_%'), eq(schema.ledgerTransactions.kind, 'bounty'), eq(schema.ledgerTransactions.kind, 'jackpot_payout'), inArray(schema.ledgerTransactions.kind, SIDE_KINDS));
+    const spans = buildSpans(
+      await db.select({ id: schema.evenings.id, startsAt: schema.evenings.startsAt, endsAt: schema.evenings.endsAt }).from(schema.evenings),
+      await db.select({ eveningId: schema.eveningGames.eveningId, kind: schema.eveningGames.kind, ref: schema.eveningGames.ref }).from(schema.eveningGames),
+      Number(this.deps.settings()['evening.gapHours']) * 3600_000,
+    );
+    const only = opts.eveningId ? spans.find((x) => x.id === opts.eveningId) : undefined;
+    if (opts.eveningId && !only) throw new PermissionError('INVALID', { field: 'evening' });
+    if (only) {
+      fromMs = only.startsAt;
+      toMs = only.endsAt ?? Date.now();
+    }
+    const selected = only ? [only] : spans.filter((x) => x.startsAt >= fromMs && x.startsAt <= toMs);
+    const selectedIds = new Set(selected.map((x) => x.id));
+    // movements of the chosen evenings, whenever they happened
+    const eveningGames = selected.flatMap((x) => [...x.whole, ...x.cash]);
+    const ofEvenings = eveningGames.length ? (await db.select(cols).from(schema.ledgerTransactions).where(and(inArray(schema.ledgerTransactions.gameId, eveningGames), gameKinds))).filter((x) => selectedIds.has(ownerOf(spans, x.gameId!, x.at.getTime())?.id ?? '')) : [];
+    // movements in the period that belong to no evening (those of another evening stay with that evening)
+    const txs = only
+      ? []
+      : (await db.select(cols).from(schema.ledgerTransactions).where(and(gte(schema.ledgerTransactions.at, new Date(fromMs)), lte(schema.ledgerTransactions.at, new Date(toMs)), gameKinds))).filter((x) => !x.gameId || !ownerOf(spans, x.gameId, x.at.getTime()));
     // Turnaj (a sázky a odměny k němu) patří do období celý: jakmile v něm má turnaj jakýkoli pohyb, počítají se i jeho dřívější pohyby
     // (vstupy před začátkem okna). Jinak by u zrušeného turnaje okno „posledních 24 h“ ukázalo jen vrácení vkladů bez vkladů.
     const isTournamentKind = (k: string) => k.startsWith('turnaj_') || k === 'bounty' || SIDE_SET.has(k);
     const tourGames = [...new Set(txs.filter((t) => t.gameId && isTournamentKind(t.kind)).map((t) => t.gameId!))];
     const earlier = tourGames.length
       ? await this.deps.db
-          .select({ id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind, gameId: schema.ledgerTransactions.gameId })
+          .select(cols)
           .from(schema.ledgerTransactions)
           .where(and(inArray(schema.ledgerTransactions.gameId, tourGames), or(like(schema.ledgerTransactions.kind, 'turnaj_%'), eq(schema.ledgerTransactions.kind, 'bounty'), inArray(schema.ledgerTransactions.kind, SIDE_KINDS))))
       : [];
-    const byId = new Map([...txs, ...earlier].map((t) => [t.id, t]));
+    const byId = new Map([...txs, ...earlier, ...ofEvenings].map((t) => [t.id, t]));
     const ids = [...byId.keys()];
     const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(and(inArray(schema.ledgerEntries.transactionId, ids), like(schema.ledgerEntries.account, 'wallet:%'))) : [];
 
@@ -721,9 +745,12 @@ export class WalletService {
       games.set(gid, g);
     }
     // Hráči, kteří u cash stolu ještě sedí, mají žetony u stolu: počítají se jako výběr (jen když období sahá do současnosti).
-    if (toMs >= Date.now() - 60_000) {
+    if (only ? only.endsAt === null : toMs >= Date.now() - 60_000) {
       const rate = Number(this.deps.settings()['cash.chipsPerCurrencyUnit']) || 1;
       for (const s of seated) {
+        // chips at a table of an evening go with that evening, like its movements
+        const owner = ownerOf(spans, s.tableId, Date.now());
+        if (owner ? !selectedIds.has(owner.id) : !!only) continue;
         const value = Math.floor(s.chips / rate);
         if (value === 0 && !cash[s.userId]) continue;
         cash[s.userId] = (cash[s.userId] ?? 0) + value;
