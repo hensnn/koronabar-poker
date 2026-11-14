@@ -256,7 +256,17 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
   const toggle = (key: string, value: boolean) => void saveUserSetting(key, value).catch((e: unknown) => setError(errMsg(e)));
   /** One message; `root` is the question when the message is drawn as a reply inside its thread. */
   const item = (m: Message, root: Message | null) => (
-    <div key={m.id} className={`rounded-sm px-2 ${compact ? 'py-0' : 'py-1'} ${m.system ? 'text-muted' : ''} ${m.mentions.includes(me?.user.id ?? '') ? 'bg-raised' : ''}`}>
+    <div
+      key={m.id}
+      className={`rounded-sm px-2 ${compact ? 'py-0' : 'py-1'} ${m.system ? 'text-muted' : ''} ${m.mentions.includes(me?.user.id ?? '') ? 'bg-raised' : ''}`}
+      // A double click (double tap) on a message opens or closes its thread: on the question, or on any reply in it.
+      onDoubleClick={(e) => {
+        const thread = root?.id ?? (m.thread ? m.id : null);
+        if (!threadsOn || thread === null || (e.target as HTMLElement).closest('button, a, summary, input, textarea')) return;
+        window.getSelection()?.removeAllRanges(); // the double click also selected a word
+        toggleThread(thread);
+      }}
+    >
             {m.system ? (
               <em className="not-italic">
                 <RichBody body={m.body} />
@@ -285,8 +295,16 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
                       {emoji} {users.length}
                     </button>
                   ))}
+                  {/* Everything one can do with the message sits under "Reagovat", so the chat is not full of links. */}
                   <details className="inline">
                     <summary className="cursor-pointer text-muted">{t('chat.react')}</summary>
+                    <span
+                      className="flex flex-col gap-1"
+                      onClick={(e) => {
+                        // an action was chosen: the menu closes again
+                        if ((e.target as HTMLElement).closest('button')) e.currentTarget.closest('details')?.removeAttribute('open');
+                      }}
+                    >
                     <span className="flex flex-wrap gap-1">
                       {emojis.map((e) => (
                         <button key={e} onClick={() => void reactTo(m.id, e).catch((er) => setError(errMsg(er)))}>
@@ -294,7 +312,7 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
                         </button>
                       ))}
                     </span>
-                  </details>
+                    <span className="flex flex-wrap gap-x-2 gap-y-1">
                   <button className="text-muted underline" onClick={() => setReply(m)}>
                     {t('chat.reply')}
                   </button>
@@ -328,6 +346,9 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
                       )}
                     </>
                   )}
+                    </span>
+                    </span>
+                  </details>
                 </div>
               </>
             )}
@@ -364,7 +385,7 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
             {item(m, null)}
             {threadsOn && m.thread && (
               <div data-thread={m.id} className="ml-4 flex flex-col border-l-2 border-line pl-2">
-                <button type="button" className="flex flex-wrap items-center gap-x-2 text-left text-sm text-muted" aria-expanded={expanded.has(m.id)} aria-label={expanded.has(m.id) ? t('chat.thread.close') : t('chat.thread.open')} onClick={() => toggleThread(m.id)}>
+                <button type="button" className="flex flex-wrap items-center gap-x-2 text-left text-sm text-muted" aria-expanded={expanded.has(m.id)} aria-label={expanded.has(m.id) ? t('chat.thread.close') : t('chat.thread.open')} title={t('chat.thread.hint')} onClick={() => toggleThread(m.id)}>
                   <span aria-hidden>{expanded.has(m.id) ? '▾' : '▸'}</span>
                   <span className="font-semibold">{threadCount(m.thread.count)}</span>
                   {!expanded.has(m.id) && <span>· {t('chat.thread.last', { nick: m.thread.lastNickname ?? '', time: new Date(m.thread.lastAt).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) })}</span>}

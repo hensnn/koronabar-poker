@@ -567,6 +567,7 @@ export const csUi: Record<string, string> = {
   'chat.thread.close': 'Sbalit vlákno',
   'chat.thread.loading': 'Načítám odpovědi…',
   'chat.thread.reply': 'Odpovědět do vlákna',
+  'chat.thread.hint': 'Vlákno rozbalíš nebo sbalíš i dvojklikem na zprávu',
   'chat.edit': 'Upravit',
   'chat.delete': 'Smazat',
   'chat.react': 'Reagovat',
