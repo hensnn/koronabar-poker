@@ -141,7 +141,7 @@ export function ActionBar({ view, tableId, legal, inBb, quickPost, quickPre, bus
           </button>
         </div>
       ) : (
-        <PlanBar view={view} tableId={tableId} onStraddle={onStraddle} />
+        <PlanBar view={view} tableId={tableId} inBb={inBb} onStraddle={onStraddle} />
       )}
     </div>
   );

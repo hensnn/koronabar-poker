@@ -89,6 +89,8 @@ export function stepPlan(s: PlanState, view: TableView, tableId: string): { kind
     return target === null ? { kind: 'keep' } : { kind: 'bind', handId: target };
   }
   if (view.handId !== s.handId) return { kind: 'drop' };
+  // Navýšení nad plánovaný call plán zruší hned (ne až na tahu), aby tlačítko neukazovalo částku, která už neplatí.
+  if (s.plan === 'call' && currentCallAmount(view) > s.callAmount) return { kind: 'drop' };
   if (!view.legal) return { kind: 'keep' };
   if (s.plan === 'call' && view.legal.callAmount > s.callAmount) return { kind: 'drop' };
   return { kind: 'act', action: resolvePlan(s.plan, view.legal) };

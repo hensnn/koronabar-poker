@@ -6,6 +6,7 @@ import { onSocket } from '../net';
 import { useSession } from '../session';
 import { saveUserSetting, useSettings } from '../settings';
 import { Fold } from '../ui';
+import { formatAmount } from './format';
 import { useMobileLayout } from './mobile';
 import { PLAN_OPTIONS, autoPrefKeys, cardPrefKeys, currentCallAmount, planFor, planTarget, setPlan, usePlan, type Plan } from './plan';
 import { tournamentWaitLines, type TournamentInfo } from './InfoCard';
@@ -152,11 +153,12 @@ export function ClockWidget({ tournamentId, timeBank }: { tournamentId: string; 
 }
 
 /** Plánovaný tah: zvolí se dopředu, provede se automaticky na tahu. */
-export function PlanBar({ view, tableId, onStraddle }: { view: TableView; tableId: string; /** Přepnutí dobrovolného straddle (jen u stolu s dobrovolným straddle). */ onStraddle?: (want: boolean) => void }) {
+export function PlanBar({ view, tableId, inBb, onStraddle }: { view: TableView; tableId: string; inBb: boolean; /** Přepnutí dobrovolného straddle (jen u stolu s dobrovolným straddle). */ onStraddle?: (want: boolean) => void }) {
   const plan = planFor(usePlan(), tableId);
   const values = useSettings().values;
   // Mezi handami (i při ukázání výsledku) se plán týká až příští handy; hráč to má vidět.
   const target = planTarget(view);
+  const callNow = target === null ? 0 : currentCallAmount(view);
   const on = (p: Plan) => values[PLAN_OPTIONS.find((o) => o.plan === p)!.setting] !== false;
   // Stejná mřížka a barvy jako akční tlačítka (Fold | Check/Call | Bet/Raise | All-in): plánovaný tah leží přesně tam, kde bude potom akční tlačítko,
   // takže klik na „Check“ nikdy nedopadne na jiné akční tlačítko, když přijde hráč na tah.
@@ -170,6 +172,8 @@ export function PlanBar({ view, tableId, onStraddle }: { view: TableView; tableI
           onClick={() => setPlan(plan === p ? null : p, { tableId, handId: target, callAmount: currentCallAmount(view) })}
         >
           {t(`table.plan.${p}`)}
+          {/* Call ukazuje, kolik se teď dorovná (stejně jako akční tlačítko); po navýšení se plán zruší */}
+          {p === 'call' && callNow > 0 ? ` ${formatAmount(callNow, view.info, inBb)}` : ''}
         </button>
       ))}
     </div>

@@ -53,6 +53,11 @@ describe('vazba plánu na stůl a handu', () => {
     expect(stepPlan(state(), viewOf({ legal: legal({ callAmount: 120 }) }), 't1')).toEqual({ kind: 'drop' });
     expect(stepPlan(state({ plan: 'fold' }), viewOf({ legal: legal({ callAmount: 120 }) }), 't1')).toEqual({ kind: 'act', action: { type: 'fold' } });
   });
+  it('navýšení zruší plán „Call“ hned, i když hráč ještě není na tahu', () => {
+    const raised = viewOf({ seats: [{ seat: 0, bet: 20 }, { seat: 1, bet: 200 }] as never });
+    expect(stepPlan(state(), raised, 't1')).toEqual({ kind: 'drop' });
+    expect(stepPlan(state({ plan: 'fold' }), raised, 't1')).toEqual({ kind: 'keep' });
+  });
   it('mimo tah se čeká', () => {
     expect(stepPlan(state(), viewOf(), 't1')).toEqual({ kind: 'keep' });
     expect(planFor(state(), 't1')).toBe('call');
