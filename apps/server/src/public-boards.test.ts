@@ -3,6 +3,7 @@ import { FakeClock } from '@kb/game-core';
 import { buildServer } from './app.js';
 import { schema } from './db/index.js';
 import { PublicBoardError } from './public-boards.js';
+import { bookGame, bookTournament } from './test-ledger.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
 const servers: Server[] = [];
@@ -31,8 +32,12 @@ async function start(over: Record<string, unknown> = {}) {
     return (await server.accounts.register({ inviteCode: inv, nickname: nick, email: `${nick.toLowerCase()}${n}@example.cz`, password: 'heslo-hrace-123', acceptTerms: true })).userId;
   };
   /** Turnajový výsledek: místo, výdaj a výplata (z toho zisk). */
-  const result = async (userId: string, ref: string, place: number, spent: number, payout: number, daysAgo = 1) =>
-    server.db.insert(schema.gameResults).values({ kind: 'tournament', ref, userId, finishedAt: new Date(clock.now() - daysAgo * 86_400_000), place, field: 4, spent, payout, bounty: 0, rebuys: 0 });
+  const result = async (userId: string, ref: string, place: number, spent: number, payout: number, daysAgo = 1) => {
+    const at = clock.now() - daysAgo * 86_400_000;
+    await server.db.insert(schema.gameResults).values({ kind: 'tournament', ref, userId, finishedAt: new Date(at), place, field: 4, spent, payout, bounty: 0, rebuys: 0 });
+    // the money is in the accounting ledger, the statistics count only that
+    await bookTournament(server.db, { gameId: ref, at, userId, spent, payout });
+  };
   return { server, clock, admin: admin!, user, result };
 }
 const code = async (p: Promise<unknown>) => {
@@ -140,6 +145,33 @@ describe('veřejné přehledy hráčů', () => {
     expect(limited).toBeGreaterThan(0);
     // jiná adresa to neovlivní
     expect(await code(c.server.publicBoards.view(board.token, '8.8.8.8'))).toBe('OK');
+  });
+
+  it('cash ruce: hráč s málo handami se neztratí ani nemá nulový cash zisk (globální minimum žebříčku se tu neuplatní)', async () => {
+    const c = await start();
+    const [a, b] = [await c.user('Alfa'), await c.user('Beta')];
+    const at = new Date(c.clock.now() - 86_400_000);
+    for (let i = 0; i < 40; i++) {
+      await c.server.db.insert(schema.hands).values({ id: `hc${i}`, tableId: 't-c', kind: 'cash', handNumber: i, playedAt: at, pot: 20, blinds: { sb: 1, bb: 2, ante: 0 }, chipsPerUnit: 1 });
+      await c.server.db.insert(schema.handPlayers).values([
+        { handId: `hc${i}`, userId: a, seat: 0, kind: 'cash', playedAt: at, startStack: 100, invested: 10, won: 20 },
+        ...(i < 10 ? [{ handId: `hc${i}`, userId: b, seat: 1, kind: 'cash', playedAt: at, startStack: 100, invested: 10, won: 5 }] : []),
+      ]);
+    }
+    // the money of a cash table is in the ledger: Alfa +400, Beta -50
+    await bookGame(c.server.db, { kind: 'cash_cashout', gameId: 't-c', at: c.clock.now() - 86_400_000, userId: a, amount: 400 });
+    await bookGame(c.server.db, { kind: 'cash_cashout', gameId: 't-c', at: c.clock.now() - 86_400_000, userId: b, amount: -50 });
+    c.server.stats.invalidateLeaderboard();
+    // globální minimum 30 hand platí pro žebříček ve Statistikách, ne pro veřejný přehled
+    const created = await c.server.publicBoards.create(c.admin, { name: 'Cash', config: { columns: ['cashProfit', 'cashHands'] } });
+    const v = await c.server.publicBoards.view(created.token, '1.1.1.1');
+    expect(v.rows.map((r) => [r.nickname, r.cashHands, r.cashProfit])).toEqual([['Alfa', 40, 400], ['Beta', 10, -50]]);
+    // vlastní minimum přehledu funguje dál
+    await c.server.publicBoards.update(c.admin, created.id, { config: { columns: ['cashProfit', 'cashHands'], minHands: 30 } });
+    const w = await c.server.publicBoards.view(created.token, '1.1.1.2');
+    expect(w.rows.map((r) => r.nickname)).toEqual(['Alfa']);
+    // žebříček ve Statistikách si globální minimum drží
+    expect((await c.server.stats.leaderboard({ from: null, to: null })).map((r) => r.nickname)).toEqual(['Alfa']);
   });
 
   it('veřejná stránka přes HTTP: bez přihlášení, bez indexace', async () => {

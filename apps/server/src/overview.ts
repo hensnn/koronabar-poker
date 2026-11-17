@@ -1,7 +1,7 @@
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import type { SettingValues } from '@kb/shared';
-import { gameEvents, gameNets } from './side-results.js';
+import { gameNets, moneyEvents, seatedValues } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 import { playerColors } from './player-colors.js';
 import type { BriefDto } from './progress.js';
@@ -86,6 +86,8 @@ export interface OverviewRow {
 }
 
 export type CompareMetric = 'profit' | 'balance' | 'xp';
+/** Which games a comparison of the profit counts: everything, only cash (with live cash) or only tournaments. */
+export type CompareKind = 'all' | 'cash' | 'tournament';
 export const MAX_COMPARE = 8;
 
 /**
@@ -147,11 +149,9 @@ export class OverviewService {
     const hands = new Map(handsRows.map((r) => [r.userId, Number(r.n)]));
     // Peníze podle účetní knihy (stejný zdroj jako vyúčtování v peněžence a výsledky večerů): cash včetně živého, turnaje včetně sázek a odměn na hlavu.
     const nets = await gameNets(db, { from: period.from, to: period.to });
-    const rate = Number(this.deps.settings()['cash.chipsPerCurrencyUnit']) || 1;
-    const seated = new Map<string, number>();
     // chips at the tables count as a withdrawal only for a period that reaches the present
     const open = !period.to || period.to.getTime() > (this.deps.now?.() ?? Date.now());
-    for (const x of open ? (this.deps.seated?.() ?? []) : []) seated.set(x.userId, (seated.get(x.userId) ?? 0) + Math.floor(x.chips / rate));
+    const seated = seatedValues(open ? (this.deps.seated?.() ?? []) : [], Number(this.deps.settings()['cash.chipsPerCurrencyUnit']));
     const gr = schema.gameResults;
     const tourRows = await db
       .select({ userId: gr.userId, n: sql<number>`count(*)::int` })
@@ -202,7 +202,7 @@ export class OverviewService {
   }
 
   /** Vývoj vybraných hráčů v čase: výdělek ze všech her (turnaje + cash + živý cash v měně), zůstatek nebo XP. */
-  async compare(userIds: string[], metric: CompareMetric): Promise<{ series: { userId: string; nickname: string; color: number; points: Point[] }[] }> {
+  async compare(userIds: string[], metric: CompareMetric, kind: CompareKind = 'all'): Promise<{ series: { userId: string; nickname: string; color: number; points: Point[] }[] }> {
     this.visible();
     const ids = [...new Set(userIds)].slice(0, MAX_COMPARE);
     if (ids.length === 0 || !['balance', 'profit', 'xp'].includes(metric)) throw new OverviewError('INVALID');
@@ -230,14 +230,13 @@ export class OverviewService {
       }
     } else {
       // Výdělek v čase z pohybů v účetní knize (součet na konci = Výdělek v přehledu); žetony u stolu se přidají jako poslední bod.
-      const events = await gameEvents(db, ids);
-      const rate = Number(this.deps.settings()['cash.chipsPerCurrencyUnit']) || 1;
-      const seated = new Map<string, number>();
-      for (const x of this.deps.seated?.() ?? []) seated.set(x.userId, (seated.get(x.userId) ?? 0) + Math.floor(x.chips / rate));
+      const events = await moneyEvents(db, { userIds: ids });
+      const seated = seatedValues(this.deps.seated?.() ?? [], Number(this.deps.settings()['cash.chipsPerCurrencyUnit']));
       for (const id of ids) {
         let sum = 0;
-        const points = events.filter((e) => e.userId === id).map((e) => [e.at, (sum += e.amount)] as Point);
-        if (seated.get(id)) points.push([Date.now(), sum + seated.get(id)!]);
+        const points = events.filter((e) => e.userId === id && (kind === 'all' || (kind === 'tournament') === e.tournament)).map((e) => [e.at, (sum += e.amount)] as Point);
+        // chips at the tables belong to cash
+        if (kind !== 'tournament' && seated.get(id)) points.push([Date.now(), sum + seated.get(id)!]);
         out.push({ userId: id, nickname: nick.get(id) ?? '?', color: colors.get(id) ?? 1, points: thin(points) });
       }
     }

@@ -1,3 +1,4 @@
+import { bookTournament } from './test-ledger.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
 import { buildServer } from './app.js';
@@ -127,7 +128,11 @@ describe('žebříček: krátká mezipaměť', () => {
   it('drží výsledek po dobu stats.cacheSeconds, nový výsledek hry ho zahodí', async () => {
     const c = await start({ 'stats.cacheSeconds': 30, 'stats.leaderboardMinHands': 0 });
     const all = { from: null, to: null };
-    const result = (ref: string, payout: number) => c.server.db.insert(schema.gameResults).values({ kind: 'tournament', ref, userId: c.userId, finishedAt: new Date(NOW - 60_000), place: 1, field: 4, spent: 100, payout, bounty: 0, rebuys: 0 });
+    // the money is in the accounting ledger (the leaderboard counts only that); the result table gives the place
+    const result = async (ref: string, payout: number) => {
+      await c.server.db.insert(schema.gameResults).values({ kind: 'tournament', ref, userId: c.userId, finishedAt: new Date(NOW - 60_000), place: 1, field: 4, spent: 100, payout, bounty: 0, rebuys: 0 });
+      await bookTournament(c.server.db, { gameId: ref, at: NOW - 60_000, userId: c.userId, spent: 100, payout });
+    };
     await result('t1', 400);
     const first = await c.server.stats.leaderboard(all);
     expect(first.find((r) => r.userId === c.userId)?.tournamentNet).toBe(300);
@@ -138,6 +143,7 @@ describe('žebříček: krátká mezipaměť', () => {
     c.clock.advance(31_000);
     expect((await c.server.stats.leaderboard(all)).find((r) => r.userId === c.userId)?.tournamentNet).toBe(1300);
     // výsledek zapsaný přes službu mezipaměť zahodí hned
+    await bookTournament(c.server.db, { gameId: 't3', at: NOW - 30_000, userId: c.userId, spent: 100, payout: 250 });
     c.server.stats.recordTournament('t3', { targetMinutes: 60, rated: true }, { finishedAt: NOW - 30_000, results: [{ userId: c.userId, place: 1, payout: 250 }], payments: [{ userId: c.userId, kind: 'turnaj_buyin', cost: 100, fee: 0 }] });
     await c.server.stats.idle();
     expect((await c.server.stats.leaderboard(all)).find((r) => r.userId === c.userId)?.tournamentNet).toBe(1450);
@@ -151,8 +157,10 @@ describe('žebříček: krátká mezipaměť', () => {
     const c = await start({ 'stats.cacheSeconds': 0, 'stats.leaderboardMinHands': 0 });
     const all = { from: null, to: null };
     await c.server.db.insert(schema.gameResults).values({ kind: 'tournament', ref: 't1', userId: c.userId, finishedAt: new Date(NOW - 60_000), place: 1, field: 4, spent: 100, payout: 400, bounty: 0, rebuys: 0 });
+    await bookTournament(c.server.db, { gameId: 't1', at: NOW - 60_000, userId: c.userId, spent: 100, payout: 400 });
     expect((await c.server.stats.leaderboard(all))[0]!.tournamentNet).toBe(300);
     await c.server.db.insert(schema.gameResults).values({ kind: 'tournament', ref: 't2', userId: c.userId, finishedAt: new Date(NOW - 60_000), place: 1, field: 4, spent: 100, payout: 200, bounty: 0, rebuys: 0 });
+    await bookTournament(c.server.db, { gameId: 't2', at: NOW - 60_000, userId: c.userId, spent: 100, payout: 200 });
     expect((await c.server.stats.leaderboard(all))[0]!.tournamentNet).toBe(400);
   });
 });

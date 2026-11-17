@@ -87,18 +87,43 @@ export async function gameNets(db: Db, opts: { userIds?: string[]; from?: Date |
   return out;
 }
 
-/** Jednotlivé pohyby z her v čase (pro graf vývoje výdělku): čas a částka podle hráče, od nejstaršího. */
-export async function gameEvents(db: Db, userIds: string[]): Promise<{ userId: string; at: number; amount: number }[]> {
-  if (userIds.length === 0) return [];
+/** Jeden pohyb peněženky hráče z her v čase (cash, živý cash, turnaje, sázky, odměny na hlavu). */
+export interface MoneyEvent {
+  userId: string;
+  at: number;
+  amount: number;
+  /** Hra (stůl, turnaj, živý cash), ke které pohyb patří. */
+  gameId: string | null;
+  /** Turnaj včetně sázek a odměn na hlavu; jinak cash. */
+  tournament: boolean;
+  /** Živý cash (skutečné karty) je součást cash, tady jen označený. */
+  live: boolean;
+}
+
+/**
+ * Jednotlivé pohyby z her podle účetní knihy, od nejstaršího. Společný základ všech peněžních čísel ve statistikách
+ * (graf vývoje, výdělek po dnech a měsících, výsledky her): nic se nepočítá z hand ani z tabulky výsledků.
+ */
+export async function moneyEvents(db: Db, opts: { userIds?: string[]; from?: Date | null; to?: Date | null } = {}): Promise<MoneyEvent[]> {
+  if (opts.userIds && opts.userIds.length === 0) return [];
   const le = schema.ledgerEntries;
   const lt_ = schema.ledgerTransactions;
   const rows = await db
-    .select({ account: le.account, at: lt_.at, amount: le.amount })
+    .select({ account: le.account, at: lt_.at, amount: le.amount, kind: lt_.kind, gameId: lt_.gameId })
     .from(le)
     .innerJoin(lt_, sql`${lt_.id} = ${le.transactionId}`)
-    .where(and(inArray(le.account, userIds.map((u) => `wallet:${u}`)), gameKindCond(lt_.kind)))
+    .where(and(like(le.account, 'wallet:%'), gameKindCond(lt_.kind), opts.userIds ? inArray(le.account, opts.userIds.map((u) => `wallet:${u}`)) : undefined, opts.from ? gte(lt_.at, opts.from) : undefined, opts.to ? lt(lt_.at, opts.to) : undefined))
     .orderBy(asc(lt_.id));
-  return rows.map((r) => ({ userId: r.account.slice('wallet:'.length), at: r.at.getTime(), amount: Number(r.amount) }));
+  const live = new Set((await db.select({ id: schema.liveCashGames.id }).from(schema.liveCashGames)).map((g) => g.id));
+  return rows.map((r) => ({ userId: r.account.slice('wallet:'.length), at: r.at.getTime(), amount: Number(r.amount), gameId: r.gameId, tournament: isTournamentKind(r.kind), live: !!r.gameId && live.has(r.gameId) }));
+}
+
+/** Žetony hráčů u cash stolů v měně (zaokrouhleno dolů): počítají se jako výběr, dokud hráč u stolu sedí. */
+export function seatedValues(seated: { userId: string; chips: number }[], chipsPerUnit: number): Map<string, number> {
+  const rate = chipsPerUnit || 1;
+  const out = new Map<string, number>();
+  for (const x of seated) out.set(x.userId, (out.get(x.userId) ?? 0) + Math.floor(x.chips / rate));
+  return out;
 }
 
 /** Součet vedlejších výsledků podle hráče. */

@@ -1,8 +1,8 @@
-import { and, asc, eq, gte, inArray, like, lt, sql } from 'drizzle-orm';
+import { and, eq, gte, like, lt, sql } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import { t, currencyFormsOf, currencyWord, monthIndex, parseYearFields, pickYearFields, timezoneOf, yearBounds, type SettingValues, type YearChannel, type YearField, type YearStats } from '@kb/shared';
 import { schema, type Db } from './db/index.js';
-import { sideNets } from './side-results.js';
+import { moneyEvents } from './side-results.js';
 
 export class YearStatsError extends Error {
   constructor(public readonly code: 'DISABLED' | 'INVALID') {
@@ -15,6 +15,8 @@ interface Deps {
   ledger: Ledger;
   settings: () => SettingValues;
   now: () => number;
+  /** Value in currency of the player's chips at cash tables; they count as a withdrawal in the current year. */
+  seated?: (userId: string) => number;
 }
 
 const KEY: Record<YearChannel, string> = { web: 'stats.yearFieldsWeb', email: 'stats.yearFieldsEmail', api: 'stats.yearFieldsApi' };
@@ -85,41 +87,31 @@ export class YearStatsService {
       else lost += v;
     };
 
-    const games = await db.select().from(gr).where(and(eq(gr.userId, userId), inArray(gr.kind, ['tournament', 'live_cash']), gte(gr.finishedAt, fromD), lt(gr.finishedAt, toD))).orderBy(asc(gr.finishedAt));
-    for (const g of games) {
-      const net = Number(g.payout) + Number(g.bounty) - Number(g.spent);
-      if (g.kind === 'tournament') {
-        tournamentNet += net;
-        tournaments++;
-      } else liveNet += net;
-      add(net);
-      monthly[monthIndex(g.finishedAt.getTime(), tz)]! += net;
+    // Money only from the accounting ledger (same as the players overview and the wallet settlement). A "result" for won/lost is
+    // one game for a tournament or live cash, one table and one day for cash.
+    const dayKey = (at: number) => new Date(at).toLocaleDateString('en-CA', { timeZone: tz });
+    const results = new Map<string, number>();
+    for (const e of await moneyEvents(db, { userIds: [userId], from: fromD, to: toD })) {
+      if (e.tournament) tournamentNet += e.amount;
+      else if (e.live) liveNet += e.amount;
+      else cashNet += e.amount;
+      monthly[monthIndex(e.at, tz)]! += e.amount;
+      const key = e.tournament || e.live ? `g:${e.gameId ?? ''}` : `c:${e.gameId ?? ''}:${dayKey(e.at)}`;
+      results.set(key, (results.get(key) ?? 0) + e.amount);
     }
-
-    // Sázky a odměny na hlavu patří k turnaji, ke kterému se vztahují.
-    for (const r of await sideNets(db, { userIds: [userId], from: fromD, to: toD })) {
-      tournamentNet += r.net;
-      add(r.net);
-      monthly[monthIndex(r.at, tz)]! += r.net;
+    // chips at the tables are a withdrawal only in the current year
+    const seatedNow = year === this.currentYear() ? (this.deps.seated?.(userId) ?? 0) : 0;
+    if (seatedNow) {
+      cashNet += seatedNow;
+      monthly[monthIndex(this.deps.now(), tz)]! += seatedNow;
+      results.set('c:seated', seatedNow);
     }
+    for (const v of results.values()) add(v);
+    tournaments = Number((await db.select({ n: sql<number>`count(*)::int` }).from(gr).where(and(eq(gr.userId, userId), eq(gr.kind, 'tournament'), gte(gr.finishedAt, fromD), lt(gr.finishedAt, toD))))[0]?.n ?? 0);
 
     const hp = schema.handPlayers;
-    // Pásmo je ověřený název IANA (timezoneOf); jako parametr nejde, protože výraz musí být v SELECT i GROUP BY stejný.
-    const day = sql<string>`date_trunc('day', ${hp.playedAt} at time zone ${sql.raw(`'${tz.replace(/'/g, "''")}'`)})`;
-    const cashDays = await db
-      .select({ day, at: sql<Date>`min(${hp.playedAt})`, n: sql<number>`count(*)::int`, net: sql<string>`coalesce(round(sum((${hp.won} - ${hp.invested})::numeric / ${schema.hands.chipsPerUnit})), 0)` })
-      .from(hp)
-      .innerJoin(schema.hands, eq(schema.hands.id, hp.handId))
-      .where(and(eq(hp.userId, userId), eq(hp.kind, 'cash'), gte(hp.playedAt, fromD), lt(hp.playedAt, toD)))
-      .groupBy(day);
-    let hands = 0;
-    for (const c of cashDays) {
-      const net = Number(c.net);
-      cashNet += net;
-      hands += Number(c.n);
-      add(net);
-      monthly[monthIndex(new Date(c.at).getTime(), tz)]! += net;
-    }
+    const [handRow] = await db.select({ n: sql<number>`count(*)::int` }).from(hp).where(and(eq(hp.userId, userId), eq(hp.kind, 'cash'), gte(hp.playedAt, fromD), lt(hp.playedAt, toD)));
+    const hands = Number(handRow?.n ?? 0);
 
     // Pohyby peněženky: nabití a strhnutí správcem, zůstatek na začátku a na konci roku.
     const wallet = accounts.wallet(userId);

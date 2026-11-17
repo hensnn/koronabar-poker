@@ -2077,9 +2077,9 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
   }));
   app.get('/api/stats/compare', guard(async (req, reply) => {
     need(req);
-    const q = z.object({ users: z.string().max(600), metric: z.enum(['balance', 'profit', 'xp']) }).parse(req.query);
+    const q = z.object({ users: z.string().max(600), metric: z.enum(['balance', 'profit', 'xp']), kind: z.enum(['all', 'cash', 'tournament']).optional() }).parse(req.query);
     try {
-      reply.send(await svc.overview().compare(q.users.split(',').filter(Boolean), q.metric as CompareMetric));
+      reply.send(await svc.overview().compare(q.users.split(',').filter(Boolean), q.metric as CompareMetric, q.kind ?? 'all'));
     } catch (e) {
       overviewErr(e, reply);
     }

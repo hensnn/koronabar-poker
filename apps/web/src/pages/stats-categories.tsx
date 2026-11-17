@@ -55,7 +55,13 @@ function CategoryCard({ c, meId }: { c: CategoryResult; meId: string }) {
 }
 
 /** Statistiky → Přehled hráčů: „kdo je v čem nejlepší“ – pořadí nejlepších hráčů v každé kategorii. */
-export function CategoriesView({ meId }: { meId: string }) {
+/** Which categories belong to a view that shows only cash or only tournaments. */
+const KIND_CATEGORIES: Record<'cash' | 'tournament', string[]> = {
+  cash: ['cashNet', 'hands', 'ratingCash'],
+  tournament: ['tournamentNet', 'bounty', 'wins', 'winRate', 'itmRate', 'avgPlace', 'games', 'ratingTournament'],
+};
+
+export function CategoriesView({ meId, kind = 'all' }: { meId: string; kind?: 'all' | 'cash' | 'tournament' }) {
   const [cats, setCats] = useState<CategoryResult[] | null>(null);
   const [error, setError] = useState('');
   const [group, setGroup] = useState<CategoryGroup | 'all'>('all');
@@ -66,12 +72,13 @@ export function CategoriesView({ meId }: { meId: string }) {
   }, []);
   if (error) return <Notice kind="error">{error}</Notice>;
   if (!cats) return <Spinner label={t('app.loading')} />;
-  const firsts = cats.filter((c) => c.entries[0]?.userId === meId).length;
-  const shown = cats.filter((c) => group === 'all' || c.group === group);
+  const firsts = cats.filter((c) => c.entries[0]?.userId === meId && (kind === 'all' || KIND_CATEGORIES[kind].includes(c.id))).length;
+  const shown = kind === 'all' ? cats.filter((c) => group === 'all' || c.group === group) : cats.filter((c) => KIND_CATEGORIES[kind].includes(c.id));
   return (
     <section className="flex flex-col gap-3" aria-label={t('cat.title')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-heading text-lg font-bold">{t('cat.title')}</h2>
+        {kind === 'all' && (
         <div role="tablist" className="flex flex-wrap gap-1">
           {(['all', ...CATEGORY_GROUPS] as const).map((g) => (
             <button key={g} role="tab" aria-selected={group === g} onClick={() => setGroup(g)} className={`rounded-md border border-line px-2 py-0.5 text-sm ${group === g ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
@@ -79,12 +86,13 @@ export function CategoriesView({ meId }: { meId: string }) {
             </button>
           ))}
         </div>
+        )}
       </div>
-      {cats.length === 0 ? (
+      {cats.length === 0 || shown.length === 0 ? (
         <Notice>{t('cat.empty')}</Notice>
       ) : (
         <>
-          <p className="text-sm text-muted">{t('cat.mine', { n: firsts, total: cats.length })}</p>
+          <p className="text-sm text-muted">{t('cat.mine', { n: firsts, total: kind === 'all' ? cats.length : shown.length })}</p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {shown.map((c) => (
               <CategoryCard key={c.id} c={c} meId={meId} />

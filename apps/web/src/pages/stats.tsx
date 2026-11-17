@@ -95,13 +95,33 @@ const RANGES = [
   { id: 'all', days: 0 },
 ] as const;
 
+type Kind = 'all' | 'cash' | 'tournament';
+const KINDS: Kind[] = ['all', 'cash', 'tournament'];
+const kindOf = (raw: unknown): Kind => (KINDS as unknown[]).includes(raw) ? (raw as Kind) : 'all';
+
+/** Přepínač „Vše / Cash game / Turnaje“: cash a turnaje se dají ve Statistikách zobrazit zvlášť. */
+function KindSwitch({ value, onChange }: { value: Kind; onChange: (k: Kind) => void }) {
+  return (
+    <div role="tablist" aria-label={t('stats.kind')} className="flex flex-wrap items-center gap-1">
+      <span className="text-sm text-muted">{t('stats.kind')}:</span>
+      {KINDS.map((k) => (
+        <button key={k} role="tab" aria-selected={value === k} onClick={() => onChange(k)} className={`rounded-md border border-line px-2 py-0.5 text-sm ${value === k ? 'bg-primary text-on-primary' : 'bg-surface'}`}>
+          {t(`stats.kind.${k}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const cumulate = (rows: { at: number; v: number }[]): Pt[] => {
   let c = 0;
   return rows.map((r) => [r.at, (c += r.v)] as Pt);
 };
 
 /** Jak se mi daří: zůstatek, výsledky turnajů a cash, XP, rating a aktivita v čase (za zvolené období). */
-function Progress() {
+function Progress({ kind }: { kind: Kind }) {
+  const showCash = kind !== 'tournament';
+  const showTour = kind !== 'cash';
   const features = useFeatures();
   const { me } = useSession();
   const myColor = usePlayerColors()[me?.user.id ?? ''];
@@ -133,7 +153,8 @@ function Progress() {
   const cashCum = cumulate(cash.map((x) => ({ at: x.day, v: x.net })));
   const xp = within(tl.xp, (p) => p[0]);
   const days = within(tl.activity, (x) => x.day);
-  const hands = days.reduce((n, x) => n + x.hands, 0);
+  // all hands (cash and tournaments) for the whole view, only cash hands for the cash view
+  const hands = kind === 'cash' ? cash.reduce((n, x) => n + x.hands, 0) : days.reduce((n, x) => n + x.hands, 0);
   const best = tours.length ? tours.reduce((m, x) => (x.net > m.net ? x : m)) : null;
   const card = (label: string, value: string, tn?: 'success' | 'danger' | 'muted') => (
     <div className="rounded-md border border-line bg-surface p-2">
@@ -156,42 +177,50 @@ function Progress() {
       </div>
       {empty && <Notice>{t('charts.empty')}</Notice>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {card(t('charts.earnTotal'), signed(earnTotal), tone(earnTotal))}
-        {card(t('charts.tourNet'), signed(tourNet), tone(tourNet))}
-        {card(t('charts.cashNet'), signed(cashNet), tone(cashNet))}
-        {card(t('charts.balanceNow'), String(bEnd))}
-        {card(t('charts.tourPlayed'), String(tours.length))}
-        {card(t('charts.handsPlayed'), String(hands))}
-        {card(t('charts.bestTour'), best ? `${signed(best.net)} (${best.place}./${best.field})` : '–', best ? tone(best.net) : 'muted')}
-        {features.xp && card(t('charts.xpGained'), signed((xp[xp.length - 1]?.[1] ?? 0) - (xp[0]?.[1] ?? 0)))}
+        {kind === 'all' && card(t('charts.earnTotal'), signed(earnTotal), tone(earnTotal))}
+        {showTour && card(t('charts.tourNet'), signed(tourNet), tone(tourNet))}
+        {showCash && card(t('charts.cashNet'), signed(cashNet), tone(cashNet))}
+        {kind === 'all' && card(t('charts.balanceNow'), String(bEnd))}
+        {showTour && card(t('charts.tourPlayed'), String(tours.filter((x) => x.place > 0).length))}
+        {showCash && card(t('charts.handsPlayed'), String(hands))}
+        {showTour && card(t('charts.bestTour'), best ? `${signed(best.net)}${best.place > 0 ? ` (${best.place}./${best.field})` : ''}` : '–', best ? tone(best.net) : 'muted')}
+        {kind === 'all' && features.xp && card(t('charts.xpGained'), signed((xp[xp.length - 1]?.[1] ?? 0) - (xp[0]?.[1] ?? 0)))}
       </div>
-      <Card title={t('charts.earn')}>
-        <LineChart color={myColor} points={earnCum} label={t('charts.earnHelp')} className="text-success" signed />
-      </Card>
-      <Card title={t('charts.balance')}>
-        <LineChart color={myColor} points={balance} label={t('charts.balanceHelp')} />
-        <p className="text-xs text-muted">{t('charts.balanceNote')}</p>
-      </Card>
+      {kind === 'all' && (
+        <>
+          <Card title={t('charts.earn')}>
+            <LineChart color={myColor} points={earnCum} label={t('charts.earnHelp')} className="text-success" signed />
+          </Card>
+          <Card title={t('charts.balance')}>
+            <LineChart color={myColor} points={balance} label={t('charts.balanceHelp')} />
+            <p className="text-xs text-muted">{t('charts.balanceNote')}</p>
+          </Card>
+        </>
+      )}
       <div className="grid gap-3 lg:grid-cols-2">
-        <Card title={t('charts.tourProfit')}>
-          <LineChart color={myColor} points={tourCum} label={t('charts.tourProfitHelp')} className="text-success" signed />
-          <BarChart bars={tours.map((x) => ({ x: x.at, v: x.net, tip: `${x.name}: ${signed(x.net)} (${x.place}./${x.field})` }))} label={t('charts.perTournament')} />
-        </Card>
-        <Card title={t('charts.cashProfit')}>
-          <LineChart color={myColor} points={cashCum} label={t('charts.cashProfitHelp')} className="text-accent" signed />
-          <BarChart bars={cash.map((x) => ({ x: x.day, v: x.net, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${signed(x.net)} (${x.hands} ${t('charts.hands')})` }))} label={t('charts.perDay')} />
-        </Card>
-        {features.xp && (
+        {showTour && (
+          <Card title={t('charts.tourProfit')}>
+            <LineChart color={myColor} points={tourCum} label={t('charts.tourProfitHelp')} className="text-success" signed />
+            <BarChart bars={tours.map((x) => ({ x: x.at, v: x.net, tip: `${x.name}: ${signed(x.net)}${x.place > 0 ? ` (${x.place}./${x.field})` : ''}` }))} label={t('charts.perTournament')} />
+          </Card>
+        )}
+        {showCash && (
+          <Card title={t('charts.cashProfit')}>
+            <LineChart color={myColor} points={cashCum} label={t('charts.cashProfitHelp')} className="text-accent" signed />
+            <BarChart bars={cash.map((x) => ({ x: x.day, v: x.net, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${signed(x.net)} (${x.hands} ${t('charts.hands')})` }))} label={t('charts.perDay')} />
+          </Card>
+        )}
+        {kind === 'all' && features.xp && (
           <Card title={t('charts.xp')}>
             <LineChart color={myColor} points={xp} label={t('charts.xpHelp')} className="text-secondary" />
           </Card>
         )}
-        {(features.ratingTournament || features.ratingCash) && (
+        {((features.ratingTournament && showTour) || (features.ratingCash && showCash)) && (
         <Card title={t('charts.rating')}>
           {tl.rating.visible ? (
             <div className="flex flex-col gap-2">
-              {features.ratingTournament && <LineChart color={myColor} points={within(tl.rating.tournament, (p) => p[0])} label={t('charts.ratingTournament')} className="text-primary" />}
-              {features.ratingCash && <LineChart color={myColor} points={within(tl.rating.cash, (p) => p[0])} label={t('charts.ratingCash')} className="text-accent" />}
+              {features.ratingTournament && showTour && <LineChart color={myColor} points={within(tl.rating.tournament, (p) => p[0])} label={t('charts.ratingTournament')} className="text-primary" />}
+              {features.ratingCash && showCash && <LineChart color={myColor} points={within(tl.rating.cash, (p) => p[0])} label={t('charts.ratingCash')} className="text-accent" />}
             </div>
           ) : (
             <p className="text-sm text-muted">{t('charts.ratingHidden')}</p>
@@ -199,15 +228,17 @@ function Progress() {
         </Card>
         )}
       </div>
-      <Card title={t('charts.activity')}>
-        <BarChart bars={days.map((x) => ({ x: x.day, v: x.hands, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${x.hands} ${t('charts.hands')}` }))} label={t('charts.activityHelp')} />
-      </Card>
+      {showCash && (
+        <Card title={t('charts.activity')}>
+          <BarChart bars={(kind === 'cash' ? cash : days).map((x) => ({ x: x.day, v: x.hands, tip: `${new Date(x.day).toLocaleDateString('cs-CZ')}: ${x.hands} ${t('charts.hands')}` }))} label={t('charts.activityHelp')} />
+        </Card>
+      )}
       <p className="text-xs text-muted">{t('charts.note')}</p>
     </section>
   );
 }
 
-function StatsView({ userId, season }: { userId: string; season: string }) {
+function StatsView({ userId, season, kind = 'all' }: { userId: string; season: string; kind?: Kind }) {
   const [s, setS] = useState<PlayerStats | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -226,7 +257,8 @@ function StatsView({ userId, season }: { userId: string; season: string }) {
   );
   return (
     <div className="flex flex-col gap-3">
-      {s.hands === 0 && s.tournaments.games === 0 && <Notice>{t('stats.empty')}</Notice>}
+      {(kind === 'all' ? s.hands === 0 && s.tournaments.games === 0 : kind === 'cash' ? s.hands === 0 : s.tournaments.games === 0) && <Notice>{t(kind === 'all' ? 'stats.empty' : 'stats.kindEmpty')}</Notice>}
+      {kind !== 'tournament' && (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cell(t('stats.hands'), s.hands)}
         {cell('VPIP', `${s.vpip} %`, t('stats.help.vpip'))}
@@ -239,6 +271,8 @@ function StatsView({ userId, season }: { userId: string; season: string }) {
         {cell(t('stats.cashNet'), signed(s.cashNet))}
         {cell(t('stats.bestHand'), s.bestHand ? t(`stats.${s.bestHand.key}` as never) : '–')}
       </div>
+      )}
+      {kind !== 'cash' && (
       <Card title={t('stats.tournaments')}>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {cell(t('stats.games'), s.tournaments.games)}
@@ -251,6 +285,7 @@ function StatsView({ userId, season }: { userId: string; season: string }) {
           {(s.tournaments.side ?? 0) !== 0 && cell(t('stats.sideNet'), signed(s.tournaments.side ?? 0))}
         </div>
       </Card>
+      )}
     </div>
   );
 }
@@ -293,7 +328,9 @@ function loadPref(raw: unknown): ComparePref {
 type SortKey = 'nickname' | 'balance' | 'total' | 'tournamentNet' | 'cashNet' | 'level' | 'ratingTournament' | 'ratingCash' | 'hands' | 'tournaments';
 
 /** Přehled mezi hráči: tabulka všech hráčů (řazení klepnutím na sloupec) a srovnání vývoje vybraných hráčů v čase. */
-function PlayersOverview({ meId }: { meId: string }) {
+function PlayersOverview({ meId, kind }: { meId: string; kind: Kind }) {
+  const showCash = kind !== 'tournament';
+  const showTour = kind !== 'cash';
   const [rows, setRows] = useState<OverviewRow[] | null>(null);
   const [error, setError] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'total', dir: -1 });
@@ -321,22 +358,27 @@ function PlayersOverview({ meId }: { meId: string }) {
   const selected = useMemo(() => (picked && rows ? picked.filter((id) => rows.some((r) => r.userId === id)) : picked) ?? (rows ? [meId, ...rows.filter((r) => r.userId !== meId).slice(0, 3).map((r) => r.userId)].slice(0, 4) : []), [picked, rows, meId]);
   useEffect(() => {
     if (selected.length === 0) return;
-    get<{ series: { userId: string; nickname: string; color: number; points: Pt[] }[] }>(`/api/stats/compare?users=${selected.join(',')}&metric=${metric}`)
+    get<{ series: { userId: string; nickname: string; color: number; points: Pt[] }[] }>(`/api/stats/compare?users=${selected.join(',')}&metric=${metric}&kind=${kind}`)
       .then((d) => setSeries(d.series.map((x) => ({ id: x.userId, name: x.nickname, color: x.color, points: x.points }))))
       .catch((e) => setError(errorText(e)));
-  }, [selected, metric]);
+  }, [selected, metric, kind]);
   const since = useMemo(() => (range === 'all' ? 0 : Date.now() - Number(range) * 86_400_000), [range]);
   if (error) return <Notice kind="error">{error}</Notice>;
   if (!rows) return <Spinner label={t('app.loading')} />;
-  const sorted = [...rows].sort((a, b) => {
-    const av = a[sort.key] ?? -Infinity;
-    const bv = b[sort.key] ?? -Infinity;
-    return (typeof av === 'string' ? av.localeCompare(String(bv), 'cs') : Number(av) - Number(bv)) * sort.dir;
-  });
+  // A column that is not shown in this view cannot be the order: the main result of the view takes over.
+  const hiddenKeys: SortKey[] = kind === 'cash' ? ['total', 'tournamentNet', 'ratingTournament', 'tournaments'] : kind === 'tournament' ? ['total', 'cashNet', 'ratingCash', 'hands'] : [];
+  const sortKey: SortKey = hiddenKeys.includes(sort.key) ? (kind === 'cash' ? 'cashNet' : 'tournamentNet') : sort.key;
+  const sorted = [...rows]
+    .filter((r) => (kind === 'cash' ? r.hands > 0 || r.cashNet !== 0 : kind === 'tournament' ? r.tournaments > 0 || r.tournamentNet !== 0 : true))
+    .sort((a, b) => {
+      const av = a[sortKey] ?? -Infinity;
+      const bv = b[sortKey] ?? -Infinity;
+      return (typeof av === 'string' ? av.localeCompare(String(bv), 'cs') : Number(av) - Number(bv)) * sort.dir;
+    });
   const head = (key: SortKey, label: string) => (
-    <button className="underline decoration-dotted" onClick={() => setSort({ key, dir: sort.key === key ? ((-sort.dir) as 1 | -1) : -1 })} aria-label={label}>
+    <button className="underline decoration-dotted" onClick={() => setSort({ key, dir: sortKey === key ? ((-sort.dir) as 1 | -1) : -1 })} aria-label={label}>
       {label}
-      {sort.key === key ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
+      {sortKey === key ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
     </button>
   );
   const toggle = (id: string) => setPicked((cur) => {
@@ -368,8 +410,8 @@ function PlayersOverview({ meId }: { meId: string }) {
           <p className="text-xs text-muted">{t('overview.pickHint')}</p>
         </div>
       </Card>
-      <CategoriesView meId={meId} />
-      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), head('total', t('overview.earn')), head('tournamentNet', t('stats.tournamentNet')), head('cashNet', t('overview.cashNet')), head('balance', t('overview.balance')), ...(features.xp ? [head('level', t('overview.level'))] : []), ...(tournamentRating ? [head('ratingTournament', t('overview.ratingT'))] : []), ...(cashRating ? [head('ratingCash', t('overview.ratingC'))] : []), head('hands', t('overview.cashHands')), head('tournaments', t('stats.games'))]}>
+      <CategoriesView meId={meId} kind={kind} />
+      <DataTable head={[t('overview.compareCol'), head('nickname', t('stats.player')), ...(kind === 'all' ? [head('total', t('overview.earn'))] : []), ...(showTour ? [head('tournamentNet', t('stats.tournamentNet'))] : []), ...(showCash ? [head('cashNet', t('overview.cashNet'))] : []), head('balance', t('overview.balance')), ...(features.xp ? [head('level', t('overview.level'))] : []), ...(tournamentRating && showTour ? [head('ratingTournament', t('overview.ratingT'))] : []), ...(cashRating && showCash ? [head('ratingCash', t('overview.ratingC'))] : []), ...(showCash ? [head('hands', t('overview.cashHands'))] : []), ...(showTour ? [head('tournaments', t('stats.games'))] : [])]}>
         {sorted.map((r) => (
           <tr key={r.userId} className={r.userId === meId ? 'bg-raised' : ''}>
             <Td>
@@ -379,21 +421,23 @@ function PlayersOverview({ meId }: { meId: string }) {
               <PlayerDot color={r.color} />
               <strong>{r.nickname}</strong> {r.userId === meId && <Badge tone="primary">{t('overview.me')}</Badge>}
             </Td>
-            <Td>
-              <Badge tone={tone(r.total)}>{signed(r.total)}</Badge>
-            </Td>
-            <Td className="font-mono">{signed(r.tournamentNet)}</Td>
-            <Td className="font-mono">{signed(r.cashNet)}</Td>
+            {kind === 'all' && (
+              <Td>
+                <Badge tone={tone(r.total)}>{signed(r.total)}</Badge>
+              </Td>
+            )}
+            {showTour && <Td className="font-mono">{kind === 'tournament' ? <Badge tone={tone(r.tournamentNet)}>{signed(r.tournamentNet)}</Badge> : signed(r.tournamentNet)}</Td>}
+            {showCash && <Td className="font-mono">{kind === 'cash' ? <Badge tone={tone(r.cashNet)}>{signed(r.cashNet)}</Badge> : signed(r.cashNet)}</Td>}
             <Td className="font-mono text-muted">{r.balance}</Td>
             {features.xp && (
               <Td className="text-sm">
                 <span className="font-mono">{r.level}</span> {r.rank.name}
               </Td>
             )}
-            {tournamentRating && <Td className="font-mono">{r.ratingTournament ?? (r.divisionTournament?.rating != null ? <span className="text-muted" title={t('overview.provisional')}>{r.divisionTournament.rating}</span> : '–')}</Td>}
-            {cashRating && <Td className="font-mono">{r.ratingCash ?? (r.divisionCash?.rating != null ? <span className="text-muted" title={t('overview.provisional')}>{r.divisionCash.rating}</span> : '–')}</Td>}
-            <Td className="font-mono">{r.hands}</Td>
-            <Td className="font-mono">{r.tournaments}</Td>
+            {tournamentRating && showTour && <Td className="font-mono">{r.ratingTournament ?? (r.divisionTournament?.rating != null ? <span className="text-muted" title={t('overview.provisional')}>{r.divisionTournament.rating}</span> : '–')}</Td>}
+            {cashRating && showCash && <Td className="font-mono">{r.ratingCash ?? (r.divisionCash?.rating != null ? <span className="text-muted" title={t('overview.provisional')}>{r.divisionCash.rating}</span> : '–')}</Td>}
+            {showCash && <Td className="font-mono">{r.hands}</Td>}
+            {showTour && <Td className="font-mono">{r.tournaments}</Td>}
           </tr>
         ))}
       </DataTable>
@@ -402,7 +446,7 @@ function PlayersOverview({ meId }: { meId: string }) {
   );
 }
 
-function Leaderboard({ season, seasons }: { season: string; seasons: Season[] }) {
+function Leaderboard({ season, seasons, kind }: { season: string; seasons: Season[]; kind: Kind }) {
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState<LeaderRow | null>(null);
@@ -414,11 +458,19 @@ function Leaderboard({ season, seasons }: { season: string; seasons: Season[] })
   }, [season]);
   if (error) return <Notice kind="error">{error}</Notice>;
   if (!rows) return <Spinner label={t('app.loading')} />;
-  if (rows.length === 0) return <Notice>{t('stats.leaderboardEmpty')}</Notice>;
+  const showCash = kind !== 'tournament';
+  const showTour = kind !== 'cash';
+  const shown =
+    kind === 'all'
+      ? rows
+      : [...rows]
+          .filter((r) => (kind === 'cash' ? r.cashHands > 0 || r.cashNet !== 0 : r.games > 0 || r.tournamentNet !== 0))
+          .sort((a, b) => (kind === 'cash' ? b.cashNet - a.cashNet : b.tournamentNet - a.tournamentNet));
+  if (shown.length === 0) return <Notice>{t(kind === 'all' ? 'stats.leaderboardEmpty' : 'stats.kindEmpty')}</Notice>;
   return (
     <>
-      <DataTable head={['#', t('stats.player'), t('stats.cashNet'), t('stats.hands'), t('stats.tournamentNet'), t('stats.games'), t('stats.wins'), t('stats.itm'), t('stats.avgPlace'), t('stats.total')]}>
-        {rows.map((r, i) => (
+      <DataTable head={['#', t('stats.player'), ...(showCash ? [t('stats.cashNet'), t('stats.hands')] : []), ...(showTour ? [t('stats.tournamentNet'), t('stats.games'), t('stats.wins'), t('stats.itm'), t('stats.avgPlace')] : []), ...(kind === 'all' ? [t('stats.total')] : [])]}>
+        {shown.map((r, i) => (
           <tr key={r.userId}>
             <Td>{i + 1}</Td>
             <Td>
@@ -427,23 +479,33 @@ function Leaderboard({ season, seasons }: { season: string; seasons: Season[] })
                 {r.nickname}
               </button>
             </Td>
-            <Td className="font-mono">{signed(r.cashNet)}</Td>
-            <Td className="font-mono">{r.cashHands}</Td>
-            <Td className="font-mono">{signed(r.tournamentNet)}</Td>
-            <Td className="font-mono">{r.games}</Td>
-            <Td className="font-mono">{r.wins}</Td>
-            <Td className="font-mono">{r.itm}</Td>
-            <Td className="font-mono">{r.avgPlace ?? '–'}</Td>
-            <Td>
-              <Badge tone={tone(r.total)}>{signed(r.total)}</Badge>
-            </Td>
+            {showCash && (
+              <>
+                <Td className="font-mono">{kind === 'cash' ? <Badge tone={tone(r.cashNet)}>{signed(r.cashNet)}</Badge> : signed(r.cashNet)}</Td>
+                <Td className="font-mono">{r.cashHands}</Td>
+              </>
+            )}
+            {showTour && (
+              <>
+                <Td className="font-mono">{kind === 'tournament' ? <Badge tone={tone(r.tournamentNet)}>{signed(r.tournamentNet)}</Badge> : signed(r.tournamentNet)}</Td>
+                <Td className="font-mono">{r.games}</Td>
+                <Td className="font-mono">{r.wins}</Td>
+                <Td className="font-mono">{r.itm}</Td>
+                <Td className="font-mono">{r.avgPlace ?? '–'}</Td>
+              </>
+            )}
+            {kind === 'all' && (
+              <Td>
+                <Badge tone={tone(r.total)}>{signed(r.total)}</Badge>
+              </Td>
+            )}
           </tr>
         ))}
       </DataTable>
       <p className="text-sm text-muted">{t('stats.leaderboardHint', { season: season === 'all' ? t('stats.seasonAll') : (seasons.find((s) => s.id === season)?.name ?? t('stats.seasonCurrent')) })}</p>
       {open && (
         <Modal title={open.nickname} onClose={() => setOpen(null)}>
-          <StatsView userId={open.userId} season={season} />
+          <StatsView userId={open.userId} season={season} kind={kind} />
         </Modal>
       )}
     </>
@@ -699,6 +761,9 @@ export function StatsPage() {
   // Zvolené období se pamatuje v osobním nastavení (prázdné = právě běžící sezóna).
   const season = String(settings.values['ui.statsSeason'] || 'current');
   const setSeason = (v: string) => void saveUserSetting('ui.statsSeason', v, true).catch(() => undefined);
+  // Cash a turnaje jde ve Statistikách zobrazit zvlášť; volba se pamatuje v osobním nastavení.
+  const kind = kindOf(settings.values['ui.statsKind']);
+  const setKind = (k: Kind) => void saveUserSetting('ui.statsKind', k, true).catch(() => undefined);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const manage = can(me, 'statistiky.sezony');
   const reload = useCallback(() => {
@@ -725,15 +790,16 @@ export function StatsPage() {
       <h1 className="font-heading text-xl font-bold">{t('stats.title')}</h1>
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {(tab === 'mine' || tab === 'board') && <SeasonSelect value={season} onChange={setSeason} seasons={seasons} />}
+      {(tab === 'mine' || tab === 'players' || tab === 'board') && <KindSwitch value={kind} onChange={setKind} />}
       {tab === 'mine' && me && (
         <>
-          <StatsView userId={me.user.id} season={season} />
-          <Progress />
+          <StatsView userId={me.user.id} season={season} kind={kind} />
+          <Progress kind={kind} />
         </>
       )}
       {tab === 'year' && <YearView />}
-      {tab === 'players' && me && <PlayersOverview meId={me.user.id} />}
-      {tab === 'board' && <Leaderboard season={season} seasons={seasons} />}
+      {tab === 'players' && me && <PlayersOverview meId={me.user.id} kind={kind} />}
+      {tab === 'board' && <Leaderboard season={season} seasons={seasons} kind={kind} />}
       {tab === 'hands' && me && <HandsTab me={me.user.id} all={can(me, 'statistiky.vsechny_handy')} />}
       {tab === 'seasons' && manage && <SeasonsAdmin seasons={seasons} reload={reload} />}
       {tab === 'progress' && <ProgressPage embedded />}

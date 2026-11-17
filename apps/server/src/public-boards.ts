@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { and, asc, desc, eq, gt, gte, inArray, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, ne } from 'drizzle-orm';
 import { accounts, type Ledger } from '@kb/ledger';
 import { type BoardAppearance, currencyFormsOf, boardName, effectiveColumns, rankFor, sanitizeBoardConfig, type BoardColumn, type CurrencyForms, type PermissionChecker, type PublicBoardConfig, type SettingValues } from '@kb/shared';
 import type { AuditService, AuditSource } from './auth/audit.js';
-import { sideNets } from './side-results.js';
+import { moneyEvents } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 import { playerColors } from './player-colors.js';
 import type { RatingService } from './rating.js';
@@ -181,7 +181,8 @@ export class PublicBoardService {
     const columns = effectiveColumns(c, features);
     const now = this.deps.now();
     const range = { from: c.periodDays > 0 ? new Date(now - c.periodDays * DAY) : null, to: null };
-    const leader = await this.deps.stats().leaderboard(range);
+    // The global "minimum hands for the leaderboard" must not silently hide players here: the board has its own minimum (minHands).
+    const leader = await this.deps.stats().leaderboard(range, { minHands: 0 });
     const progress = features.xp ? await this.deps.db.select().from(schema.playerProgress).where(gt(schema.playerProgress.xp, 0)) : [];
     const ratings = features.rating ? await this.deps.rating().leaderboard('tournament') : [];
 
@@ -269,16 +270,20 @@ export class PublicBoardService {
   /** Kumulovaný zisk z turnajů (výplata + bounty − vstupy) v čase pro vybrané hráče. */
   private async chart(players: { id: string; name: string }[], from: Date | null): Promise<PublicBoardView['chart']> {
     if (players.length === 0) return [];
-    const gr = schema.gameResults;
-    const conds = [inArray(gr.userId, players.map((p) => p.id)), eq(gr.kind, 'tournament')];
-    if (from) conds.push(gte(gr.finishedAt, from));
-    const rows = await this.deps.db.select({ userId: gr.userId, at: gr.finishedAt, net: sql<string>`${gr.payout} + ${gr.bounty} - ${gr.spent}` }).from(gr).where(and(...conds)).orderBy(asc(gr.finishedAt));
-    const sideRows = await sideNets(this.deps.db, { userIds: players.map((p) => p.id), from });
+    // Tournament movements of the accounting ledger (entry fees, payouts, bounty, bets and head bounties), like everywhere else.
+    const events = (await moneyEvents(this.deps.db, { userIds: players.map((p) => p.id), from })).filter((e) => e.tournament);
     const colors = await playerColors(this.deps.db);
     return players.map((p, i) => {
       let sum = 0;
-      const own = [...rows.filter((r) => r.userId === p.id).map((r) => [r.at.getTime(), Number(r.net)] as [number, number]), ...sideRows.filter((r) => r.userId === p.id).map((r) => [r.at, r.net] as [number, number])].sort((a, b) => a[0] - b[0]);
-      const points = own.map((r) => [r[0], (sum += r[1])] as [number, number]);
+      // one point per game (entry fee, payout and bounty of a tournament belong together), at the time of its last movement
+      const perGame = new Map<string, [number, number]>();
+      let loose = 0;
+      for (const e of events.filter((x) => x.userId === p.id)) {
+        const key = e.gameId ?? `loose:${loose++}`;
+        const cur = perGame.get(key);
+        perGame.set(key, [Math.max(cur?.[0] ?? 0, e.at), (cur?.[1] ?? 0) + e.amount]);
+      }
+      const points = [...perGame.values()].sort((x, y) => x[0] - y[0]).map(([at, net]) => [at, (sum += net)] as [number, number]);
       return { id: String(i), name: p.name, color: colors.get(p.id) ?? 1, points: thin(points) };
     });
   }

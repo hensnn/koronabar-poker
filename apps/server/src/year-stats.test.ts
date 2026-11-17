@@ -3,6 +3,7 @@ import { FakeClock } from '@kb/game-core';
 import { buildServer } from './app.js';
 import { schema } from './db/index.js';
 import { YearStatsError } from './year-stats.js';
+import { bookGame, bookTournament } from './test-ledger.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
 const servers: Server[] = [];
@@ -29,8 +30,16 @@ async function start(over: Record<string, unknown> = {}) {
   const [admin] = server.perms.mainAdminIds();
   const inv = await server.accounts.createInvite(admin!, {});
   const { userId } = await server.accounts.register({ inviteCode: inv, nickname: 'Hrac', email: 'hrac@example.cz', password: 'heslo-hrace-123', acceptTerms: true });
-  const result = (ref: string, kind: 'tournament' | 'live_cash', at: number, spent: number, payout: number, bounty = 0) =>
-    server.db.insert(schema.gameResults).values({ kind, ref, userId, finishedAt: new Date(at), place: 1, field: 4, spent, payout, bounty, rebuys: 0 });
+  const result = async (ref: string, kind: 'tournament' | 'live_cash', at: number, spent: number, payout: number, bounty = 0) => {
+    await server.db.insert(schema.gameResults).values({ kind, ref, userId, finishedAt: new Date(at), place: 1, field: 4, spent, payout, bounty, rebuys: 0 });
+    // the money of a game is in the accounting ledger (the statistics count only that)
+    if (kind === 'tournament') await bookTournament(server.db, { gameId: ref, at, userId, spent, payout, bounty });
+    else {
+      await server.db.insert(schema.liveCashGames).values({ id: ref, name: ref, status: 'closed' });
+      await bookGame(server.db, { kind: 'cash_buyin', gameId: ref, at, userId, amount: -spent });
+      await bookGame(server.db, { kind: 'cash_cashout', gameId: ref, at, userId, amount: payout });
+    }
+  };
   return { server, admin: admin!, userId, result };
 }
 
@@ -47,10 +56,12 @@ describe('roční statistika (výdělek v roce)', () => {
     c.server.ledger.post({ kind: 'cash_topup', idempotencyKey: 'topup:stul-1:x', entries: [{ account: `wallet:${c.userId}`, amount: -300 }, { account: 'table:stul-1', amount: 300 }] });
 
     const y = await c.server.yearStats.compute(c.userId, 2026);
-    expect(y).toMatchObject({ year: 2026, tournamentNet: 250, liveNet: -80, cashNet: 0, net: 170, won: 350, lost: -180, topUps: 700, withdrawals: 200, tournaments: 2, hands: 0 });
-    expect(y.monthly).toEqual([350, 0, -100, -80, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(y).toMatchObject({ year: 2026, tournamentNet: 250, liveNet: -80, cashNet: -300, net: -130, won: 350, lost: -480, topUps: 700, withdrawals: 200, tournaments: 2, hands: 0 });
+    // the table top-up of 300 (June) is a cash movement of the ledger: it belongs to cash and to the month it happened in
+    expect(y.monthly).toEqual([350, 0, -100, -80, 0, -300, 0, 0, 0, 0, 0, 0]);
     // změna zůstatku zahrnuje i počáteční vklad při registraci (10000), který se do nabití správcem nepočítá
-    expect(y.balanceEnd - y.balanceStart).toBe(10000 + 700 - 200 - 300);
+    // + results of the games of the year booked in the ledger (+250 tournaments, -80 live cash)
+    expect(y.balanceEnd - y.balanceStart).toBe(10000 + 700 - 200 - 300 + 250 - 80);
 
     // minulý rok je oddělený
     const old = await c.server.yearStats.compute(c.userId, 2025);

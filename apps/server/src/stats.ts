@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { analyzeHand, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { HandRecordData, TableEvent } from '@kb/game-core';
-import { sideNets, sideTotals } from './side-results.js';
+import { gameNets, seatedValues, sideNets, sideTotals } from './side-results.js';
 import { schema, type Db } from './db/index.js';
 
 export class StatsError extends Error {
@@ -93,6 +93,8 @@ export class StatsService {
       perms: PermissionChecker;
       settings: () => SettingValues;
       now: () => number;
+      /** Players sitting at cash tables with their chips (the chips count as a withdrawal in a period that reaches the present). */
+      seated?: () => { userId: string; chips: number }[];
       onError?: (e: unknown) => void;
       /** Handa je uložená (zkušenosti a rating z ní vycházejí). */
       onHand?: (h: { handId: string; playedAt: number; kind: 'cash' | 'tournament'; tableId: string; players: { userId: string; wonShowdown: boolean }[] }) => void;
@@ -278,6 +280,23 @@ export class StatsService {
 
   // ---------- čtení ----------
 
+  /**
+   * Money of the players from the accounting ledger (cash incl. live cash, tournaments incl. bounty, bets and head bounties): the same
+   * numbers as the players overview, the wallet settlement and the evenings. Chips at the tables count only for a period that reaches the present.
+   */
+  private async nets(range: StatsRange, userIds?: string[]): Promise<Map<string, { cash: number; tournament: number }>> {
+    const out = await gameNets(this.deps.db, { userIds, from: range.from, to: range.to });
+    const open = !range.to || range.to.getTime() > this.deps.now();
+    if (open) {
+      for (const [id, v] of seatedValues(this.deps.seated?.() ?? [], Number(this.deps.settings()['cash.chipsPerCurrencyUnit']))) {
+        if (userIds && !userIds.includes(id)) continue;
+        const cur = out.get(id) ?? { cash: 0, tournament: 0 };
+        out.set(id, { ...cur, cash: cur.cash + v });
+      }
+    }
+    return out;
+  }
+
   private inRange(col: typeof schema.handPlayers.playedAt | typeof schema.gameResults.finishedAt, r: StatsRange) {
     return and(r.from ? gte(col, r.from) : undefined, r.to ? lt(col, r.to) : undefined);
   }
@@ -303,17 +322,12 @@ export class StatsService {
       .where(and(eq(hp.userId, userId), this.inRange(hp.playedAt, range)));
     const [cash] = await this.deps.db
       .select({
-        net: sql<string>`coalesce(round(sum((${hp.won} - ${hp.invested})::numeric / ${schema.hands.chipsPerUnit})), 0)`,
         biggest: sql<string>`coalesce(max(${hp.won}::numeric / ${schema.hands.chipsPerUnit}), 0)`,
       })
       .from(hp)
       .innerJoin(schema.hands, eq(schema.hands.id, hp.handId))
       .where(and(eq(hp.userId, userId), eq(hp.kind, 'cash'), this.inRange(hp.playedAt, range)));
-    // Živý cash (skutečné karty): výsledek hráče ze zápisů ředitele, bez hand.
-    const [live] = await this.deps.db
-      .select({ net: sql<string>`coalesce(sum(${schema.gameResults.payout} - ${schema.gameResults.spent}), 0)` })
-      .from(schema.gameResults)
-      .where(and(eq(schema.gameResults.userId, userId), eq(schema.gameResults.kind, 'live_cash'), this.inRange(schema.gameResults.finishedAt, range)));
+    const money = (await this.nets(range, [userId])).get(userId) ?? { cash: 0, tournament: 0 };
     let bestHand: PlayerStats['bestHand'] = null;
     if (a?.best != null) {
       const [b] = await this.deps.db
@@ -330,7 +344,6 @@ export class StatsService {
         wins: sql<number>`count(*) filter (where ${gr.place} = 1)`,
         itm: sql<number>`count(*) filter (where ${gr.payout} > 0)`,
         avg: sql<string | null>`avg(${gr.place})`,
-        net: sql<string>`coalesce(sum(${gr.payout} + ${gr.bounty} - ${gr.spent}), 0)`,
         bounty: sql<string>`coalesce(sum(${gr.bounty}), 0)`,
         rebuys: sql<string>`coalesce(sum(${gr.rebuys}), 0)`,
       })
@@ -348,7 +361,7 @@ export class StatsService {
       wtsd: pct(Number(a?.showdown ?? 0), Number(a?.sawFlop ?? 0)),
       wsd: pct(Number(a?.wonShowdown ?? 0), Number(a?.showdown ?? 0)),
       aggressionFactor: calls > 0 ? Math.round((aggressive / calls) * 100) / 100 : null,
-      cashNet: Number(cash?.net ?? 0) + Number(live?.net ?? 0),
+      cashNet: money.cash,
       biggestPot: Math.floor(Number(cash?.biggest ?? 0)),
       bestHand,
       tournaments: {
@@ -356,7 +369,7 @@ export class StatsService {
         wins: Number(tr?.wins ?? 0),
         itm: Number(tr?.itm ?? 0),
         avgPlace: tr?.avg == null ? null : Math.round(Number(tr.avg) * 10) / 10,
-        net: Number(tr?.net ?? 0) + side,
+        net: money.tournament,
         bounty: Number(tr?.bounty ?? 0),
         rebuys: Number(tr?.rebuys ?? 0),
         side,
@@ -365,26 +378,24 @@ export class StatsService {
   }
 
   /** Žebříček: čistý zisk v měně, cash a turnaje zvlášť i dohromady. Výsledek se krátce drží v paměti (`stats.cacheSeconds`). */
-  async leaderboard(range: StatsRange): Promise<LeaderRow[]> {
+  async leaderboard(range: StatsRange, opts: { minHands?: number } = {}): Promise<LeaderRow[]> {
     const ttl = Number(this.deps.settings()['stats.cacheSeconds'] ?? 0) * 1000;
-    const key = `${range.from?.getTime() ?? ''}:${range.to?.getTime() ?? ''}`;
+    // Minimum hand: default from the global setting; a public board has its own limit and passes 0 to see everybody.
+    const minHands = opts.minHands ?? Number(this.deps.settings()['stats.leaderboardMinHands'] ?? 0);
+    const key = `${range.from?.getTime() ?? ''}:${range.to?.getTime() ?? ''}:${minHands}`;
     const hit = this.boards.get(key);
     if (hit && ttl > 0 && this.deps.now() - hit.at < ttl) return hit.rows.map((r) => ({ ...r }));
-    const rows = await this.computeLeaderboard(range);
+    const rows = await this.computeLeaderboard(range, minHands);
     if (ttl > 0) this.boards.set(key, { at: this.deps.now(), rows });
     return rows.map((r) => ({ ...r }));
   }
 
-  private async computeLeaderboard(range: StatsRange): Promise<LeaderRow[]> {
+  private async computeLeaderboard(range: StatsRange, minHands: number): Promise<LeaderRow[]> {
     const hp = schema.handPlayers;
+    // Hands only for the number of hands; the money below comes from the ledger.
     const cash = await this.deps.db
-      .select({
-        userId: hp.userId,
-        hands: sql<number>`count(*)`,
-        net: sql<string>`round(sum((${hp.won} - ${hp.invested})::numeric / ${schema.hands.chipsPerUnit}))`,
-      })
+      .select({ userId: hp.userId, hands: sql<number>`count(*)` })
       .from(hp)
-      .innerJoin(schema.hands, eq(schema.hands.id, hp.handId))
       .where(and(eq(hp.kind, 'cash'), this.inRange(hp.playedAt, range)))
       .groupBy(hp.userId);
     const gr = schema.gameResults;
@@ -395,22 +406,18 @@ export class StatsService {
         wins: sql<number>`count(*) filter (where ${gr.place} = 1)`,
         itm: sql<number>`count(*) filter (where ${gr.payout} > 0)`,
         avg: sql<string>`avg(${gr.place})`,
-        net: sql<string>`sum(${gr.payout} + ${gr.bounty} - ${gr.spent})`,
         bounty: sql<string>`sum(${gr.bounty})`,
         rebuys: sql<string>`sum(${gr.rebuys})`,
       })
       .from(gr)
       .where(and(eq(gr.kind, 'tournament'), this.inRange(gr.finishedAt, range)))
       .groupBy(gr.userId);
-    const liveRows = await this.deps.db
-      .select({ userId: gr.userId, net: sql<string>`sum(${gr.payout} - ${gr.spent})` })
-      .from(gr)
-      .where(and(eq(gr.kind, 'live_cash'), this.inRange(gr.finishedAt, range)))
-      .groupBy(gr.userId);
-    const liveNet = new Map(liveRows.map((r) => [r.userId, Number(r.net)]));
-    const sideNet = sideTotals(await sideNets(this.deps.db, { from: range.from, to: range.to }));
-    const minHands = Number(this.deps.settings()['stats.leaderboardMinHands'] ?? 0);
-    const ids = [...new Set([...cash.map((c) => c.userId), ...tour.map((t) => t.userId), ...liveNet.keys(), ...sideNet.keys()])];
+    const liveUsers = new Set(
+      (await this.deps.db.select({ userId: gr.userId }).from(gr).where(and(eq(gr.kind, 'live_cash'), this.inRange(gr.finishedAt, range))).groupBy(gr.userId)).map((r) => r.userId),
+    );
+    const money = await this.nets(range);
+    const side = sideTotals(await sideNets(this.deps.db, { from: range.from, to: range.to }));
+    const ids = [...new Set([...cash.map((c) => c.userId), ...tour.map((t) => t.userId), ...liveUsers, ...side.keys(), ...[...money].filter(([, v]) => v.cash !== 0 || v.tournament !== 0).map(([id]) => id)])];
     if (ids.length === 0) return [];
     // Smazané (anonymizované) účty v žebříčku nefigurují; jejich handy a výsledky zůstávají kvůli statistikám ostatních.
     const nicks = new Map(
@@ -422,10 +429,10 @@ export class StatsService {
       const c = cash.find((x) => x.userId === id);
       const t = tour.find((x) => x.userId === id);
       const cashHands = Number(c?.hands ?? 0);
-      if (cashHands < minHands && !t && !liveNet.has(id) && !sideNet.has(id)) continue;
-      const cashNet = (cashHands >= minHands ? Number(c?.net ?? 0) : 0) + (liveNet.get(id) ?? 0);
-      const side = sideNet.get(id) ?? 0;
-      const tournamentNet = Number(t?.net ?? 0) + side;
+      // The minimum of hands only decides who is listed; it never changes anybody's money.
+      if (cashHands < minHands && !t && !liveUsers.has(id) && !side.has(id)) continue;
+      const cashNet = money.get(id)?.cash ?? 0;
+      const tournamentNet = money.get(id)?.tournament ?? 0;
       rows.push({
         userId: id,
         nickname: nicks.get(id) ?? '?',
@@ -438,7 +445,7 @@ export class StatsService {
         rebuys: Number(t?.rebuys ?? 0),
         bounty: Number(t?.bounty ?? 0),
         tournamentNet,
-        side,
+        side: side.get(id) ?? 0,
         total: cashNet + tournamentNet,
       });
     }

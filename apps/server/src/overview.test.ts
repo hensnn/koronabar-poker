@@ -50,6 +50,21 @@ describe('přehled mezi hráči', () => {
     await expect(s.server.overview.compare([], 'balance')).rejects.toThrow('INVALID');
   });
 
+  it('srovnání zisku jde omezit jen na cash nebo jen na turnaje', async () => {
+    const s = await start();
+    const post = (kind: 'turnaj_buyin' | 'turnaj_vyplata' | 'cash_buyin' | 'cash_cashout', amount: number, key: string) =>
+      s.server.ledger.post({ kind, idempotencyKey: key, entries: [{ account: accounts.wallet(s.player), amount }, { account: accounts.mint(), amount: -amount }] });
+    await post('cash_buyin', -500, 'cmp-k-1');
+    await post('cash_cashout', 800, 'cmp-k-2');
+    await post('turnaj_buyin', -100, 'cmp-k-3');
+    await post('turnaj_vyplata', 100, 'cmp-k-4');
+    await post('turnaj_vyplata', 50, 'cmp-k-5');
+    const last = async (kind: 'all' | 'cash' | 'tournament') => (await s.server.overview.compare([s.player], 'profit', kind)).series[0]!.points.at(-1)![1];
+    expect(await last('cash')).toBe(300);
+    expect(await last('tournament')).toBe(50);
+    expect(await last('all')).toBe(350);
+  });
+
   it('barva hráče: správce ji přidělí, přehled i srovnání ji vrací, ostatní hráči ji měnit nemohou', async () => {
     const s = await start();
     const before = await s.server.overview.overview();

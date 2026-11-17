@@ -21,7 +21,7 @@ import { WalletService } from './wallet/service.js';
 import { EmailService } from './email/service.js';
 import { loadMasterKey, SecretStore, type MasterKey } from './secrets/store.js';
 import { openPglite, openPostgres, type Database } from './db/index.js';
-import { BET_KINDS, sideNets } from './side-results.js';
+import { BET_KINDS, seatedValues, sideNets } from './side-results.js';
 import { ConsistencyService } from './consistency.js';
 import { Journal, ledgerTxOp, loadLedger, openLedgerStore } from './db/journal.js';
 import { setupGateway } from './gateway.js';
@@ -469,7 +469,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     void nickOf(e.userId).then((nick) => announcerRef?.announce('allIn', { nick }, { rooms: [`announce:${tournamentId ?? tableId}`, `table:${tableId}`], table: true }));
   };
   const rating = new RatingService({ db, perms, settings: () => settings.resolve(), now: () => clock.now(), notify: (userId, kind, params, link) => notificationsRef.current?.simple(userId, kind, params, link) ?? Promise.resolve(), onError: (e) => console.error('Výpočet ratingu selhal:', e instanceof Error ? e.message : e) });
-  const stats = new StatsService({ db, perms, settings: () => settings.resolve(), now: () => clock.now(), onHand: (h) => progress.onHand(h), onError: (e) => console.error('Záznam handy selhal:', e instanceof Error ? e.message : e) });
+  const stats = new StatsService({ db, perms, settings: () => settings.resolve(), now: () => clock.now(), seated: () => tablesRef.current?.list().flatMap((row) => (tablesRef.current!.get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, chips: s.chips + s.pendingChips }))) ?? [], onHand: (h) => progress.onHand(h), onError: (e) => console.error('Záznam handy selhal:', e instanceof Error ? e.message : e) });
   const templates = new TemplateService({
     db,
     registry,
@@ -1175,7 +1175,7 @@ export async function buildServer(opts: ServerOptions = {}) {
   const structures = new BlindStructureService({ db, perms, audit });
   structuresRef.current = structures;
   publicBoardsRef.current = new PublicBoardService({ db, perms, audit, settings: () => settings.resolve(), stats: () => stats, rating: () => rating, ledger: () => ledger, now: () => clock.now() });
-  const timeline = new TimelineService({ db, settings: () => settings.resolve() });
+  const timeline = new TimelineService({ db, settings: () => settings.resolve(), seated: (userId) => seatedValues(tablesRef.current?.list().flatMap((row) => (tablesRef.current!.get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, chips: s.chips + s.pendingChips }))) ?? [], Number(settings.resolve()['cash.chipsPerCurrencyUnit'])).get(userId) ?? 0 });
   const houseExpenses = new HouseExpenseService({ db, ledger, perms, audit, wallet, settings: () => settings.resolve(), now: () => clock.now() });
   const consistency = new ConsistencyService({ db, ledger, perms, wallet, flush: () => journal.flush(), now: () => clock.now(), recordResults: async (id) => {
     const x = await tournaments.finishedForStats(id);
@@ -1190,7 +1190,7 @@ export async function buildServer(opts: ServerOptions = {}) {
     },
     audit,
   });
-  const yearStats = new YearStatsService({ db, ledger, settings: () => settings.resolve(), now: () => clock.now() });
+  const yearStats = new YearStatsService({ db, ledger, settings: () => settings.resolve(), now: () => clock.now(), seated: (userId) => seatedValues(tablesRef.current?.list().flatMap((row) => (tablesRef.current!.get(row.id)?.playersSeated() ?? []).map((s) => ({ userId: s.userId, chips: s.chips + s.pendingChips }))) ?? [], Number(settings.resolve()['cash.chipsPerCurrencyUnit'])).get(userId) ?? 0 });
   yearStatsRef.current = yearStats;
   const overview = new OverviewService({
     db,
