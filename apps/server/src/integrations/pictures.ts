@@ -43,23 +43,11 @@ export interface TournamentPictureData {
   summary: TournamentRow[];
 }
 
-export interface HandPicture {
-  board: string[];
-  players: { nickname: string; hole: [string, string] | null; role: 'loser' | 'winner' | 'best'; five: string[] | null; desc: { key: string; params?: Record<string, string> } | null }[];
-}
-
 export interface EveningPictureData {
   name: string;
   from: number;
   to: number;
   players: { nickname: string; net: number; cash: number; tournament: number; side: number; knockouts: number; parts: Record<string, number>; seated?: number }[];
-  games: { kind: 'tournament' | 'live_cash' | 'cash'; name: string }[];
-  mvp: { nickname: string; score: number } | null;
-  hunter: { nickname: string; count: number } | null;
-  banker: { nickname: string; game: string; bb: number; amount: number } | null;
-  badBeat: { nickname: string; game: string; equity: number; hand: HandPicture | null } | null;
-  bestHand: { nickname: string; game: string; hand: HandPicture } | null;
-  stats: { games: number; players: number; turnover: number; biggestPotBb: number | null };
 }
 
 const XML: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' };
@@ -197,10 +185,6 @@ class Sheet {
   hline(x: number, y: number, w: number) {
     this.parts.push(`<rect x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="1" fill="${this.color('border')}"/>`);
   }
-  /** Position in the drawing, to put a panel behind what is drawn after it. */
-  markPosition(): number {
-    return this.parts.length;
-  }
   insertBehind(at: number, svg: string) {
     this.parts.splice(at, 0, svg);
   }
@@ -267,44 +251,12 @@ class Sheet {
     this.parts.splice(at, 0, `<rect x="${r1(x)}" y="${r1(top)}" width="${r1(w)}" height="${r1(this.y - top)}" rx="${this.radius(1.5)}" fill="${this.color('surface')}" stroke="${this.color('border')}" stroke-width="1"/>`);
   }
 
-  /** Playing card as in the app: face colour, rank on top and the suit under it in the colour of the suit. */
-  card1(x: number, y: number, card: string, marked: boolean) {
-    const u = this.u;
-    const w = u * 2.1;
-    const h = u * 2.9;
-    const rank = card[0] === 'T' ? '10' : (card[0] ?? '?');
-    const suit = card[1] ?? '?';
-    const ink = this.color(suit === 'h' ? 'suitHeart' : suit === 'd' ? 'suitDiamond' : suit === 'c' ? 'suitClub' : 'suitSpade');
-    this.parts.push(`<rect x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="${r1(u * 0.25)}" fill="${this.color('cardFace')}" stroke="${marked ? this.color('primary') : this.color('border')}" stroke-width="${marked ? 2.5 : 1}"/>`);
-    this.text(x + w / 2, y + h * 0.46, rank, { size: u * (rank.length > 1 ? 0.95 : 1.1), font: 'number', bold: true, fill: ink, anchor: 'middle' });
-    this.parts.push(suitShape(suit, x + w / 2, y + h * 0.74, u * 0.95, ink));
-  }
-
-  /** Row of cards; returns the width it took. */
-  cards(x: number, y: number, cards: string[], marked: string[] = []): number {
-    const step = this.u * 2.4;
-    cards.forEach((c, i) => this.card1(x + i * step, y, c, marked.includes(c)));
-    return cards.length * step;
-  }
-
   svg(background: boolean): string {
     const w = this.width;
     const h = Math.ceil(this.y);
     const stripe = r1(this.u * 0.3);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${this.color('bg')}"/>${background ? `<rect width="${w}" height="${stripe}" fill="${this.color('primary')}"/>` : ''}${this.parts.join('')}</svg>`;
   }
-}
-
-/** Suit symbol drawn as a shape (no font needed): `size` is its height, centred on (cx, cy). */
-function suitShape(suit: string, cx: number, cy: number, size: number, fill: string): string {
-  const x0 = cx - size / 2;
-  const y0 = cy - size / 2;
-  const p = (v: number, off: number) => r1(off + v * size);
-  const path = (pts: string) => pts.replace(/(-?\d*\.?\d+) (-?\d*\.?\d+)/g, (_m, a, b) => `${p(Number(a), x0)} ${p(Number(b), y0)}`);
-  if (suit === 'h') return `<path d="${path('M0.5 0.95 C0.1 0.65 0 0.45 0 0.28 C0 0.1 0.12 0 0.27 0 C0.4 0 0.47 0.08 0.5 0.18 C0.53 0.08 0.6 0 0.73 0 C0.88 0 1 0.1 1 0.28 C1 0.45 0.9 0.65 0.5 0.95Z')}" fill="${fill}"/>`;
-  if (suit === 'd') return `<path d="${path('M0.5 0 L0.9 0.5 L0.5 1 L0.1 0.5Z')}" fill="${fill}"/>`;
-  if (suit === 'c') return `<g fill="${fill}"><circle cx="${p(0.5, x0)}" cy="${p(0.28, y0)}" r="${r1(size * 0.24)}"/><circle cx="${p(0.26, x0)}" cy="${p(0.6, y0)}" r="${r1(size * 0.24)}"/><circle cx="${p(0.74, x0)}" cy="${p(0.6, y0)}" r="${r1(size * 0.24)}"/><path d="${path('M0.5 0.5 L0.38 1 L0.62 1Z')}"/></g>`;
-  return `<path d="${path('M0.5 0 C0.5 0 0 0.45 0 0.66 C0 0.84 0.15 0.92 0.3 0.9 C0.4 0.88 0.45 0.83 0.47 0.8 C0.46 0.9 0.42 0.97 0.35 1 L0.65 1 C0.58 0.97 0.54 0.9 0.53 0.8 C0.55 0.83 0.6 0.88 0.7 0.9 C0.85 0.92 1 0.84 1 0.66 C1 0.45 0.5 0 0.5 0Z')}" fill="${fill}"/>`;
 }
 
 // ---------- shared formats (the same as in the app) ----------
@@ -398,7 +350,7 @@ export function tournamentSvg(d: TournamentPictureData, st: PictureStyle): strin
 const PARTS = ['cashBuyIn', 'cashOut', 'buyIn', 'rebuy', 'addon', 'payout', 'bounty', 'headBounty', 'bets', 'refund', 'other'] as const;
 const signedN = (v: number): string => (v > 0 ? `+${v}` : String(v));
 
-/** Evening page as one picture: ranking, awards (with the hands), statistics and the games of the evening. */
+/** Evening as a picture: heading with the time span and the first table of the evening page, the ranking with the result in money. */
 export function eveningSvg(d: EveningPictureData, st: PictureStyle): string {
   const u = sizeBase(st);
   const players = [...d.players].sort((a, b) => b.net - a.net || a.nickname.localeCompare(b.nickname, 'cs'));
@@ -433,9 +385,8 @@ export function eveningSvg(d: EveningPictureData, st: PictureStyle): string {
   const natural = columnWidths(u, cols, cells);
   const gap = u * 1.2;
   const cardPad = u * 1.2;
-  const handNeeds = (h: HandPicture | null) => (h ? u * 11 + Math.max(h.board.length, ...h.players.map((p) => p.hole?.length ?? 0), 5) * u * 2.4 + u * 12 : 0);
   const title = d.name;
-  const needed = Math.max(sum(natural) + 2 * (gap + cardPad), textWidth(title, u * 1.7, 'heading') + 2 * gap + u * 14, handNeeds(d.badBeat?.hand ?? null) + 2 * (gap + cardPad), handNeeds(d.bestHand?.hand ?? null) + 2 * (gap + cardPad));
+  const needed = Math.max(sum(natural) + 2 * (gap + cardPad), textWidth(title, u * 1.7, 'heading') + 2 * gap + u * 14);
   const width = Math.ceil(Math.max(st.width, needed));
   const s = new Sheet(st, width);
   const x = gap;
@@ -472,119 +423,8 @@ export function eveningSvg(d: EveningPictureData, st: PictureStyle): string {
       s.more(ix, players.length - shown.length);
     }
   });
-  s.y += u * 1;
-
-  s.card(x, w, t('evening.awards'), (ix, iw) => {
-    const award = (label: string, value: string | null) => {
-      s.text(ix, s.y + u * 0.9, label, { size: u * 0.85, tone: 'textMuted' });
-      s.y += u * 1.4;
-      const lines = wrap(value ?? t('evening.award.none'), iw, u * 1.1);
-      for (const line of lines) {
-        s.text(ix, s.y + u * 1.1, line, { size: u * 1.1 });
-        s.y += u * 1.6;
-      }
-      s.y += u * 0.5;
-    };
-    award(t('evening.mvp'), d.mvp ? `${d.mvp.nickname} (${d.mvp.score})` : null);
-    award(t('evening.award.hunter'), d.hunter ? t('evening.award.hunterText', { nick: d.hunter.nickname, count: d.hunter.count }) : null);
-    award(
-      t('evening.award.banker'),
-      d.banker ? (amounts ? t('evening.award.bankerText', { nick: d.banker.nickname, amount: d.banker.amount, bb: d.banker.bb, game: d.banker.game }) : t('integration.picture.bankerText', { nick: d.banker.nickname, bb: d.banker.bb, game: d.banker.game })) : null,
-    );
-    award(t('evening.award.badBeat'), d.badBeat ? t('evening.award.badBeatText', { nick: d.badBeat.nickname, equity: d.badBeat.equity, game: d.badBeat.game }) : null);
-    if (d.badBeat?.hand) drawHand(s, ix, iw, t('evening.badBeatTitle', { equity: d.badBeat.equity }), d.badBeat.hand, 'badBeat');
-    // best hand of the evening
-    s.y += u * 0.6;
-    s.hline(ix, s.y, iw);
-    s.y += u * 1.2;
-    s.text(ix, s.y + u * 1.1, t('evening.bestHandTitle'), { size: u * 1.1, font: 'heading' });
-    s.y += u * 2;
-    if (d.bestHand) drawBest(s, ix, iw, d.bestHand);
-    else {
-      s.text(ix, s.y + u * 0.9, t('evening.bestHandNone'), { size: u * 0.9, tone: 'textMuted' });
-      s.y += u * 1.5;
-    }
-  });
-  s.y += u * 1;
-
-  s.card(x, w, t('evening.stats'), (ix) => {
-    const rows: [string, string][] = [
-      [t('evening.statGames'), String(d.stats.games)],
-      [t('evening.statPlayers'), String(d.stats.players)],
-      ...(amounts ? ([[t('evening.turnover'), String(d.stats.turnover)]] as [string, string][]) : []),
-      [t('evening.biggestPot'), d.stats.biggestPotBb !== null ? t('evening.biggestPotBb', { bb: d.stats.biggestPotBb }) : '–'],
-    ];
-    const labelW = Math.max(...rows.map(([l]) => textWidth(l, u * 0.95))) + u * 3;
-    for (const [label, value] of rows) {
-      s.text(ix, s.y + u * 1, label, { size: u * 0.95, tone: 'textMuted' });
-      s.text(ix + labelW, s.y + u * 1, plain(value), { size: u * 0.95, font: 'number' });
-      s.y += u * 1.6;
-    }
-  });
-  s.y += u * 1;
-
-  s.card(x, w, t('evening.gamesTitle'), (ix) => {
-    for (const g of d.games) {
-      const kind = t(`evening.gameKind.${g.kind}`);
-      const kw = textWidth(kind, u * 0.75) + u * 1.2;
-      s.box(ix, s.y + u * 0.1, kw, u * 1.5, 'surfaceRaised', false, 0.5);
-      s.text(ix + kw / 2, s.y + u * 1.1, kind, { size: u * 0.75, tone: 'textMuted', anchor: 'middle' });
-      s.text(ix + kw + u * 1, s.y + u * 1.2, clip(g.name, 60), { size: u * 0.95 });
-      s.y += u * 2;
-    }
-  });
   s.y += gap;
   return s.svg(true);
-}
-
-/** The hand of the bad beat: board, then every player with the cards that were shown and the name of the combination. */
-function drawHand(s: Sheet, x: number, w: number, title: string, hand: HandPicture, kind: 'badBeat'): void {
-  void kind;
-  const u = s.u;
-  const top = s.y + u * 0.4;
-  const at = s.markPosition();
-  s.y = top + u * 1.1;
-  s.text(x + u * 1, s.y + u * 0.9, title, { size: u * 1, font: 'heading' });
-  s.y += u * 2;
-  const labels = [t('evening.board'), ...hand.players.map((p) => `${t(p.role === 'loser' ? 'evening.faced' : 'evening.beatBy')} ${p.nickname}`)];
-  const labelW = Math.max(...labels.map((l) => textWidth(l, u * 0.9))) + u * 1.4;
-  const rowH = u * 3.5;
-  s.text(x + u * 1, s.y + u * 2, t('evening.board'), { size: u * 0.9, tone: 'textMuted' });
-  s.cards(x + u * 1 + labelW, s.y, hand.board);
-  s.y += rowH;
-  for (const p of [...hand.players].sort((a, b) => (a.role === 'loser' ? -1 : 0) - (b.role === 'loser' ? -1 : 0))) {
-    const who = `${t(p.role === 'loser' ? 'evening.faced' : 'evening.beatBy')} `;
-    s.text(x + u * 1, s.y + u * 2, who, { size: u * 0.9, tone: 'textMuted' });
-    s.text(x + u * 1 + textWidth(who, u * 0.9), s.y + u * 2, p.nickname, { size: u * 0.9 });
-    let cx = x + u * 1 + labelW;
-    if (p.hole) cx += s.cards(cx, s.y, p.hole, p.role === 'winner' ? p.hole : []) + u * 0.6;
-    if (p.desc) s.text(cx, s.y + u * 2, t(p.desc.key, p.desc.params), { size: u * 0.9 });
-    s.y += rowH;
-  }
-  s.y += u * 0.2;
-  s.insertBehind(at, `<rect x="${r1(x)}" y="${r1(top)}" width="${r1(w)}" height="${r1(s.y - top)}" rx="${s.radiusOf(1)}" fill="${s.color('surfaceRaised')}" stroke="${s.color('border')}" stroke-width="1"/>`);
-  s.y += u * 0.6;
-}
-
-/** Best hand of the evening: who and where, the five cards (hole cards marked), the combination and the legend. */
-function drawBest(s: Sheet, x: number, w: number, best: { nickname: string; game: string; hand: HandPicture }): void {
-  const u = s.u;
-  const mine = best.hand.players.find((p) => p.role === 'best');
-  if (!mine) return;
-  const top = s.y;
-  const at = s.markPosition();
-  s.y += u * 1.1;
-  s.text(x + u * 1, s.y + u * 0.9, t('evening.bestHandText', { nick: best.nickname, game: best.game }), { size: u * 0.9 });
-  s.y += u * 1.6;
-  s.cards(x + u * 1, s.y, mine.five ?? [...(mine.hole ?? []), ...best.hand.board], mine.hole ?? []);
-  s.y += u * 3.6;
-  if (mine.desc) {
-    s.text(x + u * 1, s.y + u * 0.9, t(mine.desc.key, mine.desc.params), { size: u * 1.2, bold: true });
-    s.y += u * 1.9;
-  }
-  s.text(x + u * 1, s.y + u * 0.8, t('evening.bestHandLegend'), { size: u * 0.8, tone: 'textMuted' });
-  s.y += u * 1.7;
-  s.insertBehind(at, `<rect x="${r1(x)}" y="${r1(top)}" width="${r1(w)}" height="${r1(s.y - top)}" rx="${s.radiusOf(1)}" fill="${s.color('surfaceRaised')}" stroke="${s.color('border')}" stroke-width="1"/>`);
 }
 
 /**
