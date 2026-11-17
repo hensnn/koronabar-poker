@@ -1025,11 +1025,10 @@ export async function buildServer(opts: ServerOptions = {}) {
     settings: () => settings.resolve(),
     now: () => clock.now(),
     render: opts.pictureRender,
-    tournament: (id) => {
-      const st = tournaments.get(id)?.state();
-      const name = tournaments.nameOf(id);
-      if (!st?.results || name === undefined) return null;
-      return { name, finishedAt: st.finishedAt ?? clock.now(), results: st.results.map((r) => ({ place: r.place, name: r.name, payout: r.payout, bounty: r.bounty ?? 0 })) };
+    tournament: async (id) => {
+      // až po vypořádání odměn na hlavu, ať jsou v tabulce stejně jako v přehledu, který dostanou hráči
+      await bountiesRef?.idle();
+      return tournaments.summaryOf(id);
     },
   });
   integrationsRef = new IntegrationService({

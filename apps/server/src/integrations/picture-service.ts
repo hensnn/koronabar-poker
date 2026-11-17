@@ -1,9 +1,9 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { currencyFormsOf, t, type IntegrationPayload, type PermissionChecker, type SettingValues } from '@kb/shared';
+import { eq } from 'drizzle-orm';
+import { t, type IntegrationPayload, type PermissionChecker, type SettingValues } from '@kb/shared';
 import { BUILTIN_THEMES, resolveTokens, type Theme } from '@kb/tokens';
 import { schema, type Db } from '../db/index.js';
 import { IntegrationError } from './service.js';
-import { eveningSvg, svgToPng, tournamentSvg, type EveningPictureData, type PictureStyle, type TournamentPictureData } from './pictures.js';
+import { eveningSvg, svgToPng, tournamentSvg, type EveningPictureData, type HandPicture, type PictureStyle, type TournamentPictureData } from './pictures.js';
 
 export type PictureKind = 'tournament' | 'evening';
 export interface Picture {
@@ -16,27 +16,41 @@ interface Deps {
   perms: PermissionChecker;
   settings: () => SettingValues;
   now: () => number;
-  /** Results of a tournament still held in memory (right after it finished); otherwise they are read from the database. */
-  tournament: (id: string) => TournamentPictureData | null;
+  /** Result table of a finished tournament, exactly as the players get it (costs, payouts, bounties, profit); null when there is none. */
+  tournament: (id: string) => Promise<TournamentPictureData | null>;
   /** SVG to PNG; replaceable in tests. */
   render?: (svg: string, fallbackFont: string) => Promise<Uint8Array>;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The slice of a stored evening summary the picture needs. */
+/** The hand of a stored evening summary: board and the players with the cards shown at showdown. */
+interface StoredHand extends HandPicture {
+  game?: string;
+}
+
+/** The slice of a stored evening summary the picture needs; summaries of older evenings may lack the newer parts. */
 interface StoredSummary {
   from: number;
   to: number;
-  players: { nickname: string; net: number; knockouts: number; score: number }[];
+  games?: { kind: 'tournament' | 'live_cash' | 'cash'; name: string }[];
+  players: { nickname: string; net: number; cash?: number; tournament?: number; side?: number; parts?: Record<string, number>; knockouts: number; seated?: number }[];
   mvp: { nickname: string; score: number } | null;
-  awards: { hunter: { nickname: string; count: number } | null; banker: { nickname: string; bb: number } | null; badBeat: { nickname: string; equity: number } | null };
-  stats: { games: number };
+  awards: {
+    hunter: { nickname: string; count: number } | null;
+    banker: { nickname: string; game: string; bb: number; amount: number } | null;
+    badBeat: { nickname: string; game: string; equity: number; hand?: StoredHand | null } | null;
+  };
+  stats: { games: number; players: number; turnover: number; biggestPotBb: number | null };
+  bestHand?: (StoredHand & { nickname: string }) | null;
 }
+
+const handOf = (h: StoredHand | null | undefined): HandPicture | null => (h ? { board: h.board, players: h.players.map((p) => ({ nickname: p.nickname, hole: p.hole, role: p.role, five: p.five, desc: p.desc })) } : null);
 
 /**
  * Summary pictures for Discord: gathers the data of a finished tournament or a closed evening, takes the look
- * from the default theme and the picture settings, and renders a PNG. Also serves the admin preview.
+ * from the default theme and the picture settings, and renders a PNG. The picture shows what the app shows on the
+ * "tournament finished" window and the evening page. Also serves the admin preview.
  */
 export class PictureService {
   constructor(private deps: Deps) {}
@@ -55,26 +69,12 @@ export class PictureService {
       maxRows: Number(s['integrations.pictureMaxRows']),
       amounts: !!s['integrations.pictureAmounts'],
       tokens: resolveTokens(theme ?? BUILTIN_THEMES[0]!, s['integrations.pictureMode'] === 'light' ? 'light' : 'dark'),
-      currency: currencyFormsOf(s),
       timeZone: String(s['system.timezone']),
     };
   }
 
   private async png(svg: string): Promise<Uint8Array> {
     return (this.deps.render ?? svgToPng)(svg, String(this.deps.settings()['integrations.pictureFont']));
-  }
-
-  private async tournamentData(id: string): Promise<TournamentPictureData | null> {
-    const live = this.deps.tournament(id);
-    if (live) return live;
-    if (!id) return null;
-    const db = this.deps.db;
-    const [row] = await db.select({ name: schema.tournaments.name }).from(schema.tournaments).where(eq(schema.tournaments.id, id));
-    const results = await db.select().from(schema.gameResults).where(and(eq(schema.gameResults.kind, 'tournament'), eq(schema.gameResults.ref, id)));
-    if (!row || results.length === 0) return null;
-    const users = await db.select({ id: schema.users.id, nickname: schema.users.nickname }).from(schema.users).where(inArray(schema.users.id, results.map((r) => r.userId)));
-    const names = new Map(users.map((u) => [u.id, u.nickname]));
-    return { name: row.name, finishedAt: results[0]!.finishedAt.getTime(), results: results.map((r) => ({ place: r.place, name: names.get(r.userId) ?? '?', payout: r.payout, bounty: r.bounty })) };
   }
 
   private async eveningData(id: string): Promise<EveningPictureData | null> {
@@ -86,36 +86,67 @@ export class PictureService {
       name: ev.name,
       from: sum.from,
       to: sum.to,
-      games: sum.stats.games,
-      players: sum.players.map((p) => ({ nickname: p.nickname, net: p.net, knockouts: p.knockouts, score: p.score })),
+      players: sum.players.map((p) => ({ nickname: p.nickname, net: p.net, cash: p.cash ?? 0, tournament: p.tournament ?? 0, side: p.side ?? 0, knockouts: p.knockouts, parts: p.parts ?? {}, ...(p.seated !== undefined ? { seated: p.seated } : {}) })),
+      games: (sum.games ?? []).map((g) => ({ kind: g.kind, name: g.name })),
       mvp: sum.mvp ? { nickname: sum.mvp.nickname, score: sum.mvp.score } : null,
       hunter: sum.awards.hunter ? { nickname: sum.awards.hunter.nickname, count: sum.awards.hunter.count } : null,
-      banker: sum.awards.banker ? { nickname: sum.awards.banker.nickname, bb: sum.awards.banker.bb } : null,
-      badBeat: sum.awards.badBeat ? { nickname: sum.awards.badBeat.nickname, equity: sum.awards.badBeat.equity } : null,
+      banker: sum.awards.banker ? { nickname: sum.awards.banker.nickname, game: sum.awards.banker.game, bb: sum.awards.banker.bb, amount: sum.awards.banker.amount } : null,
+      badBeat: sum.awards.badBeat ? { nickname: sum.awards.badBeat.nickname, game: sum.awards.badBeat.game, equity: sum.awards.badBeat.equity, hand: handOf(sum.awards.badBeat.hand) } : null,
+      bestHand: sum.bestHand && handOf(sum.bestHand) ? { nickname: sum.bestHand.nickname, game: sum.bestHand.game ?? '', hand: handOf(sum.bestHand)! } : null,
+      stats: sum.stats,
     };
   }
 
   /** Made-up data for the preview and the test message. */
-  sample(kind: 'tournament', now?: number): TournamentPictureData;
-  sample(kind: 'evening', now?: number): EveningPictureData;
-  sample(kind: PictureKind, now = this.deps.now()): TournamentPictureData | EveningPictureData {
+  sample(kind: 'tournament'): TournamentPictureData;
+  sample(kind: 'evening'): EveningPictureData;
+  sample(kind: PictureKind): TournamentPictureData | EveningPictureData {
     const nick = (n: number) => t('integration.picture.samplePlayer', { n });
     if (kind === 'tournament') {
       const payouts = [2500, 1500, 1000];
       const bounties = [300, 0, 200, 100];
-      return { name: t('integration.picture.sampleTournament'), finishedAt: now, results: Array.from({ length: 8 }, (_, i) => ({ place: i + 1, name: nick(i + 1), payout: payouts[i] ?? 0, bounty: bounties[i] ?? 0 })) };
+      return {
+        name: t('integration.picture.sampleTournament'),
+        summary: Array.from({ length: 8 }, (_, i) => {
+          const rebuys = i % 3 === 1 ? 1 : 0;
+          const spent = 500 + rebuys * 500;
+          const payout = payouts[i] ?? 0;
+          const bounty = bounties[i] ?? 0;
+          return { place: i + 1, name: nick(i + 1), entries: 1, entryAmount: 500, rebuys, rebuyAmount: rebuys * 500, addons: i === 0 ? 1 : 0, addonAmount: i === 0 ? 500 : 0, spent: spent + (i === 0 ? 500 : 0), payout, bounty, profit: payout + bounty - spent - (i === 0 ? 500 : 0) };
+        }),
+      };
     }
     const nets = [1850, 620, 140, 0, -310, -900, -1400];
+    const hand: HandPicture = {
+      board: ['Ks', '7d', '2h', 'Qc', '2s'],
+      players: [
+        { nickname: nick(6), hole: ['Ah', 'Ad'], role: 'loser', five: null, desc: { key: 'hand.twoPair', params: { a: 'A', b: '2' } } },
+        { nickname: nick(1), hole: ['2d', '2c'], role: 'winner', five: null, desc: { key: 'hand.trips', params: { rank: '2' } } },
+      ],
+    };
     return {
       name: t('integration.picture.sampleEvening'),
-      from: now - 4 * 3600_000,
-      to: now,
-      games: 3,
-      players: nets.map((net, i) => ({ nickname: nick(i + 1), net, knockouts: Math.max(0, 3 - i), score: Math.round((nets.length - i) * 14.5 * 10) / 10 })),
+      from: this.deps.now() - 4 * 3600_000,
+      to: this.deps.now(),
+      players: nets.map((net, i) => ({
+        nickname: nick(i + 1),
+        net,
+        cash: i < 3 ? net : 0,
+        tournament: i >= 3 ? net : 0,
+        side: 0,
+        knockouts: Math.max(0, 3 - i),
+        parts: (i < 3 ? { cashBuyIn: -1000, cashOut: 1000 + net } : { buyIn: -500, payout: Math.max(0, net + 500) }) as Record<string, number>,
+      })),
+      games: [
+        { kind: 'cash', name: t('integration.picture.sampleCash') },
+        { kind: 'tournament', name: t('integration.picture.sampleTournament') },
+      ],
       mvp: { nickname: nick(1), score: 101.5 },
       hunter: { nickname: nick(1), count: 3 },
-      banker: { nickname: nick(2), bb: 184 },
-      badBeat: { nickname: nick(6), equity: 91.3 },
+      banker: { nickname: nick(2), game: t('integration.picture.sampleTournament'), bb: 184, amount: 3680 },
+      badBeat: { nickname: nick(6), game: t('integration.picture.sampleCash'), equity: 91.3, hand },
+      bestHand: { nickname: nick(1), game: t('integration.picture.sampleTournament'), hand: { board: hand.board, players: [{ nickname: nick(1), hole: ['2d', '2c'], role: 'best', five: ['2d', '2c', '2h', 'Ks', 'Qc'], desc: { key: 'hand.trips', params: { rank: '2' } } }] } },
+      stats: { games: 2, players: nets.length, turnover: 6500, biggestPotBb: 184 },
     };
   }
 
@@ -124,11 +155,11 @@ export class PictureService {
     const id = typeof p.data.id === 'string' ? p.data.id : '';
     const test = p.data.test === true;
     if (p.event === 'tournament.finished') {
-      const data = test ? this.sample('tournament', p.at) : await this.tournamentData(id);
+      const data = test ? this.sample('tournament') : id ? await this.deps.tournament(id) : null;
       return data ? { png: await this.png(tournamentSvg(data, await this.style())), filename: 'turnaj.png' } : null;
     }
     if (p.event === 'evening.closed') {
-      const data = test ? this.sample('evening', p.at) : await this.eveningData(id);
+      const data = test ? this.sample('evening') : await this.eveningData(id);
       return data ? { png: await this.png(eveningSvg(data, await this.style())), filename: 'vecer.png' } : null;
     }
     return null;

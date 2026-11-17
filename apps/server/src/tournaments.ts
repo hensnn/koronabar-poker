@@ -605,6 +605,27 @@ export class TournamentManager {
     return this.rows.get(id)?.name;
   }
 
+  /**
+   * Výsledková tabulka skončeného turnaje přesně tak, jak ji dostanou hráči (vstupy, rebuye, add-ony, zaplaceno, výhra, bounty,
+   * odměny na hlavu, sázky, profit); z paměti, nebo po restartu z uloženého stavu. Pro obrázek na Discord. Null, dokud turnaj neskončil.
+   */
+  async summaryOf(id: string): Promise<{ name: string; summary: ReturnType<typeof resultSummary>[] } | null> {
+    let name: string | undefined;
+    let st: Pick<TournamentState, 'payments' | 'players' | 'results'> | null | undefined;
+    const live = this.tours.get(id);
+    if (live) {
+      name = this.rows.get(id)?.name;
+      st = live.state();
+    } else {
+      const [r] = await this.deps.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id));
+      name = r?.name;
+      st = r?.state as TournamentState | null | undefined;
+    }
+    if (name === undefined || !st?.results || st.results.length === 0) return null;
+    const head = await this.deps.headTotals?.(id);
+    return { name, summary: st.results.map((r) => resultSummary(st!, r, head?.get(r.userId))) };
+  }
+
   // ---------- plánování ----------
 
   schedOf(id: string): SchedMeta | null {

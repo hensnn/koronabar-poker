@@ -3,52 +3,103 @@ import { FakeClock } from '@kb/game-core';
 import { BUILTIN_THEMES, resolveTokens } from '@kb/tokens';
 import { buildServer } from '../app.js';
 import { PictureService } from './picture-service.js';
-import { eveningSvg, svgToPng, tournamentSvg, type EveningPictureData, type PictureStyle, type TournamentPictureData } from './pictures.js';
+import { eveningSvg, svgToPng, textWidth, tournamentSvg, type EveningPictureData, type HandPicture, type PictureStyle, type TournamentPictureData, type TournamentRow } from './pictures.js';
 import { IntegrationError } from './service.js';
 
 const dark = resolveTokens(BUILTIN_THEMES[0]!, 'dark');
-const style = (o: Partial<PictureStyle> = {}): PictureStyle => ({ width: 900, maxRows: 12, amounts: true, tokens: dark, currency: ['Korona', 'Korony', 'Koron'], timeZone: 'Europe/Prague', ...o });
+const style = (o: Partial<PictureStyle> = {}): PictureStyle => ({ width: 900, maxRows: 12, amounts: true, tokens: dark, timeZone: 'Europe/Prague', ...o });
 const AT = Date.UTC(2026, 10, 13, 21, 30);
+const widthOf = (svg: string) => Number(/<svg[^>]* width="(\d+)"/.exec(svg)![1]);
+const heightOf = (svg: string) => Number(/<svg[^>]* height="(\d+)"/.exec(svg)![1]);
 
+const row = (place: number, over: Partial<TournamentRow> = {}): TournamentRow => ({
+  place,
+  name: `Hráč${place}`,
+  entries: 1,
+  entryAmount: 500,
+  rebuys: 0,
+  rebuyAmount: 0,
+  addons: 0,
+  addonAmount: 0,
+  spent: 500,
+  payout: 0,
+  bounty: 0,
+  profit: -500,
+  ...over,
+});
 const tournament = (players = 6): TournamentPictureData => ({
   name: 'Páteční turnaj',
-  finishedAt: AT,
-  results: Array.from({ length: players }, (_, i) => ({ place: i + 1, name: `Hráč${i + 1}`, payout: [2500, 1500][i] ?? 0, bounty: i === 2 ? 300 : 0 })),
+  summary: Array.from({ length: players }, (_, i) =>
+    i === 0 ? row(1, { rebuys: 1, rebuyAmount: 500, spent: 1000, payout: 2500, bounty: 300, profit: 1800 }) : i === 1 ? row(2, { payout: 1500, profit: 1000 }) : row(i + 1),
+  ),
 });
+
+const hand: HandPicture = {
+  board: ['Ks', '7d', '2h', 'Qc', '2s'],
+  players: [
+    { nickname: 'Petr', hole: ['Ah', 'Ad'], role: 'loser', five: null, desc: { key: 'hand.twoPair', params: { a: 'A', b: '2' } } },
+    { nickname: 'Karel', hole: ['2d', '2c'], role: 'winner', five: null, desc: { key: 'hand.trips', params: { rank: '2' } } },
+  ],
+};
 const evening: EveningPictureData = {
   name: 'Páteční večer',
   from: AT - 4 * 3600_000,
   to: AT,
-  games: 3,
   players: [
-    { nickname: 'Karel', net: 1850, knockouts: 3, score: 88.5 },
-    { nickname: 'Jana', net: 0, knockouts: 0, score: 40 },
-    { nickname: 'Petr', net: -310, knockouts: 1, score: 12 },
+    { nickname: 'Petr', net: -310, cash: 0, tournament: -310, side: 0, knockouts: 1, parts: { buyIn: -500, payout: 190 } },
+    { nickname: 'Karel', net: 1850, cash: 1850, tournament: 0, side: 0, knockouts: 3, parts: { cashBuyIn: -1000, cashOut: 2850 } },
+    { nickname: 'Jana', net: 0, cash: 0, tournament: 0, side: 0, knockouts: 0, parts: {} },
+  ],
+  games: [
+    { kind: 'cash', name: 'Stůl 1' },
+    { kind: 'tournament', name: 'Páteční turnaj' },
   ],
   mvp: { nickname: 'Karel', score: 88.5 },
   hunter: { nickname: 'Karel', count: 3 },
-  banker: { nickname: 'Jana', bb: 184 },
-  badBeat: { nickname: 'Petr', equity: 91.3 },
+  banker: { nickname: 'Jana', game: 'Stůl 1', bb: 184, amount: 3680 },
+  badBeat: { nickname: 'Petr', game: 'Stůl 1', equity: 91.3, hand },
+  bestHand: { nickname: 'Karel', game: 'Stůl 1', hand: { board: hand.board, players: [{ nickname: 'Karel', hole: ['2d', '2c'], role: 'best', five: ['2d', '2c', '2h', 'Ks', 'Qc'], desc: { key: 'hand.trips', params: { rank: '2' } } }] } },
+  stats: { games: 2, players: 3, turnover: 6500, biggestPotBb: 184 },
 };
 
-describe('summary pictures: drawing', () => {
-  it('tournament: winner, places, payouts and prize pool in the colours of the theme', () => {
+describe('summary pictures: the tournament window as a picture', () => {
+  it('same title, columns and figures as the "tournament finished" window, in the colours of the theme', () => {
     const svg = tournamentSvg(tournament(), style());
-    expect(svg).toContain('width="900"');
     expect(svg).toContain(`fill="${dark['color.bg']}"`);
-    expect(svg).toContain('Páteční turnaj');
-    expect(svg).toContain('prize pool 4 000 Koron');
-    expect(svg).toContain('>2 500 Koron<');
-    expect(svg).toContain('>1 500 Koron<');
-    expect(svg).toContain('>300 Koron<'); // bounty column appears because somebody earned one
-    expect(svg).toContain('BOUNTY');
-    expect(svg).toContain('>Hráč6<');
-    expect(svg).toContain('13. 11. 2026');
+    expect(svg).toContain('Turnaj Páteční turnaj skončil');
+    for (const head of ['Místo', 'Hráč', 'Buy-in', 'Rebuy', 'Add-on', 'Zaplaceno', 'Výhra (umístění)', 'Bounty', 'Profit']) expect(svg).toContain(`>${head}<`);
+    expect(svg).not.toContain('Odměny na hlavu</text>'); // columns of head bounties and bets only when somebody has them
+    expect(svg).toContain('>1× 500<'); // buy-in: count and amount
+    expect(svg).toContain('>-1 000<'); // paid in total (buy-in + rebuy)
+    expect(svg).toContain('>2 500<');
+    expect(svg).toContain('>300<'); // bounty
+    expect(svg).toMatch(new RegExp(`fill="${dark['color.success']}"[^>]*>\\+1 800<`));
+    expect(svg).toMatch(new RegExp(`fill="${dark['color.danger']}"[^>]*>-500<`));
+    expect(svg).toContain('včetně poplatků'); // the note under the table
+  });
+
+  it('head bounties and side bets get their columns when somebody has them, with the colours of the app', () => {
+    const d = tournament(3);
+    d.summary[0] = { ...d.summary[0]!, headEarned: 100, headLost: 40, betNet: 250 };
+    const svg = tournamentSvg(d, style());
+    expect(svg).toContain('>Odměny na hlavu<');
+    expect(svg).toContain('>Sázky bokem<');
+    expect(svg).toContain('>+100 -40<');
+    expect(svg).toMatch(new RegExp(`fill="${dark['color.success']}"[^>]*>\\+250<`));
+  });
+
+  it('the picture is as wide as the table needs, never narrower than the width setting', () => {
+    const wide = widthOf(tournamentSvg(tournament(), style({ width: 600 })));
+    expect(wide).toBeGreaterThan(600); // the table needs more
+    expect(widthOf(tournamentSvg(tournament(), style({ width: 1600 })))).toBeGreaterThanOrEqual(1600);
+    const long = tournament(2);
+    long.summary[0]!.name = 'Velmi dlouhé jméno hráče, které se nevejde';
+    expect(widthOf(tournamentSvg(long, style()))).toBeGreaterThanOrEqual(900);
   });
 
   it('player names cannot break the picture or smuggle markup into it', () => {
     const d = tournament(2);
-    d.results[0]!.name = '<b>Karel</b> & "spol"';
+    d.summary[0]!.name = '<b>Karel</b> & "spol"';
     d.name = "O'Brien <script>";
     const svg = tournamentSvg(d, style());
     expect(svg).not.toContain('<b>');
@@ -57,16 +108,19 @@ describe('summary pictures: drawing', () => {
     expect(svg).toContain('O&apos;Brien &lt;script&gt;');
   });
 
-  it('without amounts the picture shows places only: no payouts, prize pool or bounty', () => {
+  it('without amounts the picture shows places and counts only: no money columns, no profit', () => {
     const svg = tournamentSvg(tournament(), style({ amounts: false }));
-    expect(svg).not.toMatch(/\d Koron/);
-    expect(svg).not.toContain('VÝHRA');
-    expect(svg).not.toContain('BOUNTY');
+    for (const head of ['Zaplaceno', 'Výhra (umístění)', 'Bounty', 'Profit']) expect(svg).not.toContain(`>${head}<`);
+    expect(svg).not.toContain('2 500');
+    expect(svg).toContain('>1×<');
     expect(svg).toContain('>Hráč1<');
     const ev = eveningSvg(evening, style({ amounts: false }));
-    expect(ev).not.toMatch(/\d Koron/);
-    expect(ev).not.toContain('PROFIT');
-    expect(ev).toContain('BODY');
+    expect(ev).not.toContain('>Profit<');
+    expect(ev).not.toContain('>Cash vklady<');
+    expect(ev).not.toContain('3680');
+    expect(ev).not.toContain('Obrat');
+    expect(ev).toContain('>Vyřazení<');
+    expect(ev).toContain('pot 184 BB');
   });
 
   it('a long field is cut to the row limit and the rest is counted in one line', () => {
@@ -77,52 +131,96 @@ describe('summary pictures: drawing', () => {
     expect(tournamentSvg(tournament(5), style({ maxRows: 5 }))).not.toContain('a dalších hráčů');
   });
 
-  it('players who share the first place are both named as winners and their payouts are added up', () => {
-    const d = tournament(3);
-    d.results = [
-      { place: 1, name: 'Karel', payout: 2000, bounty: 0 },
-      { place: 1, name: 'Jana', payout: 2000, bounty: 0 },
-      { place: 3, name: 'Petr', payout: 0, bounty: 0 },
-    ];
-    const svg = tournamentSvg(d, style());
-    expect(svg).toContain('>Karel, Jana<');
-    expect(svg).toContain('>4 000 Koron<');
-  });
-
-  it('evening: MVP, awards and the ranking with signed profit in the success and danger colours', () => {
-    const svg = eveningSvg(evening, style());
-    expect(svg).toContain('Páteční večer');
-    expect(svg).toContain('her: 3');
-    expect(svg).toContain('hráčů: 3');
-    expect(svg).toContain('vyřazených: 3');
-    expect(svg).toContain('pot 184 BB');
-    expect(svg).toContain('prohra se šancí 91,3 %');
-    expect(svg).toMatch(new RegExp(`fill="${dark['color.success']}"[^>]*>\\+1 850 Koron<`));
-    expect(svg).toMatch(new RegExp(`fill="${dark['color.danger']}"[^>]*>−310 Koron<`));
-    expect(svg).toContain('>0 Koron<');
-  });
-
-  it('an evening without awards still draws the ranking; the light mode uses the light colours', () => {
+  it('light mode uses the light colours', () => {
     const light = resolveTokens(BUILTIN_THEMES[0]!, 'light');
-    const svg = eveningSvg({ ...evening, mvp: null, hunter: null, banker: null, badBeat: null }, style({ tokens: light }));
+    expect(tournamentSvg(tournament(), style({ tokens: light }))).toContain(`fill="${light['color.bg']}"`);
+  });
+});
+
+describe('summary pictures: the evening page as a picture', () => {
+  it('heading with the status and the time span, then the ranking sorted by result with the columns the evening used', () => {
+    const svg = eveningSvg(evening, style());
+    expect(svg).toContain('>Páteční večer<');
+    expect(svg).toContain('>Uzavřený<');
+    expect(svg).toContain('od ');
+    expect(svg).toContain('Pořadí a výsledek v penězích');
+    for (const head of ['#', 'Hráč', 'Cash vklady', 'Cash výběry', 'Buy-in', 'Výhra', 'Vyřazení', 'Profit']) expect(svg).toContain(`>${head}<`);
+    expect(svg).not.toContain('>Rebuy<'); // columns nobody used are left out, like in the app
+    expect(svg).not.toContain('>Bounty<');
+    // sorted by result: Karel, Jana, Petr
+    expect(svg.indexOf('>Karel<')).toBeLessThan(svg.indexOf('>Jana<'));
+    expect(svg.indexOf('>Jana<')).toBeLessThan(svg.indexOf('>Petr<'));
+    expect(svg).toMatch(new RegExp(`fill="${dark['color.success']}"[^>]*>\\+1850<`));
+    expect(svg).toMatch(new RegExp(`fill="${dark['color.danger']}"[^>]*>-310<`));
+    expect(svg).toContain('>0<');
+  });
+
+  it('awards in the words of the app, the bad beat and the best hand with the cards shown at showdown', () => {
+    const svg = eveningSvg(evening, style());
+    for (const s of ['>Ocenění<', '>MVP<', 'Karel (88.5)', 'Karel: 3 vyřazených', 'Jana: pot 3680 (184 BB) ve hře Stůl 1', 'Petr: prohra se šancí na výhru 91.3 % ve hře Stůl 1']) expect(svg).toContain(s);
+    expect(svg).toContain('Smolařova handa (šance na výhru 91.3 %)');
+    expect(svg).toContain('>Společné karty<');
+    expect(svg).toContain('Dvě dvojice (es a dvojek)');
+    expect(svg).toContain('Handa večera: nejlepší kombinace');
+    expect(svg).toContain('Trojice dvojek');
+    expect(svg).toContain(`fill="${dark['color.cardFace']}"`); // the cards are drawn
+    expect(svg).toContain('>K<');
+    expect(svg).toContain('>Q<');
+  });
+
+  it('statistics and the games of the evening', () => {
+    const svg = eveningSvg(evening, style());
+    for (const s of ['Statistiky večera', '>Obrat (buy-iny)<', '>6500<', '>184 BB<', 'Hry večera', '>cash stůl<', '>turnaj<', '>Stůl 1<']) expect(svg).toContain(s);
+  });
+
+  it('an evening without awards still draws every part; a player who still sat at a table carries the badge and the notice', () => {
+    const light = resolveTokens(BUILTIN_THEMES[0]!, 'light');
+    const bare: EveningPictureData = { ...evening, mvp: null, hunter: null, banker: null, badBeat: null, bestHand: null, players: [{ ...evening.players[1]!, seated: 700 }] };
+    const svg = eveningSvg(bare, style({ tokens: light }));
     expect(svg).toContain(`fill="${light['color.bg']}"`);
-    expect(svg).not.toContain('MVP');
-    expect(svg).toContain('>Karel<');
+    expect(svg).toContain('>nikdo<');
+    expect(svg).toContain('Zatím žádná handa s ukázanými kartami.');
+    expect(svg).not.toContain('Smolařova handa');
+    expect(svg).toContain('>u stolu<');
+    expect(svg).toContain('Karel (žetony v hodnotě 700)');
   });
 
+  it('an evening without players says so; names are escaped', () => {
+    const empty = eveningSvg({ ...evening, players: [], name: '<i>Večer</i>' }, style());
+    expect(empty).toContain('Zatím se nikdo nepřihlásil.');
+    expect(empty).not.toContain('<i>');
+    expect(empty).toContain('&lt;i&gt;Večer&lt;/i&gt;');
+  });
+
+  it('a long ranking is cut to the row limit', () => {
+    const many: EveningPictureData = { ...evening, players: Array.from({ length: 20 }, (_, i) => ({ nickname: `H${i}`, net: 100 - i, cash: 0, tournament: 0, side: 0, knockouts: 0, parts: { buyIn: -1 } })) };
+    const svg = eveningSvg(many, style({ maxRows: 4 }));
+    expect(svg).toContain('… a dalších hráčů: 16');
+  });
+});
+
+describe('summary pictures: drawing basics', () => {
   it('the size follows the width setting', () => {
-    const narrow = tournamentSvg(tournament(), style({ width: 600 }));
-    const wide = tournamentSvg(tournament(), style({ width: 1200 }));
-    const height = (svg: string) => Number(/height="(\d+)"/.exec(svg)![1]);
-    expect(narrow).toContain('width="600"');
-    expect(height(wide)).toBeGreaterThan(height(narrow) * 1.9);
+    const small = eveningSvg(evening, style({ width: 600 }));
+    const big = eveningSvg(evening, style({ width: 1200 }));
+    expect(widthOf(big)).toBeGreaterThanOrEqual(1200);
+    expect(heightOf(big)).toBeGreaterThan(heightOf(small) * 1.5);
   });
 
-  it('renders a real PNG of the requested width', async () => {
-    const png = await svgToPng(tournamentSvg(tournament(), style()), 'DejaVu Sans');
-    expect([...png.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    expect(Buffer.from(png).readUInt32BE(16)).toBe(900);
-    expect(png.length).toBeGreaterThan(5000);
+  it('text width estimates grow with the text and the size, and wide letters take more room', () => {
+    expect(textWidth('', 20)).toBe(0);
+    expect(textWidth('Karel Novák', 20)).toBeGreaterThan(textWidth('Karel', 20));
+    expect(textWidth('Karel', 40)).toBeCloseTo(textWidth('Karel', 20) * 2, 5);
+    expect(textWidth('WWWW', 20)).toBeGreaterThan(textWidth('iiii', 20) * 2);
+  });
+
+  it('renders a real PNG as wide as the drawing, for both pictures', async () => {
+    for (const svg of [tournamentSvg(tournament(), style()), eveningSvg(evening, style())]) {
+      const png = await svgToPng(svg, 'DejaVu Sans');
+      expect([...png.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      expect(Buffer.from(png).readUInt32BE(16)).toBe(widthOf(svg));
+      expect(png.length).toBeGreaterThan(5000);
+    }
   });
 });
 
@@ -217,38 +315,44 @@ describe('summary pictures: Discord', { timeout: 60_000 }, () => {
     expect([...p.bytes]).toEqual([...FAKE_PNG]);
     expect(c.drawn).toHaveLength(1);
     expect(c.drawn[0]).toContain('Páteční večer');
+    expect(c.drawn[0]).toContain('Statistiky večera'); // the whole page, not only a short extract
     const [d] = await c.server.integrations.deliveries(c.admin);
     expect(d).toMatchObject({ target: 'discord', event: 'evening.closed', status: 'ok' });
   });
 
-  it('a finished tournament goes out as a picture with the real results', async () => {
+  it('a finished tournament goes out as the same table the players get, with the real figures', async () => {
     const c = await start({ ...TOUR, 'integrations.discordEvents': 'tournament.finished' });
-    await playTournament(c);
+    const { id } = await playTournament(c);
     expect(c.calls).toHaveLength(1);
     const p = await parts(c.calls[0]!.body);
     expect(p.json.content).toContain('Čtvrteční');
     expect(p.json.content).toMatch(/http:\/\/localhost\/turnaj\/\S+/); // link to the full results
     expect(p.json.attachments).toEqual([{ id: 0, filename: 'turnaj.png' }]);
     const svg = c.drawn[0]!;
-    expect(svg).toContain('Čtvrteční');
+    expect(svg).toContain('Turnaj Čtvrteční skončil');
     expect(svg).toContain('>P1x<'); // the winner
     expect(svg).toContain('>P2x<');
-    expect(svg).toContain('>200 Koron<');
+    expect(svg).toContain('>1× 100<'); // each paid one buy-in
+    expect(svg).toContain('>-100<'); // paid
+    expect(svg).toContain('>200<'); // the winner takes the pool
+    expect(svg).toMatch(new RegExp(`fill="${dark['color.success']}"[^>]*>\\+100<`)); // profit of the winner
+    // every figure is the one of the summary the players receive
+    const summary = (await c.server.tournaments.summaryOf(id))!.summary;
+    expect(summary.map((r) => r.profit).sort()).toEqual([-100, 100]);
     expect(svg).not.toMatch(/hole|deck/);
   });
 
-  it('after a restart the results are read from the database, so a retried delivery still gets its picture', async () => {
+  it('the tournament table is read from the tournament service, so a retried delivery still gets its picture', async () => {
     const c = await start({ ...TOUR, 'integrations.discordEvents': '' });
     const { id } = await playTournament(c);
     await c.server.journal.flush();
-    await c.server.stats.idle();
     const drawn: string[] = [];
     const fresh = new PictureService({
       db: c.server.db,
       perms: c.server.perms,
       settings: () => c.server.settings.resolve(),
       now: () => 0,
-      tournament: () => null, // nothing in memory
+      tournament: (tid) => c.server.tournaments.summaryOf(tid),
       render: async (svg) => {
         drawn.push(svg);
         return FAKE_PNG;
@@ -258,7 +362,8 @@ describe('summary pictures: Discord', { timeout: 60_000 }, () => {
     expect(pic?.filename).toBe('turnaj.png');
     expect(drawn[0]).toContain('Čtvrteční');
     expect(drawn[0]).toContain('>P1x<');
-    expect(drawn[0]).toContain('>200 Koron<');
+    expect(drawn[0]).toContain('>200<');
+    expect(await c.server.tournaments.summaryOf('neexistuje')).toBeNull();
   });
 
   it('only summaries become pictures; other events and channels with the switch off keep the text', async () => {
@@ -302,11 +407,12 @@ describe('summary pictures: Discord', { timeout: 60_000 }, () => {
     expect(await c.server.integrations.testDiscord(c.admin)).toEqual({ ok: true });
     const p = await parts(c.calls[0]!.body);
     expect(p.json.attachments).toEqual([{ id: 0, filename: 'turnaj.png' }]);
-    expect(c.drawn[0]).toContain('Ukázkový turnaj');
+    expect(c.drawn[0]).toContain('Turnaj Ukázkový turnaj skončil');
     expect((await c.server.integrations.overview(c.admin)).discord.map((d) => d.pictures)).toEqual([true, false, false, false]);
 
     expect([...(await c.server.pictures.preview(c.admin, 'evening'))]).toEqual([...FAKE_PNG]);
     expect(c.drawn[1]).toContain('Ukázkový večer');
+    expect(c.drawn[1]).toContain('Smolařova handa'); // the sample shows the hands too
     const player = await c.user();
     await expect(c.server.pictures.preview(player, 'tournament')).rejects.toBeInstanceOf(IntegrationError);
   });
@@ -315,8 +421,9 @@ describe('summary pictures: Discord', { timeout: 60_000 }, () => {
     const c = await start({ 'integrations.pictureMode': 'light', 'integrations.pictureWidth': 1200, 'integrations.pictureAmounts': false });
     await c.server.pictures.preview(c.admin, 'tournament');
     const light = resolveTokens(BUILTIN_THEMES.find((x) => x.id === 'classic-green')!, 'light');
-    expect(c.drawn[0]).toContain('width="1200"');
+    expect(widthOf(c.drawn[0]!)).toBeGreaterThanOrEqual(1200);
     expect(c.drawn[0]).toContain(`fill="${light['color.bg']}"`);
-    expect(c.drawn[0]).not.toMatch(/\d Koron/);
+    expect(c.drawn[0]).not.toContain('>Zaplaceno<');
+    expect(c.drawn[0]).not.toContain('>Profit<');
   });
 });
