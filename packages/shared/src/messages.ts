@@ -21,6 +21,7 @@ export const clientMessages = {
   'table:sitOut': z.object({ tableId }),
   'table:sitIn': z.object({ tableId }),
   'table:straddle': z.object({ tableId, want: z.boolean() }),
+  'table:newPlayerRule': z.object({ tableId, rule: z.enum(['waitForBb', 'postDeadBlind']) }),
   'table:callClock': z.object({ tableId }),
   'table:vote': z.object({ tableId, yes: z.boolean() }),
   'table:ready': z.object({ tableId, ready: z.boolean() }),

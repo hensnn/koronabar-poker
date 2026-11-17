@@ -202,6 +202,29 @@ describe('server: Socket.IO brána s účty a oprávněními', () => {
     expect(b.last()!.info.straddle).toBe('optional');
   });
 
+  it('nový hráč si volí sám: server volbu ověří, uloží a pohled ji ukáže jen hráči u stolu; vypnutá volba se odmítne', async () => {
+    const on = await start({ table: { 'table.newPlayerRule': 'waitForBb', 'table.deadBlindBb': 2 } });
+    const a = await client(on.url, (await player(on.server, 'Alice')).cookie);
+    await call(a, 'table:join', { tableId: 'stul-1', seat: 0, amount: 500 });
+    expect((await call(a, 'table:newPlayerRule', { tableId: 'stul-1', rule: 'postDeadBlind' })).ok).toBe(true);
+    await until(() => a.last()?.myNewPlayerRule === 'postDeadBlind');
+    expect(a.last()!.info).toMatchObject({ newPlayerChoice: true, newPlayerRule: 'waitForBb' }); // pravidlo stolu zůstává, mění se jen volba hráče
+    expect(a.last()!.info.deadBlind).toBe(2 * a.last()!.info.bigBlind);
+    expect((await call(a, 'table:newPlayerRule', { tableId: 'stul-1', rule: 'zadarmo' })).code).toBe('INVALID_MESSAGE');
+    // divák nemá volbu a cizí pohled ji nevidí
+    const spectator = await client(on.url, (await player(on.server, 'Divak')).cookie);
+    expect((await call(spectator, 'table:newPlayerRule', { tableId: 'stul-1', rule: 'postDeadBlind' })).ok).not.toBe(true);
+    a.close();
+    spectator.close();
+    await on.server.close();
+    open.servers.pop();
+    const off = await start({ table: { 'table.newPlayerChoice': false } });
+    const b = await client(off.url, (await player(off.server, 'Bob')).cookie);
+    await call(b, 'table:join', { tableId: 'stul-1', seat: 0, amount: 500 });
+    expect((await call(b, 'table:newPlayerRule', { tableId: 'stul-1', rule: 'postDeadBlind' })).code).toBe('NEW_PLAYER_CHOICE_DISABLED');
+    expect(off.server.tables.get('stul-1')!.viewFor(null).info.newPlayerChoice).toBe(false);
+  });
+
   it('osobní nastavení, změna rolí a peněženka se okamžitě projeví na všech zařízeních hráče', async () => {
     const { url, server } = await start();
     const pa = await player(server, 'Alice');

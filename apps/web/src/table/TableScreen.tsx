@@ -40,7 +40,7 @@ import { PlayerCard, seatBounty } from './PlayerCard';
 import { TableFx, useTableNotices, useTournamentFx } from './fx';
 import { useTableFit, useTableSize } from './size';
 import { DealButton, EntryActions, useBounties, useTournamentInfo } from './InfoCard';
-import { ShowdownPrefs } from './TablePanel';
+import { NewPlayerChoice, ShowdownPrefs } from './TablePanel';
 
 interface Props {
   tableId: string;
@@ -587,6 +587,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
                     <input type="checkbox" role="switch" aria-label={t('table.sitOutToggle')} checked={mine.sitOut ?? mine.status === 'sittingOut'} onChange={(e) => void run(e.target.checked ? table.sitOut(tableId) : table.sitIn(tableId))} />
                     <span className={(mine.sitOut ?? mine.status === 'sittingOut') ? 'font-semibold text-warning' : ''}>{t('table.sittingOut')}</span>
                   </label>
+                  <NewPlayerChoice view={view} onChange={(rule) => void run(table.newPlayerRule(tableId, rule))} />
                   <ShowdownPrefs info={info} tour={tourInfo} />
                 </div>
               )}
@@ -621,6 +622,7 @@ export function TableScreen({ tableId, inBb, quickPost, quickPre, extra, modern 
                     <input type="checkbox" role="switch" aria-label={t('table.sitOutToggle')} checked={mine.sitOut ?? mine.status === 'sittingOut'} onChange={(e) => void run(e.target.checked ? table.sitOut(tableId) : table.sitIn(tableId))} />
                     <span className={(mine.sitOut ?? mine.status === 'sittingOut') ? 'font-semibold text-warning' : ''}>{t('table.sittingOut')}</span>
                   </label>
+                  <NewPlayerChoice view={view} onChange={(rule) => void run(table.newPlayerRule(tableId, rule))} />
                   <ShowdownPrefs info={info} tour={tourInfo} />
                 </div>} />}
       {actionsInline && !modern && (mine || extra) && (

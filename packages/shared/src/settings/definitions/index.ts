@@ -95,13 +95,14 @@ const table: SettingDef[] = [
     'waitForBb',
     'postDeadBlind',
   ]),
+  // Hráč si u stolu sám zvolí, zda počká na big blind, nebo zaplatí dead blind (výchozí je pravidlo stolu výše).
+  bool('table.newPlayerChoice', { category: 'table', appliesTo: 'cash', mutability: H }, true),
   int(
     'table.deadBlindBb',
     {
       category: 'table', appliesTo: 'cash',
       mutability: H,
       unit: 'BB',
-      dependsOn: { key: 'table.newPlayerRule', equals: 'postDeadBlind' },
     },
     1,
     1,
@@ -786,6 +787,7 @@ const ui: SettingDef[] = [
   text('ui.tableLayout', { category: 'ui', mutability: A, scopes: USER }, '', 1500),
   text('ui.statsSeason', { category: 'ui', mutability: A, scopes: USER }, '', 60),
   text('ui.statsCompare', { category: 'ui', mutability: A, scopes: USER }, '', 2000),
+  text('ui.statsKind', { category: 'ui', mutability: A, scopes: USER }, 'all', 20),
   text('ui.adminLast', { category: 'ui', mutability: A, scopes: USER }, '', 600),
   text('ui.foldState', { category: 'ui', mutability: A, scopes: USER }, '', 4000),
   int('ui.tableSideWidth', { category: 'ui', mutability: A, unit: 'px', scopes: USER }, 0, 0, 640),

@@ -38,7 +38,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
     ['ui.look', /^ui\.(colorMode|density|themeId|fontScalePercent|reducedMotion)$/],
     ['ui.chat', /^ui.chat(List|TablesWithChannels|HideEmpty)$/],
     ['ui.scale', /^ui\.scaleLock/],
-    ['ui.layout', /^ui\.(tablePanel|sizePerDisplay|sizeProfiles|tableLayout|foldState|statsSeason|statsCompare|adminLast|tableSide|noteWindow|tableArea|tableFitWindow|tableHeightPercent|tableChat|compactHeader)/],
+    ['ui.layout', /^ui\.(tablePanel|sizePerDisplay|sizeProfiles|tableLayout|foldState|statsSeason|statsCompare|statsKind|adminLast|tableSide|noteWindow|tableArea|tableFitWindow|tableHeightPercent|tableChat|compactHeader)/],
     ['ui.show', /^(ui\.(showPlayerNotes|showSymbol|showChipLabel|rotateToMe|hideMyCards|chipLeaderCrown|winImpact|betChips|tableWaitInfo|tournamentWaitBanner|tableNotices|timeoutNotice|showSystem|showPlayers|showInBb)|chat\.show)/],
     ['ui.showdown', /^ui\.(showdown|runItResponse)/],
     ['ui.actions', /^ui\.(auto|quickBets|plan)/],
@@ -86,7 +86,7 @@ export const SUBGROUP_RULES: Record<string, Rule[]> = {
     ['sounds.jingles', /^sounds\.(jingle|joinJingle|winJingle)/],
   ],
   table: [
-    ['table.basic', /^table\.(seats|variant|bettingLimit|limitMaxBets|smallBlind|bigBlind|ante|bbAnte|deadButton|deadBlindBb|newPlayerRule)$/],
+    ['table.basic', /^table\.(seats|variant|bettingLimit|limitMaxBets|smallBlind|bigBlind|ante|bbAnte|deadButton|deadBlindBb|newPlayerRule|newPlayerChoice)$/],
     ['table.straddle', /^table\.straddle/],
     ['table.ready', /^table\.ready/],
     ['table.display', /^table\.(winImpact|showChipLabel|chipLabel)/],

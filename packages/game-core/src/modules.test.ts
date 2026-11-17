@@ -96,6 +96,131 @@ describe('pravidlo pro nové hráče: čekání na big blind', () => {
   });
 });
 
+describe('volba nováčka: počkat na big blind, nebo zaplatit dead blind', () => {
+  const BB = 10;
+  /** Stůl se třemi zkušenými hráči, kteří už dohráli dvě handy; nováček sedá na místo 3. */
+  function started(over: Record<string, number | boolean | string> = {}) {
+    const m = make({ 'table.deadBlindBb': 1, ...over });
+    for (const [i, u] of ['a', 'b', 'c'].entries()) m.sit(u, i);
+    next(m);
+    for (let i = 0; i < 2; i++) {
+      playOut(m);
+      m.clock.advance(20_000);
+    }
+    return m;
+  }
+  const seatOf = (m: M, u: string) => view(m, u).seats.find((s) => s.playerId === u)!;
+  /** Dohrává handy, dokud nováček nedostane karty; vrací počet handů a jeho vklady při rozdání (stack + blind). */
+  function untilDealt(m: M, u: string, maxHands = 16) {
+    let hands = 0;
+    const paid: number[] = [];
+    for (; hands < maxHands; hands++) {
+      const v = view(m, u);
+      const me = v.seats.find((s) => s.playerId === u)!;
+      if (v.handId && me.cards) return { hands, startTotal: me.stack + me.bet, waitingHands: paid };
+      if (v.actingSeat !== null) paid.push(me.stack + me.bet); // v této handě nehraje: nic mu nesmí ubýt
+      finishAndNext(m);
+    }
+    throw new Error('nováček nedostal karty');
+  }
+
+  it('pravidlo stolu „čekat“, hráč si zvolí dead blind: hraje hned od další handy a zaplatí jednou', () => {
+    const m = started({ 'table.newPlayerRule': 'waitForBb' });
+    m.sit('d', 3);
+    m.actor.setNewPlayerRule('d', 'postDeadBlind');
+    expect(view(m, 'd').myNewPlayerRule).toBe('postDeadBlind');
+    const r = untilDealt(m, 'd');
+    expect(r.hands).toBeLessThanOrEqual(1); // nanejvýš dohrávaná handa, pak je v rozdání
+    expect(r.startTotal).toBe(1000 - BB); // dead blind 1 BB
+    expect(m.actor.totalChips()).toBe(4000);
+    // podruhé už neplatí (už není nový)
+    playOut(m);
+    m.clock.advance(20_000);
+    for (let i = 0; i < 6 && !view(m, 'd').handId; i++) m.clock.advance(500);
+    const again = seatOf(m, 'd');
+    expect(again.stack + again.bet).toBeGreaterThanOrEqual(1000 - BB - 2 * BB - 100); // jen blindy a sázky, žádný další dead blind
+    expect(m.actor.totalChips()).toBe(4000);
+  });
+
+  it('pravidlo stolu „dead blind“, hráč si zvolí čekání: nic neplatí a čeká na big blind', () => {
+    const m = started({ 'table.newPlayerRule': 'postDeadBlind' });
+    m.sit('d', 3);
+    m.actor.setNewPlayerRule('d', 'waitForBb');
+    expect(seatOf(m, 'd').status).toBe('waiting');
+    const r = untilDealt(m, 'd');
+    expect(r.hands).toBeGreaterThanOrEqual(1); // chvíli čeká
+    expect(r.startTotal).toBe(1000); // dead blind nezaplatil
+    for (const total of r.waitingHands) expect(total).toBe(1000); // za čekání mu nic neubývá
+    expect(m.actor.totalChips()).toBe(4000);
+  });
+
+  it('bez vlastní volby platí pravidlo stolu (obě varianty)', () => {
+    const wait = started({ 'table.newPlayerRule': 'waitForBb' });
+    wait.sit('d', 3);
+    expect(view(wait, 'd').myNewPlayerRule).toBe('waitForBb');
+    expect(untilDealt(wait, 'd').startTotal).toBe(1000);
+    const pay = started({ 'table.newPlayerRule': 'postDeadBlind' });
+    pay.sit('d', 3);
+    expect(view(pay, 'd').myNewPlayerRule).toBe('postDeadBlind');
+    expect(untilDealt(pay, 'd').startTotal).toBe(1000 - BB);
+  });
+
+  it('přepnutí před další handou: poslední volba vyhrává a nikdo neplatí bez karet', () => {
+    const m = started({ 'table.newPlayerRule': 'waitForBb' });
+    m.sit('d', 3);
+    m.actor.setNewPlayerRule('d', 'postDeadBlind');
+    m.actor.setNewPlayerRule('d', 'waitForBb');
+    m.actor.setNewPlayerRule('d', 'postDeadBlind');
+    m.actor.setNewPlayerRule('d', 'waitForBb');
+    const r = untilDealt(m, 'd');
+    expect(r.startTotal).toBe(1000);
+    for (const total of r.waitingHands) expect(total).toBe(1000);
+    expect(m.actor.totalChips()).toBe(4000);
+  });
+
+  it('když stůl volbu nedovoluje, volba se odmítne a platí pravidlo stolu', () => {
+    const m = started({ 'table.newPlayerRule': 'waitForBb', 'table.newPlayerChoice': false });
+    m.sit('d', 3);
+    expect(() => m.actor.setNewPlayerRule('d', 'postDeadBlind')).toThrowError(expect.objectContaining({ code: 'NEW_PLAYER_CHOICE_DISABLED' }));
+    expect(view(m, 'd').info.newPlayerChoice).toBe(false);
+    expect(untilDealt(m, 'd').startTotal).toBe(1000);
+    // dříve uložená volba se po vypnutí volby nepoužije
+    const n = started({ 'table.newPlayerRule': 'waitForBb' });
+    n.sit('d', 3);
+    n.actor.setNewPlayerRule('d', 'postDeadBlind');
+    n.settings['table.newPlayerChoice'] = false;
+    expect(view(n, 'd').myNewPlayerRule).toBe('waitForBb');
+    expect(untilDealt(n, 'd').startTotal).toBe(1000);
+  });
+
+  it('jen sedící hráč a jen u cash stolu; informace o stolu nesou částku dead blindu', () => {
+    const m = started();
+    expect(() => m.actor.setNewPlayerRule('x', 'postDeadBlind')).toThrow(GameError);
+    expect(view(m, 'x').myNewPlayerRule).toBeUndefined();
+    expect(view(m).myNewPlayerRule).toBeUndefined();
+    const info = view(m, 'a').info;
+    expect(info).toMatchObject({ newPlayerChoice: true, newPlayerRule: 'waitForBb', deadBlind: BB });
+    expect(() => m.actor.setNewPlayerRule('a', 'bad' as never)).toThrow(GameError);
+  });
+
+  it('když ostatním nezbyde protihráč, nikdo neplatí dead blind ani nečeká', () => {
+    const m = make({ 'table.newPlayerRule': 'postDeadBlind' });
+    m.sit('a', 0);
+    m.sit('b', 1);
+    next(m);
+    playOut(m);
+    m.clock.advance(20_000);
+    m.sit('c', 2);
+    m.actor.setNewPlayerRule('c', 'postDeadBlind');
+    m.actor.leave('b');
+    playOut(m);
+    m.clock.advance(20_000);
+    for (let i = 0; i < 4 && view(m).actingSeat === null; i++) m.clock.advance(1000);
+    expect(m.actor.hasError()).toBeNull();
+    expect(m.actor.totalChips()).toBe(m.ledger.balance(accounts.table('t')));
+  });
+});
+
 describe('straddle přes stůl', () => {
   it('povinný UTG straddle: platí ho hráč za big blindem a hraje se podle pravidel', () => {
     const m = make({ 'table.straddleEnabled': true, 'table.straddleMandatory': true, 'table.straddleMultiplier': 2, 'table.newPlayerRule': 'postDeadBlind' });
@@ -263,6 +388,7 @@ describe('simulace s pravidly: BB ante, straddle, noví hráči, dead blind', ()
           else if (r < 0.15) m.actor.sitIn(user);
           else if (r < 0.2) m.actor.topUp(user, 10 * (1 + Math.floor(rnd() * 20)));
           else if (r < 0.25 && m.settings['table.straddleEnabled']) m.actor.setStraddle(user, rnd() < 0.5);
+          else if (r < 0.4) m.actor.setNewPlayerRule(user, rnd() < 0.5 ? 'waitForBb' : 'postDeadBlind');
         }
       } catch (e) {
         if (!(e instanceof GameError)) throw e;

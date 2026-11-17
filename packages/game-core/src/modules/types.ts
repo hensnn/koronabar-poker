@@ -11,6 +11,8 @@ export interface ModuleSeat {
   fresh: boolean;
   /** Hráč si vyžádal dobrovolný straddle. */
   wantsStraddle: boolean;
+  /** Co udělá nový hráč: počká na big blind, nebo zaplatí dead blind. Bez hodnoty platí pravidlo stolu. */
+  newPlayerRule?: 'waitForBb' | 'postDeadBlind';
 }
 
 export interface ModuleContext {

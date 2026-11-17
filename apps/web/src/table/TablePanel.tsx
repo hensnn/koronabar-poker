@@ -229,6 +229,31 @@ function PrefSection({ id, title, help, mobile, children }: { id: string; title:
   );
 }
 
+/**
+ * Nový hráč u cash stolu: sám si volí, zda počká na big blind (zdarma), nebo zaplatí dead blind a hraje hned od další handy.
+ * Ukáže se jen u cash stolu, který volbu dovoluje; výchozí je pravidlo stolu. Rozhoduje server (volba platí od další handy).
+ */
+export function NewPlayerChoice({ view, onChange }: { view: TableView; onChange: (rule: 'waitForBb' | 'postDeadBlind') => void }) {
+  const info = view.info;
+  const mobile = useMobileLayout();
+  if (!info.newPlayerChoice || info.tournament || !view.myNewPlayerRule) return null;
+  const amount = formatAmount(info.deadBlind ?? 0, info, false);
+  return (
+    <label className={`flex items-center gap-1 ${mobile ? 'text-sm' : 'text-xs'}`} title={t('table.newPlayer.tip')}>
+      <span className="text-muted">{t('table.newPlayer')}</span>
+      <select
+        className={mobile ? 'rounded-md border border-line bg-surface px-1 py-1 text-sm' : 'rounded-md border border-line bg-surface px-0.5 py-0 text-xs'}
+        aria-label={t('table.newPlayer')}
+        value={view.myNewPlayerRule}
+        onChange={(e) => onChange(e.target.value === 'postDeadBlind' ? 'postDeadBlind' : 'waitForBb')}
+      >
+        <option value="waitForBb">{t('table.newPlayer.waitForBb')}</option>
+        <option value="postDeadBlind">{t('table.newPlayer.postDeadBlind', { amount })}</option>
+      </select>
+    </label>
+  );
+}
+
 /** Co dělat s kartami: Win = výherní bez showdownu, Lose = poražené na showdownu. Osobní nastavení, platí u všech stolů. */
 export function ShowdownPrefs({ info, tour }: { info: TableInfo; tour: TournamentInfo | null }) {
   const settings = useSettings();

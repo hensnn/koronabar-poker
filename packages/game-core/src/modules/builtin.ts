@@ -47,21 +47,25 @@ export const straddleModule: GameModule = {
   },
 };
 
-/** Pravidlo pro nové hráče: počkat na big blind, nebo zaplatit dead blind. */
+/** Co se stane s nováčkem: jeho vlastní volba (když ji stůl dovoluje), jinak pravidlo stolu. */
+const ruleOf = (ctx: { settings: SettingValues }, seat: { newPlayerRule?: 'waitForBb' | 'postDeadBlind' }): 'waitForBb' | 'postDeadBlind' =>
+  seat.newPlayerRule ?? (ctx.settings['table.newPlayerRule'] === 'postDeadBlind' ? 'postDeadBlind' : 'waitForBb');
+
+/** Pravidlo pro nové hráče: počkat na big blind, nebo zaplatit dead blind (podle volby hráče, jinak podle stolu). */
 export const newPlayerModule: GameModule = {
   id: 'newPlayer',
   titleKey: 'module.newPlayer',
   priority: 40,
-  settingKeys: ['table.newPlayerRule', 'table.deadBlindBb', 'table.bigBlind'],
+  settingKeys: ['table.newPlayerRule', 'table.newPlayerChoice', 'table.deadBlindBb', 'table.bigBlind'],
   isEnabled: () => true,
   hooks: {
     seatOptions(ctx, seat) {
-      if (seat.fresh && ctx.settings['table.newPlayerRule'] === 'waitForBb') return { waitForBb: true };
+      if (seat.fresh && ruleOf(ctx, seat) === 'waitForBb') return { waitForBb: true };
     },
+    // Rozhoduje stejné pravidlo jako při usazení do enginu (obojí běží v jednom kroku předělu), takže nikdo nezaplatí dead blind a přitom nečeká.
     beforeDeal(ctx, plan) {
-      if (ctx.settings['table.newPlayerRule'] !== 'postDeadBlind') return;
       const amount = num(ctx.settings, 'table.deadBlindBb') * num(ctx.settings, 'table.bigBlind');
-      for (const seat of ctx.seats) if (seat.fresh) (plan.deadMoney ??= []).push({ payer: { playerId: seat.userId }, amount });
+      for (const seat of ctx.seats) if (seat.fresh && ruleOf(ctx, seat) === 'postDeadBlind') (plan.deadMoney ??= []).push({ payer: { playerId: seat.userId }, amount });
     },
   },
 };

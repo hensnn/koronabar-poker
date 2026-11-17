@@ -129,6 +129,12 @@ export interface TableInfo {
   currencyDecimals: number;
   /** Vlastní označení žetonů u stolu (prázdné = nezobrazovat). */
   chipLabel?: string;
+  /** Cash stůl: hráč si sám volí, zda jako nováček počká na big blind, nebo zaplatí dead blind. */
+  newPlayerChoice?: boolean;
+  /** Cash stůl: pravidlo stolu pro nováčky (platí, dokud si hráč nezvolí sám). */
+  newPlayerRule?: 'waitForBb' | 'postDeadBlind';
+  /** Cash stůl: kolik žetonů stojí dead blind. */
+  deadBlind?: number;
   /** Straddle u tohoto stolu: vypnutý, povinný, nebo dobrovolný (hráč si ho vyžádá). */
   straddle: 'off' | 'mandatory' | 'optional';
   /** Turnajový stůl: žetony nejsou měna. */
@@ -205,6 +211,8 @@ export interface TableView {
   viewerSeat: number | null;
   /** Diváka/hráče: má vyžádaný dobrovolný straddle. */
   myStraddle: boolean;
+  /** Co udělám jako nováček u tohoto stolu (moje volba, jinak pravidlo stolu); jen u cash stolu a jen když sedím. */
+  myNewPlayerRule?: 'waitForBb' | 'postDeadBlind';
   /** Hráč, který nesedí, ale nedávno od stolu odešel s větším stackem: s kolika žetony se musí vrátit (ochrana „hit and run“), jinak 0. Smí přesáhnout maximální buy-in. */
   returnStack: number;
   /** Pauza nebo přestávka, kterou hráči smějí ukončit dřív tlačítkem „Jsem ready“ (jen pro usazeného hráče, jinak null). */

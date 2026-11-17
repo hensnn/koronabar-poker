@@ -34,6 +34,8 @@ export interface SeatEntry {
   fresh: boolean;
   /** Dobrovolný straddle na další handy. */
   wantsStraddle: boolean;
+  /** Vlastní volba hráče pro nováčka (počkat na big blind / zaplatit dead blind); bez ní platí pravidlo stolu. */
+  newPlayerRule?: 'waitForBb' | 'postDeadBlind';
   /** Turnaj: vypadnutí už bylo ohlášeno (hráč čeká na rozhodnutí o rebuy nebo na odstranění). */
   bustReported?: boolean;
 }
@@ -486,6 +488,29 @@ export class TableActor {
     });
   }
 
+  /**
+   * Nový hráč: počkat na big blind, nebo zaplatit dead blind a hrát hned. Platí od další handy (rozhoduje se při předělu, kde se
+   * hráč usazuje do enginu i strhává dead blind, takže se volba uprostřed handy nikdy nerozdělí). Jen u cash stolu a jen když ji stůl dovoluje.
+   */
+  setNewPlayerRule(userId: string, rule: 'waitForBb' | 'postDeadBlind'): void {
+    this.guard(() => {
+      const e = this.mustSeat(userId);
+      if (this.opt.tournament) throw new GameError('TOURNAMENT_TABLE');
+      if (!this.opt.settings()['table.newPlayerChoice']) throw new GameError('NEW_PLAYER_CHOICE_DISABLED');
+      if (rule !== 'waitForBb' && rule !== 'postDeadBlind') throw new GameError('INVALID_AMOUNT');
+      e.newPlayerRule = rule;
+      this.persist();
+      this.changed();
+    });
+  }
+
+  /** Co platí pro hráče jako nováčka: jeho volba (když ji stůl dovoluje), jinak pravidlo stolu. */
+  private newPlayerRuleOf(e: SeatEntry): 'waitForBb' | 'postDeadBlind' {
+    const s = this.opt.settings();
+    if (s['table.newPlayerChoice'] && e.newPlayerRule) return e.newPlayerRule;
+    return s['table.newPlayerRule'] === 'postDeadBlind' ? 'postDeadBlind' : 'waitForBb';
+  }
+
   /** Je hráč právě připojený? (null = u tohoto stolu nesedí) */
   isConnected(userId: string): boolean | null {
     return this.seats.get(userId)?.connected ?? null;
@@ -599,6 +624,7 @@ export class TableActor {
         currencyForms: [String(s['economy.currencyName']), String(s['economy.currencyNameFew']), String(s['economy.currencyNameMany'])],
         currencyDecimals: num(s, 'economy.decimals'),
         chipLabel: s['table.showChipLabel'] ? String(s['table.chipLabel'] ?? '').trim() : '',
+        ...(!this.opt.tournament ? { newPlayerChoice: !!s['table.newPlayerChoice'], newPlayerRule: s['table.newPlayerRule'] === 'postDeadBlind' ? ('postDeadBlind' as const) : ('waitForBb' as const), deadBlind: num(s, 'table.deadBlindBb') * bb } : {}),
         straddle: !s['table.straddleEnabled'] ? 'off' : s['table.straddleMandatory'] ? 'mandatory' : 'optional',
         tournament: !!this.opt.tournament,
         ...(this.opt.tournamentId ? { tournamentId: this.opt.tournamentId } : {}),
@@ -621,6 +647,7 @@ export class TableActor {
         ...(!this.opt.tournament && (s['jackpot.royalFlushEnabled'] || s['jackpot.badBeatEnabled'] || s['jackpot.highHandEnabled']) ? { jackpot: this.opt.cash.fundBalance(String(s['rake.jackpotFundId'] || 'jackpot')) } : {}),
       },
       myStraddle: userId ? (this.seats.get(userId)?.wantsStraddle ?? false) : false,
+      ...(userId && this.seats.has(userId) && !this.opt.tournament ? { myNewPlayerRule: this.newPlayerRuleOf(this.seats.get(userId)!) } : {}),
       returnStack: userId && !this.seats.has(userId) && !this.opt.tournament ? this.hitAndRunFloor(userId, s) : 0,
       topUpRoom: (() => {
         const e = userId ? this.seats.get(userId) : undefined;
@@ -754,7 +781,7 @@ export class TableActor {
   private moduleCtx(): ModuleContext {
     const seats: ModuleSeat[] = [...this.seats.values()]
       .filter((e) => e.mode === 'in' && e.chips + e.pendingChips > 0)
-      .map((e) => ({ userId: e.userId, seat: e.seat, chips: e.chips, fresh: e.fresh, wantsStraddle: e.wantsStraddle }));
+      .map((e) => ({ userId: e.userId, seat: e.seat, chips: e.chips, fresh: e.fresh, wantsStraddle: e.wantsStraddle, newPlayerRule: this.newPlayerRuleOf(e) }));
     return { settings: this.opt.settings(), handNumber: this.adapter.state().handNumber, seats };
   }
 
@@ -1011,7 +1038,7 @@ export class TableActor {
     const ctx = this.moduleCtx();
     for (const e of this.seats.values()) {
       if (!this.playable(e) || e.chips <= 0) continue;
-      const info: ModuleSeat = { userId: e.userId, seat: e.seat, chips: e.chips, fresh: e.fresh, wantsStraddle: e.wantsStraddle };
+      const info: ModuleSeat = { userId: e.userId, seat: e.seat, chips: e.chips, fresh: e.fresh, wantsStraddle: e.wantsStraddle, newPlayerRule: this.newPlayerRuleOf(e) };
       const opts = this.pipeline.run('seatOptions', ctx, info).find((o) => o) ?? {};
       this.adapter.seat(e.seat, e.userId, e.name, e.chips, opts);
     }

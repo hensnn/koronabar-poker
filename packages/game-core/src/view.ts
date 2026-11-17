@@ -52,6 +52,7 @@ export interface ViewContext {
   extraSeats?: SeatView[];
   /** Nový hráč čekající na big blind se zobrazí jako „čeká“, ne jako sit out. */
   myStraddle?: boolean;
+  myNewPlayerRule?: 'waitForBb' | 'postDeadBlind';
   returnStack?: number;
   topUpRoom?: number;
   statusOverride?: Map<string, SeatView['status']>;
@@ -100,6 +101,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
       legal: null,
       viewerSeat: (ctx.extraSeats ?? []).find((x) => x.playerId === ctx.viewerId)?.seat ?? null,
       myStraddle: ctx.myStraddle ?? false,
+      ...(ctx.myNewPlayerRule ? { myNewPlayerRule: ctx.myNewPlayerRule } : {}),
       returnStack: ctx.returnStack ?? 0,
       topUpRoom: ctx.topUpRoom ?? 0,
       ready: ctx.ready ?? null,
@@ -188,6 +190,7 @@ export function buildView(h: HandState | null, ctx: ViewContext): TableView {
     showdownChoice: viewer && ctx.deciding?.has(viewer.seat) && ctx.choiceDeadline ? { deadline: ctx.choiceDeadline } : null,
     viewerSeat: viewer?.seat ?? (ctx.extraSeats ?? []).find((x) => x.playerId === ctx.viewerId)?.seat ?? null,
     myStraddle: ctx.myStraddle ?? false,
+    ...(ctx.myNewPlayerRule ? { myNewPlayerRule: ctx.myNewPlayerRule } : {}),
     returnStack: ctx.returnStack ?? 0,
     topUpRoom: ctx.topUpRoom ?? 0,
     ready: ctx.ready ?? null,
