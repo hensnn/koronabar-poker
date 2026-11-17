@@ -219,6 +219,25 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
       expect(s.clock.now() - t0).toBeLessThan(30_000);
     });
 
+    it('Moje peníze: turnajový přehled ukáže, kolik hráč do turnaje zaplatil (vstup i poplatek), a jen jemu', async () => {
+      const s = await start();
+      const org = await s.user('organizator');
+      const [a, b] = [await s.user(), await s.user()];
+      const outsider = await s.user();
+      const { id } = await s.server.tournaments.create(org, { name: 'Peníze', templateId: 'tour-turbo', settings: { ...SETTINGS, 'tournament.buyIn': 100, 'tournament.fee': 10 } });
+      await s.server.tournaments.register(a, id);
+      await s.server.tournaments.register(b, id);
+      const va = await s.server.tournaments.view(id, a);
+      expect(va.buyIn + va.fee).toBe(110);
+      expect(va.me.invested).toBe(110);
+      expect((await s.server.tournaments.view(id, b)).me.invested).toBe(110);
+      expect((await s.server.tournaments.view(id, outsider)).me.invested).toBe(0);
+      // odhlášení vrací platbu: po vrácení se nepočítá
+      await s.server.tournaments.unregister(b, id);
+      expect((await s.server.tournaments.view(id, b)).me.invested).toBe(0);
+      expect((await s.server.tournaments.view(id, a)).me.invested).toBe(110);
+    });
+
     it('předvolba platí i když je uložená jen pro zařízení nebo jako výchozí od správce (hráč ji tak vidí u stolu)', async () => {
       // jen toto zařízení (Nastavení nebo převzatá sada stolu): odpočet se musí ukázat stejně jako u osobní předvolby
       const a = await setup(30, {});

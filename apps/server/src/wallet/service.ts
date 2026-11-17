@@ -804,6 +804,31 @@ export class WalletService {
    * Vyúčtování stolu: čistý výsledek každého hráče (výběry − vklady) podle účetní knihy a
    * minimální seznam převodů. Hráči, kteří ještě sedí, se počítají podle žetonů u stolu.
    */
+  /**
+   * Peníze jednoho hráče u cash stolu od jeho posledního usednutí (poslední `cash_buyin`; dřívější návštěvy stolu se nepočítají,
+   * stůl může běžet měsíce): kolik koupil (buy-in a dokoupení) a kolik si odnesl, v měně.
+   * Žetony, které má právě před sebou, přidává klient z pohledu na stůl.
+   */
+  async myTableMoney(userId: string, tableId: string): Promise<{ bought: number; cashedOut: number }> {
+    const txs = await this.deps.db
+      .select({ id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind })
+      .from(schema.ledgerTransactions)
+      .where(and(eq(schema.ledgerTransactions.gameId, tableId), like(schema.ledgerTransactions.kind, 'cash_%')));
+    const ids = txs.map((t) => t.id);
+    const entries = ids.length ? await this.deps.db.select().from(schema.ledgerEntries).where(and(inArray(schema.ledgerEntries.transactionId, ids), eq(schema.ledgerEntries.account, `wallet:${userId}`))) : [];
+    const kindOf = new Map(txs.map((t) => [t.id, t.kind]));
+    const sitting = Math.max(0, ...entries.filter((e) => kindOf.get(e.transactionId) === 'cash_buyin').map((e) => e.transactionId));
+    let bought = 0;
+    let cashedOut = 0;
+    // Peněženka: buy-in je záporný zápis, cash-out kladný.
+    for (const e of entries) {
+      if (e.transactionId < sitting) continue;
+      if (e.amount < 0) bought -= e.amount;
+      else cashedOut += e.amount;
+    }
+    return { bought, cashedOut };
+  }
+
   async settlementForTable(actorId: string, tableId: string, seated: { userId: string; chips: number }[] = []): Promise<{ balances: Record<string, number>; transfers: Transfer[]; names: Record<string, string> }> {
     const txs = await this.deps.db
       .select({ id: schema.ledgerTransactions.id, kind: schema.ledgerTransactions.kind })

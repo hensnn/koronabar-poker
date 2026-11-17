@@ -34,7 +34,7 @@ export interface TournamentInfo {
   rebuy: { enabled: boolean; cost: number; chips: number; max?: number; untilLevel?: number; holdsGame?: boolean; offlineMaxSeconds?: number };
   levelNumber?: number;
   addon: { enabled: boolean; cost: number; chips: number };
-  me: { status: string | null; decideUntil: number | null; canRebuy: boolean; canAddon: boolean; addonOfferUntil?: number | null; autoAnswer?: { at: number; yes: boolean } | null; canReenter: boolean };
+  me: { status: string | null; decideUntil: number | null; canRebuy: boolean; canAddon: boolean; addonOfferUntil?: number | null; autoAnswer?: { at: number; yes: boolean } | null; /** Kolik hráč do turnaje zaplatil celkem. */ invested?: number; canReenter: boolean };
   reentry: { enabled: boolean };
   standings: { userId: string; name?: string; decideUntil?: number | null; decideFrozen?: boolean; place: number; chips: number | null; status: string; entries?: number; rebuys?: number; addon?: boolean; head?: number | null; bounty?: number }[];
   deal: { enabled: boolean; open: boolean; done: unknown | null };

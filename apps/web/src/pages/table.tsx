@@ -16,6 +16,7 @@ import { setTableFormat } from '../table/format';
 import { Panel, PanelSettingsButton } from '../table/Panel';
 import { MobilePager, MobileScreen, MobileWidgetDrawer } from '../table/MobilePager';
 import { MobileOrderEditor, WIDGET_TITLE_KEY } from '../table/MobileOrderEditor';
+import { MyMoneyDialog } from '../table/MyMoney';
 import { TOOL_ICON, TOOL_IDS, mainIndex, screenLayout, toolScreens, WIDGET_ICON, zoneOf, type MobileWidget, type ToolId } from '../table/mobile-order';
 import { TournamentBanner } from '../table/TablePanel';
 import { TableSizeButton, useTableSize } from '../table/size';
@@ -60,6 +61,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const store = useChatStore();
   const features = useFeatures();
   const [showSettlement, setShowSettlement] = useState(false);
+  const [showMoney, setShowMoney] = useState(false);
   const [drawer, setDrawer] = useState<string | null>(null);
   useEscape(drawer !== null, () => setDrawer(null));
   const [focus, setFocus] = useState(false);
@@ -197,6 +199,9 @@ export function TablePage({ tableId }: { tableId: string }) {
           ),
         }
       : undefined;
+  // Okno „Moje peníze“: ikona se symbolem měny stolu; u cash stolu jen sedícímu hráči, v turnaji i tomu, kdo už vypadl (vidí, jak dopadl).
+  const moneyTool = !!view && (isTournament || seated);
+  const moneyIcon = tableInfo?.currencySymbol || '💰';
   // Nástroje stolu: na širokém displeji v liště jen jako ikony s popisem při najetí, na telefonu pod tlačítkem „⋯“ s textem.
   const renderTools = (iconOnly: boolean) => {
     /** Jedno tlačítko lišty: ikona (a popisek v nabídce na telefonu), popis vždy i jako tooltip a pro čtečky. */
@@ -209,6 +214,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     return (
       <>
         {!isTournament && features.chat && <ShareToChat kind="stul" id={tableId} iconOnly={iconOnly} />}
+        {moneyTool && tool(moneyIcon, t('table.money.open'), () => setShowMoney(true))}
         {!isTournament && tool('🧾', t('table.settlement'), () => setShowSettlement(true))}
         {features.polls && can(me, 'anketa.vytvorit') && tool('🗳️', t('polls.tableCreate'), () => setPollOpen(true))}
         {meSitting && (
@@ -245,6 +251,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     chat: channel && zoneOf(order, 'chat') !== 'hidden' ? iconBtn('chat', TOOL_ICON.chat, t('table.chatOpen'), () => goTo('chat'), { badge: channel.unread }) : null,
     info: iconBtn('info', TOOL_ICON.info, t('table.m.info'), () => goTo('info')),
     share: !isTournament && features.chat ? <ShareToChat key="share" kind="stul" id={tableId} iconOnly /> : null,
+    money: moneyTool ? iconBtn('money', moneyIcon, t('table.money.open'), () => setShowMoney(true)) : null,
     settlement: !isTournament ? iconBtn('settlement', TOOL_ICON.settlement, t('table.settlement'), () => setShowSettlement(true)) : null,
     poll: features.polls && can(me, 'anketa.vytvorit') ? iconBtn('poll', TOOL_ICON.poll, t('polls.tableCreate'), () => setPollOpen(true)) : null,
     layout: iconBtn('layout', TOOL_ICON.layout, t('table.mobileOff'), () => void saveUserSetting('ui.mobileLayout', 'off', true).catch(() => undefined)),
@@ -432,6 +439,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
       {showSettlement && <SettlementDialog tableId={tableId} onClose={() => setShowSettlement(false)} />}
+      {showMoney && view && <MyMoneyDialog view={view} tableId={tableId} tournamentId={isTournament ? tournamentId : null} onClose={() => setShowMoney(false)} />}
       {history && <HandHistory tableId={tableId} onClose={() => setHistory(false)} />}
     </div>
     </TableWidgetsProvider>

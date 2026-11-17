@@ -422,6 +422,25 @@ describe('HTTP API: peněženka, žádosti a vyúčtování', () => {
     expect((await cizi.c.call('GET', '/api/tables/stul-x/settlement')).status).toBe(403);
     expect((await admin.call('GET', '/api/tables/stul-x/settlement')).status).toBe(200);
   });
+
+  it('Moje peníze: každý vidí jen vlastní nákupy a výběry u stolu, ne cizí', async () => {
+    const { server, mk } = await seeded();
+    const a = await mk('Alice');
+    const b = await mk('Bob');
+    // dřívější návštěva téhož stolu se nepočítá: platí to, co je od posledního usednutí
+    server.cash.buyIn(a.id, 'stul-m', 2000, 'm0');
+    server.cash.cashOut(a.id, 'stul-m', 100, 'm0b');
+    server.cash.buyIn(a.id, 'stul-m', 500, 'm1');
+    server.cash.buyIn(a.id, 'stul-m', 300, 'm2', 'cash_topup'); // dokoupení
+    server.cash.cashOut(a.id, 'stul-m', 200, 'm3');
+    server.cash.buyIn(b.id, 'stul-m', 1000, 'm4');
+    server.cash.buyIn(a.id, 'jiny-stul', 999, 'm5'); // jiný stůl se nepočítá
+    await server.journal.flush();
+    expect((await a.c.call('GET', '/api/tables/stul-m/my-money')).json).toEqual({ bought: 800, cashedOut: 200 });
+    expect((await b.c.call('GET', '/api/tables/stul-m/my-money')).json).toEqual({ bought: 1000, cashedOut: 0 });
+    // u stolu, kde hráč nikdy neseděl, jsou nuly
+    expect((await b.c.call('GET', '/api/tables/jiny-stul/my-money')).json).toEqual({ bought: 0, cashedOut: 0 });
+  });
 });
 
 describe('HTTP API: lobby', () => {

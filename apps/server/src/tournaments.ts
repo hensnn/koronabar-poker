@@ -1138,6 +1138,8 @@ export class TournamentManager {
         canAddon: live.canAddon(userId) && this.can(userId, 'turnaj.hrat').allowed,
         addonOfferUntil: live.addonOffered(userId) ? live.addonOfferUntil(userId) : null,
         autoAnswer: this.autoChoice(live, userId) ? (this.autoAt.get(`${id}:${userId}`) ?? null) : null,
+        // Kolik hráč do turnaje zaplatil celkem (vstupy, rebuy, add-on včetně poplatků; vrácené platby se nepočítají): okno „Moje peníze“ u stolu.
+        invested: st.payments.filter((p) => p.userId === userId && !p.refunded).reduce((n, p) => n + p.cost + p.fee, 0),
         canReenter: (live.canReenter(userId) || live.canReenterNowPublic(userId)) && this.can(userId, 'turnaj.hrat').allowed,
         // Souhrn pro vyřazeného hráče, dokud turnaj běží: kolik investoval, kde skončil, výhra za umístění (vyplatí se po konci turnaje) a bounty.
         bustSummary: ((mine) => (me && me.status === 'out' && st.status === 'running' && mine
@@ -1208,7 +1210,7 @@ export class TournamentManager {
       summary: st?.results ? st.results.map((r) => resultSummary(st, r, head?.get(r.userId))) : null,
       live: null,
       pending: {},
-      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, addonOfferUntil: null, autoAnswer: null, canReenter: false, bustSummary: null },
+      me: { registered: false, status: null, entries: 0, rebuys: 0, addon: false, decideUntil: null, tableId: null, canRegister: false, canUnregister: false, canRebuy: false, canAddon: false, addonOfferUntil: null, autoAnswer: null, invested: 0, canReenter: false, bustSummary: null },
       can: { manage: false, start: false, pause: false, cancel: false },
     };
   }
@@ -1385,6 +1387,8 @@ export interface TournamentView {
     addonOfferUntil: number | null;
     /** Kdy (hodiny serveru) odpoví automatika podle předvolby hráče; null = nic nečeká. */
     autoAnswer: { at: number; yes: boolean } | null;
+    /** Kolik hráč do turnaje zaplatil celkem (bez vrácených plateb). */
+    invested: number;
     canReenter: boolean;
     /** Souhrn vyřazeného hráče za běhu turnaje (výhra za umístění se vyplatí až po konci turnaje); jinak null. */
     bustSummary: (ReturnType<typeof resultSummary> & { payoutPending: boolean }) | null;

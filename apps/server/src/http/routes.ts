@@ -2377,6 +2377,12 @@ export async function registerRoutes(app: FastifyInstance, svc: Services, opts: 
     return reply.send({ ...r, note: 'Převody jsou jen ve virtuální měně, která nemá žádnou peněžní hodnotu.' });
   }));
 
+  /** Moje peníze u cash stolu (okno „Moje peníze“): kolik jsem koupil a vybral; vždy jen vlastní údaje. */
+  app.get('/api/tables/:id/my-money', guard(async (req, reply) => {
+    const tableId = (req.params as { id: string }).id;
+    return reply.send(await svc.wallet.myTableMoney(need(req).id, tableId));
+  }));
+
   app.get('/api/tables/:id/settlement', guard(async (req, reply) => {
     const tableId = (req.params as { id: string }).id;
     const actor = svc.tables().get(tableId);
