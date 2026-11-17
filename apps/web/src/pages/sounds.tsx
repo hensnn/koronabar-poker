@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from '@kb/shared';
 import { del, errorText, get, patch, post } from '../api';
 import { isIncomingDm, type Message } from '../chat-store';
@@ -54,7 +54,7 @@ export function SoundHost() {
 const byRecent = (a: SoundItem, b: SoundItem) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0);
 
 /** Tlačítko se zvukovou paletou (oblíbené a naposledy použité nahoře, pak vše podle kategorií). */
-export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; id: string } }) {
+export function SoundPalette({ target, small = false }: { target: { kind: 'table' | 'channel'; id: string }; /** Malé tlačítko (chat u stolu). */ small?: boolean }) {
   const st = useSoundState();
   const settings = useSettings();
   const [open, setOpen] = useState(false);
@@ -62,22 +62,23 @@ export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; 
   const [msg, setMsg] = useState('');
   const box = useRef<HTMLDivElement>(null);
   const popup = useRef<HTMLDivElement>(null);
-  // Nabídka je ve vlastní vrstvě nad stránkou (nesmí ji oříznout panel ani chat) a vejde se do okna: nahoru nebo dolů podle volného místa, jinak se posouvá.
+  // Nabídka je ve vlastní vrstvě nad stránkou (nesmí ji oříznout panel ani chat) a vejde se do okna. Poloha se počítá z naměřené skutečné
+  // velikosti (šířka je v rem, takže se mění s velikostí písma a měřítkem okna): vodorovně se posune dovnitř, svisle jde nahoru nebo dolů
+  // podle toho, kde je místo, a když se nevejde, posouvá se.
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [place, setPlace] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
   const toggle = () => {
+    setPlace(null);
     if (open) return setOpen(false);
-    const r = box.current?.getBoundingClientRect();
-    if (r) {
-      const margin = 8;
-      const above = r.top - margin;
-      const below = window.innerHeight - r.bottom - margin;
-      const up = above >= below;
-      const width = Math.min(320, window.innerWidth - 2 * margin);
-      const left = Math.max(margin, Math.min(r.left, window.innerWidth - width - margin));
-      setPlace(up ? { left, bottom: window.innerHeight - r.top + 4, maxHeight: Math.max(160, above - 4) } : { left, top: r.bottom + 4, maxHeight: Math.max(160, below - 4) });
-    }
+    setAnchor(box.current?.getBoundingClientRect() ?? null);
     setOpen(true);
   };
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('resize', close);
+    return () => window.removeEventListener('resize', close);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
@@ -98,6 +99,20 @@ export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; 
   const favorites = usable.filter((s) => s.favorite && match(s));
   const recent = usable.filter((s) => s.lastUsedAt && match(s)).sort(byRecent).slice(0, 6);
   const categories = [...new Set(usable.filter(match).map((s) => s.category))].sort();
+  const shownCount = usable.filter(match).length;
+  useLayoutEffect(() => {
+    const el = popup.current;
+    if (!open || !anchor || !el) return;
+    const margin = 8;
+    const gap = 4;
+    const width = el.offsetWidth;
+    const natural = el.scrollHeight + el.offsetHeight - el.clientHeight; // celá výška obsahu i s rámečkem
+    const above = anchor.top - margin - gap;
+    const below = window.innerHeight - anchor.bottom - margin - gap;
+    const up = natural <= above ? true : natural <= below ? false : above >= below;
+    const left = Math.max(margin, Math.min(anchor.left, window.innerWidth - width - margin));
+    setPlace(up ? { left, bottom: window.innerHeight - anchor.top + gap, maxHeight: Math.max(120, above) } : { left, top: anchor.bottom + gap, maxHeight: Math.max(120, below) });
+  }, [open, anchor, shownCount, msg]);
   const send = async (s: SoundItem) => {
     setMsg('');
     try {
@@ -129,38 +144,52 @@ export function SoundPalette({ target }: { target: { kind: 'table' | 'channel'; 
   const chip = (s: SoundItem) => {
     const n = hotkeys ? hotkeyList.findIndex((h) => h.id === s.id) : -1;
     return (
-      <button key={s.id} className="rounded-sm border border-line bg-surface px-2 py-1 text-sm" title={`:${s.shortcut}:${n >= 0 ? ` · ${t('sounds.hotkeyHint', { n: n + 1 })}` : ''}`} onClick={() => void send(s)}>
-        {s.emoji} {s.name}
-        {n >= 0 && <span className="ml-1 text-xs text-muted">{n + 1}</span>}
+      <button key={s.id} className="flex min-w-0 items-center gap-1 rounded-sm border border-line bg-surface px-1.5 py-0.5 text-left text-xs" title={`${s.name} :${s.shortcut}:${n >= 0 ? ` · ${t('sounds.hotkeyHint', { n: n + 1 })}` : ''}`} onClick={() => void send(s)}>
+        <span aria-hidden>{s.emoji}</span>
+        <span className="min-w-0 flex-1 truncate">{s.name}</span>
+        {n >= 0 && <span className="text-muted">{n + 1}</span>}
       </button>
     );
   };
   return (
     <div className="relative" ref={box}>
-      <Button aria-expanded={open} aria-label={t('sounds.palette')} onClick={toggle}>
-        🔊
-      </Button>
-      {open && place && createPortal(
-        <div ref={popup} role="dialog" aria-label={t('sounds.palette')} style={{ position: 'fixed', left: place.left, top: place.top, bottom: place.bottom, maxHeight: place.maxHeight }} className="z-50 flex w-80 max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-y-auto overscroll-contain rounded-md border border-line bg-surface p-2 shadow-lg">
-          <input className="rounded-sm border border-line bg-surface px-2 py-1" aria-label={t('sounds.search')} placeholder={t('sounds.search')} value={q} onChange={(e) => setQ(e.target.value)} />
-          {msg && <p className="text-sm text-danger">{msg}</p>}
+      {small ? (
+        <button className="rounded-sm border border-line bg-surface px-2 text-sm leading-6" aria-expanded={open} aria-label={t('sounds.palette')} title={t('sounds.palette')} onClick={toggle}>
+          🔊
+        </button>
+      ) : (
+        <Button aria-expanded={open} aria-label={t('sounds.palette')} onClick={toggle}>
+          🔊
+        </Button>
+      )}
+      {/* Dokud se nezměří, je nabídka neviditelná; potom se usadí do okna (viz useLayoutEffect výše). Šířka: dva sloupce tlačítek. */}
+      {open && createPortal(
+        <div
+          ref={popup}
+          role="dialog"
+          aria-label={t('sounds.palette')}
+          style={place ? { position: 'fixed', left: place.left, top: place.top, bottom: place.bottom, maxHeight: place.maxHeight } : { position: 'fixed', left: 0, top: 0, visibility: 'hidden', maxHeight: 'calc(100vh - 1rem)' }}
+          className="z-50 flex w-[min(19rem,calc(100vw-1rem))] flex-col gap-1.5 overflow-y-auto overscroll-contain rounded-md border border-line bg-surface p-1.5 shadow-lg"
+        >
+          <input className="sticky top-0 z-10 rounded-sm border border-line bg-surface px-2 py-0.5 text-sm" aria-label={t('sounds.search')} placeholder={t('sounds.search')} value={q} onChange={(e) => setQ(e.target.value)} />
+          {msg && <p className="text-xs text-danger">{msg}</p>}
           {usable.length === 0 && <p className="text-sm text-muted">{t('sounds.none')}</p>}
           {favorites.length > 0 && (
             <section>
-              <h3 className="text-xs text-muted">{t('sounds.favorites')}</h3>
-              <div className="flex flex-wrap gap-1">{favorites.map(chip)}</div>
+              <h3 className="text-xs leading-tight text-muted">{t('sounds.favorites')}</h3>
+              <div className="mt-0.5 grid grid-cols-2 gap-1">{favorites.map(chip)}</div>
             </section>
           )}
           {recent.length > 0 && (
             <section>
-              <h3 className="text-xs text-muted">{t('sounds.recent')}</h3>
-              <div className="flex flex-wrap gap-1">{recent.map(chip)}</div>
+              <h3 className="text-xs leading-tight text-muted">{t('sounds.recent')}</h3>
+              <div className="mt-0.5 grid grid-cols-2 gap-1">{recent.map(chip)}</div>
             </section>
           )}
           {categories.map((c) => (
             <section key={c}>
-              <h3 className="text-xs text-muted">{c}</h3>
-              <div className="flex flex-wrap gap-1">{usable.filter((s) => s.category === c && match(s)).map(chip)}</div>
+              <h3 className="text-xs leading-tight text-muted">{c}</h3>
+              <div className="mt-0.5 grid grid-cols-2 gap-1">{usable.filter((s) => s.category === c && match(s)).map(chip)}</div>
             </section>
           ))}
         </div>,

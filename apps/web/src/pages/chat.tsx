@@ -437,10 +437,12 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
           }}
         />
       )}
-      <div className="flex gap-2">
+      {/* U stolu: pole přes celou šířku (zpráva se tolik nezalamuje), malá tlačítka pod ním a Odeslat vpravo. Plný chat zůstává v jednom řádku. */}
+      <div className={compact ? 'flex flex-col gap-1' : 'flex gap-2'}>
         <textarea
           aria-label={t('chat.compose')}
-          className="min-h-12 flex-1 rounded-sm border border-line bg-surface px-2 py-1"
+          rows={compact ? 2 : undefined}
+          className={`rounded-sm border border-line bg-surface px-2 py-1 ${compact ? 'field-sizing-content max-h-28 min-h-12 w-full resize-none' : 'min-h-12 flex-1'}`}
           value={body}
           maxLength={Number(settings.values['chat.maxLength'])}
           onChange={(e) => {
@@ -457,7 +459,8 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
             }
           }}
         />
-        <label className="cursor-pointer rounded-md border border-line bg-surface px-3 py-1" title={t('chat.attachImage')}>
+        <div className={compact ? 'flex items-center gap-1' : 'contents'}>
+        <label className={`cursor-pointer border border-line bg-surface ${compact ? 'rounded-sm px-2 text-sm leading-6' : 'rounded-md px-3 py-1'}`} title={t('chat.attachImage')}>
           <span aria-hidden>🖼</span>
           <span className="sr-only">{t('chat.attachImage')}</span>
           <input
@@ -477,10 +480,17 @@ export function ChatPanel({ channel, compact, fill, listHeight }: { channel: Cha
             }}
           />
         </label>
-        <SoundPalette target={{ kind: 'channel', id: channel.id }} />
-        <Button variant="primary" onClick={() => void submit()}>
-          {t('chat.send')}
-        </Button>
+        <SoundPalette target={{ kind: 'channel', id: channel.id }} small={compact} />
+        {compact ? (
+          <button className="ml-auto rounded-sm border border-primary bg-primary px-3 text-sm font-medium leading-6 text-on-primary" onClick={() => void submit()}>
+            {t('chat.send')}
+          </button>
+        ) : (
+          <Button variant="primary" onClick={() => void submit()}>
+            {t('chat.send')}
+          </Button>
+        )}
+        </div>
       </div>
     </div>
   );
