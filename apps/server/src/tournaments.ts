@@ -165,6 +165,20 @@ export class TournamentManager {
 
   constructor(private deps: Deps) {
     this.money = new TournamentMoney(deps.ledger);
+    // Hráč přepne automatickou odpověď, když už rozhoduje (nebo se nabízí add-on): odpočet se musí rozběhnout hned, ne až při další změně turnaje.
+    deps.settings.onChange((scope, scopeId, key) => {
+      if ((scope !== 'user' && scope !== 'userDevice') || !/^ui\.auto(Rebuy|Reenter|Addon)$/.test(key)) return;
+      this.refreshAuto(scopeId.split(':')[0]!);
+    });
+  }
+
+  private refreshAuto(userId: string): void {
+    for (const [id, tour] of this.tours) {
+      if (!tour.state().players.some((p) => p.userId === userId)) continue;
+      const before = this.autoAt.get(`${id}:${userId}`)?.at;
+      this.scheduleAuto(id);
+      if (this.autoAt.get(`${id}:${userId}`)?.at !== before) this.deps.onChanged?.(id);
+    }
   }
 
   /**
@@ -195,8 +209,9 @@ export class TournamentManager {
    * „zeptat se“ nedělá nic. Dotaz se hráči pořád ukáže s odpočtem a jde přebít; odpověď přijde sama, i když je hráč odpojený.
    */
   private autoChoice(tour: Tournament, userId: string): { action: 'rebuy' | 'reenter' | 'addon' | 'decline' | 'declineAddon'; paid: boolean } | null {
-    const layer = this.deps.settings.layer('user', userId);
-    const pref = (key: string) => String(layer[key] ?? 'ask');
+    // Včetně výchozí hodnoty od správce a hodnot uložených jen pro zařízení; tak to hráč vidí i u stolu.
+    const values = this.deps.settings.resolveUser(userId);
+    const pref = (key: string) => String(values[key] ?? 'ask');
     const p = tour.state().players.find((x) => x.userId === userId);
     if (!p) return null;
     // Odpočet stojí kvůli pauze nebo přestávce: odpověď počká na jeho obnovení; odpojenému hráči odpoví automatika, aby turnaj nečekal.
@@ -352,7 +367,7 @@ export class TournamentManager {
           seatWanted: (userId) => this.deps.seatWanted?.(row.id, userId) ?? 0,
           persist: (snap) => this.deps.journal.push(`table:${tableId}`, tableStateOp(tableId, snap)),
           onChange: () => this.deps.onTableChange(tableId),
-          userPref: (userId, key) => this.deps.settings.layer('user', userId)[key] as string | number | boolean | undefined,
+          userPref: (userId, key) => this.deps.settings.resolveUser(userId)[key] as string | number | boolean | undefined,
           onEvent: (e: TableEvent) => {
             tour.onTableEvent(e, { lead: set.isLead(tableId) });
             this.deps.onTableEvent?.(row.id, tableId, e, tour.tableSettings());

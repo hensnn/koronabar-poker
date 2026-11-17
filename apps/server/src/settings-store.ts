@@ -127,6 +127,33 @@ export class SettingsStore {
     return resolveSettings(this.registry, layers).values;
   }
 
+  /**
+   * Efektivní osobní hodnoty hráče pro rozhodnutí na serveru, kde není známé, z jakého zařízení hráč hraje (automatické odpovědi,
+   * předvolby karet): výchozí → globální (výchozí od správce) → hráč → zařízení. Hodnota uložená jen pro zařízení (v Nastavení „jen toto
+   * zařízení“ nebo převzatá se sadou stolu) platí, když ji mají všechna zařízení hráče, která ji nastavují, shodně; když se zařízení
+   * liší (např. telefon „vždy“, počítač „nikdy“), rozhoduje hodnota hráče, jinak výchozí, aby se nikdy neudělalo něco, co si hráč
+   * na tom zařízení nezvolil.
+   */
+  resolveUser(userId: string): SettingValues {
+    const prefix = `userDevice:${userId}:`;
+    const merged: Partial<SettingValues> = {};
+    const conflict = new Set<string>();
+    for (const [k, layer] of this.layers) {
+      if (!k.startsWith(prefix)) continue;
+      for (const [key, value] of Object.entries(layer)) {
+        if (conflict.has(key)) continue;
+        if (key in merged && merged[key] !== value) {
+          conflict.add(key);
+          delete merged[key];
+        } else merged[key] = value;
+      }
+    }
+    return this.resolve([
+      { scope: 'user', scopeId: userId, values: this.stored('user', userId) },
+      { scope: 'userDevice', scopeId: userId, values: merged },
+    ]);
+  }
+
   /** Změna hodnoty v dané vrstvě. Hráč smí měnit jen své osobní vrstvy, ostatní vyžadují oprávnění. */
   async set(
     actorId: string,

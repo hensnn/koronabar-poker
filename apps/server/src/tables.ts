@@ -119,8 +119,7 @@ export class TableManager {
       persist: (snap) => this.deps.journal.push(`table:${row.id}`, tableStateOp(row.id, snap)),
       onChange: () => this.deps.onChange(row.id),
       // Osobní volba hráče, jinak výchozí hodnota správce (globální vrstva), jinak výchozí ze schématu.
-      userPref: (userId, key) =>
-        this.deps.settings.resolve([{ scope: 'user', scopeId: userId, values: this.deps.settings.layer('user', userId) }])[key] as string | number | boolean | undefined,
+      userPref: (userId, key) => this.deps.settings.resolveUser(userId)[key] as string | number | boolean | undefined,
       onEvent: (e) => {
         if (e.type === 'handEnd') void this.applyPending(row.id);
         this.deps.onEvent?.(row.id, e);

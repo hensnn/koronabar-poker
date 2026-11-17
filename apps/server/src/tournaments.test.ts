@@ -219,6 +219,43 @@ describe('turnaje na serveru', { timeout: 120_000 }, () => {
       expect(s.clock.now() - t0).toBeLessThan(30_000);
     });
 
+    it('předvolba platí i když je uložená jen pro zařízení nebo jako výchozí od správce (hráč ji tak vidí u stolu)', async () => {
+      // jen toto zařízení (Nastavení nebo převzatá sada stolu): odpočet se musí ukázat stejně jako u osobní předvolby
+      const a = await setup(30, {});
+      for (const p of a.ps) await a.s.server.settings.set(p, 'userDevice', `${p}:phone`, 'ui.autoRebuy', 'always');
+      const da = await untilDeciding(a.s, a.id);
+      expect((await a.s.server.tournaments.view(a.id, da.userId)).me.autoAnswer?.yes).toBe(true);
+      // výchozí hodnota od správce
+      const b = await setup(30, {});
+      await b.s.server.settings.set(b.s.admin, 'global', '', 'ui.autoRebuy', 'always');
+      const db = await untilDeciding(b.s, b.id);
+      expect((await b.s.server.tournaments.view(b.id, db.userId)).me.autoAnswer?.yes).toBe(true);
+      // zařízení se rozcházejí (telefon „vždy“, počítač „nikdy“): nic se neudělá samo
+      const c = await setup(30, {});
+      for (const p of c.ps) {
+        await c.s.server.settings.set(p, 'userDevice', `${p}:phone`, 'ui.autoRebuy', 'always');
+        await c.s.server.settings.set(p, 'userDevice', `${p}:desktop`, 'ui.autoRebuy', 'never');
+      }
+      const dc = await untilDeciding(c.s, c.id);
+      expect((await c.s.server.tournaments.view(c.id, dc.userId)).me.autoAnswer).toBeNull();
+    });
+
+    it('předvolba přepnutá na „vždy“, když už hráč rozhoduje, rozběhne odpočet hned', async () => {
+      const { s, id } = await setup(30, {});
+      const d = await untilDeciding(s, id);
+      const view = () => s.server.tournaments.view(id, d.userId);
+      expect((await view()).me.autoAnswer).toBeNull();
+      const t0 = s.clock.now();
+      await s.server.settings.set(d.userId, 'user', d.userId, 'ui.autoRebuy', 'always');
+      const shown = (await view()).me.autoAnswer;
+      expect(shown?.yes).toBe(true);
+      expect(shown!.at - t0).toBeLessThanOrEqual(5_000);
+      const rebuys = () => s.server.tournaments.get(id)!.state().players.find((p) => p.userId === d.userId)!.rebuys;
+      const before = rebuys();
+      await tick(s, 6_000);
+      expect(rebuys()).toBe(before + 1);
+    });
+
     it('čas: odpočet nastavený správcem (10 s) platí na server i při dalších rebuy, ne jen u prvního', async () => {
       const { s, id } = await setup(30, { 'ui.autoRebuy': 'always' });
       await s.server.settings.set(s.admin, 'global', '', 'time.autoAnswerPaidSeconds', 10);
