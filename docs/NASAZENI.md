@@ -210,11 +210,14 @@ cd /opt/koronabar && docker compose --profile piper up -d
 
 a v aplikaci **Správa → Hlasatel** zadej adresu `piper` a port `10200`.
 
+Adresa `piper` existuje jen uvnitř sítě Dockeru a jen když kontejner Piper běží. Aby se zapínal sám při každé aktualizaci a restartu, přidej do `.env` řádek `COMPOSE_PROFILES=piper` (příkaz `docker compose up -d` pak spustí i Piper bez `--profile`).
+
 ## Když něco nejede
 
 - `docker compose ps` ukazuje `app` jako `unhealthy` nebo restartující: `docker compose logs app --tail 100` a pošli mi výpis.
 - Stránka se načte, ale hra nebo chat „nežije“: v NPM chybí **Websockets Support**.
 - Přihlášení hlásí chybu původu (FORBIDDEN_ORIGIN): `PUBLIC_URL` v `.env` neodpovídá adrese, ze které aplikaci otevíráš; po úpravě `docker compose up -d`.
+- Hlasatel hlásí „Zdroj hlasu selhal… getaddrinfo ENOTFOUND piper“: kontejner Piper neběží, a tak adresa `piper` neexistuje. Zkontroluj `docker compose ps -a | grep piper`; spusť `docker compose --profile piper up -d` a při prvním startu počkej, až si Piper stáhne hlas (`docker compose logs piper --tail 30`). Aby to přežilo aktualizace, přidej do `.env` `COMPOSE_PROFILES=piper`. V aplikaci pak **Správa → Hlasatel → Otestovat spojení**. Dokud Piper nejede, hráči slyší hlas prohlížeče.
 - Push upozornění nechodí: vyžadují HTTPS (přes NPM) a povolení v prohlížeči; na iPhonu jen u nainstalované aplikace.
 
 ## Před ostrým provozem: jednorázová příprava (smazání zkušebních dat)

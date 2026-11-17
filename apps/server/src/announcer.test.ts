@@ -2,7 +2,7 @@ import net from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeClock } from '@kb/game-core';
 import { buildServer } from './app.js';
-import { AnnouncerError } from './announcer.js';
+import { AnnouncerError, piperErrorText } from './announcer.js';
 import { encodeEvent, piperSynthesize, piperVoices, WyomingParser } from './voice/wyoming.js';
 
 type Server = Awaited<ReturnType<typeof buildServer>>;
@@ -102,6 +102,48 @@ describe('protokol Wyoming', () => {
     expect(wav.toString('latin1', 8, 12)).toBe('WAVE');
     expect(wav.length).toBe(44 + 200);
     expect(await piperVoices({ host: '127.0.0.1', port: f.port, timeoutMs: 3000 })).toEqual(['cs_CZ-jirka-medium', 'cs_CZ-test']);
+  });
+});
+
+describe('chyby Piperu: srozumitelná rada místo syrové síťové chyby', () => {
+  const err = (code: string, message: string) => Object.assign(new Error(message), { code });
+
+  it('adresa, která se nenašla (neběží kontejner Piper), řekne, co spustit', () => {
+    const text = piperErrorText(err('ENOTFOUND', 'getaddrinfo ENOTFOUND piper'), 'piper', 10200);
+    expect(text).toContain('Adresa „piper“ se nenašla');
+    expect(text).toContain('docker compose --profile piper up -d');
+    expect(text).toContain('COMPOSE_PROFILES=piper');
+    expect(text).toContain('getaddrinfo ENOTFOUND piper'); // technický detail zůstane
+    expect(piperErrorText(err('EAI_AGAIN', 'getaddrinfo EAI_AGAIN piper'), 'piper', 10200)).toContain('nenašla');
+  });
+
+  it('odmítnuté spojení, nedostupná adresa a vypršený čas mají každé svou radu; ostatní chyby zůstanou beze změny', () => {
+    expect(piperErrorText(err('ECONNREFUSED', 'connect ECONNREFUSED'), 'piper', 10200)).toContain('Piper na piper:10200 nepřijímá spojení');
+    expect(piperErrorText(err('EHOSTUNREACH', 'x'), '10.0.0.9', 10200)).toContain('Na adresu 10.0.0.9 se nedá dostat');
+    expect(piperErrorText(new Error('Vypršel čas spojení'), 'piper', 10200)).toContain('neodpověděl včas');
+    expect(piperErrorText(new Error('Piper nevrátil žádné audio'), 'piper', 10200)).toBe('Piper nevrátil žádné audio');
+  });
+
+  it('po opravě Piperu stačí „Otestovat spojení“: starý záznam o selhání zmizí hned, ne až s další hláškou', async () => {
+    const f = await fakePiper({ broken: true });
+    const s = await start({ 'announcer.source': 'piper', 'announcer.piperHost': '127.0.0.1', 'announcer.piperPort': f.port });
+    await expect(s.server.announcer.sample(s.admin, 'piper', 'ahoj')).rejects.toMatchObject({ code: 'SOURCE_FAILED' });
+    expect(s.server.announcer.status().failing?.source).toBe('piper');
+    f.state.broken = false; // Piper se rozjel
+    expect((await s.server.announcer.testConnection(s.admin, 'piper')).voices).toContain('cs_CZ-jirka-medium');
+    expect(s.server.announcer.status().failing).toBeNull();
+  });
+
+  it('zavřený port se v „Otestovat spojení“ i ve stavu hlasatele ukáže s radou', async () => {
+    // port, na kterém nic neposlouchá: server se otevře a hned zavře
+    const probe = net.createServer();
+    await new Promise<void>((r) => probe.listen(0, '127.0.0.1', r));
+    const port = (probe.address() as net.AddressInfo).port;
+    await new Promise<void>((r) => probe.close(() => r()));
+    const s = await start({ 'announcer.source': 'piper', 'announcer.piperHost': '127.0.0.1', 'announcer.piperPort': port });
+    await expect(s.server.announcer.testConnection(s.admin, 'piper')).rejects.toMatchObject({ code: 'SOURCE_FAILED', params: { error: expect.stringContaining(`Piper na 127.0.0.1:${port} nepřijímá spojení`) } });
+    await expect(s.server.announcer.sample(s.admin, 'piper', 'ahoj')).rejects.toMatchObject({ code: 'SOURCE_FAILED' });
+    expect(s.server.announcer.status().failing?.error).toContain('nepřijímá spojení');
   });
 });
 

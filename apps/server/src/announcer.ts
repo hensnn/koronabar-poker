@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { ANNOUNCE_EVENTS, announceEvent, cleanTemplates, defaultVariants, isEventEnabled, parseCountdown, pickVariant, renderTemplate, variantsOf, type AnnounceTemplates, type PermissionChecker, type SettingValues } from '@kb/shared';
+import { ANNOUNCE_EVENTS, announceEvent, cleanTemplates, defaultVariants, isEventEnabled, parseCountdown, pickVariant, renderTemplate, t, variantsOf, type AnnounceTemplates, type PermissionChecker, type SettingValues } from '@kb/shared';
 import type { AuditService } from './auth/audit.js';
 import { schema, type Db } from './db/index.js';
 import type { TournamentManager } from './tournaments.js';
@@ -43,6 +43,18 @@ const RECENT_TTL_MS = 10 * 60_000;
 const TV_WINDOW_MS = 60_000;
 const SYNTH_TIMEOUT_MS = 15_000;
 const GOOGLE_BASE = 'https://texttospeech.googleapis.com/v1';
+
+/**
+ * Srozumitelná příčina, když se Piper vůbec nedá zavolat (síťová chyba místo odpovědi); jinak původní text chyby.
+ * Nejčastější: adresa „piper“ existuje jen v síti Dockeru, dokud běží kontejner Piper (`docker compose --profile piper up -d`).
+ */
+export function piperErrorText(e: unknown, host: string, port: number): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  const code = (e as { code?: string } | null)?.code ?? '';
+  const kind =
+    code === 'ENOTFOUND' || code === 'EAI_AGAIN' ? 'notFound' : code === 'ECONNREFUSED' ? 'refused' : code === 'EHOSTUNREACH' || code === 'ENETUNREACH' ? 'unreachable' : code === 'ETIMEDOUT' || raw === 'Vypršel čas spojení' ? 'timeout' : null;
+  return kind ? `${t(`announcer.piperError.${kind}`, { host, port })} (${raw})` : raw;
+}
 
 interface Deps {
   db: Db;
@@ -113,8 +125,15 @@ export class AnnouncerService {
     return source === 'piper' ? String(s['announcer.piperVoice']) : source === 'google' ? String(s['announcer.googleVoice']) : '';
   }
 
+  /** Text chyby zdroje hlasu; u Piperu se síťová chyba (neběží kontejner, špatná adresa) převede na srozumitelnou radu. */
+  private errorText(source: string, e: unknown): string {
+    if (source !== 'piper') return e instanceof Error ? e.message : String(e);
+    const s = this.s();
+    return piperErrorText(e, String(s['announcer.piperHost']), Number(s['announcer.piperPort']));
+  }
+
   private fail(source: string, e: unknown): never {
-    const error = e instanceof Error ? e.message : String(e);
+    const error = this.errorText(source, e);
     this.failure = { source, error, since: this.failure?.source === source ? this.failure.since : this.deps.now() };
     throw new AnnouncerError('SOURCE_FAILED', { error });
   }
@@ -294,15 +313,21 @@ export class AnnouncerService {
     this.manage(actorId);
     const s = this.s();
     try {
-      if (source === 'piper') return { voices: await piperVoices({ host: String(s['announcer.piperHost']), port: Number(s['announcer.piperPort']), timeoutMs: SYNTH_TIMEOUT_MS }) };
-      const key = await this.googleKey();
-      const res = await this.fetchImpl(`${GOOGLE_BASE}/voices?languageCode=cs-CZ&key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(SYNTH_TIMEOUT_MS) });
-      if (!res.ok) throw new Error(`Google TTS vrátilo ${res.status}`);
-      const body = (await res.json()) as { voices?: { name: string }[] };
-      return { voices: (body.voices ?? []).map((v) => v.name) };
+      let voices: string[];
+      if (source === 'piper') voices = await piperVoices({ host: String(s['announcer.piperHost']), port: Number(s['announcer.piperPort']), timeoutMs: SYNTH_TIMEOUT_MS });
+      else {
+        const key = await this.googleKey();
+        const res = await this.fetchImpl(`${GOOGLE_BASE}/voices?languageCode=cs-CZ&key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(SYNTH_TIMEOUT_MS) });
+        if (!res.ok) throw new Error(`Google TTS vrátilo ${res.status}`);
+        const body = (await res.json()) as { voices?: { name: string }[] };
+        voices = (body.voices ?? []).map((v) => v.name);
+      }
+      // Spojení funguje: starý záznam o selhání už neplatí (jinak by visel, dokud se nenamluví další hláška).
+      if (this.failure?.source === source) this.failure = null;
+      return { voices };
     } catch (e) {
       if (e instanceof AnnouncerError) throw e;
-      throw new AnnouncerError('SOURCE_FAILED', { error: e instanceof Error ? e.message : String(e) });
+      throw new AnnouncerError('SOURCE_FAILED', { error: this.errorText(source, e) });
     }
   }
 
