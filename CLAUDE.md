@@ -5,6 +5,14 @@ Stálá pravidla pro práci na tomto projektu. Kompletní zadání je v `docs/ZA
 ## O projektu
 Self-hosted webová pokerová herna pro domácí hry přátel přes internet na vlastní doméně (v dokumentaci zástupně `poker.example.cz`). Cash game i turnaje, virtuální měna bez peněžní hodnoty, rozsáhlé nastavení všeho v GUI.
 
+## Umístění a spuštění
+- **Pracovní složka:** `D:\Claude\poker` (od 15. 11. 2026, dříve `C:\Projekty\koronabar-poker`). Všechny cesty v projektu jsou relativní, nic nezávisí na disku.
+- **Repozitář:** `https://github.com/hensnn/koronabar-poker` (větev `main`). Ostré nasazení běží v LXC v Proxmoxu v `/opt/koronabar`, postup je v `docs/NASAZENI.md`.
+- **Instalace závislostí:** `pnpm install --frozen-lockfile` v kořeni (po přesunu složky nutné, `node_modules` se nepřenáší).
+- **Spuštění vývoje:** konfigurace `server` a `web` v `.claude/launch.json` (server port 3000, web port 5173), dev data v `.data/`.
+- **Rychlá kontrola:** `cd apps/web && npx vitest run` (zhruba 5 s). Těžké testy scénářů viz `docs/PREDANI.md`.
+- Stav prací a rozhodnutí vede `docs/STAV.md`.
+
 ## Rozhodnutá technologie
 - Server: Node.js 20+, TypeScript, Socket.IO
 - Klient: React, Vite, TypeScript, Tailwind (jen přes design tokeny)
